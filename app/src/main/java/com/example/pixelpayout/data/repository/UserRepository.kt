@@ -155,12 +155,15 @@ class UserRepository {
 
             val lastQuizDate = snapshot.getTimestamp("lastQuizDate")?.toDate()
             if (lastQuizDate != null) {
-                val calendar = Calendar.getInstance()
-                calendar.time = lastQuizDate
-                calendar.add(Calendar.DAY_OF_YEAR, 1)
-                calendar.set(Calendar.HOUR_OF_DAY, 0)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
+                val calendar = Calendar.getInstance().apply {
+                    time = lastQuizDate
+                    // Set to next day at midnight
+                    add(Calendar.DAY_OF_YEAR, 1)
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
                 calendar.timeInMillis
             } else {
                 System.currentTimeMillis()

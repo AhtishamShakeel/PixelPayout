@@ -37,4 +37,7 @@
     <string name="welcome_message">Welcome to PixelPayout!</string>
     <string name="game_info">Play our exciting game to earn points!</string>
     <string name="play_game">Play Game</string>
-</resources> 
+    <string name="daily_limit_reached">Daily Quiz Limit Reached!</string>
+    <string name="next_quiz_time">Next quizzes available in %1$d hours %2$d minutes</string>
+    <string name="remaining_quizzes">Remaining quizzes today: %d</string>
+</resources>

@@ -1,5 +1,6 @@
 package com.pixelpayout.ui.quiz
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -12,7 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.pixelpayout.data.model.Quiz
-import com.pixelpayout.ui.main.MainActivity
+import java.util.concurrent.TimeUnit
 
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
@@ -45,9 +46,10 @@ class QuizListFragment : Fragment() {
 
     private fun setupRecyclerView() {
         quizAdapter = QuizAdapter { quiz ->
-            startActivity(
+            startActivityForResult(
                 Intent(requireContext(), QuizActivity::class.java)
-                    .putExtra(QuizActivity.EXTRA_QUIZ, quiz)
+                    .putExtra(QuizActivity.EXTRA_QUIZ, quiz),
+                REQUEST_QUIZ
             )
         }
 
@@ -63,7 +65,7 @@ class QuizListFragment : Fragment() {
         }
 
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
         }
 
         viewModel.error.observe(viewLifecycleOwner) { error ->
@@ -71,15 +73,68 @@ class QuizListFragment : Fragment() {
                 Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
             }
         }
+
+        viewModel.quizLimitReached.observe(viewLifecycleOwner) { limitReached ->
+            binding.apply {
+                if (limitReached) {
+                    limitReachedLayout.visibility = View.VISIBLE
+                    recyclerView.visibility = View.GONE
+                    swipeRefresh.isEnabled = false
+                } else {
+                    limitReachedLayout.visibility = View.GONE
+                    recyclerView.visibility = View.VISIBLE
+                    swipeRefresh.isEnabled = true
+                }
+            }
+        }
+
+        viewModel.nextQuizTime.observe(viewLifecycleOwner) { nextQuizTime ->
+            if (nextQuizTime > 0) {
+                val remainingTime = nextQuizTime - System.currentTimeMillis()
+                if (remainingTime > 0) {
+                    val hours = TimeUnit.MILLISECONDS.toHours(remainingTime)
+                    val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingTime) % 60
+
+                    binding.nextQuizText.text = getString(
+                        R.string.next_quiz_time,
+                        hours,
+                        minutes
+                    )
+                    binding.nextQuizText.visibility = View.VISIBLE
+                } else {
+                    binding.nextQuizText.visibility = View.GONE
+                    // Time has passed, reload quizzes
+                    loadQuizzes()
+                }
+            }
+        }
+
+        viewModel.remainingQuizzes.observe(viewLifecycleOwner) { remaining ->
+            binding.remainingQuizzesText.text = getString(
+                R.string.remaining_quizzes,
+                remaining
+            )
+        }
     }
 
     private fun loadQuizzes() {
         viewModel.loadQuizzes()
+    }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_QUIZ && resultCode == Activity.RESULT_OK) {
+            // Reload quizzes to update attempts count
+            viewModel.loadQuizzes()
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        private const val REQUEST_QUIZ = 1001
     }
 } 

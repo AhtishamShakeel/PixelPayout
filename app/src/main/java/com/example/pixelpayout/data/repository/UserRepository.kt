@@ -9,6 +9,7 @@ import com.pixelpayout.data.model.RedemptionOption
 import com.pixelpayout.data.model.RedemptionType
 import java.util.*
 import java.util.Calendar
+import com.google.firebase.firestore.FieldValue
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -101,27 +102,31 @@ class UserRepository {
                 val snapshot = transaction.get(userRef)
                 val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
                 val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
+                val serverTime = snapshot.getTimestamp("serverTime") ?: Timestamp.now()
 
-                if (lastQuizDate == null || !isSameDay(lastQuizDate.toDate(), Date())) {
+                // Use server timestamp for updates
+                val updates = mutableMapOf<String, Any>(
+                    "serverTime" to FieldValue.serverTimestamp()
+                )
+
+                if (lastQuizDate == null || !isSameServerDay(lastQuizDate, serverTime)) {
                     // New day, reset attempts
-                    transaction.update(userRef, mapOf(
-                        "quizAttempts" to 1,
-                        "lastQuizDate" to Timestamp.now()
-                    ))
+                    updates["quizAttempts"] = 1
+                    updates["lastQuizDate"] = FieldValue.serverTimestamp()
                 } else {
                     // Same day, increment attempts
-                    transaction.update(userRef, mapOf(
-                        "quizAttempts" to (currentAttempts + 1),
-                        "lastQuizDate" to Timestamp.now()
-                    ))
+                    updates["quizAttempts"] = currentAttempts + 1
+                    updates["lastQuizDate"] = FieldValue.serverTimestamp()
                 }
+
+                transaction.update(userRef, updates)
             }.await()
         }
     }
 
-    private fun isSameDay(date1: Date, date2: Date): Boolean {
-        val cal1 = Calendar.getInstance().apply { time = date1 }
-        val cal2 = Calendar.getInstance().apply { time = date2 }
+    private fun isSameServerDay(date1: Timestamp, date2: Timestamp): Boolean {
+        val cal1 = Calendar.getInstance().apply { time = date1.toDate() }
+        val cal2 = Calendar.getInstance().apply { time = date2.toDate() }
         return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
                 cal1.get(Calendar.MONTH) == cal2.get(Calendar.MONTH) &&
                 cal1.get(Calendar.DAY_OF_MONTH) == cal2.get(Calendar.DAY_OF_MONTH)
@@ -135,10 +140,12 @@ class UserRepository {
                 .await()
 
             val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
+            val serverTime = snapshot.getTimestamp("serverTime")
             val quizAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
 
-            // Reset attempts if it's a new day
-            if (lastQuizDate == null || !isSameDay(lastQuizDate.toDate(), Date())) {
+            // Reset attempts if it's a new day based on server time
+            if (lastQuizDate == null || serverTime == null ||
+                !isSameServerDay(lastQuizDate, serverTime)) {
                 return 0
             }
 
@@ -153,10 +160,12 @@ class UserRepository {
                 .get()
                 .await()
 
-            val lastQuizDate = snapshot.getTimestamp("lastQuizDate")?.toDate()
-            if (lastQuizDate != null) {
+            val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
+            val serverTime = snapshot.getTimestamp("serverTime")
+
+            if (lastQuizDate != null && serverTime != null) {
                 val calendar = Calendar.getInstance().apply {
-                    time = lastQuizDate
+                    timeInMillis = lastQuizDate.toDate().time
                     // Set to next day at midnight
                     add(Calendar.DAY_OF_YEAR, 1)
                     set(Calendar.HOUR_OF_DAY, 0)
@@ -164,7 +173,13 @@ class UserRepository {
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
                 }
-                calendar.timeInMillis
+
+                // Calculate remaining time based on server time
+                val nextResetTime = calendar.timeInMillis
+                val currentServerTime = serverTime.toDate().time
+                val remainingTime = nextResetTime - currentServerTime
+
+                System.currentTimeMillis() + remainingTime
             } else {
                 System.currentTimeMillis()
             }

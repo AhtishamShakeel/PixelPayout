@@ -138,4 +138,4 @@ class QuizActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_QUIZ = "extra_quiz"
     }
-}
+}//test

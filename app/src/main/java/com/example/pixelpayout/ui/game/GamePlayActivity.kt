@@ -1,6 +1,7 @@
 package com.pixelpayout.ui.game
 
 import android.annotation.SuppressLint
+import android.net.http.SslError
 import android.os.Bundle
 import android.view.View
 import android.webkit.*
@@ -40,9 +41,16 @@ class GamePlayActivity : AppCompatActivity() {
             placeholderText.visibility = View.GONE
 
             gameWebView.apply {
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.allowFileAccess = true
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    allowFileAccess = true
+                    useWideViewPort = true
+                    loadWithOverviewMode = true
+                    // Force initial scale to fit screen
+                    setSupportZoom(false)
+                    builtInZoomControls = false
+                }
 
                 // Add JavaScript interface for game-app communication
                 addJavascriptInterface(
@@ -54,8 +62,26 @@ class GamePlayActivity : AppCompatActivity() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         loadingIndicator.visibility = View.GONE
+                        // Inject CSS to force portrait layout
+                        evaluateJavascript("""
+                            javascript:(function() {
+                                var style = document.createElement('style');
+                                style.type = 'text/css';
+                                style.innerHTML = 'body { max-width: 100vw; overflow-x: hidden; }';
+                                document.head.appendChild(style);
+                            })()
+                        """.trimIndent(), null)
+                    }
+
+                    // Handle potential SSL certificate issues
+                    @SuppressLint("WebViewClientOnReceivedSslError")
+                    override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                        handler?.proceed() // Proceed with SSL certificate issues
                     }
                 }
+
+                // Request focus for keyboard input
+                requestFocus()
 
                 // Load the game URL
                 loadUrl(GAME_URL)
@@ -74,6 +100,6 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val GAME_URL = "NO_GAME" // Change this to your game URL when ready
+        private const val GAME_URL = "https://game-ccdff.web.app" // Updated to your 2048 game URL
     }
 } 

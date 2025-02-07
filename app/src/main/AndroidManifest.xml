@@ -33,7 +33,7 @@
             android:screenOrientation="portrait" />
         <activity
             android:name=".ui.game.GamePlayActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="portrait"
             android:theme="@style/Theme.PixelPayout"
             tools:ignore="MissingClass" />
 

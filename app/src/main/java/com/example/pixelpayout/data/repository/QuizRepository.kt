@@ -14,10 +14,10 @@ class QuizRepository {
                 title = apiQuestion.category,
                 difficulty = apiQuestion.difficulty,
                 pointsReward = when(apiQuestion.difficulty.lowercase()) {
-                    "easy" -> 100
-                    "medium" -> 200
-                    "hard" -> 300
-                    else -> 100
+                    "easy" -> 10
+                    "medium" -> 20
+                    "hard" -> 30
+                    else -> 10
                 },
                 questions = listOf(
                     Question(

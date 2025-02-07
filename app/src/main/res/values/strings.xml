@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PixelPayout</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="login">Login</string>
+    <string name="create_account">Create Account</string>
+    <string name="error_invalid_email">Invalid email address</string>
+    <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_login_failed">Login failed: %1$s</string>
+    <string name="full_name">Full Name</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="already_have_account">Already have an account? Login</string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_signup_failed">Signup failed: %1$s</string>
+    <string name="quizzes">Quizzes</string>
+    <string name="redemption">Redemption</string>
+    <string name="error_loading_quizzes">Error loading quizzes</string>
+    <string name="points_value">%d stars</string>
+    <string name="submit_answer">Submit Answer</string>
+    <string name="select_answer">Please select an answer</string>
+    <string name="timer_format">%d s</string>
+    <string name="quiz_completed">Quiz Completed!</string>
+    <string name="points_earned">You earned %d points!</string>
+    <string name="done">Done</string>
+    <string name="redeem">Redeem</string>
+    <string name="insufficient_points">Insufficient points</string>
+    <string name="enter_phone_number">Enter Phone Number</string>
+    <string name="enter_game_id">Enter Game ID</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="redemption_success">Redemption request submitted successfully!</string>
+    <string name="redemption_error">Failed to submit redemption request</string>
+    <string name="game_coming_soon">Game Coming Soon!</string>
+    <string name="home">Home</string>
+    <string name="game">Game</string>
+    <string name="welcome_message">Welcome to PixelPayout!</string>
+    <string name="game_info">Play our exciting game to earn points!</string>
+    <string name="play_game">Play Game</string>
+</resources> 

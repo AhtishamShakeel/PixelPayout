@@ -3,6 +3,8 @@ package com.pixelpayout.data.repository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
 import com.pixelpayout.data.model.RedemptionRequest
 import com.pixelpayout.data.model.RedemptionOption
@@ -10,24 +12,73 @@ import com.pixelpayout.data.model.RedemptionType
 import java.util.*
 import java.util.Calendar
 import com.google.firebase.firestore.FieldValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+data class UserData(
+    val points: Int,
+    val quizAttempts: Int,
+    val lastQuizDate: Timestamp? = null
+)
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
+    private val _userData = MutableLiveData<UserData>()
+    val userData: LiveData<UserData> = _userData
+
+    init {
+        setupRealtimeUpdates()
+    }
+
+    private fun setupRealtimeUpdates() {
+        auth.currentUser?.uid?.let { userId ->
+            firestore.collection("users").document(userId)
+                .addSnapshotListener { snapshot, _ ->
+                    snapshot?.let {
+                        _userData.postValue(
+                            UserData(
+                                points = it.getLong("points")?.toInt() ?: 0,
+                                quizAttempts = it.getLong("quizAttempts")?.toInt() ?: 0,
+                                lastQuizDate = it.getTimestamp("lastQuizDate")
+                            )
+                        )
+                    }
+                }
+        }
+    }
+
+    data class UserData(
+        val points: Int,
+        val quizAttempts: Int,
+        val lastQuizDate: Timestamp?
+    )
+
 
     suspend fun updateUserPoints(points: Int, onComplete: () -> Unit) {
-        auth.currentUser?.let { user ->
-            val userRef = firestore.collection("users").document(user.uid)
+        withContext(Dispatchers.IO) {
+            try {
+                val user = auth.currentUser ?: throw Exception("User not logged in")
+                val userRef = firestore.collection("users").document(user.uid)
 
-            firestore.runTransaction { transaction ->
-                val snapshot = transaction.get(userRef)
-                val currentPoints = snapshot.getLong("points") ?: 0
-                transaction.update(userRef, "points", currentPoints + points)
-            }.await()
+                firestore.runTransaction { transaction ->
+                    val snapshot = transaction.get(userRef)
+                    val currentPoints = snapshot.getLong("points")?.toInt() ?: 0
+                    val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
 
-            // Increment quiz attempts after points are updated
-            incrementQuizAttempts()
-            onComplete()
+                    // Update both points and attempts in one transaction
+                    transaction.update(userRef, mapOf(
+                        "points" to currentPoints + points,
+                        "quizAttempts" to currentAttempts + 1
+                    ))
+                }.await()
+
+                withContext(Dispatchers.Main) {
+                    onComplete()
+                }
+            } catch (e: Exception) {
+                // Handle error
+            }
         }
     }
 
@@ -95,32 +146,19 @@ class UserRepository {
     }
 
     suspend fun incrementQuizAttempts() {
-        auth.currentUser?.let { user ->
-            val userRef = firestore.collection("users").document(user.uid)
+        withContext(Dispatchers.IO) {
+            try {
+                val user = auth.currentUser ?: throw Exception("User not logged in")
+                val userRef = firestore.collection("users").document(user.uid)
 
-            firestore.runTransaction { transaction ->
-                val snapshot = transaction.get(userRef)
-                val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
-                val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
-                val serverTime = snapshot.getTimestamp("serverTime") ?: Timestamp.now()
-
-                // Use server timestamp for updates
-                val updates = mutableMapOf<String, Any>(
-                    "serverTime" to FieldValue.serverTimestamp()
-                )
-
-                if (lastQuizDate == null || !isSameServerDay(lastQuizDate, serverTime)) {
-                    // New day, reset attempts
-                    updates["quizAttempts"] = 1
-                    updates["lastQuizDate"] = FieldValue.serverTimestamp()
-                } else {
-                    // Same day, increment attempts
-                    updates["quizAttempts"] = currentAttempts + 1
-                    updates["lastQuizDate"] = FieldValue.serverTimestamp()
-                }
-
-                transaction.update(userRef, updates)
-            }.await()
+                firestore.runTransaction { transaction ->
+                    val snapshot = transaction.get(userRef)
+                    val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
+                    transaction.update(userRef, "quizAttempts", currentAttempts + 1)
+                }.await()
+            } catch (e: Exception) {
+                // Handle error
+            }
         }
     }
 
@@ -133,24 +171,29 @@ class UserRepository {
     }
 
     suspend fun getQuizAttempts(): Int {
-        return auth.currentUser?.let { user ->
-            val snapshot = firestore.collection("users")
-                .document(user.uid)
-                .get()
-                .await()
+        return withContext(Dispatchers.IO) {
+            try {
+                val user = auth.currentUser ?: throw Exception("User not logged in")
+                val snapshot = firestore.collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
 
-            val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
-            val serverTime = snapshot.getTimestamp("serverTime")
-            val quizAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
-
-            // Reset attempts if it's a new day based on server time
-            if (lastQuizDate == null || serverTime == null ||
-                !isSameServerDay(lastQuizDate, serverTime)) {
-                return 0
+                snapshot.getLong("quizAttempts")?.toInt() ?: 0
+            } catch (e: Exception) {
+                0
             }
+        }
+    }
+    // Add to UserRepository
+    suspend fun getCurrentUserDoc() = auth.currentUser?.uid?.let {
+        FirebaseFirestore.getInstance().collection("users").document(it)
+    }
 
-            quizAttempts
-        } ?: 0
+    suspend fun getServerTimestamp(): Timestamp {
+        val docRef = FirebaseFirestore.getInstance().collection("metadata").document("server")
+        val snapshot = docRef.get().await()
+        return snapshot.getTimestamp("timestamp") ?: Timestamp.now()
     }
 
     suspend fun getNextQuizTime(): Long {
@@ -185,6 +228,7 @@ class UserRepository {
             }
         } ?: System.currentTimeMillis()
     }
+
 }
 
 class InsufficientPointsException : Exception("Insufficient points for redemption")

@@ -1,30 +1,13 @@
 package com.pixelpayout.ui.main
 
 import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.map  // Add this import
 import com.pixelpayout.data.repository.UserRepository
-import kotlinx.coroutines.launch
 
-class MainViewModel : ViewModel() {
-    private val userRepository = UserRepository()
-
-    private val _points = MutableLiveData<Int>()
-    val points: LiveData<Int> = _points
-
-    init {
-        loadPoints()
-    }
-
-    fun loadPoints() {
-        viewModelScope.launch {
-            try {
-                val currentPoints = userRepository.getUserPoints()
-                _points.value = currentPoints
-            } catch (e: Exception) {
-                // Handle error
-            }
-        }
+class MainViewModel(userRepository: UserRepository) : ViewModel() {
+    // Directly map the LiveData from repository
+    val points: LiveData<Int> = userRepository.userData.map { userData ->
+        userData.points
     }
 }

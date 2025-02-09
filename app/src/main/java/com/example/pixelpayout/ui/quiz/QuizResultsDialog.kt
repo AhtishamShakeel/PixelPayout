@@ -37,7 +37,6 @@ class QuizResultsDialog : DialogFragment() {
         binding.pointsEarnedText.text = getString(R.string.points_earned, pointsEarned)
         
         binding.doneButton.setOnClickListener {
-            (activity as? MainActivity)?.refreshPoints()
             dismiss()
             onDismissCallback?.invoke()
         }

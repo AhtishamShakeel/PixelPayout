@@ -6,6 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import com.pixelpayout.R
+import com.pixelpayout.data.repository.UserRepository
 import com.pixelpayout.databinding.ActivityMainBinding
 import com.pixelpayout.databinding.LayoutPointsHeaderBinding
 
@@ -14,8 +15,9 @@ class MainActivity : AppCompatActivity() {
 
     lateinit var binding: ActivityMainBinding
     private lateinit var pointsHeaderBinding: LayoutPointsHeaderBinding
-    private val viewModel: MainViewModel by viewModels()
-
+    private val viewModel: MainViewModel by viewModels {
+        MainViewModelFactory(UserRepository())
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -24,7 +26,6 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
-        refreshPoints()
     }
 
     private fun setupToolbar() {
@@ -52,9 +53,5 @@ class MainActivity : AppCompatActivity() {
         viewModel.points.observe(this) { points ->
             pointsHeaderBinding.pointsText.text = getString(R.string.points_value, points)
         }
-    }
-
-    fun refreshPoints() {
-        viewModel.loadPoints()
     }
 } 

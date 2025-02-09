@@ -7,13 +7,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.compose.ui.test.isEnabled
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.pixelpayout.data.model.Quiz
+import com.pixelpayout.ui.main.MainActivity
 import java.util.concurrent.TimeUnit
 
 class QuizListFragment : Fragment() {
@@ -21,6 +22,13 @@ class QuizListFragment : Fragment() {
     private val binding get() = _binding!!
     private val viewModel: QuizListViewModel by viewModels()
     private lateinit var quizAdapter: QuizAdapter
+    private val quizLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.loadQuizzes()
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -47,11 +55,7 @@ class QuizListFragment : Fragment() {
 
     private fun setupRecyclerView() {
         quizAdapter = QuizAdapter { quiz ->
-            startActivityForResult(
-                Intent(requireContext(), QuizActivity::class.java)
-                    .putExtra(QuizActivity.EXTRA_QUIZ, quiz),
-                REQUEST_QUIZ
-            )
+            startQuiz(quiz)
         }
 
         binding.recyclerView.apply {
@@ -67,6 +71,13 @@ class QuizListFragment : Fragment() {
 
         viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
             binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
+            binding.contentLayout.visibility = if (isLoading) View.GONE else View.VISIBLE
+        }
+
+        viewModel.dataLoaded.observe(viewLifecycleOwner) { loaded ->
+            if (loaded) {
+                binding.contentLayout.visibility = View.VISIBLE
+            }
         }
 
         viewModel.error.observe(viewLifecycleOwner) { error ->
@@ -119,15 +130,16 @@ class QuizListFragment : Fragment() {
     }
 
     private fun loadQuizzes() {
+        binding.contentLayout.visibility = View.GONE
+        binding.progressIndicator.visibility = View.VISIBLE
         viewModel.loadQuizzes()
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_QUIZ && resultCode == Activity.RESULT_OK) {
-            // Reload quizzes to update attempts count
-            viewModel.loadQuizzes()
+    private fun startQuiz(quiz: Quiz) {
+        val intent = Intent(requireContext(), QuizActivity::class.java).apply {
+            putExtra(QuizActivity.EXTRA_QUIZ, quiz)
         }
+        quizLauncher.launch(intent)
     }
 
     override fun onDestroyView() {

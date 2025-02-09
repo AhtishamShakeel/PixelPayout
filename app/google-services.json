@@ -1,52 +1,13 @@
 {
   "project_info": {
-    "project_number": "21799298076",
-    "firebase_url": "https://pixelpayout-d4107-default-rtdb.firebaseio.com",
-    "project_id": "pixelpayout-d4107",
-    "storage_bucket": "pixelpayout-d4107.firebasestorage.app"
+    "project_number": "461737828827",
+    "project_id": "pixelpayout-check",
+    "storage_bucket": "pixelpayout-check.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:21799298076:android:21684a36286ac017ababd9",
-        "android_client_info": {
-          "package_name": "com.PixelPayout"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBiQ54Pl1s6kOh92c80GT8ofY_bC-hS-4Y"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:21799298076:android:0fc01aaa197f07e7ababd9",
-        "android_client_info": {
-          "package_name": "com.example.pixelpayout1"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyBiQ54Pl1s6kOh92c80GT8ofY_bC-hS-4Y"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:21799298076:android:ad14b8c9c32987abababd9",
+        "mobilesdk_app_id": "1:461737828827:android:206c72060698f9d958c7fe",
         "android_client_info": {
           "package_name": "com.pixelpayout"
         }
@@ -54,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBiQ54Pl1s6kOh92c80GT8ofY_bC-hS-4Y"
+          "current_key": "AIzaSyAKoH_Fo-laUG4gRtRTuyqBvudx6K3wG5Y"
         }
       ],
       "services": {

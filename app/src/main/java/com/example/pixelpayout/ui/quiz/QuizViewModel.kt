@@ -6,6 +6,9 @@ import androidx.lifecycle.ViewModel
 import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.data.model.Question
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.launch
 
@@ -63,5 +66,16 @@ class QuizViewModel : ViewModel() {
                 // Handle error
             }
         }
+    }
+    fun submitQuiz() {
+        val userRef = FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(FirebaseAuth.getInstance().currentUser?.uid ?: return)
+
+        userRef.update(
+            "quizAttempts", FieldValue.increment(1),
+            "lastQuizDate", FieldValue.serverTimestamp(),
+            "serverTime", FieldValue.serverTimestamp()  // Extra validation field
+        )
     }
 }

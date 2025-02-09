@@ -37,8 +37,6 @@ class HomeFragment : Fragment() {
     }
     override fun onResume() {
         super.onResume()
-        // Refresh points when returning to home screen
-        (activity as? MainActivity)?.refreshPoints()
     }
 
 

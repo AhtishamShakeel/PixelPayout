@@ -50,6 +50,7 @@ class GamePlayActivity : AppCompatActivity() {
                     // Force initial scale to fit screen
                     setSupportZoom(false)
                     builtInZoomControls = false
+                    cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                 }
 
                 // Add JavaScript interface for game-app communication
@@ -100,6 +101,6 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val GAME_URL = "https://game-ccdff.web.app" // Updated to your 2048 game URL
+        private const val GAME_URL = "https://game-ccdff.web.app/" // Updated to your 2048 game URL
     }
 } 

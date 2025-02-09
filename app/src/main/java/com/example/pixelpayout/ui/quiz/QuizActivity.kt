@@ -12,8 +12,15 @@ import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.databinding.ActivityQuizBinding
 import android.text.Html
 import android.os.Build
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.data.model.Question
 import com.pixelpayout.ui.main.MainActivity
+import com.pixelpayout.ui.quiz.QuizListViewModel.Companion.MAX_DAILY_QUIZZES
+import kotlinx.coroutines.tasks.await
+import java.util.Calendar
+import java.util.TimeZone
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -25,8 +32,8 @@ class QuizActivity : AppCompatActivity() {
         binding = ActivityQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Get quiz from intent
-        intent.getParcelableExtra<Quiz>(EXTRA_QUIZ)?.let { quiz ->
+        // Fix deprecated getParcelableExtra
+        intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)?.let { quiz ->
             viewModel.setQuiz(quiz)
         } ?: finish()
 
@@ -128,14 +135,56 @@ class QuizActivity : AppCompatActivity() {
         }.show(supportFragmentManager, "results")
     }
 
+    private fun updateScore(@Suppress("UNUSED_PARAMETER") score: Int) {
+        // ...
+    }
 
+    private fun updateOptions(options: List<String>, @Suppress("UNUSED_PARAMETER") index: Int) {
+        // ...
+    }
+    private suspend fun validateAttempt(): Boolean {
+        return try {
+            FirebaseFirestore.getInstance().runTransaction { transaction ->
+                val userRef = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(FirebaseAuth.getInstance().currentUser?.uid ?: throw Exception("Not authenticated"))
+
+                val snapshot = transaction.get(userRef)
+                val lastAttempt = snapshot.getTimestamp("lastQuizDate")?.toDate()
+                val attempts = snapshot.getLong("quizAttempts") ?: 0
+
+                // Server-time validation
+                val now = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                if (lastAttempt != null && isSameDay(lastAttempt, now)) {
+                    if (attempts >= MAX_DAILY_QUIZZES) false
+                    else {
+                        transaction.update(userRef,
+                            "quizAttempts", attempts + 1,
+                            "lastQuizDate", FieldValue.serverTimestamp()
+                        )
+                        true
+                    }
+                } else {
+                    transaction.update(userRef,
+                        "quizAttempts", 1,
+                        "lastQuizDate", FieldValue.serverTimestamp()
+                    )
+                    true
+                }
+            }.await()
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     override fun onDestroy() {
         super.onDestroy()
         timer?.cancel()
     }
 
+
     companion object {
         const val EXTRA_QUIZ = "extra_quiz"
     }
-}//test
+
+}

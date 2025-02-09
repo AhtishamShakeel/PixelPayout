@@ -1,5 +1,9 @@
 package com.pixelpayout.ui.quiz
 
+// Add these imports at the top
+import com.google.firebase.firestore.Transaction
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -7,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.data.repository.QuizRepository
@@ -16,6 +21,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
+import kotlin.Pair
 
 class QuizListViewModel : ViewModel() {
     private val repository = QuizRepository()
@@ -52,58 +58,65 @@ class QuizListViewModel : ViewModel() {
 
     fun loadQuizzes() {
         viewModelScope.launch {
-            val resetCountRef = FirebaseFirestore.getInstance()
-                .collection("metadata")
-                .document("daily_resets")
-
-            db.runTransaction { transaction ->
-                val snapshot = transaction.get(resetCountRef)
-                val count = snapshot.getLong("count") ?: 0
-
-                if (count >= MAX_DAILY_RESETS) throw Exception("Daily reset limit reached")
-
-                transaction.update(resetCountRef,
-                    "count", FieldValue.increment(1),
-                    "date", FieldValue.serverTimestamp()
-                )
-            }.await()
             try {
                 _isLoading.value = true
                 _error.value = null
                 _dataLoaded.value = false
 
-                // Get current user document
                 val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
                 val userRef = db.collection("users").document(userId)
 
-                // Transaction to check/reset attempts
-                val (attempts, shouldReset) = db.runTransaction { transaction ->
-                    val snapshot = transaction.get(userRef)
-                    val lastQuizDate = snapshot.getTimestamp("lastQuizDate")
-                    val currentAttempts = (snapshot.getLong("quizAttempts") ?: 0).toInt()  // Convert to Int
+                // Fix: Handle everything in a single transaction
+                val result: Pair<Int, Boolean> = db.runTransaction { transaction: Transaction ->
+                    var snapshot = transaction.get(userRef)
 
-                    // Check if should reset
+                    if (!snapshot.exists()) {
+                        val userData: Map<String, Any> = hashMapOf(
+                            "quizAttempts" to 0,
+                            "lastQuizDate" to FieldValue.serverTimestamp(),
+                            "serverTime" to FieldValue.serverTimestamp(),
+                            "points" to 0,
+                            "email" to (auth.currentUser?.email ?: ""),
+                            "displayName" to (auth.currentUser?.displayName ?: ""),
+                            "dailyResetCount" to 0,
+                            "lastResetDate" to FieldValue.serverTimestamp()
+                        )
+                        transaction.set(userRef, userData)
+                        snapshot = transaction.get(userRef)
+                    }
+
+                    val lastQuizDate = snapshot.getTimestamp("lastQuizDate")?.toDate()
+                    val currentAttempts = (snapshot.getLong("quizAttempts") ?: 0).toInt()
+                    val resetCount = (snapshot.getLong("dailyResetCount") ?: 0).toInt()
                     val now = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+
                     val shouldReset = lastQuizDate?.let {
-                        !isSameUTCDay(it.toDate(), now)
+                        !isSameUTCDay(it, now)
                     } ?: true
 
                     if (shouldReset) {
+                        if (resetCount >= MAX_DAILY_RESETS) {
+                            throw Exception("Daily reset limit reached")
+                        }
+
                         transaction.update(userRef,
                             "quizAttempts", 0,
                             "lastQuizDate", FieldValue.serverTimestamp(),
-                            "serverTime", FieldValue.serverTimestamp()
+                            "serverTime", FieldValue.serverTimestamp(),
+                            "dailyResetCount", FieldValue.increment(1),
+                            "lastResetDate", FieldValue.serverTimestamp()
                         )
                     }
 
-                    Pair(currentAttempts, shouldReset)
+                    Pair<Int, Boolean>(currentAttempts, shouldReset)
                 }.await()
 
-                // Update remaining attempts
+                val attempts = result.first
+                val shouldReset = result.second
+
                 val remaining = MAX_DAILY_QUIZZES - if (shouldReset) 0 else attempts
                 _remainingQuizzes.value = remaining
 
-                // Load quizzes if allowed
                 if (remaining > 0) {
                     _quizzes.value = repository.getQuizzes()
                     _quizLimitReached.value = false
@@ -121,6 +134,21 @@ class QuizListViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+    fun submitQuiz() {
+        val userRef = FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(FirebaseAuth.getInstance().currentUser?.uid ?: return)
+
+        // Use set() with merge instead of update() to create document if missing
+        userRef.set(
+            hashMapOf(
+                "quizAttempts" to FieldValue.increment(1),
+                "lastQuizDate" to FieldValue.serverTimestamp(),
+                "serverTime" to FieldValue.serverTimestamp()
+            ),
+            SetOptions.merge()
+        )
     }
 
     private fun calculateNextQuizTime(): Long {

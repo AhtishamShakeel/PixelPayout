@@ -1,5 +1,6 @@
 package com.pixelpayout.ui.quiz
 
+
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
@@ -20,7 +21,9 @@ import com.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.ui.quiz.QuizListViewModel.Companion.MAX_DAILY_QUIZZES
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
+import java.util.Date
 import java.util.TimeZone
+import kotlin.math.abs
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -32,10 +35,19 @@ class QuizActivity : AppCompatActivity() {
         binding = ActivityQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Fix deprecated getParcelableExtra
-        intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)?.let { quiz ->
+        // Replace the quiz retrieval code in onCreate()
+        val quiz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(EXTRA_QUIZ)
+        }
+
+        if (quiz != null) {
             viewModel.setQuiz(quiz)
-        } ?: finish()
+        } else {
+            finish()
+        }
 
         setupViews()
         observeViewModel()
@@ -145,29 +157,41 @@ class QuizActivity : AppCompatActivity() {
     private suspend fun validateAttempt(): Boolean {
         return try {
             FirebaseFirestore.getInstance().runTransaction { transaction ->
+                val user = FirebaseAuth.getInstance().currentUser
+                    ?: throw Exception("Not authenticated")
+
                 val userRef = FirebaseFirestore.getInstance()
                     .collection("users")
-                    .document(FirebaseAuth.getInstance().currentUser?.uid ?: throw Exception("Not authenticated"))
+                    .document(user.uid)
 
                 val snapshot = transaction.get(userRef)
                 val lastAttempt = snapshot.getTimestamp("lastQuizDate")?.toDate()
-                val attempts = snapshot.getLong("quizAttempts") ?: 0
+                val attempts = (snapshot.getLong("quizAttempts") ?: 0).toInt()
 
-                // Server-time validation
                 val now = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-                if (lastAttempt != null && isSameDay(lastAttempt, now)) {
-                    if (attempts >= MAX_DAILY_QUIZZES) false
-                    else {
+                val serverTime = snapshot.getTimestamp("serverTime")?.toDate()
+                    ?: Date() // Fallback to device time
+
+                // Validate server time vs device time
+                val timeDiff = abs(now.timeInMillis - serverTime.time)
+                if (timeDiff > 300000) { // 5 minutes tolerance
+                    throw Exception("Time synchronization failed")
+                }
+
+                if (lastAttempt != null && isSameUTCDay(lastAttempt, now)) {
+                    if (attempts >= MAX_DAILY_QUIZZES) false else {
                         transaction.update(userRef,
                             "quizAttempts", attempts + 1,
-                            "lastQuizDate", FieldValue.serverTimestamp()
+                            "lastQuizDate", FieldValue.serverTimestamp(),
+                            "serverTime", FieldValue.serverTimestamp()
                         )
                         true
                     }
                 } else {
                     transaction.update(userRef,
                         "quizAttempts", 1,
-                        "lastQuizDate", FieldValue.serverTimestamp()
+                        "lastQuizDate", FieldValue.serverTimestamp(),
+                        "serverTime", FieldValue.serverTimestamp()
                     )
                     true
                 }
@@ -179,7 +203,16 @@ class QuizActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+
         timer?.cancel()
+    }
+    // Add this inside QuizActivity class
+    private fun isSameUTCDay(date: Date, calendar: Calendar): Boolean {
+        val compareCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            time = date
+        }
+        return compareCal.get(Calendar.YEAR) == calendar.get(Calendar.YEAR) &&
+                compareCal.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
     }
 
 

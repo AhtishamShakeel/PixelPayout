@@ -22,6 +22,8 @@ import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 import kotlin.Pair
+import android.content.Context
+import com.pixelpayout.utils.AdManager
 
 class QuizListViewModel : ViewModel() {
     private val repository = QuizRepository()
@@ -49,6 +51,9 @@ class QuizListViewModel : ViewModel() {
 
     private val _dataLoaded = MutableLiveData<Boolean>()
     val dataLoaded: LiveData<Boolean> = _dataLoaded
+
+    private val _adAvailable = MutableLiveData<Boolean>()
+    val adAvailable: LiveData<Boolean> = _adAvailable
 
     private val MAX_DAILY_RESETS = 10
 
@@ -170,6 +175,43 @@ class QuizListViewModel : ViewModel() {
                 compareCal.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
     }
 
+    fun watchAdForExtraQuiz() {
+        viewModelScope.launch {
+            try {
+                val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
+                val userRef = db.collection("users").document(userId)
+
+                db.runTransaction { transaction ->
+                    val snapshot = transaction.get(userRef)
+                    val currentAttempts = snapshot.getLong("quizAttempts") ?: 0
+
+                    // Decrease attempts by 1 (giving an extra attempt)
+                    transaction.update(userRef,
+                        "quizAttempts", currentAttempts - 1,
+                        "lastQuizDate", FieldValue.serverTimestamp()
+                    )
+                }.await()
+
+                // Show success message
+                _error.value = "Extra quiz attempt added!"
+
+                // Reload quizzes to update UI
+                loadQuizzes()
+            } catch (e: Exception) {
+                _error.value = "Failed to add extra attempt: ${e.message}"
+            }
+        }
+    }
+
+    // Call this when entering the quiz list screen
+    fun preloadAd(context: Context) {
+        AdManager.getInstance().apply {
+            setAdAvailabilityCallback { available ->
+                _adAvailable.value = available
+            }
+            loadRewardedAd(context)
+        }
+    }
 
     companion object {
         const val MAX_DAILY_QUIZZES = 10

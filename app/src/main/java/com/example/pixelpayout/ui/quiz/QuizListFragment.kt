@@ -16,6 +16,7 @@ import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.ui.main.MainActivity
 import java.util.concurrent.TimeUnit
+import com.pixelpayout.utils.AdManager
 
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
@@ -45,6 +46,13 @@ class QuizListFragment : Fragment() {
         observeViewModel()
         // Load quizzes whenever fragment becomes visible
         loadQuizzes()
+
+        // Preload ad
+        viewModel.preloadAd(requireContext())
+
+        binding.watchAdButton.setOnClickListener {
+            showRewardedAd()
+        }
     }
 
     override fun onResume() {
@@ -127,6 +135,10 @@ class QuizListFragment : Fragment() {
                 remaining
             )
         }
+
+        viewModel.adAvailable.observe(viewLifecycleOwner) { available ->
+            binding.watchAdButton.isEnabled = available
+        }
     }
 
     private fun loadQuizzes() {
@@ -140,6 +152,21 @@ class QuizListFragment : Fragment() {
             putExtra(QuizActivity.EXTRA_QUIZ, quiz)
         }
         quizLauncher.launch(intent)
+    }
+
+    private fun showRewardedAd() {
+        AdManager.getInstance().showRewardedAd(
+            requireActivity(),
+            onRewarded = {
+                viewModel.watchAdForExtraQuiz()
+            },
+            onAdClosed = {
+                // Ad closed without reward
+            },
+            onAdFailedToShow = {
+                Toast.makeText(context, R.string.ad_not_available, Toast.LENGTH_SHORT).show()
+            }
+        )
     }
 
     override fun onDestroyView() {

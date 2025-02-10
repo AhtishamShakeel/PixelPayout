@@ -43,4 +43,9 @@
     <string name="error_timeout">Request timed out. Please try again later.</string>
     <string name="error_network">Network error. Please check your connection.</string>
     <string name="error_unknown">An unexpected error occurred. Please try again.</string>
+    <string name="watch_ad_for_quiz">Watch Ad for Extra Quiz</string>
+    <string name="ad_not_available">Ad not available. Please try again later.</string>
+    <string name="extra_attempt_added">Extra quiz attempt added!</string>
+    <string name="failed_to_add_attempt">Failed to add extra attempt: %1$s</string>
+    <string name="loading_ad">Loading Ad...</string>
 </resources>

@@ -61,6 +61,15 @@
                 android:layout_marginTop="8dp"
                 android:textSize="16sp" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/watchAdButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/watch_ad_for_quiz"
+                android:enabled="false"
+                app:icon="@drawable/ic_video"/>
+
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

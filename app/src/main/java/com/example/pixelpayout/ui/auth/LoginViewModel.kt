@@ -41,7 +41,7 @@ class LoginViewModel : ViewModel() {
                         "Invalid email address"
                     e.message?.contains("password", ignoreCase = true) == true ->
                         "Invalid password"
-                    else -> "Login failed: Incorrect username or password"
+                    else -> "Login failed: Incorrect Gmail or password:"
                 }
                 _loginState.value = LoginState.Error(errorMessage)
             }

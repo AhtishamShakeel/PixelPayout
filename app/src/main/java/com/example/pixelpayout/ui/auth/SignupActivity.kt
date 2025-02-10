@@ -2,9 +2,11 @@ package com.pixelpayout.ui.auth
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.swiperefreshlayout.widget.CircularProgressDrawable
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivitySignupBinding
 import com.pixelpayout.ui.main.MainActivity
@@ -34,27 +36,82 @@ class SignupActivity : AppCompatActivity() {
         }
 
         binding.loginButton.setOnClickListener {
-            finish() // Return to LoginActivity
+            finish()
         }
     }
 
     private fun observeViewModel() {
-        viewModel.signupResult.observe(this) { result ->
-            result.fold(
-                onSuccess = { navigateToMain() },
-                onFailure = { exception ->
-                    Toast.makeText(
-                        this,
-                        getString(R.string.error_signup_failed, exception.message),
-                        Toast.LENGTH_LONG
-                    ).show()
+        viewModel.signupState.observe(this) { state ->
+            when (state) {
+                is SignupState.Loading -> {
+                    showLoading(true)
+                    clearErrors()
                 }
-            )
+                is SignupState.Success -> {
+                    showLoading(false)
+                    navigateToMain()
+                }
+                is SignupState.Error -> {
+                    showLoading(false)
+                    showError(state.message, state.field)
+                }
+                is SignupState.Initial -> {
+                    showLoading(false)
+                    clearErrors()
+                }
+            }
+        }
+    }
+
+    private fun showLoading(isLoading: Boolean) {
+        binding.apply {
+            loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
+            signupButton.isEnabled = !isLoading
+            loginButton.isEnabled = !isLoading
+            nameEditText.isEnabled = !isLoading
+            emailEditText.isEnabled = !isLoading
+            passwordEditText.isEnabled = !isLoading
+
+            // Update button text
+            signupButton.text = if (isLoading) "" else getString(R.string.sign_up)
+            if (isLoading) {
+                signupButton.icon = CircularProgressDrawable(this@SignupActivity).apply {
+                    setStyle(CircularProgressDrawable.DEFAULT)
+                    start()
+                }
+            } else {
+                signupButton.icon = null
+            }
+        }
+    }
+
+    private fun showError(message: String, field: SignupField?) {
+        when (field) {
+            SignupField.NAME -> binding.nameLayout.error = message
+            SignupField.EMAIL -> binding.emailLayout.error = message
+            SignupField.PASSWORD -> binding.passwordLayout.error = message
+            null -> {
+                binding.errorText.apply {
+                    text = message
+                    visibility = View.VISIBLE
+                    announceForAccessibility(message)
+                }
+            }
+        }
+    }
+
+    private fun clearErrors() {
+        binding.apply {
+            errorText.visibility = View.GONE
+            nameLayout.error = null
+            emailLayout.error = null
+            passwordLayout.error = null
         }
     }
 
     private fun validateInput(name: String, email: String, password: String): Boolean {
         var isValid = true
+        clearErrors()
 
         if (name.isBlank()) {
             binding.nameLayout.error = getString(R.string.error_name_required)
@@ -76,6 +133,6 @@ class SignupActivity : AppCompatActivity() {
 
     private fun navigateToMain() {
         startActivity(Intent(this, MainActivity::class.java))
-        finishAffinity() // Close all auth activities
+        finishAffinity()
     }
 } 

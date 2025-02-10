@@ -40,4 +40,7 @@
     <string name="daily_limit_reached">Daily Quiz Limit Reached!</string>
     <string name="next_quiz_time">Next quizzes available in %1$d hours %2$d minutes</string>
     <string name="remaining_quizzes">Remaining quizzes today: %d</string>
+    <string name="error_timeout">Request timed out. Please try again later.</string>
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_unknown">An unexpected error occurred. Please try again.</string>
 </resources>

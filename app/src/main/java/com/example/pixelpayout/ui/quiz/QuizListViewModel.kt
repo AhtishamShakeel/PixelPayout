@@ -61,6 +61,49 @@ class QuizListViewModel : ViewModel() {
         loadQuizzes()
     }
 
+    private suspend fun getServerTime(): Timestamp {
+        try {
+            // Try up to 3 times to get server time
+            repeat(3) { attempt ->
+                try {
+                    val serverTimeDoc = db.collection("metadata").document("serverTime")
+
+                    // Set server timestamp
+                    serverTimeDoc.set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
+
+                    // Wait a bit to ensure the server timestamp is set
+                    kotlinx.coroutines.delay(500)
+
+                    // Get the document
+                    val snapshot = serverTimeDoc.get().await()
+                    val timestamp = snapshot.getTimestamp("timestamp")
+
+                    if (timestamp != null) {
+                        return timestamp
+                    }
+                } catch (e: Exception) {
+                    if (attempt == 2) throw e // Throw on last attempt
+                    kotlinx.coroutines.delay(1000) // Wait before retry
+                }
+            }
+            throw Exception("Failed to get server time after 3 attempts")
+        } catch (e: Exception) {
+            // If all else fails, create a timestamp from current time
+            _error.value = "Warning: Using device time as fallback"
+            return Timestamp.now()
+        }
+    }
+
+    private fun getMidnightUTCTimestamp(): Long {
+        return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
     fun loadQuizzes() {
         viewModelScope.launch {
             try {
@@ -71,12 +114,8 @@ class QuizListViewModel : ViewModel() {
                 val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
                 val userRef = db.collection("users").document(userId)
 
-                // First, get the server time
-                val serverTimeDoc = db.collection("metadata").document("serverTime")
-                serverTimeDoc.set(hashMapOf("timestamp" to FieldValue.serverTimestamp())).await()
-                val serverTimeSnapshot = serverTimeDoc.get().await()
-                val currentServerTime = serverTimeSnapshot.getTimestamp("timestamp")
-                    ?: throw Exception("Failed to get server time")
+                // Get server time
+                val currentServerTime = getServerTime()
 
                 val result = db.runTransaction { transaction ->
                     var snapshot = transaction.get(userRef)
@@ -84,8 +123,8 @@ class QuizListViewModel : ViewModel() {
                     if (!snapshot.exists()) {
                         val userData = hashMapOf(
                             "quizAttempts" to 0,
-                            "lastQuizDate" to currentServerTime,
                             "lastResetTime" to currentServerTime,
+                            "extraQuizAttempts" to 0,
                             "points" to 0,
                             "email" to (auth.currentUser?.email ?: ""),
                             "displayName" to (auth.currentUser?.displayName ?: "")
@@ -96,20 +135,30 @@ class QuizListViewModel : ViewModel() {
 
                     val lastResetTime = snapshot.getTimestamp("lastResetTime") ?: currentServerTime
                     val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
+                    val extraAttempts = snapshot.getLong("extraQuizAttempts")?.toInt() ?: 0
 
-                    // Calculate if 24 hours have passed since last reset using server time
-                    val shouldReset = (currentServerTime.seconds - lastResetTime.seconds) >= 24 * 60 * 60
+                    // Check if we've passed midnight UTC since last reset
+                    val lastResetCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                        timeInMillis = lastResetTime.seconds * 1000
+                    }
+                    val currentCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                        timeInMillis = currentServerTime.seconds * 1000
+                    }
+
+                    val shouldReset = lastResetCal.get(Calendar.DAY_OF_YEAR) != currentCal.get(Calendar.DAY_OF_YEAR) ||
+                            lastResetCal.get(Calendar.YEAR) != currentCal.get(Calendar.YEAR)
 
                     if (shouldReset) {
                         transaction.update(userRef,
                             mapOf(
                                 "quizAttempts" to 0,
-                                "lastResetTime" to currentServerTime
+                                "lastResetTime" to currentServerTime,
+                                "extraQuizAttempts" to 0 // Reset extra attempts at midnight
                             )
                         )
                         Pair(0, true)
                     } else {
-                        Pair(currentAttempts, false)
+                        Pair(currentAttempts - extraAttempts, false)
                     }
                 }.await()
 
@@ -125,12 +174,7 @@ class QuizListViewModel : ViewModel() {
                 } else {
                     _quizLimitReached.value = true
                     _quizzes.value = emptyList()
-
-                    // Calculate next reset time based on lastResetTime
-                    val nextResetTime = userRef.get().await().getTimestamp("lastResetTime")?.let { lastReset ->
-                        (lastReset.seconds + 24 * 60 * 60) * 1000 // Convert to milliseconds
-                    } ?: System.currentTimeMillis()
-                    _nextQuizTime.value = nextResetTime
+                    _nextQuizTime.value = getMidnightUTCTimestamp()
                 }
 
                 _dataLoaded.value = true
@@ -142,6 +186,7 @@ class QuizListViewModel : ViewModel() {
             }
         }
     }
+
     fun submitQuiz() {
         val userRef = FirebaseFirestore.getInstance()
             .collection("users")
@@ -166,12 +211,13 @@ class QuizListViewModel : ViewModel() {
 
                 db.runTransaction { transaction ->
                     val snapshot = transaction.get(userRef)
-                    val currentAttempts = snapshot.getLong("quizAttempts") ?: 0
+                    val extraAttempts = snapshot.getLong("extraQuizAttempts")?.toInt() ?: 0
 
-                    // Decrease attempts by 1 (giving an extra attempt)
+                    // Add an extra attempt without affecting the timer
                     transaction.update(userRef,
-                        "quizAttempts", currentAttempts - 1,
-                        "lastQuizDate", FieldValue.serverTimestamp()
+                        mapOf(
+                            "extraQuizAttempts" to (extraAttempts + 1)
+                        )
                     )
                 }.await()
 

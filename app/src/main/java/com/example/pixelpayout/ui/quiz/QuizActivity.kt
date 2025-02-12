@@ -24,6 +24,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 import kotlin.math.abs
+import com.google.firebase.Timestamp
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -154,8 +155,38 @@ class QuizActivity : AppCompatActivity() {
     private fun updateOptions(options: List<String>, @Suppress("UNUSED_PARAMETER") index: Int) {
         // ...
     }
+    private suspend fun getServerTime(): Timestamp {
+        try {
+            repeat(3) { attempt ->
+                try {
+                    val serverTimeDoc = FirebaseFirestore.getInstance()
+                        .collection("metadata")
+                        .document("serverTime")
+
+                    serverTimeDoc.set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
+                    kotlinx.coroutines.delay(500)
+
+                    val snapshot = serverTimeDoc.get().await()
+                    val timestamp = snapshot.getTimestamp("timestamp")
+
+                    if (timestamp != null) {
+                        return timestamp
+                    }
+                } catch (e: Exception) {
+                    if (attempt == 2) throw e
+                    kotlinx.coroutines.delay(1000)
+                }
+            }
+            throw Exception("Failed to get server time after 3 attempts")
+        } catch (e: Exception) {
+            return Timestamp.now() // Fallback to device time
+        }
+    }
+
     private suspend fun validateAttempt(): Boolean {
         return try {
+            val serverTime = getServerTime()
+
             FirebaseFirestore.getInstance().runTransaction { transaction ->
                 val user = FirebaseAuth.getInstance().currentUser
                     ?: throw Exception("Not authenticated")
@@ -164,36 +195,32 @@ class QuizActivity : AppCompatActivity() {
                     .collection("users")
                     .document(user.uid)
 
-                // Get server time
-                val serverTimeDoc = FirebaseFirestore.getInstance()
-                    .collection("metadata")
-                    .document("serverTime")
-                serverTimeDoc.set(hashMapOf("timestamp" to FieldValue.serverTimestamp()))
-                val serverTime = transaction.get(serverTimeDoc).getTimestamp("timestamp")
-                    ?: throw Exception("Failed to get server time")
-
                 val snapshot = transaction.get(userRef)
                 val lastResetTime = snapshot.getTimestamp("lastResetTime")
                 val attempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
+                val extraAttempts = snapshot.getLong("extraQuizAttempts")?.toInt() ?: 0
 
-                // Check if 24 hours have passed since last reset using server time
-                val timeSinceReset = if (lastResetTime != null) {
-                    serverTime.seconds - lastResetTime.seconds
-                } else {
-                    0
+                // Check if we've passed midnight UTC
+                val lastResetCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    timeInMillis = (lastResetTime?.seconds ?: 0) * 1000
+                }
+                val currentCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                    timeInMillis = serverTime.seconds * 1000
                 }
 
-                if (timeSinceReset >= 24 * 60 * 60) {
-                    // Reset attempts if 24 hours have passed
+                val shouldReset = lastResetCal.get(Calendar.DAY_OF_YEAR) != currentCal.get(Calendar.DAY_OF_YEAR) ||
+                        lastResetCal.get(Calendar.YEAR) != currentCal.get(Calendar.YEAR)
+
+                if (shouldReset) {
                     transaction.update(userRef,
                         mapOf(
                             "quizAttempts" to 1,
-                            "lastResetTime" to serverTime
+                            "lastResetTime" to serverTime,
+                            "extraQuizAttempts" to 0
                         )
                     )
                     true
-                } else if (attempts < MAX_DAILY_QUIZZES) {
-                    // Increment attempts if under limit
+                } else if (attempts < MAX_DAILY_QUIZZES + extraAttempts) {
                     transaction.update(userRef, "quizAttempts", attempts + 1)
                     true
                 } else {

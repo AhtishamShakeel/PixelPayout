@@ -71,55 +71,52 @@ class QuizListViewModel : ViewModel() {
                 val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
                 val userRef = db.collection("users").document(userId)
 
-                // Fix: Handle everything in a single transaction
-                val result: Pair<Int, Boolean> = db.runTransaction { transaction: Transaction ->
+                // First, get the server time
+                val serverTimeDoc = db.collection("metadata").document("serverTime")
+                serverTimeDoc.set(hashMapOf("timestamp" to FieldValue.serverTimestamp())).await()
+                val serverTimeSnapshot = serverTimeDoc.get().await()
+                val currentServerTime = serverTimeSnapshot.getTimestamp("timestamp")
+                    ?: throw Exception("Failed to get server time")
+
+                val result = db.runTransaction { transaction ->
                     var snapshot = transaction.get(userRef)
 
                     if (!snapshot.exists()) {
-                        val userData: Map<String, Any> = hashMapOf(
+                        val userData = hashMapOf(
                             "quizAttempts" to 0,
-                            "lastQuizDate" to FieldValue.serverTimestamp(),
-                            "serverTime" to FieldValue.serverTimestamp(),
+                            "lastQuizDate" to currentServerTime,
+                            "lastResetTime" to currentServerTime,
                             "points" to 0,
                             "email" to (auth.currentUser?.email ?: ""),
-                            "displayName" to (auth.currentUser?.displayName ?: ""),
-                            "dailyResetCount" to 0,
-                            "lastResetDate" to FieldValue.serverTimestamp()
+                            "displayName" to (auth.currentUser?.displayName ?: "")
                         )
                         transaction.set(userRef, userData)
                         snapshot = transaction.get(userRef)
                     }
 
-                    val lastQuizDate = snapshot.getTimestamp("lastQuizDate")?.toDate()
-                    val currentAttempts = (snapshot.getLong("quizAttempts") ?: 0).toInt()
-                    val resetCount = (snapshot.getLong("dailyResetCount") ?: 0).toInt()
-                    val now = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+                    val lastResetTime = snapshot.getTimestamp("lastResetTime") ?: currentServerTime
+                    val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
 
-                    val shouldReset = lastQuizDate?.let {
-                        !isSameUTCDay(it, now)
-                    } ?: true
+                    // Calculate if 24 hours have passed since last reset using server time
+                    val shouldReset = (currentServerTime.seconds - lastResetTime.seconds) >= 24 * 60 * 60
 
                     if (shouldReset) {
-                        if (resetCount >= MAX_DAILY_RESETS) {
-                            throw Exception("Daily reset limit reached")
-                        }
-
                         transaction.update(userRef,
-                            "quizAttempts", 0,
-                            "lastQuizDate", FieldValue.serverTimestamp(),
-                            "serverTime", FieldValue.serverTimestamp(),
-                            "dailyResetCount", FieldValue.increment(1),
-                            "lastResetDate", FieldValue.serverTimestamp()
+                            mapOf(
+                                "quizAttempts" to 0,
+                                "lastResetTime" to currentServerTime
+                            )
                         )
+                        Pair(0, true)
+                    } else {
+                        Pair(currentAttempts, false)
                     }
-
-                    Pair<Int, Boolean>(currentAttempts, shouldReset)
                 }.await()
 
                 val attempts = result.first
-                val shouldReset = result.second
+                val wasReset = result.second
 
-                val remaining = MAX_DAILY_QUIZZES - if (shouldReset) 0 else attempts
+                val remaining = MAX_DAILY_QUIZZES - attempts
                 _remainingQuizzes.value = remaining
 
                 if (remaining > 0) {
@@ -128,7 +125,12 @@ class QuizListViewModel : ViewModel() {
                 } else {
                     _quizLimitReached.value = true
                     _quizzes.value = emptyList()
-                    _nextQuizTime.value = calculateNextQuizTime()
+
+                    // Calculate next reset time based on lastResetTime
+                    val nextResetTime = userRef.get().await().getTimestamp("lastResetTime")?.let { lastReset ->
+                        (lastReset.seconds + 24 * 60 * 60) * 1000 // Convert to milliseconds
+                    } ?: System.currentTimeMillis()
+                    _nextQuizTime.value = nextResetTime
                 }
 
                 _dataLoaded.value = true
@@ -154,25 +156,6 @@ class QuizListViewModel : ViewModel() {
             ),
             SetOptions.merge()
         )
-    }
-
-    private fun calculateNextQuizTime(): Long {
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        return calendar.timeInMillis
-    }
-
-    private fun isSameUTCDay(date: Date, calendar: Calendar): Boolean {
-        val compareCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            time = date
-        }
-        return compareCal.get(Calendar.YEAR) == calendar.get(Calendar.YEAR) &&
-                compareCal.get(Calendar.DAY_OF_YEAR) == calendar.get(Calendar.DAY_OF_YEAR)
     }
 
     fun watchAdForExtraQuiz() {

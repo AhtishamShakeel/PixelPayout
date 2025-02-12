@@ -164,36 +164,40 @@ class QuizActivity : AppCompatActivity() {
                     .collection("users")
                     .document(user.uid)
 
+                // Get server time
+                val serverTimeDoc = FirebaseFirestore.getInstance()
+                    .collection("metadata")
+                    .document("serverTime")
+                serverTimeDoc.set(hashMapOf("timestamp" to FieldValue.serverTimestamp()))
+                val serverTime = transaction.get(serverTimeDoc).getTimestamp("timestamp")
+                    ?: throw Exception("Failed to get server time")
+
                 val snapshot = transaction.get(userRef)
-                val lastAttempt = snapshot.getTimestamp("lastQuizDate")?.toDate()
-                val attempts = (snapshot.getLong("quizAttempts") ?: 0).toInt()
+                val lastResetTime = snapshot.getTimestamp("lastResetTime")
+                val attempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
 
-                val now = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-                val serverTime = snapshot.getTimestamp("serverTime")?.toDate()
-                    ?: Date() // Fallback to device time
-
-                // Validate server time vs device time
-                val timeDiff = abs(now.timeInMillis - serverTime.time)
-                if (timeDiff > 300000) { // 5 minutes tolerance
-                    throw Exception("Time synchronization failed")
+                // Check if 24 hours have passed since last reset using server time
+                val timeSinceReset = if (lastResetTime != null) {
+                    serverTime.seconds - lastResetTime.seconds
+                } else {
+                    0
                 }
 
-                if (lastAttempt != null && isSameUTCDay(lastAttempt, now)) {
-                    if (attempts >= MAX_DAILY_QUIZZES) false else {
-                        transaction.update(userRef,
-                            "quizAttempts", attempts + 1,
-                            "lastQuizDate", FieldValue.serverTimestamp(),
-                            "serverTime", FieldValue.serverTimestamp()
-                        )
-                        true
-                    }
-                } else {
+                if (timeSinceReset >= 24 * 60 * 60) {
+                    // Reset attempts if 24 hours have passed
                     transaction.update(userRef,
-                        "quizAttempts", 1,
-                        "lastQuizDate", FieldValue.serverTimestamp(),
-                        "serverTime", FieldValue.serverTimestamp()
+                        mapOf(
+                            "quizAttempts" to 1,
+                            "lastResetTime" to serverTime
+                        )
                     )
                     true
+                } else if (attempts < MAX_DAILY_QUIZZES) {
+                    // Increment attempts if under limit
+                    transaction.update(userRef, "quizAttempts", attempts + 1)
+                    true
+                } else {
+                    false
                 }
             }.await()
         } catch (e: Exception) {

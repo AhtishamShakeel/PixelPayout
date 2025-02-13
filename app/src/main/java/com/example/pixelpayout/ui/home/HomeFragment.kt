@@ -41,14 +41,47 @@ class HomeFragment : Fragment() {
 
 
     private fun setupClickListeners() {
-        binding.quizCard.setOnClickListener {
-            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_quizzes
-        }
+        binding.apply {
+            // Quiz card clicks
+            playQuizButton.setOnClickListener {
+                navigateToQuizzes()
+            }
 
-        binding.gameCard.setOnClickListener {
-            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
-        }
+            quizImage.setOnClickListener {
+                navigateToQuizzes()
+            }
 
+            quizDetails.setOnClickListener {
+                navigateToDetails("quiz")
+            }
+
+            // Game card clicks
+            playGameButton.setOnClickListener {
+                navigateToGame()
+            }
+
+            gameImage.setOnClickListener {
+                navigateToGame()
+            }
+
+            gameDetails.setOnClickListener {
+                navigateToDetails("game")
+            }
+        }
+    }
+
+    private fun navigateToQuizzes() {
+        (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_quizzes
+    }
+
+    private fun navigateToGame() {
+        (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
+    }
+
+    private fun navigateToDetails(type: String) {
+        findNavController().navigate(
+            HomeFragmentDirections.actionHomeToDetails(type)
+        )
     }
 
     override fun onDestroyView() {

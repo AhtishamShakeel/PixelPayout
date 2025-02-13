@@ -48,4 +48,20 @@
     <string name="extra_attempt_added">Extra quiz attempt added!</string>
     <string name="failed_to_add_attempt">Failed to add extra attempt: %1$s</string>
     <string name="loading_ad">Loading Ad...</string>
+    <string name="quiz_rules_description">Test your knowledge and earn stars by answering questions correctly!\n\n
+        Rules:\n
+        • Each quiz has multiple choice questions\n
+        • You have 30 seconds to answer each question\n
+        • Correct answers earn you stars based on difficulty\n
+        • You can attempt up to 10 quizzes per day\n
+        • Watch ads to get extra attempts
+    </string>
+    <string name="game_rules_description">Play our exciting Color Puzzle game to earn stars!\n\n
+        Rules:\n
+        • Sort the colors to match the pattern\n
+        • Faster completion gives more stars\n
+        • Earn 5-10 stars per minute based on performance\n
+        • No daily limit on game plays\n
+        • Practice to improve your speed and earn more!
+    </string>
 </resources>

@@ -7,7 +7,11 @@
     <fragment
         android:id="@+id/navigation_home"
         android:name="com.pixelpayout.ui.home.HomeFragment"
-        android:label="Home" />
+        android:label="Home">
+        <action
+            android:id="@+id/action_home_to_details"
+            app:destination="@id/detailsFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_play"
@@ -29,4 +33,13 @@
         android:name="com.pixelpayout.ui.redemption.RedemptionFragment"
         android:label="Cashout" />
 
-</navigation> 
+    <fragment
+        android:id="@+id/detailsFragment"
+        android:name="com.pixelpayout.ui.details.DetailsFragment"
+        android:label="Details">
+        <argument
+            android:name="type"
+            app:argType="string" />
+    </fragment>
+
+</navigation>

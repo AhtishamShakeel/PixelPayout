@@ -16,7 +16,7 @@
     <string name="quizzes">Quizzes</string>
     <string name="redemption">Redemption</string>
     <string name="error_loading_quizzes">Error loading quizzes</string>
-    <string name="points_value">%d stars</string>
+    <string name="points_value">%d </string>
     <string name="submit_answer">Submit Answer</string>
     <string name="select_answer">Please select an answer</string>
     <string name="timer_format">%d s</string>

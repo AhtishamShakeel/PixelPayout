@@ -3,6 +3,7 @@
     <!-- ... existing colors ... -->
     <color name="primary">#8A8AFF</color>
     <color name="primary_dark">#5757FF</color>
+    <color name="primary_transparent">#508A8AFF</color>
     <color name="accent">#03A9F4</color>
     <color name="accent_dark">#0288D1</color>
 

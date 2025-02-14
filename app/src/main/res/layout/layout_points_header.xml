@@ -7,13 +7,14 @@
     android:gravity="center_vertical"
     android:padding="8dp"
     android:layout_gravity="end"
+    android:layout_marginEnd="17dp"
     android:clickable="true"
     android:focusable="true"
-    android:background="?attr/selectableItemBackground">
+    android:background="@drawable/points_background">
 
     <ImageView
-        android:layout_width="24dp"
-        android:layout_height="24dp"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:src="@drawable/ic_star"
         app:tint="@color/white" />
 
@@ -25,6 +26,6 @@
         android:textColor="@color/white"
         android:textSize="16sp"
         android:textStyle="bold"
-        tools:text="1500 stars" />
+        tools:text="1500" />
 
-</LinearLayout> 
+</LinearLayout>

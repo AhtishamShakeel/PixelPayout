@@ -12,10 +12,12 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.Job
+import com.pixelpayout.data.repository.UserRepository
 
 class SignupViewModel : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
+    private val userRepository = UserRepository()
 
     private val _signupState = MutableLiveData<SignupState>()
     val signupState: LiveData<SignupState> = _signupState
@@ -42,7 +44,9 @@ class SignupViewModel : ViewModel() {
                             "email" to email,
                             "points" to 0,
                             "joinedDate" to com.google.firebase.Timestamp.now(),
-                            "lastActive" to com.google.firebase.Timestamp.now()
+                            "lastActive" to com.google.firebase.Timestamp.now(),
+                            "referralCode" to userRepository.generateReferralCode(),
+                            "hasUsedReferral" to false
                         )
 
                         firestore.collection("users")

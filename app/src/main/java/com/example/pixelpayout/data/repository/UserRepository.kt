@@ -12,6 +12,7 @@ import com.pixelpayout.data.model.RedemptionType
 import java.util.*
 import java.util.Calendar
 import com.google.firebase.firestore.FieldValue
+import com.pixelpayout.ui.redemption.ReferralResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -227,6 +228,67 @@ class UserRepository {
                 System.currentTimeMillis()
             }
         } ?: System.currentTimeMillis()
+    }
+
+    suspend fun submitReferral(referralCode: String): ReferralResult {
+        return try {
+            val currentUser = auth.currentUser ?: throw Exception("User not logged in")
+
+            // Check if user has already used a referral code
+            val userDoc = firestore.collection("users")
+                .document(currentUser.uid)
+                .get()
+                .await()
+
+            if (userDoc.getBoolean("hasUsedReferral") == true) {
+                return ReferralResult.AlreadyUsed
+            }
+
+            // Look up the referral code
+            val referralQuery = firestore.collection("users")
+                .whereEqualTo("referralCode", referralCode)
+                .get()
+                .await()
+
+            if (referralQuery.isEmpty) {
+                return ReferralResult.InvalidCode
+            }
+
+            val referrerDoc = referralQuery.documents.first()
+            val referrerId = referrerDoc.id
+
+            // Don't allow self-referral
+            if (referrerId == currentUser.uid) {
+                return ReferralResult.InvalidCode
+            }
+
+            // Update both users in a transaction
+            firestore.runTransaction { transaction ->
+                // Update referrer's points
+                val referrerRef = firestore.collection("users").document(referrerId)
+                val currentPoints = referrerDoc.getLong("points") ?: 0
+                transaction.update(referrerRef, "points", currentPoints + 100)
+
+                // Update current user
+                val userRef = firestore.collection("users").document(currentUser.uid)
+                transaction.update(userRef,
+                    mapOf(
+                        "hasUsedReferral" to true,
+                        "referredBy" to referrerId
+                    )
+                )
+            }.await()
+
+            ReferralResult.Success
+        } catch (e: Exception) {
+            ReferralResult.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
+    // Generate a unique referral code for new users
+    fun generateReferralCode(): String {
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        return (1..6).map { chars.random() }.joinToString("")
     }
 
 }

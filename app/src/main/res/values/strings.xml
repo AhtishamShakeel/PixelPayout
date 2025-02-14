@@ -64,4 +64,10 @@
         • No daily limit on game plays\n
         • Practice to improve your speed and earn more!
     </string>
+    <string name="enter_referral_code">Enter Referral Code</string>
+    <string name="referral_reward_description">Get 100 points for valid referral</string>
+    <string name="submit_referral">Submit Referral</string>
+    <string name="referral_success">Referral successful! 100 points added</string>
+    <string name="error_already_used_referral">You have already used a referral code</string>
+    <string name="error_invalid_referral">Invalid referral code</string>
 </resources>

@@ -14,15 +14,15 @@
     <ImageView
         android:layout_width="24dp"
         android:layout_height="24dp"
-        android:src="@drawable/ic_star">
-
-    </ImageView>
+        android:src="@drawable/ic_star"
+        app:tint="@color/white" />
 
     <TextView
         android:id="@+id/pointsText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="4dp"
+        android:textColor="@color/white"
         android:textSize="16sp"
         android:textStyle="bold"
         tools:text="1500 stars" />

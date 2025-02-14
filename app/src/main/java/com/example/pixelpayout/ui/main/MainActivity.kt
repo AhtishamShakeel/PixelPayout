@@ -13,12 +13,11 @@ import com.pixelpayout.databinding.LayoutPointsHeaderBinding
 
 class MainActivity : AppCompatActivity() {
 
-
     lateinit var binding: ActivityMainBinding
-    private lateinit var pointsHeaderBinding: LayoutPointsHeaderBinding
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(UserRepository())
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         super.onCreate(savedInstanceState)
@@ -31,14 +30,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupToolbar() {
-        pointsHeaderBinding = LayoutPointsHeaderBinding.inflate(layoutInflater)
-        supportActionBar?.apply {
-            setDisplayShowCustomEnabled(true)
-            customView = pointsHeaderBinding.root
-        }
+        setSupportActionBar(binding.customToolbar.toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         // Make points clickable
-        pointsHeaderBinding.root.setOnClickListener {
+        binding.customToolbar.pointsHeader.root.setOnClickListener {
             binding.bottomNav.selectedItemId = R.id.navigation_redemption
         }
     }
@@ -53,7 +49,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         viewModel.points.observe(this) { points ->
-            pointsHeaderBinding.pointsText.text = getString(R.string.points_value, points)
+            binding.customToolbar.pointsHeader.pointsText.text =
+                getString(R.string.points_value, points)
         }
     }
 } 

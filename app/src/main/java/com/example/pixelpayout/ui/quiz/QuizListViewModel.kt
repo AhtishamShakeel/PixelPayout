@@ -31,8 +31,8 @@ class QuizListViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val _quizzes = MutableLiveData<List<Quiz>>()
-    val quizzes: LiveData<List<Quiz>> = _quizzes
+    private val _quizzes = MutableLiveData<List<QuizListItem>>()
+    val quizzes: LiveData<List<QuizListItem>> = _quizzes
 
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
@@ -55,7 +55,7 @@ class QuizListViewModel : ViewModel() {
     private val _adAvailable = MutableLiveData<Boolean>()
     val adAvailable: LiveData<Boolean> = _adAvailable
 
-    private val MAX_DAILY_RESETS = 10
+    private val MAX_DAILY_ATTEMPTS = 10
 
     init {
         loadQuizzes()
@@ -109,80 +109,32 @@ class QuizListViewModel : ViewModel() {
             try {
                 _isLoading.value = true
                 _error.value = null
-                _dataLoaded.value = false
 
-                val userId = auth.currentUser?.uid ?: throw Exception("User not authenticated")
-                val userRef = db.collection("users").document(userId)
+                // Get user's quiz attempts
+                val attempts = userRepository.getQuizAttempts()
+                val remainingAttempts = MAX_DAILY_ATTEMPTS - attempts
 
-                // Get server time
-                val currentServerTime = getServerTime()
-
-                val result = db.runTransaction { transaction ->
-                    var snapshot = transaction.get(userRef)
-
-                    if (!snapshot.exists()) {
-                        val userData = hashMapOf(
-                            "quizAttempts" to 0,
-                            "lastResetTime" to currentServerTime,
-                            "extraQuizAttempts" to 0,
-                            "points" to 0,
-                            "email" to (auth.currentUser?.email ?: ""),
-                            "displayName" to (auth.currentUser?.displayName ?: "")
+                if (remainingAttempts > 0) {
+                    // Create a single quiz option that leads to random questions
+                    val quizList = listOf(
+                        QuizListItem(
+                            id = "random_quiz",
+                            title = "Random Quiz",
+                            description = "Test your knowledge with random questions!",
+                            difficulty = "Mixed",
+                            pointsReward = "10-30 points per question"
                         )
-                        transaction.set(userRef, userData)
-                        snapshot = transaction.get(userRef)
-                    }
-
-                    val lastResetTime = snapshot.getTimestamp("lastResetTime") ?: currentServerTime
-                    val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
-                    val extraAttempts = snapshot.getLong("extraQuizAttempts")?.toInt() ?: 0
-
-                    // Check if we've passed midnight UTC since last reset
-                    val lastResetCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-                        timeInMillis = lastResetTime.seconds * 1000
-                    }
-                    val currentCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-                        timeInMillis = currentServerTime.seconds * 1000
-                    }
-
-                    val shouldReset = lastResetCal.get(Calendar.DAY_OF_YEAR) != currentCal.get(Calendar.DAY_OF_YEAR) ||
-                            lastResetCal.get(Calendar.YEAR) != currentCal.get(Calendar.YEAR)
-
-                    if (shouldReset) {
-                        transaction.update(userRef,
-                            mapOf(
-                                "quizAttempts" to 0,
-                                "lastResetTime" to currentServerTime,
-                                "extraQuizAttempts" to 0 // Reset extra attempts at midnight
-                            )
-                        )
-                        Pair(0, true)
-                    } else {
-                        Pair(currentAttempts - extraAttempts, false)
-                    }
-                }.await()
-
-                val attempts = result.first
-                val wasReset = result.second
-
-                val remaining = MAX_DAILY_QUIZZES - attempts
-                _remainingQuizzes.value = remaining
-
-                if (remaining > 0) {
-                    _quizzes.value = repository.getQuizzes()
-                    _quizLimitReached.value = false
+                    )
+                    _quizzes.value = quizList
+                    _remainingQuizzes.value = remainingAttempts
                 } else {
                     _quizLimitReached.value = true
-                    _quizzes.value = emptyList()
-                    _nextQuizTime.value = getMidnightUTCTimestamp()
                 }
-
-                _dataLoaded.value = true
             } catch (e: Exception) {
-                _error.value = e.message ?: "Unknown error occurred"
-                _quizzes.value = emptyList()
+                _error.value = e.message
             } finally {
                 _isLoading.value = false
+                _dataLoaded.value = true
             }
         }
     }
@@ -242,7 +194,20 @@ class QuizListViewModel : ViewModel() {
         }
     }
 
+    fun canAttemptQuiz(): Boolean {
+        return (_remainingQuizzes.value ?: 0) > 0
+    }
+
     companion object {
-        const val MAX_DAILY_QUIZZES = 10
+        const val MAX_DAILY_ATTEMPTS = 10
+        private const val MAX_DAILY_RESETS = 10
     }
 }
+
+data class QuizListItem(
+    val id: String,
+    val title: String,
+    val description: String,
+    val difficulty: String,
+    val pointsReward: String
+)

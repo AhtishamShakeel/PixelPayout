@@ -9,14 +9,13 @@ import com.pixelpayout.R
 import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.databinding.ItemQuizBinding
 
-class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
-    ListAdapter<Quiz, QuizAdapter.QuizViewHolder>(QuizDiffCallback()) {
+class QuizAdapter(
+    private val onQuizSelected: () -> Unit
+) : ListAdapter<QuizListItem, QuizAdapter.QuizViewHolder>(QuizDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QuizViewHolder {
         val binding = ItemQuizBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
+            LayoutInflater.from(parent.context), parent, false
         )
         return QuizViewHolder(binding)
     }
@@ -30,39 +29,22 @@ class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
     ) : RecyclerView.ViewHolder(binding.root) {
 
         init {
-            binding.root.setOnClickListener {
-                val position = absoluteAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onQuizClick(getItem(position))
-                }
-            }
+            itemView.setOnClickListener { onQuizSelected() }
         }
 
-        fun bind(quiz: Quiz) {
+        fun bind(quiz: QuizListItem) {
             binding.apply {
-                titleText.text = quiz.title
-                difficultyChip.text = quiz.difficulty
-                pointsText.text = root.context.getString(R.string.points_value, quiz.pointsReward)
-
-                // Set chip color based on difficulty
-                val colorRes = when (quiz.difficulty.lowercase()) {
-                    "easy" -> R.color.difficulty_easy
-                    "medium" -> R.color.difficulty_medium
-                    "hard" -> R.color.difficulty_hard
-                    else -> R.color.difficulty_easy
-                }
-                difficultyChip.setChipBackgroundColorResource(colorRes)
+                quizTitle.text = quiz.title
+                quizDescription.text = quiz.description
+                quizReward.text = quiz.pointsReward
             }
         }
     }
 
-    private class QuizDiffCallback : DiffUtil.ItemCallback<Quiz>() {
-        override fun areItemsTheSame(oldItem: Quiz, newItem: Quiz): Boolean {
-            return oldItem.title == newItem.title
-        }
-
-        override fun areContentsTheSame(oldItem: Quiz, newItem: Quiz): Boolean {
-            return oldItem == newItem
-        }
+    private class QuizDiffCallback : DiffUtil.ItemCallback<QuizListItem>() {
+        override fun areItemsTheSame(oldItem: QuizListItem, newItem: QuizListItem) =
+            oldItem.id == newItem.id
+        override fun areContentsTheSame(oldItem: QuizListItem, newItem: QuizListItem) =
+            oldItem == newItem
     }
 } 

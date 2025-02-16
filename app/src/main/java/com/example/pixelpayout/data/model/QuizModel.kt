@@ -24,9 +24,12 @@ data class ApiQuiz(
 
 data class ApiQuestion(
     @SerializedName("id") val id: Int,
-    @SerializedName("question") val questionText: String,
-    @SerializedName("correct_answer") val correctAnswer: String,
-    @SerializedName("incorrect_answers") val incorrectAnswers: List<String>,
+    @SerializedName("statement") val questionText: String,
+    @SerializedName("answer") val correctAnswer: String,
+    @SerializedName("option_a") val optionA: String,
+    @SerializedName("option_b") val optionB: String,
+    @SerializedName("option_c") val optionC: String,
+    @SerializedName("option_d") val optionD: String,
     @SerializedName("difficulty") val difficulty: String
 )
 

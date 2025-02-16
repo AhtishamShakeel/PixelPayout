@@ -5,13 +5,13 @@ import retrofit2.http.GET
 import retrofit2.http.Path
 
 interface QuizApiService {
-    @GET("categories")
+    @GET("/")
     suspend fun getCategories(): List<Category>
 
-    @GET("topic/{categoryId}")
+    @GET("topic/{categoryId}/")
     suspend fun getTopics(@Path("categoryId") categoryId: Int): List<Topic>
 
-    @GET("quiz/{topicId}")
+    @GET("quiz/{topicId}/")
     suspend fun getQuizzes(@Path("topicId") topicId: Int): List<ApiQuiz>
 
     @GET("questions/{quizId}/{difficulty}")

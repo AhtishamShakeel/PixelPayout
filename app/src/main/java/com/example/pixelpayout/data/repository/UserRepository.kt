@@ -21,6 +21,8 @@ import com.pixelpayout.data.network.QuizApiService
 import com.pixelpayout.data.model.QuizQuestion
 import com.pixelpayout.data.model.QuestionDifficulty
 import com.pixelpayout.data.model.Result
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 
 data class UserData(
     val points: Int,
@@ -37,6 +39,18 @@ class UserRepository {
     private val retrofit = Retrofit.Builder()
         .baseUrl("https://quizverse.pythonanywhere.com/")
         .addConverterFactory(GsonConverterFactory.create())
+        .client(OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .addInterceptor { chain ->
+                val request = chain.request()
+                println("Debug: Making request to: ${request.url}")
+                val response = chain.proceed(request)
+                println("Debug: Response code: ${response.code}")
+                response
+            }
+            .build())
         .build()
 
     private val quizApiService = retrofit.create(QuizApiService::class.java)
@@ -306,67 +320,82 @@ class UserRepository {
 
     suspend fun fetchRandomQuestion(): Result<QuizQuestion> {
         return try {
-            // Step 1: Fetch all categories
-            val categories = quizApiService.getCategories()
-            if (categories.isEmpty()) {
-                return Result.failure(Exception("No categories available"))
+            // For testing, use known working IDs
+            val categoryId = 7
+            val topicId = 26
+            val quizId = 69
+            val difficulty = "easy"
+
+            try {
+                // Get category name for the known category ID
+                val categoriesResponse = try {
+                    quizApiService.getCategories()
+                } catch (e: Exception) {
+                    println("Debug: Categories API error - ${e.message}")
+                    null
+                }
+
+                // Use a default category name if we can't get it from the API
+                val categoryName = categoriesResponse?.find { it.id == categoryId }?.name ?: "General Knowledge"
+
+                // Fetch questions for the known quiz and difficulty
+                val questionsResponse = try {
+                    quizApiService.getQuestions(quizId, difficulty)
+                } catch (e: Exception) {
+                    println("Debug: Questions API error - ${e.message}")
+                    null
+                }
+
+                val questions = questionsResponse ?: emptyList()
+                println("Debug: Questions response - $questions")
+
+                if (questions.isEmpty()) {
+                    return Result.failure(Exception("No questions available"))
+                }
+
+                // Select a random question
+                val selectedApiQuestion = questions.random()
+                println("Debug: Selected question - $selectedApiQuestion")
+
+                // Create options list from individual options
+                val allOptions = listOf(
+                    selectedApiQuestion.optionA,
+                    selectedApiQuestion.optionB,
+                    selectedApiQuestion.optionC,
+                    selectedApiQuestion.optionD
+                )
+                val shuffledOptions = allOptions.shuffled()
+
+                // Find the index of correct answer in shuffled options
+                val correctAnswerIndex = shuffledOptions.indexOf(selectedApiQuestion.correctAnswer)
+
+                if (correctAnswerIndex == -1) {
+                    return Result.failure(Exception("Correct answer not found in options"))
+                }
+
+                // Convert to our app's Question model
+                val quizQuestion = QuizQuestion(
+                    id = selectedApiQuestion.id,
+                    questionText = selectedApiQuestion.questionText,
+                    options = shuffledOptions,
+                    correctAnswerIndex = correctAnswerIndex,
+                    difficulty = QuestionDifficulty.valueOf(difficulty.uppercase()),
+                    categoryName = categoryName  // Using the default or fetched category name
+                )
+
+                Result.success(quizQuestion)
+            } catch (e: Exception) {
+                println("Debug: Inner error - ${e.message}")
+                println("Debug: Inner error - ${e.message}")
+                println("Debug: Inner error stack trace:")
+                e.printStackTrace()
+                Result.failure(Exception("Failed to fetch question: ${e.message}"))
             }
-
-            // Step 2: Randomly select a category
-            val selectedCategory = categories.random()
-
-            // Step 3: Fetch topics for the selected category
-            val topics = quizApiService.getTopics(selectedCategory.id)
-            if (topics.isEmpty()) {
-                return Result.failure(Exception("No topics available for selected category"))
-            }
-
-            // Step 4: Randomly select a topic
-            val selectedTopic = topics.random()
-
-            // Step 5: Fetch quizzes for the selected topic
-            val quizzes = quizApiService.getQuizzes(selectedTopic.id)
-            if (quizzes.isEmpty()) {
-                return Result.failure(Exception("No quizzes available for selected topic"))
-            }
-
-            // Step 6: Randomly select a quiz
-            val selectedQuiz = quizzes.random()
-
-            // Step 7: Randomly select a difficulty level
-            val difficulties = listOf("easy", "medium", "hard")
-            val selectedDifficulty = difficulties.random()
-
-            // Step 8: Fetch questions for the selected quiz and difficulty
-            val questions = quizApiService.getQuestions(selectedQuiz.id, selectedDifficulty)
-            if (questions.isEmpty()) {
-                return Result.failure(Exception("No questions available for selected quiz and difficulty"))
-            }
-
-            // Step 9: Randomly select a question
-            val selectedApiQuestion = questions.random()
-
-            // Step 10: Create shuffled options list with correct answer
-            val allOptions = selectedApiQuestion.incorrectAnswers.toMutableList()
-            allOptions.add(selectedApiQuestion.correctAnswer)
-            val shuffledOptions = allOptions.shuffled()
-
-            // Find the index of correct answer in shuffled options
-            val correctAnswerIndex = shuffledOptions.indexOf(selectedApiQuestion.correctAnswer)
-
-            // Step 11: Convert to our app's Question model
-            val quizQuestion = QuizQuestion(
-                id = selectedApiQuestion.id,
-                questionText = selectedApiQuestion.questionText,
-                options = shuffledOptions,
-                correctAnswerIndex = correctAnswerIndex,
-                difficulty = QuestionDifficulty.valueOf(selectedDifficulty.uppercase()),
-                categoryName = selectedCategory.name
-            )
-
-            Result.success(quizQuestion)
         } catch (e: Exception) {
-            Result.failure(e)
+            println("Debug: Outer error - ${e.message}")
+            println("Debug: Outer error stack trace:")
+            e.printStackTrace()
+            Result.failure(Exception("Network error: ${e.message}"))
         }
     }
 

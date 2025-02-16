@@ -62,7 +62,8 @@ class QuizListFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        quizAdapter = QuizAdapter { quiz ->
+        quizAdapter = QuizAdapter {
+            // Just launch quiz activity directly
             launchQuiz()
         }
 
@@ -148,8 +149,14 @@ class QuizListFragment : Fragment() {
     }
 
     private fun launchQuiz() {
-        val intent = Intent(requireContext(), QuizActivity::class.java)
-        quizLauncher.launch(intent)
+        // Check if user has remaining attempts
+        if (viewModel.canAttemptQuiz()) {
+            val intent = Intent(requireContext(), QuizActivity::class.java)
+            quizLauncher.launch(intent)
+        } else {
+            // Show limit reached message
+            binding.limitReachedLayout.visibility = View.VISIBLE
+        }
     }
 
     private fun showRewardedAd() {

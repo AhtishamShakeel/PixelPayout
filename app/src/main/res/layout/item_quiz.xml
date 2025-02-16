@@ -8,42 +8,34 @@
     app:cardCornerRadius="8dp"
     app:cardElevation="4dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:padding="16dp">
 
         <TextView
-            android:id="@+id/titleText"
-            android:layout_width="0dp"
+            android:id="@+id/quizTitle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="18sp"
             android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Science: Computers" />
+            tools:text="Random Quiz" />
 
-        <com.google.android.material.chip.Chip
-            android:id="@+id/difficultyChip"
+        <TextView
+            android:id="@+id/quizDescription"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/titleText"
-            tools:text="Medium" />
+            tools:text="Test your knowledge with random questions!" />
 
         <TextView
-            android:id="@+id/pointsText"
+            android:id="@+id/quizReward"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:drawablePadding="4dp"
-            android:gravity="center_vertical"
-            app:drawableStartCompat="@drawable/ic_points"
-            app:layout_constraintBottom_toBottomOf="@id/difficultyChip"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/difficultyChip"
-            tools:text="200 points" />
+            android:layout_marginTop="8dp"
+            android:textStyle="italic"
+            tools:text="10-30 points per question" />
+    </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
 </com.google.android.material.card.MaterialCardView> 

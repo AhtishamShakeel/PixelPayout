@@ -9,6 +9,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityQuizBinding
 import com.pixelpayout.data.model.QuizQuestion
+import android.app.AlertDialog
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -19,6 +20,16 @@ class QuizActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Get the quiz ID from intent
+        val quizId = intent.getIntExtra(EXTRA_QUIZ_ID, -1)
+        if (quizId == -1) {
+            finish()
+            return
+        }
+
+        // Set the quiz ID in ViewModel
+        viewModel.setQuizId(quizId)
 
         setupViews()
         observeViewModel()
@@ -39,9 +50,7 @@ class QuizActivity : AppCompatActivity() {
         binding.submitButton.setOnClickListener {
             if (selectedAnswerIndex != -1) {
                 viewModel.submitAnswer(selectedAnswerIndex)
-                selectedAnswerIndex = -1
-                binding.submitButton.isEnabled = false
-                binding.optionsGroup.clearCheck()
+                showAnswerResultDialog()
             }
         }
     }
@@ -100,7 +109,21 @@ class QuizActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAnswerResultDialog() {
+        val isCorrect = viewModel.isLastAnswerCorrect()
+        val points = viewModel.getLastQuestionPoints()
+
+        AlertDialog.Builder(this)
+            .setTitle(if (isCorrect) "Correct!" else "Incorrect")
+            .setMessage(if (isCorrect) "You earned $points points!" else "Better luck next time!")
+            .setPositiveButton("Next") { _, _ ->
+                viewModel.loadNewQuestion()
+            }
+            .setCancelable(false)
+            .show()
+    }
+
     companion object {
-        const val EXTRA_QUIZ = "extra_quiz"
+        const val EXTRA_QUIZ_ID = "extra_quiz_id"
     }
 }

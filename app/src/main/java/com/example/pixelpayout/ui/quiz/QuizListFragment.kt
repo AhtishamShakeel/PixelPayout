@@ -62,9 +62,11 @@ class QuizListFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        quizAdapter = QuizAdapter {
-            // Just launch quiz activity directly
-            launchQuiz()
+        quizAdapter = QuizAdapter { quiz ->
+            // Pass the quiz ID to the QuizActivity
+            val intent = Intent(requireContext(), QuizActivity::class.java)
+            intent.putExtra(QuizActivity.EXTRA_QUIZ_ID, quiz.id)
+            quizLauncher.launch(intent)
         }
 
         binding.recyclerView.apply {

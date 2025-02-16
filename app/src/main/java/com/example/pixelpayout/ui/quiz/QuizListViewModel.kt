@@ -14,7 +14,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.pixelpayout.data.model.Quiz
-import com.pixelpayout.data.repository.QuizRepository
 import com.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.launch
@@ -23,16 +22,32 @@ import java.util.Date
 import java.util.TimeZone
 import kotlin.Pair
 import android.content.Context
+import com.pixelpayout.data.network.QuizApiService
 import com.pixelpayout.utils.AdManager
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
 
 class QuizListViewModel : ViewModel() {
-    private val repository = QuizRepository()
     private val userRepository = UserRepository()
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val _quizzes = MutableLiveData<List<QuizListItem>>()
-    val quizzes: LiveData<List<QuizListItem>> = _quizzes
+    private val retrofit = Retrofit.Builder()
+        .baseUrl("https://quizverse.pythonanywhere.com/api/")
+        .addConverterFactory(GsonConverterFactory.create())
+        .client(OkHttpClient.Builder()
+            .addInterceptor(HttpLoggingInterceptor().apply {
+                level = HttpLoggingInterceptor.Level.BODY
+            })
+            .build())
+        .build()
+
+    private val quizApiService = retrofit.create(QuizApiService::class.java)
+
+    private val _quizzes = MutableLiveData<List<Quiz>>()
+    val quizzes: LiveData<List<Quiz>> = _quizzes
 
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
@@ -115,18 +130,22 @@ class QuizListViewModel : ViewModel() {
                 val remainingAttempts = MAX_DAILY_ATTEMPTS - attempts
 
                 if (remainingAttempts > 0) {
-                    // Create a single quiz option that leads to random questions
-                    val quizList = listOf(
-                        QuizListItem(
-                            id = "random_quiz",
-                            title = "Random Quiz",
-                            description = "Test your knowledge with random questions!",
-                            difficulty = "Mixed",
-                            pointsReward = "10-30 points per question"
+                    try {
+                        // Create a single Math Quiz option since we're using a specific quiz ID
+                        val quizList = listOf(
+                            Quiz(
+                                title = "Math Quiz",
+                                difficulty = "easy",
+                                pointsReward = 10,
+                                id = 71  // Using the specific quiz ID from the API
+                            )
                         )
-                    )
-                    _quizzes.value = quizList
-                    _remainingQuizzes.value = remainingAttempts
+
+                        _quizzes.value = quizList
+                        _remainingQuizzes.value = remainingAttempts
+                    } catch (e: Exception) {
+                        _error.value = "Failed to load quizzes: ${e.message}"
+                    }
                 } else {
                     _quizLimitReached.value = true
                 }

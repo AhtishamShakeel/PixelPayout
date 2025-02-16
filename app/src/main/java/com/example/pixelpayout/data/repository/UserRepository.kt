@@ -318,29 +318,14 @@ class UserRepository {
         return (1..6).map { chars.random() }.joinToString("")
     }
 
-    suspend fun fetchRandomQuestion(): Result<QuizQuestion> {
+    suspend fun fetchRandomQuestion(quizId: Int): Result<QuizQuestion> {
         return try {
-            // For testing, use known working IDs
-            val categoryId = 7
-            val topicId = 26
-            val quizId = 69
             val difficulty = "easy"
 
             try {
-                // Get category name for the known category ID
-                val categoriesResponse = try {
-                    quizApiService.getCategories()
-                } catch (e: Exception) {
-                    println("Debug: Categories API error - ${e.message}")
-                    null
-                }
-
-                // Use a default category name if we can't get it from the API
-                val categoryName = categoriesResponse?.find { it.id == categoryId }?.name ?: "General Knowledge"
-
-                // Fetch questions for the known quiz and difficulty
+                // Fetch questions for quiz ID 71
                 val questionsResponse = try {
-                    quizApiService.getQuestions(quizId, difficulty)
+                    quizApiService.getQuestions(71, "easy")  // Hardcoded to quiz 71 and easy difficulty
                 } catch (e: Exception) {
                     println("Debug: Questions API error - ${e.message}")
                     null
@@ -380,12 +365,11 @@ class UserRepository {
                     options = shuffledOptions,
                     correctAnswerIndex = correctAnswerIndex,
                     difficulty = QuestionDifficulty.valueOf(difficulty.uppercase()),
-                    categoryName = categoryName  // Using the default or fetched category name
+                    categoryName = "Mathematics"  // Hardcoded since we know it's a math quiz
                 )
 
                 Result.success(quizQuestion)
             } catch (e: Exception) {
-                println("Debug: Inner error - ${e.message}")
                 println("Debug: Inner error - ${e.message}")
                 println("Debug: Inner error stack trace:")
                 e.printStackTrace()

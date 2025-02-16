@@ -15,6 +15,9 @@ import kotlinx.coroutines.launch
 class QuizViewModel : ViewModel() {
     private var _activeQuestion: QuizQuestion? = null
     private var points = 0
+    private var lastAnswerCorrect = false
+    private var lastQuestionPoints = 0
+    private var quizId: Int = -1
 
     private val _questionLiveData = MutableLiveData<QuizQuestion>()
     val questionLiveData: LiveData<QuizQuestion> = _questionLiveData
@@ -39,22 +42,29 @@ class QuizViewModel : ViewModel() {
 
     fun submitAnswer(selectedAnswerIndex: Int) {
         _activeQuestion?.let { question ->
-            // Check if answer is correct
-            if (selectedAnswerIndex == question.correctAnswerIndex) {
-                points += question.pointsReward
+            lastAnswerCorrect = selectedAnswerIndex == question.correctAnswerIndex
+            lastQuestionPoints = if (lastAnswerCorrect) question.pointsReward else 0
+
+            if (lastAnswerCorrect) {
+                points += lastQuestionPoints
                 _score.value = points
             }
-
-            // Load next question
-            loadNewQuestion()
         }
+    }
+
+    fun isLastAnswerCorrect() = lastAnswerCorrect
+    fun getLastQuestionPoints() = lastQuestionPoints
+
+    fun setQuizId(id: Int) {
+        quizId = id
+        loadNewQuestion()
     }
 
     fun loadNewQuestion() {
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                val result = userRepository.fetchRandomQuestion()
+                val result = userRepository.fetchRandomQuestion(quizId)
                 when (result) {
                     is Result.Success -> {
                         _activeQuestion = result.data
@@ -81,14 +91,14 @@ class QuizViewModel : ViewModel() {
     }
 
     fun submitQuiz() {
-        val userRef = FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(FirebaseAuth.getInstance().currentUser?.uid ?: return)
-
-        userRef.update(
-            "quizAttempts", FieldValue.increment(1),
-            "lastQuizDate", FieldValue.serverTimestamp(),
-            "serverTime", FieldValue.serverTimestamp()
-        )
+        viewModelScope.launch {
+            try {
+                userRepository.updateUserPoints(points) {
+                    _isQuizComplete.value = true
+                }
+            } catch (e: Exception) {
+                _error.value = e.message
+            }
+        }
     }
 }

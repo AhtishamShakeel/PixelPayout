@@ -51,3 +51,11 @@ data class QuizQuestion(
         QuestionDifficulty.HARD -> 30
     }
 )
+
+// This is our quiz list item model
+data class Quiz(
+    val title: String,
+    val difficulty: String,
+    val pointsReward: Int,
+    val id: Int
+)

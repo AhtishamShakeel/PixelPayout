@@ -63,7 +63,7 @@ class QuizListFragment : Fragment() {
 
     private fun setupRecyclerView() {
         quizAdapter = QuizAdapter { quiz ->
-            startQuiz(quiz)
+            launchQuiz()
         }
 
         binding.recyclerView.apply {
@@ -147,10 +147,8 @@ class QuizListFragment : Fragment() {
         viewModel.loadQuizzes()
     }
 
-    private fun startQuiz(quiz: Quiz) {
-        val intent = Intent(requireContext(), QuizActivity::class.java).apply {
-            putExtra(QuizActivity.EXTRA_QUIZ, quiz)
-        }
+    private fun launchQuiz() {
+        val intent = Intent(requireContext(), QuizActivity::class.java)
         quizLauncher.launch(intent)
     }
 

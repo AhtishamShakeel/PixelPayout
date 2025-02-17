@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/navigation_home">
+
+    <fragment
+        android:id="@+id/navigation_home"
+        android:name="com.pixelpayout.ui.home.HomeFragment"
+        android:label="Home">
+        <action
+            android:id="@+id/action_home_to_details"
+            app:destination="@id/detailsFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/navigation_play"
+        android:name="com.pixelpayout.ui.game.GameFragment"
+        android:label="Play Game" />
+
+    <fragment
+        android:id="@+id/navigation_quizzes"
+        android:name="com.pixelpayout.ui.quiz.QuizListFragment"
+        android:label="Quizzes" />
+
+    <fragment
+        android:id="@+id/navigation_rewards"
+        android:name="com.pixelpayout.ui.rewards.RewardsFragment"
+        android:label="Rewards" />
+
+    <fragment
+        android:id="@+id/navigation_redemption"
+        android:name="com.pixelpayout.ui.redemption.RedemptionFragment"
+        android:label="Cashout" />
+
+    <fragment
+        android:id="@+id/detailsFragment"
+        android:name="com.pixelpayout.ui.details.DetailsFragment"
+        android:label="Details">
+        <argument
+            android:name="type"
+            app:argType="string" />
+    </fragment>
+
+</navigation>

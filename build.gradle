@@ -1,0 +1,21 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        google()    // Make sure to include the google() repository.
+        mavenCentral()
+    }
+    dependencies {
+        // Add the Google Services Gradle plugin dependency.
+        classpath 'com.google.gms:google-services:4.3.15'
+        classpath 'com.google.firebase:firebase-crashlytics-gradle:2.9.6'
+        classpath "androidx.navigation:navigation-safe-args-gradle-plugin:2.7.7"
+    }
+}
+
+plugins {
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
+
+}

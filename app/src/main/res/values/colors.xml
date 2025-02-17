@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ... existing colors ... -->
+    <color name="primary">#8A8AFF</color>
+    <color name="primary_dark">#5757FF</color>
+    <color name="primary_transparent">#508A8AFF</color>
+    <color name="accent">#03A9F4</color>
+    <color name="accent_dark">#0288D1</color>
+
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+
+    <!-- Dark theme specific colors -->
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="card_dark">#2D2D2D</color>
+    <color name="difficulty_easy">#4CAF50</color>
+    <color name="difficulty_medium">#FFC107</color>
+    <color name="difficulty_hard">#F44336</color>
+</resources> 

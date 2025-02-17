@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_home"
+        android:icon="@drawable/ic_home"
+        android:title="Home" />
+
+    <item
+        android:id="@+id/navigation_play"
+        android:icon="@drawable/ic_game"
+        android:title="Play Game" />
+
+    <item
+        android:id="@+id/navigation_quizzes"
+        android:icon="@drawable/ic_quiz"
+        android:title="Quizzes" />
+
+    <item
+        android:id="@+id/navigation_rewards"
+        android:icon="@drawable/ic_rewards"
+        android:title="Rewards" />
+
+    <item
+        android:id="@+id/navigation_redemption"
+        android:icon="@drawable/ic_redeem"
+        android:title="Cashout" />
+</menu> 

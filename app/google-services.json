@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "461737828827",
+    "project_id": "pixelpayout-check",
+    "storage_bucket": "pixelpayout-check.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:461737828827:android:206c72060698f9d958c7fe",
+        "android_client_info": {
+          "package_name": "com.pixelpayout"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKoH_Fo-laUG4gRtRTuyqBvudx6K3wG5Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

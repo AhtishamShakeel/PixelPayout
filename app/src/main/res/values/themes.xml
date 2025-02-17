@@ -1,0 +1,21 @@
+<resources>
+    <style name="Theme.PixelPayout" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorSecondaryVariant">@color/accent_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="android:statusBarColor">@color/background_dark</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowBackground">@color/background_dark</item>
+        <item name="colorSurface">@color/surface_dark</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="cardBackgroundColor">@color/card_dark</item>
+    </style>
+
+    <style name="Theme.MaterialComponents.Dialog.MinWidth" parent="Theme.MaterialComponents.Dialog">
+        <item name="windowMinWidthMajor">80%</item>
+        <item name="windowMinWidthMinor">80%</item>
+    </style>
+</resources> 

@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PixelPayout</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="login">Login</string>
+    <string name="create_account">Create Account</string>
+    <string name="error_invalid_email">Invalid email address</string>
+    <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_login_failed">Login failed: %1$s</string>
+    <string name="full_name">Full Name</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="already_have_account">Already have an account? Login</string>
+    <string name="error_name_required">Name is required</string>
+    <string name="error_signup_failed">Signup failed: %1$s</string>
+    <string name="quizzes">Quizzes</string>
+    <string name="redemption">Redemption</string>
+    <string name="error_loading_quizzes">Error loading quizzes</string>
+    <string name="points_value">%d </string>
+    <string name="submit_answer">Submit Answer</string>
+    <string name="select_answer">Please select an answer</string>
+    <string name="timer_format">%d s</string>
+    <string name="quiz_completed">Quiz Completed!</string>
+    <string name="points_earned">You earned %d points!</string>
+    <string name="done">Done</string>
+    <string name="redeem">Redeem</string>
+    <string name="insufficient_points">Insufficient points</string>
+    <string name="enter_phone_number">Enter Phone Number</string>
+    <string name="enter_game_id">Enter Game ID</string>
+    <string name="confirm">Confirm</string>
+    <string name="cancel">Cancel</string>
+    <string name="redemption_success">Redemption request submitted successfully!</string>
+    <string name="redemption_error">Failed to submit redemption request</string>
+    <string name="game_coming_soon">Game Coming Soon!</string>
+    <string name="home">Home</string>
+    <string name="game">Game</string>
+    <string name="welcome_message">Welcome to PixelPayout!</string>
+    <string name="game_info">Play our exciting game to earn points!</string>
+    <string name="play_game">Play Game</string>
+    <string name="daily_limit_reached">Daily Quiz Limit Reached!</string>
+    <string name="next_quiz_time">Next quizzes available in %1$d hours %2$d minutes</string>
+    <string name="remaining_quizzes">Remaining quizzes today: %d</string>
+    <string name="error_timeout">Request timed out. Please try again later.</string>
+    <string name="error_network">Network error. Please check your connection.</string>
+    <string name="error_unknown">An unexpected error occurred. Please try again.</string>
+    <string name="watch_ad_for_quiz">Watch Ad for Extra Quiz</string>
+    <string name="ad_not_available">Ad not available. Please try again later.</string>
+    <string name="extra_attempt_added">Extra quiz attempt added!</string>
+    <string name="failed_to_add_attempt">Failed to add extra attempt: %1$s</string>
+    <string name="loading_ad">Loading Ad...</string>
+    <string name="quiz_rules_description">Test your knowledge and earn stars by answering questions correctly!\n\n
+        Rules:\n
+        • Each quiz has multiple choice questions\n
+        • You have 30 seconds to answer each question\n
+        • Correct answers earn you stars based on difficulty\n
+        • You can attempt up to 10 quizzes per day\n
+        • Watch ads to get extra attempts
+    </string>
+    <string name="game_rules_description">Play our exciting Color Puzzle game to earn stars!\n\n
+        Rules:\n
+        • Sort the colors to match the pattern\n
+        • Faster completion gives more stars\n
+        • Earn 5-10 stars per minute based on performance\n
+        • No daily limit on game plays\n
+        • Practice to improve your speed and earn more!
+    </string>
+    <string name="enter_referral_code">Enter Referral Code</string>
+    <string name="referral_reward_description">Get 100 points for valid referral</string>
+    <string name="submit_referral">Submit Referral</string>
+    <string name="referral_success">Referral successful! 100 points added</string>
+    <string name="error_already_used_referral">You have already used a referral code</string>
+    <string name="error_invalid_referral">Invalid referral code</string>
+</resources>

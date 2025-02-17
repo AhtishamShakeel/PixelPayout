@@ -17,7 +17,7 @@ class QuizRepository {
             val apiQuestions = api.getQuestions(quizId, difficulty)
 
             // Convert to app's Question format
-            val questions = apiQuestions.map { apiQuestion ->
+            val questions = apiQuestions.take(1).map { apiQuestion ->
                 val options = listOfNotNull(
                     apiQuestion.optionA,
                     apiQuestion.optionB,

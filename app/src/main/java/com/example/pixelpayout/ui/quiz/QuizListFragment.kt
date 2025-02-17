@@ -13,8 +13,7 @@ import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
-import com.pixelpayout.data.model.Quiz
-import com.pixelpayout.ui.main.MainActivity
+import com.example.pixelpayout.data.api.Quiz
 import java.util.concurrent.TimeUnit
 import com.pixelpayout.utils.AdManager
 

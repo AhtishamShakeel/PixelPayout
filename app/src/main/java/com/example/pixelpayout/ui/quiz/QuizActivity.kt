@@ -9,7 +9,7 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.pixelpayout.R
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.databinding.ActivityQuizBinding
 import android.text.Html
 import android.os.Build
@@ -17,13 +17,11 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.data.model.Question
-import com.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.ui.quiz.QuizListViewModel.Companion.MAX_DAILY_QUIZZES
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
-import kotlin.math.abs
 import com.google.firebase.Timestamp
 
 class QuizActivity : AppCompatActivity() {

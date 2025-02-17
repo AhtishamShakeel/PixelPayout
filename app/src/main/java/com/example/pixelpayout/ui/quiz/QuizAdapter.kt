@@ -6,7 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.pixelpayout.R
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.databinding.ItemQuizBinding
 
 class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :

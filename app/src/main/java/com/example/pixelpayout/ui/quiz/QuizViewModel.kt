@@ -3,7 +3,7 @@ package com.pixelpayout.ui.quiz
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.data.model.Question
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth

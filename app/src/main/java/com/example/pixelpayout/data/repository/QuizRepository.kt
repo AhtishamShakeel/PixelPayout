@@ -1,57 +1,48 @@
 package com.pixelpayout.data.repository
 
-
+import android.text.Html
 import com.example.pixelpayout.data.api.Quiz
-import com.pixelpayout.data.model.Question
 import com.example.pixelpayout.data.api.QuizApi
+import com.example.pixelpayout.data.api.TriviaResponse
+import com.pixelpayout.data.model.Question
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class QuizRepository {
     private val api = QuizApi.service
+    private var cachedQuizzes: List<Quiz>? = null
 
     suspend fun getQuizzes(): List<Quiz> {
-        return try {
-            val quizId = 71
-            val difficulty = "easy"
+        return withContext(Dispatchers.IO) {
+            cachedQuizzes ?: run {
+                val response = api.getQuestions(amount = 10)
+                val body = response.body()?.results ?: emptyList()
 
-            // Fetch API questions
-            val apiQuestions = api.getQuestions(quizId, difficulty)
-
-            // Convert to app's Question format
-            val questions = apiQuestions.take(1).map { apiQuestion ->
-                val options = listOfNotNull(
-                    apiQuestion.optionA,
-                    apiQuestion.optionB,
-                    apiQuestion.optionC,
-                    apiQuestion.optionD,
-                    apiQuestion.optionE
-                ).filter { !it.isNullOrEmpty() }
-
-                val correctAnswerIndex = options.indexOfFirst { it == apiQuestion.answer }
-
-                Question(
-                    text = apiQuestion.statement,
-                    options = options,
-                    correctAnswer = correctAnswerIndex.coerceAtLeast(0)
-                )
+                body.mapNotNull { apiQuestion ->
+                    try {
+                        val allOptions = (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled()
+                        Quiz(
+                            title = "${apiQuestion.category} (${apiQuestion.difficulty})",
+                            difficulty = apiQuestion.difficulty,
+                            pointsReward = when (apiQuestion.difficulty.lowercase()) {
+                                "easy" -> 10
+                                "medium" -> 15
+                                "hard" -> 20
+                                else -> 10
+                            },
+                            questions = listOf(
+                                Question(
+                                    text = Html.fromHtml(apiQuestion.question).toString(),
+                                    options = allOptions,
+                                    correctAnswer = allOptions.indexOf(apiQuestion.correctAnswer)
+                                )
+                            )
+                        )
+                    } catch (e: Exception) {
+                        null
+                    }
+                }.take(3).also { cachedQuizzes = it }
             }
-
-            // Create Quiz object
-            listOf(
-                Quiz(
-                    title = "Mathematics Quiz",
-                    difficulty = difficulty,
-                    pointsReward = when (difficulty) {
-                        "easy" -> 10
-                        "medium" -> 20
-                        "hard" -> 30
-                        else -> 10
-                    },
-                    questions = questions
-                )
-            )
-        } catch (e: Exception) {
-            e.printStackTrace()
-            emptyList()
         }
     }
 }

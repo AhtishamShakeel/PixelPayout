@@ -76,15 +76,9 @@ class QuizListFragment : Fragment() {
             quizAdapter.submitList(quizzes)
         }
 
-        viewModel.isLoading.observe(viewLifecycleOwner) { isLoading ->
+        viewModel.loadingState.observe(viewLifecycleOwner) { isLoading ->
             binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
             binding.contentLayout.visibility = if (isLoading) View.GONE else View.VISIBLE
-        }
-
-        viewModel.dataLoaded.observe(viewLifecycleOwner) { loaded ->
-            if (loaded) {
-                binding.contentLayout.visibility = View.VISIBLE
-            }
         }
 
         viewModel.error.observe(viewLifecycleOwner) { error ->

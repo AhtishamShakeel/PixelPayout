@@ -106,8 +106,9 @@ class QuizListViewModel : ViewModel() {
 
     fun loadQuizzes() {
         viewModelScope.launch {
+            _isLoading.value = true
             try {
-                _isLoading.value = true
+                _quizzes.value = repository.getQuizzes()
                 _error.value = null
                 _dataLoaded.value = false
 

@@ -49,19 +49,19 @@ class QuizListViewModel : ViewModel() {
 
     // State tracking
     private var hasLoaded = false
-    private var isLoadingState = false
     private var isCurrentlyLoading = false
 
     companion object {
         const val MAX_DAILY_QUIZZES = 10
     }
 
-    init {
-        loadQuizzes()
-    }
+    fun loadQuizzes(forceRefresh: Boolean = false) {
+        // Don't load if already loading
+        if (isCurrentlyLoading) return
 
-    fun loadQuizzes() {
-        if (isCurrentlyLoading || hasLoaded) return
+        // Don't load if we have data and aren't forcing refresh
+        if (!forceRefresh && hasLoaded && _quizzes.value?.isNotEmpty() == true) return
+
         isCurrentlyLoading = true
         _loadingState.value = true
 
@@ -166,16 +166,15 @@ class QuizListViewModel : ViewModel() {
         }.timeInMillis
     }
 
-    fun submitQuiz() {
-        val userId = auth.currentUser?.uid ?: return
-        db.collection("users").document(userId).set(
-            mapOf(
-                "quizAttempts" to FieldValue.increment(1),
-                "lastQuizDate" to FieldValue.serverTimestamp()
-            ),
-            SetOptions.merge()
-        )
-    }
+    private fun submitQuiz() =
+        db.collection("users").document(auth.currentUser?.uid ?: throw Exception("Not authenticated"))
+            .set(
+                mapOf(
+                    "quizAttempts" to FieldValue.increment(1),
+                    "lastQuizDate" to FieldValue.serverTimestamp()
+                ),
+                SetOptions.merge()
+            )
 
     fun watchAdForExtraQuiz() {
         viewModelScope.launch {
@@ -198,6 +197,25 @@ class QuizListViewModel : ViewModel() {
                 _adAvailable.value = available
             }
             loadRewardedAd(context)
+        }
+    }
+
+    fun resetLoadingState() {
+        hasLoaded = false
+    }
+
+    fun onQuizCompleted() {
+        viewModelScope.launch {
+            try {
+                // First submit the quiz and wait for it to complete
+                submitQuiz().await() // Make submitQuiz return a Task<Void>
+
+                // Reset loading state and force refresh
+                hasLoaded = false
+                loadQuizzes(forceRefresh = true)
+            } catch (e: Exception) {
+                _error.value = "Error updating quiz: ${e.message}"
+            }
         }
     }
 }

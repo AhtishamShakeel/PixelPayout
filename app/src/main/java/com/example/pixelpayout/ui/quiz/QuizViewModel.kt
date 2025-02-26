@@ -50,7 +50,10 @@ class QuizViewModel : ViewModel() {
             showCurrentQuestion()
         } else {
             _score.value = points
-            _isQuizComplete.value = true
+            // Update points in Firebase before showing completion
+            updatePoints {
+                _isQuizComplete.value = true
+            }
         }
     }
 
@@ -61,12 +64,17 @@ class QuizViewModel : ViewModel() {
     fun updatePoints(onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
-                userRepository.updateUserPoints(points, onComplete)
+                userRepository.updateUserPoints(points) {
+                    _totalPoints.value = it
+                    onComplete()
+                }
             } catch (e: Exception) {
-                // Handle error
+                // Handle error if needed
+                onComplete()
             }
         }
     }
+
     fun submitQuiz() {
         val userRef = FirebaseFirestore.getInstance()
             .collection("users")

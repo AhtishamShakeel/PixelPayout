@@ -26,7 +26,12 @@ class QuizListFragment : Fragment() {
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            viewModel.loadQuizzes()
+            // Show loading state
+            binding.progressIndicator.visibility = View.VISIBLE
+            binding.contentLayout.visibility = View.GONE
+
+            // Trigger quiz completion and reload
+            viewModel.onQuizCompleted()
         }
     }
 
@@ -42,8 +47,10 @@ class QuizListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
+        setupSwipeRefresh()
         observeViewModel()
-        // Load quizzes whenever fragment becomes visible
+
+        // Initial load only if we haven't loaded before
         loadQuizzes()
 
         // Preload ad
@@ -52,12 +59,6 @@ class QuizListFragment : Fragment() {
         binding.watchAdButton.setOnClickListener {
             showRewardedAd()
         }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // Reload quizzes when returning to this fragment
-        loadQuizzes()
     }
 
     private fun setupRecyclerView() {
@@ -71,14 +72,23 @@ class QuizListFragment : Fragment() {
         }
     }
 
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.setOnRefreshListener {
+            loadQuizzes(forceRefresh = true)
+        }
+    }
+
     private fun observeViewModel() {
         viewModel.quizzes.observe(viewLifecycleOwner) { quizzes ->
             quizAdapter.submitList(quizzes)
         }
 
         viewModel.loadingState.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
+            binding.progressIndicator.visibility = if (isLoading && !binding.swipeRefresh.isRefreshing) View.VISIBLE else View.GONE
             binding.contentLayout.visibility = if (isLoading) View.GONE else View.VISIBLE
+            if (!isLoading) {
+                binding.swipeRefresh.isRefreshing = false
+            }
         }
 
         viewModel.error.observe(viewLifecycleOwner) { error ->
@@ -134,10 +144,8 @@ class QuizListFragment : Fragment() {
         }
     }
 
-    private fun loadQuizzes() {
-        binding.contentLayout.visibility = View.GONE
-        binding.progressIndicator.visibility = View.VISIBLE
-        viewModel.loadQuizzes()
+    private fun loadQuizzes(forceRefresh: Boolean = false) {
+        viewModel.loadQuizzes(forceRefresh)
     }
 
     private fun startQuiz(quiz: Quiz) {
@@ -170,4 +178,4 @@ class QuizListFragment : Fragment() {
     companion object {
         private const val REQUEST_QUIZ = 1001
     }
-} 
+}

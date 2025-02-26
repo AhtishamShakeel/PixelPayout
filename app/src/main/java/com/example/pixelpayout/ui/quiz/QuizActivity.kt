@@ -1,6 +1,7 @@
 package com.pixelpayout.ui.quiz
 
 
+import android.app.Activity
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.View
@@ -75,13 +76,13 @@ class QuizActivity : AppCompatActivity() {
         viewModel.isQuizComplete.observe(this) { isComplete ->
             if (isComplete) {
                 timer?.cancel()
-                showResults()
+                showQuizCompleteDialog()
             }
         }
 
-        viewModel.score.observe(this) { score ->
-            // Update points in Firebase
-            // Will implement in next step
+        viewModel.totalPoints.observe(this) { totalPoints ->
+            // Points have been updated in Firebase
+            // We can now show the results dialog
         }
     }
 
@@ -133,17 +134,15 @@ class QuizActivity : AppCompatActivity() {
         }.start()
     }
 
-    private fun showResults() {
-        viewModel.updatePoints {
-            // Set a result to notify MainActivity that points were updated
-            setResult(RESULT_OK)
-        }
-
-        QuizResultsDialog.newInstance(
-            pointsEarned = viewModel.score.value ?: 0
-        ) {
-            finish()  // Finish QuizActivity after dialog is dismissed
-        }.show(supportFragmentManager, "results")
+    private fun showQuizCompleteDialog() {
+        QuizResultsDialog.show(
+            fragmentManager = supportFragmentManager,
+            points = viewModel.score.value ?: 0,
+            onDismiss = {
+                setResult(Activity.RESULT_OK)
+                finish()
+            }
+        )
     }
 
     private fun updateScore(@Suppress("UNUSED_PARAMETER") score: Int) {

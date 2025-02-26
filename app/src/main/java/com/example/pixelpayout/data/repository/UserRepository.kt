@@ -56,31 +56,20 @@ class UserRepository {
     )
 
 
-    suspend fun updateUserPoints(points: Int, onComplete: () -> Unit) {
-        withContext(Dispatchers.IO) {
-            try {
-                val user = auth.currentUser ?: throw Exception("User not logged in")
-                val userRef = firestore.collection("users").document(user.uid)
+    fun updateUserPoints(pointsToAdd: Int, onComplete: (Int) -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
 
-                firestore.runTransaction { transaction ->
-                    val snapshot = transaction.get(userRef)
-                    val currentPoints = snapshot.getLong("points")?.toInt() ?: 0
-                    val currentAttempts = snapshot.getLong("quizAttempts")?.toInt() ?: 0
-
-                    // Update both points and attempts in one transaction
-                    transaction.update(userRef, mapOf(
-                        "points" to currentPoints + points,
-                        "quizAttempts" to currentAttempts + 1
-                    ))
-                }.await()
-
-                withContext(Dispatchers.Main) {
-                    onComplete()
-                }
-            } catch (e: Exception) {
-                // Handle error
+        firestore.collection("users").document(userId)
+            .update("points", FieldValue.increment(pointsToAdd.toLong()))
+            .addOnSuccessListener {
+                // Get updated points
+                firestore.collection("users").document(userId)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        val totalPoints = document.getLong("points")?.toInt() ?: 0
+                        onComplete(totalPoints)
+                    }
             }
-        }
     }
 
     suspend fun getUserPoints(): Int {

@@ -6,6 +6,7 @@
     <color name="primary_transparent">#508A8AFF</color>
     <color name="accent">#03A9F4</color>
     <color name="accent_dark">#0288D1</color>
+    <color name="gray">#808080</color>
 
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
@@ -17,4 +18,5 @@
     <color name="difficulty_easy">#4CAF50</color>
     <color name="difficulty_medium">#FFC107</color>
     <color name="difficulty_hard">#F44336</color>
+
 </resources> 

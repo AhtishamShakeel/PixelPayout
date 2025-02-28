@@ -23,13 +23,18 @@
             tools:replace="android:resource" />
 
         <activity
-            android:name=".ui.auth.LoginActivity"
-            android:exported="true">
+            android:name=".ui.onboarding.OnboardingActivity"
+            android:exported="true"
+            tools:ignore="MissingClass">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.auth.LoginActivity"
+            android:exported="false" />
 
         <activity android:name=".ui.main.MainActivity" />
         <activity android:name=".ui.auth.SignupActivity" />

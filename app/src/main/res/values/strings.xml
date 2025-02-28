@@ -70,4 +70,38 @@
     <string name="referral_success">Referral successful! 100 points added</string>
     <string name="error_already_used_referral">You have already used a referral code</string>
     <string name="error_invalid_referral">Invalid referral code</string>
+    <string name="slide_1_title">Welcome to PixelPayout</string>
+    <string name="slide_1_description">Earn rewards by playing games and completing quizzes</string>
+    <string name="slide_2_title">Daily Rewards</string>
+    <string name="slide_2_description">Complete daily challenges to earn bonus points</string>
+    <string name="slide_3_title">Cash Out</string>
+    <string name="slide_3_description">Convert your points to real money rewards</string>
+    <string name="terms_agreement">By creating account or logging in, you agree to our Terms and Conditions and Privacy Policy</string>
+    <string name="terms_and_conditions_title">Terms and Conditions</string>
+    <string name="privacy_policy_title">Privacy Policy</string>
+    <string name="terms_and_conditions_text">These Terms and Conditions govern your use of PixelPayout. By using our app, you agree to these terms.\n\n
+1. Account Creation\n
+- You must provide accurate information\n
+- You are responsible for maintaining account security\n\n
+2. Points and Rewards\n
+- Points are earned through legitimate gameplay\n
+- We reserve the right to verify point accumulation\n
+- Points have no monetary value until redeemed\n\n
+3. Fair Play\n
+- Cheating or exploitation will result in account termination\n
+- Multiple accounts are not permitted</string>
+    <string name="privacy_policy_text">Privacy Policy for PixelPayout\n\n
+1. Information We Collect\n
+- Account information (email, name)\n
+- Game activity and points earned\n
+- Device information\n\n
+2. How We Use Information\n
+- To provide and improve services\n
+- To verify rewards eligibility\n
+- To prevent fraud\n\n
+3. Data Security\n
+- We implement industry-standard security measures\n
+- Your data is encrypted in transit and at rest</string>
+    <string name="ok">OK</string>
+    <string name="slide_image_description">Onboarding slide image</string>
 </resources>

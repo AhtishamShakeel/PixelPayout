@@ -181,7 +181,7 @@ class QuizListViewModel : ViewModel() {
             try {
                 val userId = auth.currentUser?.uid ?: throw Exception("Not authenticated")
                 db.collection("users").document(userId).update(
-                    "extraQuizAttempts", FieldValue.increment(1)
+                    "quizAttempts", FieldValue.increment(-1)
                 )
                 _error.value = "Extra attempt added!"
                 loadQuizzes() // Refresh UI

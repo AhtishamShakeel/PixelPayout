@@ -56,6 +56,7 @@ class QuizActivity : AppCompatActivity() {
 
     private fun setupViews() {
         binding.submitButton.setOnClickListener {
+            binding.submitButton.isEnabled = false
             val selectedId = binding.optionsGroup.checkedRadioButtonId
             if (selectedId == -1) {
                 Toast.makeText(this, R.string.select_answer, Toast.LENGTH_SHORT).show()

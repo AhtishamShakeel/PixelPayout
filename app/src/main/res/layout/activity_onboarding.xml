@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@id/bottomContainer"
-        app:layout_constraintHeight_percent="0.75"
+        app:layout_constraintHeight_percent="0.65"
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Page indicator dots -->
@@ -31,17 +31,18 @@
     <LinearLayout
         android:id="@+id/bottomContainer"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
+        android:layout_height="wrap_content"
         android:layout_marginHorizontal="@dimen/spacing_large"
         android:gravity="center"
         android:orientation="vertical"
+        android:paddingBottom="@dimen/spacing_large"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintHeight_percent="0.25">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCreateAccount"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="60dp"
             android:text="@string/create_account"
             app:cornerRadius="@dimen/button_corner_radius_round" />
 
@@ -49,7 +50,7 @@
             android:id="@+id/btnLogin"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="60dp"
             android:layout_marginTop="@dimen/spacing_small"
             android:text="@string/login"
             app:cornerRadius="@dimen/button_corner_radius_round" />

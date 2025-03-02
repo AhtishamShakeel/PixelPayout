@@ -15,32 +15,50 @@
         android:layout_height="wrap_content"
         android:gravity="center_horizontal"
         android:orientation="vertical">
-
-        <ImageView
-            android:layout_width="130dp"
-            android:layout_height="150dp"
-            android:layout_marginTop="80dp"
-            android:src="@drawable/otp"/>
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:text="Otp Verification"
-            android:textColor="@color/primary"
-            android:fontFamily="@font/ptserif_bold"
-            android:textSize="30sp"
-            android:textStyle="bold"/>
-
-        <TextView
+        
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="50dp"
-            android:layout_marginTop="8dp"
-            android:layout_marginEnd="50dp"
-            android:gravity="center"
-            android:text="an otp"
-            android:textSize="18sp"
-            android:textColor="@color/primary"/>
+            android:layout_height="250dp"
+            android:layout_gravity="center_horizontal">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
+
+
+                <ImageView
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_user" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:fontFamily="@font/ptserif_bold"
+                    android:text="Welcome"
+                    android:textColor="@color/primary_text"
+                    android:textSize="30sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_marginTop="7dp"
+                    android:text="Login to your Account or Create new Account"
+                    android:textSize="12sp"
+                    android:textColor="@color/primary_text"/>
+
+            </LinearLayout>
+
+        </FrameLayout>
+
+
+
 
         <TextView
             android:layout_width="match_parent"

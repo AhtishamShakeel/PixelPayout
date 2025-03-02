@@ -14,15 +14,15 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.FirebaseException
 import com.google.firebase.auth.*
-import com.pixelpayout.databinding.ActivitySendOtpBinding
+import com.pixelpayout.databinding.ActivityAuthBinding
 import com.pixelpayout.ui.main.MainActivity
 import java.util.concurrent.TimeUnit
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 
-class SendOtp : AppCompatActivity() {
+class Auth : AppCompatActivity() {
 
-    private lateinit var binding: ActivitySendOtpBinding
+    private lateinit var binding: ActivityAuthBinding
     private lateinit var auth: FirebaseAuth
     private lateinit var verificationId: String
     private lateinit var googleSignInClient: GoogleSignInClient
@@ -30,7 +30,7 @@ class SendOtp : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivitySendOtpBinding.inflate(layoutInflater)
+        binding = ActivityAuthBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         auth = FirebaseAuth.getInstance() // Initialize Firebase Authentication
@@ -73,18 +73,18 @@ class SendOtp : AppCompatActivity() {
 
                 override fun onVerificationFailed(e: FirebaseException) {
                     Log.e("OTP", "Verification Failed: ${e.message}")
-                    Toast.makeText(this@SendOtp, "Verification Failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@Auth, "Verification Failed: ${e.message}", Toast.LENGTH_LONG).show()
                     binding.progressBar.visibility = View.GONE
                     binding.btnGet.visibility = View.VISIBLE
                 }
 
                 override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
-                    this@SendOtp.verificationId = verificationId
+                    this@Auth.verificationId = verificationId
                     Log.d("OTP", "OTP Sent: $verificationId")
-                    Toast.makeText(this@SendOtp, "OTP Sent", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@Auth, "OTP Sent", Toast.LENGTH_LONG).show()
 
                     // ✅ Navigate to VerifyOtp screen with the verification ID
-                    val intent = Intent(this@SendOtp, VerifyOtp::class.java)
+                    val intent = Intent(this@Auth, VerifyOtp::class.java)
                     intent.putExtra("verificationId", verificationId)
                     intent.putExtra("phoneNumber", phoneNumber)
                     startActivity(intent)

@@ -20,7 +20,7 @@
             android:name="com.example.pixelpayout.ui.auth.VerifyOtp"
             android:exported="false" />
         <activity
-            android:name="com.example.pixelpayout.ui.auth.SendOtp"
+            android:name="com.example.pixelpayout.ui.auth.Auth"
             android:exported="false" />
 
         <property

@@ -11,7 +11,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
-import com.example.pixelpayout.ui.auth.SendOtp
+import com.example.pixelpayout.ui.auth.Auth
 import com.example.pixelpayout.ui.onboarding.SlideAdapter
 import com.example.pixelpayout.ui.onboarding.SlideItem
 import com.example.pixelpayout.ui.onboarding.TermsDialogFragment
@@ -79,7 +79,7 @@ class OnboardingActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnCreateAccount.setOnClickListener {
-            startActivity(Intent(this, SendOtp::class.java))
+            startActivity(Intent(this, Auth::class.java))
         }
 
     }

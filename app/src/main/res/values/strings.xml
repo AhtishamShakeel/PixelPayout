@@ -7,6 +7,7 @@
     <string name="create_account">Get Started</string>
     <string name="error_invalid_email">Invalid email address</string>
     <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_pass_notequal_confirm">Password do not match </string>
     <string name="error_login_failed">Login failed: %1$s</string>
     <string name="full_name">Full Name</string>
     <string name="sign_up">Sign Up</string>

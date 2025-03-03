@@ -15,6 +15,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
+import androidx.lifecycle.viewModelScope
 import androidx.swiperefreshlayout.widget.CircularProgressDrawable
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -46,6 +47,7 @@ class Auth : AppCompatActivity() {
         setupGoogleLogin()
         setupViews()
         observeViewModelLogin()
+        observeViewModelSignup()
     }
 
 
@@ -55,21 +57,28 @@ class Auth : AppCompatActivity() {
 
         binding.btnContinue.setOnClickListener{
 
-            val name = binding.inputName.text.toString().trim()
             val email = binding.inputEmail.text.toString().trim()
-                if(validateInput(name, email)) {
-                    hideKeyboard(it)
-                    startLoading()
-                    viewModel.checkIfEmailExists(email)
-                }
+            if(validateInput(email)) {
+                hideKeyboard(it)
+                startLoading()
+                viewModel.checkIfEmailExists(email)
+            }
         }
 
         binding.btnLogin.setOnClickListener{
             val email = binding.inputEmail.text.toString()
             val password = binding.inputPassword.text.toString()
+            viewModel.login(email,password)
+        }
 
-            if(validatePassLogin(password)){
-                viewModel.login(email,password)
+        binding.btnSignup.setOnClickListener{
+            val name = binding.inputName.text.toString()
+            val email = binding.inputEmail.text.toString()
+            val password = binding.inputNewPassword.text.toString()
+            val confirmPassword = binding.inputConfirmPassword.text.toString()
+
+            if(validateSignup(name, password, confirmPassword)){
+                viewModel.signup(name, email, password)
             }
         }
 
@@ -173,14 +182,9 @@ class Auth : AppCompatActivity() {
         }
     }
 
-    private fun validateInput(name: String, email:String): Boolean {
+    private fun validateInput(email:String): Boolean {
         var isValid = true
         clearErrors()
-
-        if (name.isBlank()) {
-            binding.nameLayout.error = "Please Enter Name"
-            isValid = false
-        }
         if(!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()){
             binding.emailLayout.error = "Please Enter Email"
             isValid = false
@@ -188,10 +192,22 @@ class Auth : AppCompatActivity() {
         return isValid
     }
 
-    private fun validatePassLogin(password: String): Boolean{
+    private fun validateSignup(name: String, password: String, confirmPassword: String): Boolean{
         var isValid = true
+        clearErrors()
+
+        if (name.isBlank()) {
+            binding.nameLayout.error = getString(R.string.error_name_required)
+            isValid = false
+        }
+
         if (password.length < 6) {
-            binding.inputPassword.error = getString(R.string.error_invalid_password)
+            binding.newConfirmPasswordInputLayout.error = getString(R.string.error_invalid_password)
+            isValid = false
+        }
+
+        if (password != confirmPassword) {
+            binding.newConfirmPasswordInputLayout.error = getString(R.string.error_pass_notequal_confirm)
             isValid = false
         }
         return isValid
@@ -201,43 +217,82 @@ class Auth : AppCompatActivity() {
         viewModel.loginState.observe(this) { state ->
             when (state) {
                 is AuthViewModel.LoginState.Loading -> {
-                    showLoading(true)
+                    showLoadingLogin(true)
                     clearErrors()
                 }
                 is AuthViewModel.LoginState.Success -> {
-                    showLoading(false)
+                    showLoadingLogin(false)
                     navigateToMain()
                 }
                 is AuthViewModel.LoginState.Error -> {
-                    showLoading(false)
+                    showLoadingLogin(false)
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.LoginState.Initial -> {
-                    showLoading(false)
+                    showLoadingLogin(false)
                     clearErrors()
                 }
             }
         }
     }
 
-    private fun showLoading(isLoading: Boolean) {
+    private fun observeViewModelSignup(){
+        viewModel.signupState.observe(this) { state ->
+            when (state) {
+                is AuthViewModel.SignupState.Loading -> {
+                    showLoadingSignup(true)
+                    clearErrors()
+                }
+                is AuthViewModel.SignupState.Success -> {
+                    showLoadingSignup(false)
+                    navigateToMain()
+                }
+                is AuthViewModel.SignupState.Error -> {
+                    showLoadingSignup(false)
+                    Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
+                }
+                is AuthViewModel.SignupState.Initial -> {
+                    showLoadingSignup(false)
+                    clearErrors()
+                }
+            }
+        }
+    }
+    private fun showLoadingLogin(isLoading: Boolean) {
         binding.apply {
-            loadingIndicator.visibility = if (isLoading) View.VISIBLE else View.GONE
             btnLogin.isEnabled = !isLoading
             inputPassword.isEnabled = !isLoading
 
-            // Update button text
-            btnLogin.text = if (isLoading) "" else getString(R.string.login)
             if (isLoading) {
-                btnLogin.icon = CircularProgressDrawable(this@Auth).apply {
-                    setStyle(CircularProgressDrawable.DEFAULT)
-                    start()
-                }
+                binding.btnLogin.text = ""  // Remove text
+                binding.btnLogin.icon = ContextCompat.getDrawable(this@Auth, R.drawable.progress_loader)
+                binding.btnLogin.iconSize = 35
+                (binding.btnLogin.icon as? AnimatedVectorDrawable)?.start()
             } else {
+                btnLogin.text = getString(R.string.login)
                 btnLogin.icon = null
             }
         }
     }
+
+    private fun showLoadingSignup(isLoading: Boolean) {
+        binding.apply {
+            btnSignup.isEnabled = !isLoading
+            inputNewPassword.isEnabled = !isLoading
+            inputConfirmPassword.isEnabled = !isLoading
+
+            if (isLoading) {
+                binding.btnSignup.text = ""  // Remove text
+                binding.btnSignup.icon = ContextCompat.getDrawable(this@Auth, R.drawable.progress_loader)
+                binding.btnSignup.iconSize = 35
+                (binding.btnSignup.icon as? AnimatedVectorDrawable)?.start()
+            } else {
+                btnSignup.text = getString(R.string.login)
+                btnSignup.icon = null
+            }
+        }
+    }
+
 
     private fun navigateToMain(){
         startActivity(Intent(this, MainActivity::class.java))
@@ -248,6 +303,7 @@ class Auth : AppCompatActivity() {
         binding.btnContinue.isEnabled = false  // Disable the button
         binding.btnContinue.text = ""  // Remove text
         binding.btnContinue.icon = ContextCompat.getDrawable(this, R.drawable.progress_loader)
+        binding.btnContinue.iconSize = 90
         (binding.btnContinue.icon as? AnimatedVectorDrawable)?.start()
     }
 
@@ -267,6 +323,7 @@ class Auth : AppCompatActivity() {
         binding.inputEmail.keyListener = TextKeyListener.getInstance()
         binding.editEmail.visibility = View.GONE
         showKeyboard(binding.inputEmail)
+        binding.nameLayout.visibility = View.GONE
     }
 
     private fun emailExists(){
@@ -286,6 +343,7 @@ class Auth : AppCompatActivity() {
         binding.inputEmail.keyListener = null
         binding.editEmail.visibility = View.VISIBLE
         binding.layoutNewUser.visibility = View.VISIBLE
+        binding.nameLayout.visibility = View.VISIBLE
     }
 
     private fun hideKeyboard(view: View) {

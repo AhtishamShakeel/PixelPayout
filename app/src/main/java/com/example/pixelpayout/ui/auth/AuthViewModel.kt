@@ -16,6 +16,7 @@ import kotlinx.coroutines.tasks.await
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.ktx.functions
 import com.google.firebase.ktx.Firebase
+import com.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
@@ -27,6 +28,10 @@ class AuthViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
+    private val userRepository = UserRepository()
+
+
+
 
     private val _emailExists = MutableLiveData<Boolean?>()
     val emailExists: LiveData<Boolean?> =_emailExists
@@ -35,6 +40,13 @@ class AuthViewModel : ViewModel() {
     val loginState: LiveData<LoginState> = _loginState
 
     private var loginJob: Job? = null
+
+    private val _signupState = MutableLiveData<SignupState>()
+    val signupState: LiveData<SignupState> = _signupState
+
+    private var signupJob: Job? = null
+
+
 
 
     fun checkIfEmailExists(email: String){
@@ -77,10 +89,63 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun signup(name: String, email: String, password: String){
+        signupJob?.cancel()
+
+        signupJob = viewModelScope.launch {
+            try {
+                _signupState.value = SignupState.Loading
+
+                withTimeout(10000){
+                    val result = auth.createUserWithEmailAndPassword(email,password).await()
+
+                    result.user?.let { user ->
+                        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                        val userData = hashMapOf(
+                            "displayName" to name,
+                            "email" to email,
+                            "password" to password,
+                            "hasUsedReferral" to false,
+                            "joinedDate" to Timestamp.now(),
+                            "lastActive" to Timestamp.now(),
+                            "lastServerDate" to currentDate,
+                            "points" to 0,
+                            "quizAttempts" to 0,
+                            "referralCode" to generateReferralCode(),
+                            "referralRewardClaimed" to false,
+                        )
+
+                        firestore.collection("users")
+                            .document(user.uid)
+                            .set(userData)
+                            .await()
+
+                        _signupState.value = SignupState.Success
+                    } ?: throw Exception("User creation failed")
+                }
+            } catch (e: TimeoutCancellationException) {
+                _signupState.value = SignupState.Error(
+                    message = "Request time out. Please try again.",
+                    field = null
+                )
+            } catch (e: Exception) {
+                val (message,field) = when{
+                    e.message?.contains("password", ignoreCase = true) == true ->
+                        Pair("Password is too weak", SignupField.PASSWORD)
+                    e.message?.contains("network", ignoreCase = true) == true ->
+                        Pair("Network error. Please check your connection.", null)
+                    else -> Pair("Signup failed: ${e.message}", null)
+                }
+                _signupState.value = SignupState.Error(message, field)
+            }
+        }
+    }
+
 
     override fun onCleared() {
         super.onCleared()
         loginJob?.cancel()
+        signupJob?.cancel()
     }
 
     fun checkIfUserExists(
@@ -155,6 +220,17 @@ class AuthViewModel : ViewModel() {
         object Loading : LoginState()
         object Success : LoginState()
         data class Error(val message: String) : LoginState()
+    }
+
+    sealed class SignupState {
+        object Initial : SignupState()
+        object Loading : SignupState()
+        object Success : SignupState()
+        data class Error(val message: String, val field: SignupField?) : SignupState()
+    }
+
+    enum class SignupField {
+        NAME, EMAIL, PASSWORD
     }
 
 

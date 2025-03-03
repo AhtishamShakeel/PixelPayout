@@ -130,6 +130,7 @@
                 app:layout_constraintTop_toBottomOf="@id/welcomeText"
                 app:boxStrokeColor="@color/text_input_stroke_color"
                 app:boxStrokeWidth="2dp"
+                app:endIconMode="password_toggle"
                 app:boxBackgroundColor="@android:color/transparent"
                 app:shapeAppearanceOverlay="@style/RoundedTextInputLayout">
 
@@ -154,6 +155,16 @@
                 android:textStyle="bold"
                 android:fontFamily="@font/ptserif_bold"
                 android:text="Login" />
+
+            <ProgressBar
+                android:id="@+id/loadingIndicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
 
         </LinearLayout>
 

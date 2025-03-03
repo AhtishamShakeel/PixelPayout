@@ -17,8 +17,9 @@
         android:orientation="vertical">
 
         <ImageView
-            android:layout_width="150dp"
-            android:layout_height="150dp"
+            android:layout_width="100dp"
+            android:layout_height="100dp"
+            android:layout_marginTop="5dp"
             android:layout_gravity="center"
             android:src="@drawable/ic_user" />
 
@@ -40,11 +41,36 @@
             android:textColor="@color/primary_text"/>
 
         <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/emailInputLayout"
+            android:id="@+id/nameLayout"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
+            android:layout_marginTop="18dp"
+            android:layout_marginHorizontal="26dp"
+            app:layout_constraintTop_toBottomOf="@id/welcomeText"
+            app:boxStrokeColor="@color/text_input_stroke_color"
+            app:boxStrokeWidth="2dp"
+            app:boxBackgroundColor="@android:color/transparent"
+            app:shapeAppearanceOverlay="@style/RoundedTextInputLayout">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Enter Name"
+                android:inputType="textEmailAddress"
+                android:textSize="16sp" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/emailLayout"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:layout_marginHorizontal="26dp"
             app:layout_constraintTop_toBottomOf="@id/welcomeText"
             app:boxStrokeColor="@color/text_input_stroke_color"
@@ -61,6 +87,30 @@
                 android:textSize="16sp" />
 
         </com.google.android.material.textfield.TextInputLayout>
+        <TextView
+            android:id="@+id/editEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="26dp"
+            android:clickable="true"
+            android:text="Change Email?"
+            android:visibility="gone"
+            android:textSize="12sp"
+            android:gravity="right"
+            android:textColor="@color/primary"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContinue"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="30dp"
+            app:cornerRadius="@dimen/spacing_small"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            app:iconGravity="top"
+            android:layout_marginHorizontal="26dp"
+            android:fontFamily="@font/ptserif_bold"
+            android:text="Continue" />
 
         <LinearLayout
             android:id="@+id/layoutExistingUser"
@@ -75,7 +125,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="12dp"
                 android:layout_marginHorizontal="26dp"
                 app:layout_constraintTop_toBottomOf="@id/welcomeText"
                 app:boxStrokeColor="@color/text_input_stroke_color"
@@ -120,7 +170,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="12dp"
                 android:layout_marginHorizontal="26dp"
                 app:boxStrokeColor="@color/text_input_stroke_color"
                 app:boxStrokeWidth="2dp"
@@ -142,7 +192,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
+                android:layout_marginTop="16dp"
                 android:layout_marginHorizontal="26dp"
                 app:layout_constraintTop_toBottomOf="@id/welcomeText"
                 app:boxStrokeColor="@color/text_input_stroke_color"

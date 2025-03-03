@@ -2,6 +2,8 @@ package com.example.pixelpayout.ui.auth
 
 import android.util.Log
 import android.widget.Toast
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Timestamp
@@ -10,11 +12,35 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.ktx.functions
+import com.google.firebase.ktx.Firebase
 
 class AuthViewModel : ViewModel() {
 
+    private val functions:FirebaseFunctions = Firebase.functions
+
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val _emailExists = MutableLiveData<Boolean?>()
+    val emailExists: LiveData<Boolean?> =_emailExists
+
+    fun checkIfEmailExists(email: String){
+        val data = hashMapOf("email" to email)
+        functions
+            .getHttpsCallable("checkEmailExists")
+            .call(data)
+            .addOnCompleteListener { task ->
+                if(task.isSuccessful){
+                    val result = task.result?.data as? Map<*, *>
+                    val exists = result?.get("exists") as? Boolean ?: false
+                    _emailExists.value = exists
+                } else {
+                    _emailExists.value = false
+                }
+            }
+    }
 
     fun checkIfUserExists(
         uid: String,

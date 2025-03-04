@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.auth
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
@@ -115,6 +116,7 @@ class Auth : AppCompatActivity() {
 
 
     private fun signInWithGoogle(){
+        showLoading()
         val signInIntent = googleSignInClient.signInIntent
         googleSignInLauncher.launch(signInIntent)
     }
@@ -129,6 +131,7 @@ class Auth : AppCompatActivity() {
         catch (e: Exception) {
             Log.e("Google SignIn", "Error: ${e.message}", e)
             Toast.makeText(this, "Google Sign-in Failed", Toast.LENGTH_SHORT).show()
+            hideLoading()
         }
 
     }
@@ -140,6 +143,9 @@ class Auth : AppCompatActivity() {
             .build()
 
         googleSignInClient = GoogleSignIn.getClient(this, gso) // ✅ Initialize here
+        googleSignInClient.signOut().addOnCompleteListener {
+            googleSignInClient.revokeAccess()
+        }
     }
 
     private fun firebaseAuthWithGoogle(idToken: String){
@@ -153,11 +159,17 @@ class Auth : AppCompatActivity() {
                             it.uid,
                             it.displayName ?:"User",
                             it.email?:"",
-                            onSuccess = { navigateToMain()},
-                            onFailure = { errorMessage -> Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show() }
+                            onSuccess = {
+                                hideLoading()
+                                navigateToMain()},
+
+                            onFailure = { errorMessage ->
+                                hideLoading()
+                                Toast.makeText(this, errorMessage, Toast.LENGTH_SHORT).show() }
                         )
                     }
                 } else{
+                    hideLoading()
                     Toast.makeText(this, "Authentication Failed", Toast.LENGTH_SHORT).show()
                 }
 
@@ -208,23 +220,19 @@ class Auth : AppCompatActivity() {
         viewModel.loginState.observe(this) { state ->
             when (state) {
                 is AuthViewModel.LoginState.Loading -> {
-                    showLoadingLogin(true)
                     binding.btnLogin.stopLoading("Login")
                     clearErrors()
                 }
                 is AuthViewModel.LoginState.Success -> {
-                    showLoadingLogin(false)
                     binding.btnLogin.stopLoading("Login")
                     navigateToMain()
                 }
                 is AuthViewModel.LoginState.Error -> {
-                    showLoadingLogin(false)
                     binding.btnLogin.stopLoading("Login")
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.LoginState.Initial -> {
                     binding.btnLogin.stopLoading("Login")
-                    showLoadingLogin(false)
                     clearErrors()
                 }
             }
@@ -235,63 +243,25 @@ class Auth : AppCompatActivity() {
         viewModel.signupState.observe(this) { state ->
             when (state) {
                 is AuthViewModel.SignupState.Loading -> {
-                    showLoadingSignup(true)
                     binding.btnSignup.stopLoading("Signup")
 
                     clearErrors()
                 }
                 is AuthViewModel.SignupState.Success -> {
-                    showLoadingSignup(false)
                     binding.btnSignup.stopLoading("Signup")
 
                     navigateToMain()
                 }
                 is AuthViewModel.SignupState.Error -> {
-                    showLoadingSignup(false)
                     binding.btnSignup.stopLoading("Signup")
 
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.SignupState.Initial -> {
-                    showLoadingSignup(false)
                     binding.btnSignup.stopLoading("Signup")
 
                     clearErrors()
                 }
-            }
-        }
-    }
-    private fun showLoadingLogin(isLoading: Boolean) {
-        binding.apply {
-            btnLogin.isEnabled = !isLoading
-            inputPassword.isEnabled = !isLoading
-
-            if (isLoading) {
-                binding.btnLogin.text = ""  // Remove text
-                binding.btnLogin.icon = ContextCompat.getDrawable(this@Auth, R.drawable.progress_loader)
-                binding.btnLogin.iconSize = 35
-                (binding.btnLogin.icon as? AnimatedVectorDrawable)?.start()
-            } else {
-                btnLogin.text = getString(R.string.login)
-                btnLogin.icon = null
-            }
-        }
-    }
-
-    private fun showLoadingSignup(isLoading: Boolean) {
-        binding.apply {
-            btnSignup.isEnabled = !isLoading
-            inputNewPassword.isEnabled = !isLoading
-            inputConfirmPassword.isEnabled = !isLoading
-
-            if (isLoading) {
-                binding.btnSignup.text = ""  // Remove text
-                binding.btnSignup.icon = ContextCompat.getDrawable(this@Auth, R.drawable.progress_loader)
-                binding.btnSignup.iconSize = 35
-                (binding.btnSignup.icon as? AnimatedVectorDrawable)?.start()
-            } else {
-                btnSignup.text = getString(R.string.login)
-                btnSignup.icon = null
             }
         }
     }
@@ -300,20 +270,6 @@ class Auth : AppCompatActivity() {
     private fun navigateToMain(){
         startActivity(Intent(this, MainActivity::class.java))
         finishAffinity()
-    }
-
-    private fun startLoading(button: MaterialButton, loadingText: String = ""){
-        button.isEnabled = false  // Disable the button
-        button.text = loadingText
-        button.icon = ContextCompat.getDrawable(this, R.drawable.progress_loader)
-        button.iconSize = 90
-        (button.icon as? AnimatedVectorDrawable)?.start()
-    }
-
-    private fun stopLoading(button: MaterialButton, originalText: String){
-        button.isEnabled = true
-        button.text = "Continue"
-        button.icon = null
     }
 
     private fun editEmail(){
@@ -370,6 +326,22 @@ class Auth : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {}
         }
     }
+
+
+    private fun showLoading() {
+        binding.loadingOverlay.visibility = View.VISIBLE // Show dark overlay
+        binding.lottieLoading.visibility = View.VISIBLE // Show Lottie animation
+        binding.lottieLoading.playAnimation() // Start animation
+    }
+
+    private fun hideLoading() {
+        binding.loadingOverlay.visibility = View.GONE // Hide dark overlay
+        binding.lottieLoading.cancelAnimation() // Stop animation
+        binding.lottieLoading.visibility = View.GONE // Hide Lottie animation
+    }
+
+
+
 
 
 

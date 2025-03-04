@@ -66,6 +66,8 @@
         • Practice to improve your speed and earn more!
     </string>
     <string name="enter_referral_code">Enter Referral Code</string>
+    <string name="or_signup_using_google">Or Login with</string>
+    <string name="get_started">Get Started</string>
     <string name="referral_reward_description">Get 100 points for valid referral</string>
     <string name="submit_referral">Submit Referral</string>
     <string name="referral_success">Referral successful! 100 points added</string>

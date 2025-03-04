@@ -15,6 +15,8 @@ import com.example.pixelpayout.ui.auth.Auth
 import com.example.pixelpayout.ui.onboarding.SlideAdapter
 import com.example.pixelpayout.ui.onboarding.SlideItem
 import com.example.pixelpayout.ui.onboarding.TermsDialogFragment
+import com.example.pixelpayout.utils.startLoading
+import com.example.pixelpayout.utils.stopLoading
 import com.google.android.material.tabs.TabLayoutMediator
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityOnboardingBinding
@@ -79,9 +81,16 @@ class OnboardingActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnCreateAccount.setOnClickListener {
+            binding.btnCreateAccount.startLoading()
             startActivity(Intent(this, Auth::class.java))
         }
 
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        binding.btnCreateAccount.stopLoading("Get Started")
     }
 
     private fun setupTermsText() {

@@ -8,6 +8,7 @@
     android:orientation="vertical"
     android:overScrollMode="never"
     android:scrollbars="none"
+    android:fillViewport="true"
     tools:context="com.example.pixelpayout.ui.auth.Auth">
 
     <LinearLayout
@@ -16,6 +17,7 @@
         android:gravity="center_horizontal"
         android:orientation="vertical">
 
+
         <ImageView
             android:layout_width="100dp"
             android:layout_height="100dp"
@@ -23,10 +25,13 @@
             android:layout_gravity="center"
             android:src="@drawable/ic_user" />
 
+
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Welcome"
+            android:layout_marginTop="15dp"
             android:layout_marginHorizontal="26dp"
             android:textColor="@color/primary_text"
             android:textSize="30sp"
@@ -71,7 +76,7 @@
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
             android:layout_marginHorizontal="26dp"
             app:layout_constraintTop_toBottomOf="@id/welcomeText"
             app:boxStrokeColor="@color/text_input_stroke_color"
@@ -90,13 +95,15 @@
         </com.google.android.material.textfield.TextInputLayout>
         <TextView
             android:id="@+id/editEmail"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginHorizontal="26dp"
+            android:layout_marginTop="2dp"
             android:clickable="true"
             android:text="Change Email?"
             android:visibility="gone"
-            android:textSize="12sp"
+            android:layout_gravity="right"
+            android:textSize="13sp"
             android:gravity="right"
             android:textColor="@color/primary"/>
 
@@ -151,11 +158,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginTop="30dp"
-                android:layout_marginHorizontal="26dp"
                 app:cornerRadius="@dimen/spacing_small"
-                android:textSize="24sp"
-                app:iconGravity="textStart"
+                android:textSize="20sp"
                 android:textStyle="bold"
+                app:iconGravity="top"
+                android:background="@drawable/rounded_button"
+                android:layout_marginHorizontal="26dp"
                 android:fontFamily="@font/ptserif_bold"
                 android:text="Login" />
 
@@ -175,7 +183,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="6dp"
                 android:layout_marginHorizontal="26dp"
                 app:boxStrokeColor="@color/text_input_stroke_color"
                 app:boxStrokeWidth="2dp"
@@ -198,7 +206,7 @@
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="18dp"
                 android:layout_marginHorizontal="26dp"
                 app:layout_constraintTop_toBottomOf="@id/welcomeText"
                 app:boxStrokeColor="@color/text_input_stroke_color"
@@ -222,10 +230,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
                 android:layout_marginTop="30dp"
-                android:layout_marginHorizontal="26dp"
                 app:cornerRadius="@dimen/spacing_small"
-                android:textSize="24sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
+                app:iconGravity="top"
+                android:background="@drawable/rounded_button"
+                android:layout_marginHorizontal="26dp"
                 android:fontFamily="@font/ptserif_bold"
                 android:text="Signup" />
 
@@ -235,86 +245,52 @@
         </LinearLayout>
 
 
-        
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="60dp"
-            android:layout_marginEnd="60dp"
-            android:gravity="center"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:gravity="center"
-                android:text="+92-"
-                android:textColor="@color/white"
-                android:textSize="16dp"
-                android:textStyle="bold"/>
-
-            <EditText
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:id="@+id/input_mobile"
-                android:hint="3100000000"
-                android:imeOptions="actionDone"
-                android:importantForAutofill="no"
-                android:inputType="number"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:textStyle="bold"/>
-
-        </LinearLayout>
-
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="2dp"
-            android:layout_marginStart="70dp"
-            android:layout_marginEnd="70dp"
-            android:background="@color/gray"/>
-
-        <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content">
-
-            <Button
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:id="@+id/btn_get"
-                android:layout_margin="30dp"
-                android:text="Get Otp"
-                android:textColor="@color/white"
-                android:background="@drawable/rounded_button"/>
-
-            <ProgressBar
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_gravity="center"
-                android:visibility="gone"
-                android:id="@+id/progress_bar"/>
-
-
-        </FrameLayout>
 
         <LinearLayout
+            android:id="@+id/googleLayout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="60dp"
-            android:layout_marginEnd="60dp"
-            android:gravity="center"
+            android:layout_height="match_parent"
+            android:layout_gravity="center"
+            android:gravity="bottom"
             android:orientation="vertical">
 
-            <com.google.android.gms.common.SignInButton
-                android:id="@+id/btn_google_signin"
+            <com.airbnb.lottie.LottieAnimationView
+                android:id="@+id/lottieLoading"
+                android:layout_width="200dp"
+                android:layout_height="200dp"
+                app:lottie_rawRes="@raw/loading_animation"
+                app:lottie_autoPlay="true"
+                app:lottie_loop="true"
+                android:visibility="gone"/>
+
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"/>
+                android:gravity="center_horizontal"
+                android:text="@string/or_signup_using_google"
+                android:textSize="12sp"
+                android:textColor="@color/primary_text"/>
+
+
+
+            <ImageButton
+                android:id="@+id/btn_google_signin"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_gravity="center"
+                android:layout_marginTop="@dimen/spacing_medium"
+                android:layout_marginBottom="@dimen/spacing_large"
+                android:background="@drawable/ic_google"/>
+
 
 
         </LinearLayout>
 
+
+
+
     </LinearLayout>
+
+
 
 </ScrollView>

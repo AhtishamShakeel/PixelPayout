@@ -148,6 +148,8 @@ class AuthViewModel : ViewModel() {
         signupJob?.cancel()
     }
 
+
+    //for Google
     fun checkIfUserExists(
         uid: String,
         displayName: String,
@@ -169,11 +171,6 @@ class AuthViewModel : ViewModel() {
             onFailure("Database error. Try again.")
         }
     }
-
-    private fun loginUser(
-
-    ){}
-
 
 
     private fun createNewUser(

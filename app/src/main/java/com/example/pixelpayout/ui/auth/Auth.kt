@@ -3,11 +3,12 @@ package com.example.pixelpayout.ui.auth
 import android.content.Intent
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.text.method.TextKeyListener
 import android.util.Log
 import android.view.View
 import android.view.inputmethod.InputMethodManager
-import android.widget.ProgressBar
 import com.pixelpayout.R
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,18 +16,16 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
-import androidx.lifecycle.viewModelScope
-import androidx.swiperefreshlayout.widget.CircularProgressDrawable
+import com.example.pixelpayout.utils.startLoading
+import com.example.pixelpayout.utils.stopLoading
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.material.button.MaterialButton
-import com.google.firebase.FirebaseException
-import com.google.firebase.auth.*
+import com.google.android.material.textfield.TextInputLayout
 import com.pixelpayout.databinding.ActivityAuthBinding
 import com.pixelpayout.ui.main.MainActivity
-import java.util.concurrent.TimeUnit
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 
@@ -34,7 +33,6 @@ class Auth : AppCompatActivity() {
 
     private lateinit var binding: ActivityAuthBinding
     private lateinit var auth: FirebaseAuth
-    private lateinit var verificationId: String
     private lateinit var googleSignInClient: GoogleSignInClient
     private val viewModel: AuthViewModel by viewModels()
 
@@ -55,12 +53,18 @@ class Auth : AppCompatActivity() {
 
     private fun setupViews() {
 
+        binding.inputEmail.addTextChangedListener(createTextWatcher(binding.emailLayout))
+        binding.inputPassword.addTextChangedListener(createTextWatcher(binding.passwordInputLayout))
+        binding.inputNewPassword.addTextChangedListener(createTextWatcher(binding.newPasswordInputLayout))
+        binding.inputConfirmPassword.addTextChangedListener(createTextWatcher(binding.newConfirmPasswordInputLayout))
+        binding.inputName.addTextChangedListener(createTextWatcher(binding.nameLayout))
+
         binding.btnContinue.setOnClickListener{
 
             val email = binding.inputEmail.text.toString().trim()
             if(validateInput(email)) {
                 hideKeyboard(it)
-                startLoading()
+                binding.btnContinue.startLoading()
                 viewModel.checkIfEmailExists(email)
             }
         }
@@ -69,6 +73,7 @@ class Auth : AppCompatActivity() {
             val email = binding.inputEmail.text.toString()
             val password = binding.inputPassword.text.toString()
             viewModel.login(email,password)
+            binding.btnLogin.startLoading()
         }
 
         binding.btnSignup.setOnClickListener{
@@ -78,6 +83,7 @@ class Auth : AppCompatActivity() {
             val confirmPassword = binding.inputConfirmPassword.text.toString()
 
             if(validateSignup(name, password, confirmPassword)){
+                binding.btnSignup.startLoading()
                 viewModel.signup(name, email, password)
             }
         }
@@ -86,11 +92,11 @@ class Auth : AppCompatActivity() {
             exists?.let {
                 if (it) {
                     emailExists()
-                    stopLoading()
+                    binding.btnContinue.stopLoading("Continue")
                     Toast.makeText(this, "Email already exist enter password to login", Toast.LENGTH_LONG).show()
                 } else {
                     emailNotExist()
-                    stopLoading()
+                    binding.btnContinue.stopLoading("Continue")
                     Toast.makeText(this, "Create new Account", Toast.LENGTH_LONG).show()
                 }
             }
@@ -102,21 +108,6 @@ class Auth : AppCompatActivity() {
 
         binding.editEmail.setOnClickListener(){
             editEmail()
-        }
-
-        binding.btnGet.setOnClickListener {
-            val number = binding.inputMobile.text.toString().trim()
-
-            if (number.isBlank()) {
-                Toast.makeText(this, "Enter Phone Number", Toast.LENGTH_LONG).show()
-                binding.progressBar.visibility = View.GONE
-                return@setOnClickListener
-            }
-
-            binding.progressBar.visibility = View.VISIBLE
-            binding.btnGet.visibility = View.GONE
-
-            sendOtp("+92$number") // Send OTP
         }
 
 
@@ -144,7 +135,7 @@ class Auth : AppCompatActivity() {
 
     private fun setupGoogleLogin() {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(com.pixelpayout.R.string.default_web_client_id)) // ✅ Get this from google-services.json
+            .requestIdToken(getString(R.string.default_web_client_id)) // ✅ Get this from google-services.json
             .requestEmail()
             .build()
 
@@ -202,7 +193,7 @@ class Auth : AppCompatActivity() {
         }
 
         if (password.length < 6) {
-            binding.newConfirmPasswordInputLayout.error = getString(R.string.error_invalid_password)
+            binding.newPasswordInputLayout.error = getString(R.string.error_invalid_password)
             isValid = false
         }
 
@@ -218,17 +209,21 @@ class Auth : AppCompatActivity() {
             when (state) {
                 is AuthViewModel.LoginState.Loading -> {
                     showLoadingLogin(true)
+                    binding.btnLogin.stopLoading("Login")
                     clearErrors()
                 }
                 is AuthViewModel.LoginState.Success -> {
                     showLoadingLogin(false)
+                    binding.btnLogin.stopLoading("Login")
                     navigateToMain()
                 }
                 is AuthViewModel.LoginState.Error -> {
                     showLoadingLogin(false)
+                    binding.btnLogin.stopLoading("Login")
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.LoginState.Initial -> {
+                    binding.btnLogin.stopLoading("Login")
                     showLoadingLogin(false)
                     clearErrors()
                 }
@@ -241,18 +236,26 @@ class Auth : AppCompatActivity() {
             when (state) {
                 is AuthViewModel.SignupState.Loading -> {
                     showLoadingSignup(true)
+                    binding.btnSignup.stopLoading("Signup")
+
                     clearErrors()
                 }
                 is AuthViewModel.SignupState.Success -> {
                     showLoadingSignup(false)
+                    binding.btnSignup.stopLoading("Signup")
+
                     navigateToMain()
                 }
                 is AuthViewModel.SignupState.Error -> {
                     showLoadingSignup(false)
+                    binding.btnSignup.stopLoading("Signup")
+
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.SignupState.Initial -> {
                     showLoadingSignup(false)
+                    binding.btnSignup.stopLoading("Signup")
+
                     clearErrors()
                 }
             }
@@ -299,22 +302,22 @@ class Auth : AppCompatActivity() {
         finishAffinity()
     }
 
-    private fun startLoading(){
-        binding.btnContinue.isEnabled = false  // Disable the button
-        binding.btnContinue.text = ""  // Remove text
-        binding.btnContinue.icon = ContextCompat.getDrawable(this, R.drawable.progress_loader)
-        binding.btnContinue.iconSize = 90
-        (binding.btnContinue.icon as? AnimatedVectorDrawable)?.start()
+    private fun startLoading(button: MaterialButton, loadingText: String = ""){
+        button.isEnabled = false  // Disable the button
+        button.text = loadingText
+        button.icon = ContextCompat.getDrawable(this, R.drawable.progress_loader)
+        button.iconSize = 90
+        (button.icon as? AnimatedVectorDrawable)?.start()
     }
 
-    private fun stopLoading(){
-        binding.btnContinue.isEnabled = true
-        binding.btnContinue.text = "Continue"
-        binding.btnContinue.icon = null
+    private fun stopLoading(button: MaterialButton, originalText: String){
+        button.isEnabled = true
+        button.text = "Continue"
+        button.icon = null
     }
 
     private fun editEmail(){
-        stopLoading()
+        binding.btnContinue.stopLoading("Continue")
         binding.layoutExistingUser.visibility = View.GONE
         binding.layoutNewUser.visibility = View.GONE
         binding.btnContinue.visibility = View.VISIBLE
@@ -357,39 +360,15 @@ class Auth : AppCompatActivity() {
         imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
     }
 
-    private fun sendOtp(phoneNumber: String) {
-        val options = PhoneAuthOptions.newBuilder(auth)
-            .setPhoneNumber(phoneNumber)
-            .setTimeout(60L, TimeUnit.SECONDS)
-            .setActivity(this)
-            .setCallbacks(object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
-
-                override fun onVerificationCompleted(credential: PhoneAuthCredential) {
-                    Log.d("OTP", "Auto Verification Completed: $credential")
-                }
-
-                override fun onVerificationFailed(e: FirebaseException) {
-                    Log.e("OTP", "Verification Failed: ${e.message}")
-                    Toast.makeText(this@Auth, "Verification Failed: ${e.message}", Toast.LENGTH_LONG).show()
-                    binding.progressBar.visibility = View.GONE
-                    binding.btnGet.visibility = View.VISIBLE
-                }
-
-                override fun onCodeSent(verificationId: String, token: PhoneAuthProvider.ForceResendingToken) {
-                    this@Auth.verificationId = verificationId
-                    Log.d("OTP", "OTP Sent: $verificationId")
-                    Toast.makeText(this@Auth, "OTP Sent", Toast.LENGTH_LONG).show()
-
-                    // ✅ Navigate to VerifyOtp screen with the verification ID
-                    val intent = Intent(this@Auth, VerifyOtp::class.java)
-                    intent.putExtra("verificationId", verificationId)
-                    intent.putExtra("phoneNumber", phoneNumber)
-                    startActivity(intent)
-                }
-            })
-            .build()
-
-        PhoneAuthProvider.verifyPhoneNumber(options)
+    private fun createTextWatcher(inputLayout: TextInputLayout): TextWatcher {
+        return object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                inputLayout.error = null // Remove the error when user starts typing
+                inputLayout.isErrorEnabled = false
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        }
     }
 
 

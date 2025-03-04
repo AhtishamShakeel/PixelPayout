@@ -18,4 +18,9 @@
         <item name="windowMinWidthMajor">80%</item>
         <item name="windowMinWidthMinor">80%</item>
     </style>
+
+    <style name="RoundedTextInputLayout" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerSize">12dp</item> <!-- Change to 8dp or 16dp as needed -->
+    </style>
+
 </resources> 

@@ -4,9 +4,10 @@
     <string name="email">Email</string>
     <string name="password">Password</string>
     <string name="login">Login</string>
-    <string name="create_account">Create Account</string>
+    <string name="create_account">Get Started</string>
     <string name="error_invalid_email">Invalid email address</string>
     <string name="error_invalid_password">Password must be at least 6 characters</string>
+    <string name="error_pass_notequal_confirm">Password do not match </string>
     <string name="error_login_failed">Login failed: %1$s</string>
     <string name="full_name">Full Name</string>
     <string name="sign_up">Sign Up</string>
@@ -65,6 +66,8 @@
         • Practice to improve your speed and earn more!
     </string>
     <string name="enter_referral_code">Enter Referral Code</string>
+    <string name="or_signup_using_google">Or Login with</string>
+    <string name="get_started">Get Started</string>
     <string name="referral_reward_description">Get 100 points for valid referral</string>
     <string name="submit_referral">Submit Referral</string>
     <string name="referral_success">Referral successful! 100 points added</string>
@@ -104,4 +107,5 @@
 - Your data is encrypted in transit and at rest</string>
     <string name="ok">OK</string>
     <string name="slide_image_description">Onboarding slide image</string>
+    <string name="default_web_client_id">461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com</string>
 </resources>

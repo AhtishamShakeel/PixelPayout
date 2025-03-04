@@ -11,14 +11,15 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import com.example.pixelpayout.ui.auth.Auth
 import com.example.pixelpayout.ui.onboarding.SlideAdapter
 import com.example.pixelpayout.ui.onboarding.SlideItem
 import com.example.pixelpayout.ui.onboarding.TermsDialogFragment
+import com.example.pixelpayout.utils.startLoading
+import com.example.pixelpayout.utils.stopLoading
 import com.google.android.material.tabs.TabLayoutMediator
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityOnboardingBinding
-import com.pixelpayout.ui.auth.LoginActivity
-import com.pixelpayout.ui.auth.SignupActivity
 import com.pixelpayout.ui.main.MainActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -80,12 +81,16 @@ class OnboardingActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnCreateAccount.setOnClickListener {
-            startActivity(Intent(this, SignupActivity::class.java))
+            binding.btnCreateAccount.startLoading()
+            startActivity(Intent(this, Auth::class.java))
         }
 
-        binding.btnLogin.setOnClickListener {
-            startActivity(Intent(this, LoginActivity::class.java))
-        }
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+        binding.btnCreateAccount.stopLoading("Get Started")
     }
 
     private fun setupTermsText() {

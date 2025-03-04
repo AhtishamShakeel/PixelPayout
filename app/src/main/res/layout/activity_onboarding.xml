@@ -1,19 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
     <!-- ViewPager2 for image slider - takes up top 3/4 of screen -->
+
+    <!-- Page indicator dots -->
+
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         app:layout_constraintBottom_toTopOf="@id/bottomContainer"
         app:layout_constraintHeight_percent="0.65"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.541"
+        tools:layout_editor_absoluteX="0dp" />
 
-    <!-- Page indicator dots -->
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/pageIndicator"
         android:layout_width="50dp"
@@ -42,18 +47,17 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCreateAccount"
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="@string/create_account"
-            app:cornerRadius="@dimen/button_corner_radius_round" />
+            android:layout_height="52dp"
+            android:layout_marginTop="30dp"
+            app:cornerRadius="@dimen/spacing_small"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            app:iconGravity="top"
+            android:background="@drawable/rounded_button"
+            android:layout_marginHorizontal="10dp"
+            android:fontFamily="@font/ptserif_bold"
+            android:text="@string/get_started"/>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnLogin"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:layout_marginTop="@dimen/spacing_small"
-            android:text="@string/login"
-            app:cornerRadius="@dimen/button_corner_radius_round" />
 
         <TextView
             android:id="@+id/termsText"

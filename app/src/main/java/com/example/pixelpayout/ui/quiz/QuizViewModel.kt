@@ -17,6 +17,9 @@ class QuizViewModel : ViewModel() {
     private var currentQuestionIndex = 0
     private var points = 0
 
+    private val _quizId = MutableLiveData<String?>()
+    val quizId: LiveData<String?> = _quizId
+
     private val _currentQuestion = MutableLiveData<Question>()
     val currentQuestion: LiveData<Question> = _currentQuestion
 
@@ -33,6 +36,7 @@ class QuizViewModel : ViewModel() {
 
     fun setQuiz(quiz: Quiz) {
         this.quiz = quiz
+        _quizId.value = quiz.id
         showCurrentQuestion()
     }
 

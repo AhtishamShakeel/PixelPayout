@@ -19,11 +19,16 @@ import java.util.TimeZone
 import android.content.Context
 import com.pixelpayout.utils.AdManager
 
+
 class QuizListViewModel : ViewModel() {
     private val repository = QuizRepository()
     private val userRepository = UserRepository()
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
+
+    init {
+        clearCache()
+    }
 
     // LiveData properties
     private val _quizzes = MutableLiveData<List<Quiz>>()
@@ -47,7 +52,6 @@ class QuizListViewModel : ViewModel() {
     private val _adAvailable = MutableLiveData<Boolean>()
     val adAvailable: LiveData<Boolean> = _adAvailable
 
-    // State tracking
     private var hasLoaded = false
     private var isCurrentlyLoading = false
 
@@ -56,10 +60,7 @@ class QuizListViewModel : ViewModel() {
     }
 
     fun loadQuizzes(forceRefresh: Boolean = false) {
-        // Don't load if already loading
         if (isCurrentlyLoading) return
-
-        // Don't load if we have data and aren't forcing refresh
         if (!forceRefresh && hasLoaded && _quizzes.value?.isNotEmpty() == true) return
 
         isCurrentlyLoading = true
@@ -67,15 +68,15 @@ class QuizListViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Single API call
-                val quizzes = repository.getQuizzes()
+                val quizzes = repository.getQuizzes(forceRefresh)
 
-                // Check user attempts
+                val limitedQuizzes = quizzes.take(4)
+
                 val attemptsInfo = checkUserAttempts()
                 val remaining = MAX_DAILY_QUIZZES - attemptsInfo.first
 
                 if (remaining > 0) {
-                    _quizzes.value = quizzes
+                    _quizzes.value = limitedQuizzes
                     _quizLimitReached.value = false
                 } else {
                     _quizLimitReached.value = true
@@ -200,22 +201,22 @@ class QuizListViewModel : ViewModel() {
         }
     }
 
-    fun resetLoadingState() {
-        hasLoaded = false
-    }
-
-    fun onQuizCompleted() {
+    fun onQuizCompleted(quizId: String) {
         viewModelScope.launch {
             try {
+                repository.removeQuizFromCache(quizId)
                 // First submit the quiz and wait for it to complete
                 submitQuiz().await() // Make submitQuiz return a Task<Void>
 
                 // Reset loading state and force refresh
                 hasLoaded = false
-                loadQuizzes(forceRefresh = true)
+                loadQuizzes(forceRefresh = false)
             } catch (e: Exception) {
                 _error.value = "Error updating quiz: ${e.message}"
             }
         }
+    }
+    private fun clearCache(){
+        repository.cachedQuizzes = null
     }
 }

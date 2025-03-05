@@ -10,10 +10,12 @@ import com.pixelpayout.R
 import com.pixelpayout.data.repository.UserRepository
 import com.pixelpayout.databinding.ActivityMainBinding
 import com.pixelpayout.databinding.LayoutPointsHeaderBinding
+import com.pixelpayout.ui.quiz.QuizListViewModel
 
 class MainActivity : AppCompatActivity() {
 
     lateinit var binding: ActivityMainBinding
+    private val quizViewModel: QuizListViewModel by viewModels()
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(UserRepository())
     }
@@ -27,6 +29,7 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
+        loadQuizzes()
     }
 
     private fun setupToolbar() {
@@ -52,5 +55,8 @@ class MainActivity : AppCompatActivity() {
             binding.customToolbar.pointsHeader.pointsText.text =
                 getString(R.string.points_value, points)
         }
+    }
+    private fun loadQuizzes(forceRefresh: Boolean = false) {
+        quizViewModel.loadQuizzes(forceRefresh)
     }
 } 

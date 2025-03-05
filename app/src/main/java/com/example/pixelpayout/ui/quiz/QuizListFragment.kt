@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.pixelpayout.R
@@ -20,18 +21,19 @@ import com.pixelpayout.utils.AdManager
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: QuizListViewModel by viewModels()
+    private val viewModel: QuizListViewModel by activityViewModels()
     private lateinit var quizAdapter: QuizAdapter
     private val quizLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
+            val completedQuizId = result.data?.getStringExtra("COMPLETED_QUIZ_ID") ?: return@registerForActivityResult
             // Show loading state
             binding.progressIndicator.visibility = View.VISIBLE
             binding.contentLayout.visibility = View.GONE
 
             // Trigger quiz completion and reload
-            viewModel.onQuizCompleted()
+            viewModel.onQuizCompleted(completedQuizId)
         }
     }
 

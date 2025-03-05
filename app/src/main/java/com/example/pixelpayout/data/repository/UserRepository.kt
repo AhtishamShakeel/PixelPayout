@@ -26,6 +26,10 @@ class UserRepository {
         setupRealtimeUpdates()
     }
 
+    fun getCurrentUserId(): String? {
+        return auth.currentUser?.uid
+    }
+
     private fun setupRealtimeUpdates() {
         auth.currentUser?.uid?.let { userId ->
             firestore.collection("users").document(userId)

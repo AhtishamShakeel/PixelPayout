@@ -4,6 +4,10 @@ buildscript {
     repositories {
         google()    // Make sure to include the google() repository.
         mavenCentral()
+        maven {
+            url 'https://maven.google.com/'
+            name 'Google'
+        }
     }
     dependencies {
         // Add the Google Services Gradle plugin dependency.

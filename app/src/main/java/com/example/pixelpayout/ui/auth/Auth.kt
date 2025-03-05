@@ -335,9 +335,9 @@ class Auth : AppCompatActivity() {
     }
 
     private fun hideLoading() {
-        binding.loadingOverlay.visibility = View.GONE // Hide dark overlay
-        binding.lottieLoading.cancelAnimation() // Stop animation
-        binding.lottieLoading.visibility = View.GONE // Hide Lottie animation
+        binding.lottieLoading.cancelAnimation()
+        binding.lottieLoading.visibility = View.GONE
+        binding.loadingOverlay.visibility = View.GONE
     }
 
 

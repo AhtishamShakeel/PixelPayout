@@ -12,10 +12,11 @@ pluginManagement {
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS) // Force settings repositories
     repositories {
         google()
         mavenCentral()
+        maven(url = "https://sdk.tapjoy.com/") // Add Tapjoy
     }
 }
 

@@ -68,7 +68,7 @@ class QuizListViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                val quizzes = repository.getQuizzes(forceRefresh)
+                val quizzes = repository.getQuizzes(forceRefresh || (repository.cachedQuizzes?.size?:0) <=5)
 
                 val limitedQuizzes = quizzes.take(4)
 
@@ -85,6 +85,7 @@ class QuizListViewModel : ViewModel() {
                 }
 
                 _remainingQuizzes.value = remaining
+                _quizzes.value = limitedQuizzes
                 hasLoaded = true
                 _error.value = null
             } catch (e: Exception) {
@@ -205,10 +206,15 @@ class QuizListViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 repository.removeQuizFromCache(quizId)
-                // First submit the quiz and wait for it to complete
-                submitQuiz().await() // Make submitQuiz return a Task<Void>
 
-                // Reset loading state and force refresh
+                submitQuiz().await()
+
+                var remainingQuizzes = repository.cachedQuizzes ?: emptyList()
+                if (remainingQuizzes.size <= 5){
+                    repository.getQuizzes(forcedRefresh = true)
+                    remainingQuizzes = repository.cachedQuizzes ?: emptyList()
+                }
+                _quizzes.value = remainingQuizzes.take(3)
                 hasLoaded = false
                 loadQuizzes(forceRefresh = false)
             } catch (e: Exception) {

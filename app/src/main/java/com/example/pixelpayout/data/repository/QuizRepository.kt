@@ -26,7 +26,7 @@ class QuizRepository {
                             (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled()
                         Quiz(
                             id = apiQuestion.question.hashCode().toString(),
-                            title = "${apiQuestion.category} (${apiQuestion.difficulty})",
+                            title = "${apiQuestion.category} ",
                             difficulty = apiQuestion.difficulty,
                             pointsReward = when (apiQuestion.difficulty.lowercase()) {
                                 "easy" -> 10

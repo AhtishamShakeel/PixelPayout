@@ -1,6 +1,7 @@
 package com.example.pixelpayout.ui.auth
 
 import android.annotation.SuppressLint
+import kotlinx.coroutines.*
 import android.content.Intent
 import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
@@ -17,6 +18,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
+import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.utils.startLoading
 import com.example.pixelpayout.utils.stopLoading
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -29,6 +31,7 @@ import com.pixelpayout.databinding.ActivityAuthBinding
 import com.pixelpayout.ui.main.MainActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import kotlinx.coroutines.time.delay
 
 class Auth : AppCompatActivity() {
 
@@ -66,6 +69,7 @@ class Auth : AppCompatActivity() {
             if(validateInput(email)) {
                 hideKeyboard(it)
                 binding.btnContinue.startLoading()
+                showLoading()
                 viewModel.checkIfEmailExists(email)
             }
         }
@@ -73,8 +77,10 @@ class Auth : AppCompatActivity() {
         binding.btnLogin.setOnClickListener{
             val email = binding.inputEmail.text.toString()
             val password = binding.inputPassword.text.toString()
+            hideKeyboard(it)
             viewModel.login(email,password)
             binding.btnLogin.startLoading()
+            showLoading()
         }
 
         binding.btnSignup.setOnClickListener{
@@ -82,10 +88,13 @@ class Auth : AppCompatActivity() {
             val email = binding.inputEmail.text.toString()
             val password = binding.inputNewPassword.text.toString()
             val confirmPassword = binding.inputConfirmPassword.text.toString()
+            hideKeyboard(it)
 
             if(validateSignup(name, password, confirmPassword)){
                 binding.btnSignup.startLoading()
+                showLoading()
                 viewModel.signup(name, email, password)
+
             }
         }
 
@@ -94,10 +103,12 @@ class Auth : AppCompatActivity() {
                 if (it) {
                     emailExists()
                     binding.btnContinue.stopLoading("Continue")
+                    hideLoading()
                     Toast.makeText(this, "Email already exist enter password to login", Toast.LENGTH_LONG).show()
                 } else {
                     emailNotExist()
                     binding.btnContinue.stopLoading("Continue")
+                    hideLoading()
                     Toast.makeText(this, "Create new Account", Toast.LENGTH_LONG).show()
                 }
             }
@@ -160,8 +171,12 @@ class Auth : AppCompatActivity() {
                             it.displayName ?:"User",
                             it.email?:"",
                             onSuccess = {
-                                hideLoading()
-                                navigateToMain()},
+                                navigateToMain()
+                                lifecycleScope.launch{
+                                    delay(400)
+                                    hideLoading()
+                                }
+                                        },
 
                             onFailure = { errorMessage ->
                                 hideLoading()
@@ -220,19 +235,24 @@ class Auth : AppCompatActivity() {
         viewModel.loginState.observe(this) { state ->
             when (state) {
                 is AuthViewModel.LoginState.Loading -> {
-                    binding.btnLogin.stopLoading("Login")
                     clearErrors()
                 }
                 is AuthViewModel.LoginState.Success -> {
                     binding.btnLogin.stopLoading("Login")
                     navigateToMain()
+                    lifecycleScope.launch{
+                        delay(400)
+                        hideLoading()
+                    }
                 }
                 is AuthViewModel.LoginState.Error -> {
                     binding.btnLogin.stopLoading("Login")
+                    hideLoading()
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.LoginState.Initial -> {
                     binding.btnLogin.stopLoading("Login")
+                    hideLoading()
                     clearErrors()
                 }
             }
@@ -243,22 +263,25 @@ class Auth : AppCompatActivity() {
         viewModel.signupState.observe(this) { state ->
             when (state) {
                 is AuthViewModel.SignupState.Loading -> {
-                    binding.btnSignup.stopLoading("Signup")
-
                     clearErrors()
                 }
                 is AuthViewModel.SignupState.Success -> {
-                    binding.btnSignup.stopLoading("Signup")
-
                     navigateToMain()
+                    binding.btnSignup.stopLoading("Signup")
+                    lifecycleScope.launch{
+                        delay(400)
+                        hideLoading()
+                    }
+
                 }
                 is AuthViewModel.SignupState.Error -> {
                     binding.btnSignup.stopLoading("Signup")
-
+                    hideLoading()
                     Toast.makeText(this, state.message, Toast.LENGTH_LONG ).show()
                 }
                 is AuthViewModel.SignupState.Initial -> {
                     binding.btnSignup.stopLoading("Signup")
+                    hideLoading()
 
                     clearErrors()
                 }
@@ -335,9 +358,10 @@ class Auth : AppCompatActivity() {
     }
 
     private fun hideLoading() {
-        binding.lottieLoading.cancelAnimation()
-        binding.lottieLoading.visibility = View.GONE
-        binding.loadingOverlay.visibility = View.GONE
+            binding.lottieLoading.cancelAnimation()
+            binding.lottieLoading.visibility = View.GONE
+            binding.loadingOverlay.visibility = View.GONE
+
     }
 
 

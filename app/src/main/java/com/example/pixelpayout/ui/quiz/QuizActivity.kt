@@ -92,7 +92,7 @@ class QuizActivity : AppCompatActivity() {
         binding.apply {
             // Decode HTML entities in the question text
             val decodedQuestion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                Html.fromHtml(question.text, Html.FROM_HTML_MODE_LEGACY)
+                Html.fromHtml(question.text, Html.FROM_HTML_MODE_LEGACY).toString()
             } else {
                 @Suppress("DEPRECATION")
                 Html.fromHtml(question.text)

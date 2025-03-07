@@ -22,11 +22,16 @@ class QuizRepository {
 
                 val quizzes = body.mapNotNull { apiQuestion ->
                     try {
+                        var categoryTitle = apiQuestion.category.split(":", "&").first().trim()
+
+                        if (categoryTitle.equals("General Knowledge", ignoreCase = true)){
+                            categoryTitle = "G.K"
+                        }
                         val allOptions =
                             (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled()
                         Quiz(
                             id = apiQuestion.question.hashCode().toString(),
-                            title = "${apiQuestion.category} ",
+                            title = categoryTitle,
                             difficulty = apiQuestion.difficulty,
                             pointsReward = when (apiQuestion.difficulty.lowercase()) {
                                 "easy" -> 10

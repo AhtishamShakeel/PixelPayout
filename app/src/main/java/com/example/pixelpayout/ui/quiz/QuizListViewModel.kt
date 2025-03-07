@@ -70,7 +70,7 @@ class QuizListViewModel : ViewModel() {
             try {
                 val quizzes = repository.getQuizzes(forceRefresh || (repository.cachedQuizzes?.size?:0) <=5)
 
-                val limitedQuizzes = quizzes.take(4)
+                val limitedQuizzes = quizzes.take(8)
 
                 val attemptsInfo = checkUserAttempts()
                 val remaining = MAX_DAILY_QUIZZES - attemptsInfo.first

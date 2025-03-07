@@ -21,7 +21,6 @@ class SpacingItemDecoration(private val space: Int) : RecyclerView.ItemDecoratio
         else{
             outRect.left = space / 2
         }
-        outRect.bottom = space / 2
 
     }
 }

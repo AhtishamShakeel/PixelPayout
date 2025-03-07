@@ -2,14 +2,11 @@ package com.example.pixelpayout.data.api
 
 
 import ApiQuestion
-import com.google.gson.annotations.SerializedName
-import okhttp3.Interceptor
+
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Path
-import java.io.IOException
 import java.util.UUID
 import retrofit2.Response
 import retrofit2.http.GET

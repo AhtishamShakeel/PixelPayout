@@ -11,10 +11,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.example.pixelpayout.data.api.Quiz
+import com.example.pixelpayout.utils.SpacingItemDecoration
 import java.util.concurrent.TimeUnit
 import com.pixelpayout.utils.AdManager
 
@@ -70,7 +74,8 @@ class QuizListFragment : Fragment() {
 
         binding.recyclerView.apply {
             adapter = quizAdapter
-            layoutManager = LinearLayoutManager(context)
+            layoutManager = StaggeredGridLayoutManager(2, GridLayoutManager.VERTICAL)
+            addItemDecoration(SpacingItemDecoration(38))
         }
     }
 

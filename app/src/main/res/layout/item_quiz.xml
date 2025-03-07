@@ -1,49 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp">
-
+    android:layout_height="200dp"
+    app:cardCornerRadius="16dp"
+    android:layout_marginTop="@dimen/spacing_large"
+    app:cardBackgroundColor="#222222"
+    app:cardElevation="8dp">
     <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="#222222"
+        android:padding="16dp"
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
-        <TextView
-            android:id="@+id/titleText"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
+        <!-- Floating Image -->
+        <ImageView
+            android:id="@+id/floatingImage"
+            android:layout_width="80dp"
+            android:layout_height="80dp"
+            android:src="@drawable/ic_user"
+            app:layout_constraintBottom_toTopOf="@+id/textContainer"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Science: Computers" />
-
-        <com.google.android.material.chip.Chip
-            android:id="@+id/difficultyChip"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/titleText"
-            tools:text="Medium" />
-
-        <TextView
-            android:id="@+id/pointsText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:drawablePadding="4dp"
-            android:gravity="center_vertical"
-            app:drawableStartCompat="@drawable/ic_points"
-            app:layout_constraintBottom_toBottomOf="@id/difficultyChip"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="@id/difficultyChip"
-            tools:text="200 points" />
+            android:elevation="10dp" />
+        <View
+            android:id="@+id/shadowView"
+            android:layout_width="60dp"
+            android:layout_height="10dp"
+            android:layout_marginBottom="3dp"
+            android:background="@drawable/shadow_drawable"
+            app:layout_constraintTop_toBottomOf="@id/floatingImage"
+            app:layout_constraintStart_toStartOf="@id/floatingImage"
+            app:layout_constraintEnd_toEndOf="@id/floatingImage" />
+
+        <!-- Text Container -->
+        <LinearLayout
+            android:id="@+id/textContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:id="@+id/titleText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sports"
+                android:textColor="#FFFFFF"
+                android:textSize="18sp"
+                android:textStyle="bold"/>
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/difficultyChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/titleText"
+                tools:text="Medium" />
+        </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
-</com.google.android.material.card.MaterialCardView> 
+
+</androidx.cardview.widget.CardView>
+

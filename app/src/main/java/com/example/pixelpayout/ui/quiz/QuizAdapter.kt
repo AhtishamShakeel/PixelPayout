@@ -1,5 +1,6 @@
 package com.pixelpayout.ui.quiz
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
@@ -23,10 +24,16 @@ class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
 
     override fun onBindViewHolder(holder: QuizViewHolder, position: Int) {
         holder.bind(getItem(position))
+
+        val layoutParams = holder.binding.root.layoutParams
+        val context = holder.binding.root.context
+        layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
+        layoutParams.height = if (position == 0) dpToPx(context, 200) else dpToPx(context, 230)
+        holder.binding.root.layoutParams = layoutParams
     }
 
     inner class QuizViewHolder(
-        private val binding: ItemQuizBinding
+        val binding: ItemQuizBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
         init {
@@ -42,7 +49,6 @@ class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
             binding.apply {
                 titleText.text = quiz.title
                 difficultyChip.text = quiz.difficulty
-                pointsText.text = root.context.getString(R.string.points_value, quiz.pointsReward)
 
                 // Set chip color based on difficulty
                 val colorRes = when (quiz.difficulty.lowercase()) {
@@ -64,5 +70,8 @@ class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
         override fun areContentsTheSame(oldItem: Quiz, newItem: Quiz): Boolean {
             return oldItem == newItem
         }
+    }
+    private fun dpToPx(context: Context, dp: Int): Int {
+        return (dp * context.resources.displayMetrics.density).toInt()
     }
 } 

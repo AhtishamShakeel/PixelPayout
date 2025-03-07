@@ -137,37 +137,6 @@ class QuizListViewModel : ViewModel() {
         }.await()
     }
 
-    private suspend fun getServerTime(): Timestamp {
-        return try {
-            val serverTimeDoc = db.collection("metadata").document("serverTime")
-            serverTimeDoc.set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
-            serverTimeDoc.get().await().getTimestamp("timestamp") ?: Timestamp.now()
-        } catch (e: Exception) {
-            Timestamp.now()
-        }
-    }
-
-    private fun isNewUTCDay(oldTime: Timestamp, newTime: Timestamp): Boolean {
-        val oldCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            timeInMillis = oldTime.seconds * 1000
-        }
-        val newCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            timeInMillis = newTime.seconds * 1000
-        }
-        return oldCal[Calendar.DAY_OF_YEAR] != newCal[Calendar.DAY_OF_YEAR] ||
-                oldCal[Calendar.YEAR] != newCal[Calendar.YEAR]
-    }
-
-    private fun getMidnightUTCTimestamp(): Long {
-        return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-    }
-
     private fun submitQuiz() =
         db.collection("users").document(auth.currentUser?.uid ?: throw Exception("Not authenticated"))
             .set(
@@ -222,6 +191,38 @@ class QuizListViewModel : ViewModel() {
             }
         }
     }
+
+    private suspend fun getServerTime(): Timestamp {
+        return try {
+            val serverTimeDoc = db.collection("metadata").document("serverTime")
+            serverTimeDoc.set(mapOf("timestamp" to FieldValue.serverTimestamp())).await()
+            serverTimeDoc.get().await().getTimestamp("timestamp") ?: Timestamp.now()
+        } catch (e: Exception) {
+            Timestamp.now()
+        }
+    }
+
+    private fun isNewUTCDay(oldTime: Timestamp, newTime: Timestamp): Boolean {
+        val oldCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = oldTime.seconds * 1000
+        }
+        val newCal = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            timeInMillis = newTime.seconds * 1000
+        }
+        return oldCal[Calendar.DAY_OF_YEAR] != newCal[Calendar.DAY_OF_YEAR] ||
+                oldCal[Calendar.YEAR] != newCal[Calendar.YEAR]
+    }
+
+    private fun getMidnightUTCTimestamp(): Long {
+        return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
     private fun clearCache(){
         repository.cachedQuizzes = null
     }

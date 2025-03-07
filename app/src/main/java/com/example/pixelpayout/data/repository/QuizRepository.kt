@@ -15,43 +15,32 @@ class QuizRepository {
 
     suspend fun getQuizzes(forcedRefresh: Boolean = false): List<Quiz> {
         return withContext(Dispatchers.IO) {
-
-            if (forcedRefresh || cachedQuizzes == null || cachedQuizzes!!.size <= 5) {
-                val response = api.getQuestions(amount = 20)
+            if (forcedRefresh || cachedQuizzes == null || cachedQuizzes!!.size <= 4) {
+                val response = api.getQuestions(amount = 60)
                 val body = response.body()?.results ?: emptyList()
 
-                val quizzes = body.mapNotNull { apiQuestion ->
-                    try {
-                        var categoryTitle = apiQuestion.category.split(":", "&").first().trim()
+                val easyQuizzes = body.filter { it.difficulty.equals("easy", ignoreCase = true) }
 
-                        if (categoryTitle.equals("General Knowledge", ignoreCase = true)){
-                            categoryTitle = "G.K"
-                        }
-                        val allOptions =
-                            (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled()
+                val quizzesByCategory = easyQuizzes.groupBy { it.category }
+
+                val selectedQuizzes = quizzesByCategory.values.mapNotNull { categoryQuizzes ->
+                    categoryQuizzes.randomOrNull()?.let { apiQuestion ->
                         Quiz(
                             id = apiQuestion.question.hashCode().toString(),
-                            title = categoryTitle,
+                            title = apiQuestion.category,
                             difficulty = apiQuestion.difficulty,
-                            pointsReward = when (apiQuestion.difficulty.lowercase()) {
-                                "easy" -> 10
-                                "medium" -> 15
-                                "hard" -> 20
-                                else -> 10
-                            },
+                            pointsReward = 10,
                             questions = listOf(
                                 Question(
                                     text = Html.fromHtml(apiQuestion.question).toString(),
-                                    options = allOptions,
-                                    correctAnswer = allOptions.indexOf(apiQuestion.correctAnswer)
+                                    options = (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled(),
+                                    correctAnswer = (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).indexOf(apiQuestion.correctAnswer)
                                 )
                             )
                         )
-                    } catch (e: Exception) {
-                        null
                     }
                 }
-                cachedQuizzes = quizzes
+                cachedQuizzes = selectedQuizzes
             }
             return@withContext cachedQuizzes!!.take(10)
         }

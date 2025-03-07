@@ -18,6 +18,8 @@ import java.util.Calendar
 import java.util.TimeZone
 import android.content.Context
 import com.pixelpayout.utils.AdManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 
 class QuizListViewModel : ViewModel() {
@@ -70,13 +72,11 @@ class QuizListViewModel : ViewModel() {
             try {
                 val quizzes = repository.getQuizzes(forceRefresh || (repository.cachedQuizzes?.size?:0) <=5)
 
-                val limitedQuizzes = quizzes.take(8)
-
                 val attemptsInfo = checkUserAttempts()
                 val remaining = MAX_DAILY_QUIZZES - attemptsInfo.first
 
                 if (remaining > 0) {
-                    _quizzes.value = limitedQuizzes
+                    _quizzes.value = quizzes
                     _quizLimitReached.value = false
                 } else {
                     _quizLimitReached.value = true
@@ -85,7 +85,6 @@ class QuizListViewModel : ViewModel() {
                 }
 
                 _remainingQuizzes.value = remaining
-                _quizzes.value = limitedQuizzes
                 hasLoaded = true
                 _error.value = null
             } catch (e: Exception) {

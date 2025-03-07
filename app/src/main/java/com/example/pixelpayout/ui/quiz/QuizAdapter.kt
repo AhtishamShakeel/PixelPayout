@@ -48,16 +48,6 @@ class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
         fun bind(quiz: Quiz) {
             binding.apply {
                 titleText.text = quiz.title
-                difficultyChip.text = quiz.difficulty
-
-                // Set chip color based on difficulty
-                val colorRes = when (quiz.difficulty.lowercase()) {
-                    "easy" -> R.color.difficulty_easy
-                    "medium" -> R.color.difficulty_medium
-                    "hard" -> R.color.difficulty_hard
-                    else -> R.color.difficulty_easy
-                }
-                difficultyChip.setChipBackgroundColorResource(colorRes)
             }
         }
     }

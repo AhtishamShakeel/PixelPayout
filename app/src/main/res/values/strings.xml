@@ -11,6 +11,7 @@
     <string name="error_login_failed">Login failed: %1$s</string>
     <string name="full_name">Full Name</string>
     <string name="sign_up">Sign Up</string>
+    <string name="create_new_account_text">Login to your Account or Create new Account</string>
     <string name="already_have_account">Already have an account? Login</string>
     <string name="error_name_required">Name is required</string>
     <string name="error_signup_failed">Signup failed: %1$s</string>

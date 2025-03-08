@@ -44,10 +44,11 @@
                 android:textStyle="bold" />
 
             <TextView
+                android:id="@+id/login_or_signup_text"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginHorizontal="26dp"
-                android:text="Login to your Account or Create new Account"
+                android:text="@string/create_new_account_text"
                 android:textSize="12sp"
                 android:fontFamily="@font/lexend_regular"
                 android:textColor="@color/primary_text"/>

@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.auth
 
+import android.annotation.SuppressLint
 import android.provider.Settings.Secure
 import kotlinx.coroutines.*
 import android.content.Intent
@@ -52,6 +53,7 @@ class Auth : AppCompatActivity() {
 
 
 
+    @SuppressLint("HardwareIds")
     private fun setupViews() {
 
         binding.inputEmail.addTextChangedListener(createTextWatcher(binding.emailLayout))
@@ -101,14 +103,14 @@ class Auth : AppCompatActivity() {
             exists?.let {
                 if (it) {
                     emailExists()
+                    binding.loginOrSignupText.text = "Login to your Account"
                     binding.btnContinue.stopLoading("Continue")
                     hideLoading()
-                    Toast.makeText(this, "Email already exist enter password to login", Toast.LENGTH_LONG).show()
                 } else {
                     emailNotExist()
                     binding.btnContinue.stopLoading("Continue")
                     hideLoading()
-                    Toast.makeText(this, "Create new Account", Toast.LENGTH_LONG).show()
+                    binding.loginOrSignupText.text = "Create new Account"
                 }
             }
         })
@@ -305,6 +307,7 @@ class Auth : AppCompatActivity() {
         binding.editEmail.visibility = View.GONE
         showKeyboard(binding.inputEmail)
         binding.nameLayout.visibility = View.GONE
+        binding.loginOrSignupText.text = getString(R.string.create_new_account_text)
     }
 
     private fun emailExists(){

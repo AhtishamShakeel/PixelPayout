@@ -19,7 +19,7 @@ class GamePlayActivity : AppCompatActivity() {
         binding = ActivityGamePlayBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        if (GAME_URL.startsWith("http")) {
+        if (GAME_URL_1.startsWith("http")) {
             setupWebView()
         } else {
             showPlaceholder()
@@ -85,7 +85,7 @@ class GamePlayActivity : AppCompatActivity() {
                 requestFocus()
 
                 // Load the game URL
-                loadUrl(GAME_URL)
+                loadUrl(GAME_URL_1)
             }
         }
     }
@@ -101,6 +101,6 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val GAME_URL = "https://game-ccdff.web.app/" // Updated to your 2048 game URL
+        private const val GAME_URL_1 = "https://game-ccdff.web.app/" // Updated to your 2048 game URL
     }
 } 

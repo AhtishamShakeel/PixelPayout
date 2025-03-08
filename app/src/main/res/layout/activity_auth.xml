@@ -40,6 +40,7 @@
                 android:layout_marginHorizontal="26dp"
                 android:textColor="@color/primary_text"
                 android:textSize="30sp"
+                android:fontFamily="@font/lexend_regular"
                 android:textStyle="bold" />
 
             <TextView
@@ -48,6 +49,7 @@
                 android:layout_marginHorizontal="26dp"
                 android:text="Login to your Account or Create new Account"
                 android:textSize="12sp"
+                android:fontFamily="@font/lexend_regular"
                 android:textColor="@color/primary_text"/>
 
             <com.google.android.material.textfield.TextInputLayout
@@ -107,6 +109,7 @@
                 android:clickable="true"
                 android:text="Change Email?"
                 android:visibility="gone"
+                android:fontFamily="@font/lexend_regular"
                 android:layout_gravity="right"
                 android:textSize="13sp"
                 android:gravity="right"
@@ -123,7 +126,7 @@
                 app:iconGravity="top"
                 android:background="@drawable/rounded_button"
                 android:layout_marginHorizontal="26dp"
-                android:fontFamily="@font/ptserif_bold"
+                android:fontFamily="@font/lexend_bold"
                 android:text="Continue" />
 
             <LinearLayout
@@ -169,7 +172,7 @@
                     app:iconGravity="top"
                     android:background="@drawable/rounded_button"
                     android:layout_marginHorizontal="26dp"
-                    android:fontFamily="@font/ptserif_bold"
+                    android:fontFamily="@font/lexend_bold"
                     android:text="Login" />
 
 
@@ -241,7 +244,7 @@
                     app:iconGravity="top"
                     android:background="@drawable/rounded_button"
                     android:layout_marginHorizontal="26dp"
-                    android:fontFamily="@font/ptserif_bold"
+                    android:fontFamily="@font/lexend_bold"
                     android:text="Signup" />
 
 
@@ -266,6 +269,7 @@
                     android:gravity="center_horizontal"
                     android:text="@string/or_signup_using_google"
                     android:textSize="12sp"
+                    android:fontFamily="@font/lexend_regular"
                     android:textColor="@color/primary_text"/>
 
 

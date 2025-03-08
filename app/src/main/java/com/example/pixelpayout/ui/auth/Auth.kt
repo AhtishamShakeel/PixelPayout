@@ -1,10 +1,10 @@
 package com.example.pixelpayout.ui.auth
 
-import android.annotation.SuppressLint
+import android.provider.Settings.Secure
 import kotlinx.coroutines.*
 import android.content.Intent
-import android.graphics.drawable.AnimatedVectorDrawable
 import android.os.Bundle
+import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.method.TextKeyListener
@@ -16,7 +16,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.utils.startLoading
@@ -25,13 +24,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
-import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputLayout
 import com.pixelpayout.databinding.ActivityAuthBinding
 import com.pixelpayout.ui.main.MainActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import kotlinx.coroutines.time.delay
 
 class Auth : AppCompatActivity() {
 
@@ -90,10 +87,12 @@ class Auth : AppCompatActivity() {
             val confirmPassword = binding.inputConfirmPassword.text.toString()
             hideKeyboard(it)
 
+            val androidId = Secure.getString(contentResolver,  Settings.Secure.ANDROID_ID)
+
             if(validateSignup(name, password, confirmPassword)){
                 binding.btnSignup.startLoading()
                 showLoading()
-                viewModel.signup(name, email, password)
+                viewModel.signup(name, email, password, androidId)
 
             }
         }

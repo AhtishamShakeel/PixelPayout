@@ -1,7 +1,7 @@
 package com.example.pixelpayout.ui.auth
 
 import android.util.Log
-import android.widget.Toast
+import android.provider.Settings.Secure
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -89,23 +89,34 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signup(name: String, email: String, password: String){
+    fun signup(name: String, email: String, password: String, androidId: String){
         signupJob?.cancel()
 
         signupJob = viewModelScope.launch {
             try {
                 _signupState.value = SignupState.Loading
 
-                withTimeout(10000){
+                withTimeout(15000){
                     val result = auth.createUserWithEmailAndPassword(email,password).await()
 
                     result.user?.let { user ->
                         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+                        val existingUserQuery = firestore.collection("users")
+                            .whereEqualTo("androidId", androidId)
+                            .get()
+                            .await()
+
+
+                        val hasUsedReferral = existingUserQuery.documents.isNotEmpty()
+
+
                         val userData = hashMapOf(
                             "displayName" to name,
                             "email" to email,
                             "password" to password,
-                            "hasUsedReferral" to false,
+                            "androidId" to androidId,
+                            "hasUsedReferral" to hasUsedReferral,
                             "joinedDate" to Timestamp.now(),
                             "lastActive" to Timestamp.now(),
                             "lastServerDate" to currentDate,

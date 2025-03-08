@@ -94,7 +94,7 @@ class Auth : AppCompatActivity() {
             if(validateSignup(name, password, confirmPassword)){
                 binding.btnSignup.startLoading()
                 showLoading()
-                viewModel.signup(name, email, password, androidId)
+                viewModel.signup(name, email, password, androidId, this)
 
             }
         }

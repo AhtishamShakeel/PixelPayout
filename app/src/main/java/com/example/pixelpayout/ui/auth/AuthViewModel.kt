@@ -1,11 +1,13 @@
 package com.example.pixelpayout.ui.auth
 
+import android.content.Context
 import android.util.Log
 import android.provider.Settings.Secure
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.pixelpayout.utils.UserPreferences
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -20,6 +22,7 @@ import com.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
+
 
 class AuthViewModel : ViewModel() {
 
@@ -89,7 +92,7 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signup(name: String, email: String, password: String, androidId: String){
+    fun signup(name: String, email: String, password: String, androidId: String, context: Context){
         signupJob?.cancel()
 
         signupJob = viewModelScope.launch {
@@ -130,6 +133,10 @@ class AuthViewModel : ViewModel() {
                             .document(user.uid)
                             .set(userData)
                             .await()
+
+                        val userPreferences = UserPreferences(context)
+                        userPreferences.setHasSeenReferralPopup(false)
+
 
                         _signupState.value = SignupState.Success
                     } ?: throw Exception("User creation failed")

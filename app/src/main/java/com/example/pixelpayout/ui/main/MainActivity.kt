@@ -41,20 +41,18 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         super.onCreate(savedInstanceState)
-        Log.d("ReferralDebug", "✅ MainActivity started")
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
 
-        Log.d("ReferralDebug", "🔍 Calling checkAndShowReferralPopup()")  // 🔍 Confirm function is called
-        checkAndShowReferralPopup()
 
+
+        checkAndShowReferralPopup()
         setupToolbar()
         setupNavigation()
         observeViewModel()
         loadQuizzes()
-        observeReferralResult()
 
     }
 
@@ -62,7 +60,12 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.customToolbar.toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
 
-        // Make points clickable
+        lifecycleScope.launch {
+            userPreferences.username.collect {username ->
+                binding.customToolbar.usernameText.text = "Hey, ${username ?: "User"}"
+            }
+        }
+
         binding.customToolbar.pointsHeader.root.setOnClickListener {
             binding.bottomNav.selectedItemId = R.id.navigation_redemption
         }
@@ -120,17 +123,6 @@ class MainActivity : AppCompatActivity() {
         val dialog = ReferralDialogFragment()
         dialog.show(supportFragmentManager, "ReferralDialog")
 
-    }
-
-    private fun observeReferralResult() {
-        referralViewModel.referralResult.observe(this) { result ->
-            when (result) {
-                is ReferralResult.Success -> Toast.makeText(this, "Referral Applied Successfully!", Toast.LENGTH_SHORT).show()
-                is ReferralResult.AlreadyUsed -> Toast.makeText(this, "You have already used a referral.", Toast.LENGTH_SHORT).show()
-                is ReferralResult.InvalidCode -> Toast.makeText(this, "Invalid Referral Code.", Toast.LENGTH_SHORT).show()
-                is ReferralResult.Error -> Toast.makeText(this, "Error: ${result.message}", Toast.LENGTH_SHORT).show()
-            }
-        }
     }
 
 }

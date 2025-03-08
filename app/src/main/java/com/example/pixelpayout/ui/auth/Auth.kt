@@ -77,7 +77,7 @@ class Auth : AppCompatActivity() {
             val email = binding.inputEmail.text.toString()
             val password = binding.inputPassword.text.toString()
             hideKeyboard(it)
-            viewModel.login(email,password)
+            viewModel.login(email,password, this)
             binding.btnLogin.startLoading()
             showLoading()
         }

@@ -68,26 +68,29 @@ class AuthViewModel : ViewModel() {
             }
     }
 
-    fun login(email: String, password: String){
+    fun login(email: String, password: String, context: Context) {
         loginJob?.cancel()
 
         loginJob = viewModelScope.launch {
             try {
                 _loginState.value = LoginState.Loading
 
-                withTimeout(10000){
-                    auth.signInWithEmailAndPassword(email,password).await()
+                withTimeout(10000) {
+                    val result = auth.signInWithEmailAndPassword(email, password).await()
+                    val user = result.user ?: throw Exception("Login failed")
+
+                    val userDoc = firestore.collection("users").document(user.uid).get().await()
+                    val username = userDoc.getString("displayName") ?: "User"
+
+                    val userPreferences = UserPreferences(context)
+                    userPreferences.setUsername(username)
+
                     _loginState.value = LoginState.Success
                 }
-            } catch (e: TimeoutCancellationException){
+            } catch (e: TimeoutCancellationException) {
                 _loginState.value = LoginState.Error("Request timed out. Please try again.")
-            } catch (e: Exception){
-                val errorMessage = when {
-                    e.message?.contains("password", ignoreCase = true) == true ->
-                        "Incorrect password"
-                    else -> "Login failed: Incorrect Gmail or password:"
-                }
-                _loginState.value = LoginState.Error(errorMessage)
+            } catch (e: Exception) {
+                _loginState.value = LoginState.Error("Login failed: ${e.message}")
             }
         }
     }
@@ -134,8 +137,10 @@ class AuthViewModel : ViewModel() {
                             .set(userData)
                             .await()
 
+
                         val userPreferences = UserPreferences(context)
                         userPreferences.setHasSeenReferralPopup(false)
+                        userPreferences.setUsername(name)
 
 
                         _signupState.value = SignupState.Success

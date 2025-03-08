@@ -142,6 +142,7 @@ class AuthViewModel : ViewModel() {
                     } ?: throw Exception("User creation failed")
                 }
             } catch (e: TimeoutCancellationException) {
+                auth.currentUser?.delete()
                 _signupState.value = SignupState.Error(
                     message = "Request time out. Please try again.",
                     field = null

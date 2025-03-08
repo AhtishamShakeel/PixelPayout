@@ -16,7 +16,11 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.R
 import com.pixelpayout.data.repository.UserRepository
 import com.pixelpayout.databinding.ActivityMainBinding
+import com.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.pixelpayout.ui.quiz.QuizListViewModel
+import com.pixelpayout.ui.redemption.ReferralResult
+import com.pixelpayout.ui.redemption.ReferralViewModel
+import com.pixelpayout.ui.redemption.ReferralViewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
@@ -30,6 +34,9 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(UserRepository())
     }
+    private val referralViewModel: ReferralViewModel by viewModels {
+        ReferralViewModelFactory(UserRepository())
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -40,16 +47,15 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
 
-        lifecycleScope.launch {
-            delay(2000)  // ✅ Give Firebase time to load data
-            Log.d("ReferralDebug", "🔍 Calling checkAndShowReferralPopup()")  // 🔍 Confirm function is called
-            checkAndShowReferralPopup()
-        }
+        Log.d("ReferralDebug", "🔍 Calling checkAndShowReferralPopup()")  // 🔍 Confirm function is called
+        checkAndShowReferralPopup()
 
         setupToolbar()
         setupNavigation()
         observeViewModel()
         loadQuizzes()
+        observeReferralResult()
+
     }
 
     private fun setupToolbar() {
@@ -111,14 +117,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showReferralPopup() {
-        AlertDialog.Builder(this)
-            .setTitle("Enter Referral Code")
-            .setMessage("Do you have a referral code? Enter it now to get rewards!")
-            .setPositiveButton("Enter Code") { _, _ ->
-            }
-            .setNegativeButton("Skip") { dialog, _ ->
-                dialog.dismiss()
-            }
-            .show()
+        val dialog = ReferralDialogFragment()
+        dialog.show(supportFragmentManager, "ReferralDialog")
+
     }
+
+    private fun observeReferralResult() {
+        referralViewModel.referralResult.observe(this) { result ->
+            when (result) {
+                is ReferralResult.Success -> Toast.makeText(this, "Referral Applied Successfully!", Toast.LENGTH_SHORT).show()
+                is ReferralResult.AlreadyUsed -> Toast.makeText(this, "You have already used a referral.", Toast.LENGTH_SHORT).show()
+                is ReferralResult.InvalidCode -> Toast.makeText(this, "Invalid Referral Code.", Toast.LENGTH_SHORT).show()
+                is ReferralResult.Error -> Toast.makeText(this, "Error: ${result.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 }

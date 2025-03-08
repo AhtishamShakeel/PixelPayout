@@ -23,4 +23,15 @@
         <item name="cornerSize">12dp</item> <!-- Change to 8dp or 16dp as needed -->
     </style>
 
+    <style name="CustomDialogTheme" parent="Theme.MaterialComponents.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:windowMinWidthMajor">90%</item>
+        <item name="android:windowMinWidthMinor">90%</item>
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+    </style>
+
+
 </resources> 

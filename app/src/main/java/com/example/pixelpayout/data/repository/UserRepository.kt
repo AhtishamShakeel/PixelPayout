@@ -1,5 +1,6 @@
 package com.pixelpayout.data.repository
 
+import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.Timestamp
@@ -73,7 +74,7 @@ class UserRepository {
                         onComplete(newTotal)
 
                         // If user was referred and has reached 50 points, reward referrer
-                        if (newTotal >= 50 && referredBy != null && !referralRewardClaimed) {
+                        if (newTotal >= 100 && referredBy != null && !referralRewardClaimed) {
                             giveReferralReward(referredBy, userId)
                         }
                     }
@@ -136,6 +137,8 @@ class UserRepository {
                         "referredBy" to referrerId
                     )
                 )
+                val currentPoints = userDoc.getLong("points") ?: 0
+                transaction.update(userRef, "points", currentPoints + 50)
             }.await()
 
             ReferralResult.Success

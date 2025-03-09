@@ -24,14 +24,21 @@ class UserRepository {
     val userData: LiveData<UserData> = _userData
 
     init {
-        setupRealtimeUpdates()
+        waitForUserLogin()
     }
 
     fun getCurrentUserId(): String? {
         return auth.currentUser?.uid
     }
+    private fun waitForUserLogin() {
+        FirebaseAuth.getInstance().addAuthStateListener { auth ->
+            auth.currentUser?.uid?.let { userId ->
+                setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
+            }
+        }
+    }
 
-    private fun setupRealtimeUpdates() {
+    private fun setupRealtimeUpdates(userId: String) {
         auth.currentUser?.uid?.let { userId ->
             firestore.collection("users").document(userId)
                 .addSnapshotListener { snapshot, _ ->

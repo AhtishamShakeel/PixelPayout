@@ -4,12 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.pixelpayout.data.repository.UserRepository
 
-class ReferralViewModelFactory(
-    private val userRepository: UserRepository
-) : ViewModelProvider.Factory {
+class ReferralViewModelFactory(private val userRepository: UserRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ReferralViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
             return ReferralViewModel(userRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")

@@ -19,6 +19,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Observer
 import androidx.lifecycle.lifecycleScope
+import com.example.pixelpayout.utils.UserPreferences
 import com.example.pixelpayout.utils.startLoading
 import com.example.pixelpayout.utils.stopLoading
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -167,10 +168,24 @@ class Auth : AppCompatActivity() {
                 if(task.isSuccessful){
                     val user = auth.currentUser
                     user?.let{
+
+                        val androidId = try {
+                            Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
+                        } catch (e: Exception) {
+                            "UNKNOWN_ANDROID_ID" // ✅ Use fallback value
+                        }
+                        val userPreferences = UserPreferences(this)
+                        lifecycleScope.launch {
+                            userPreferences.setUsername(it.displayName ?: "User")
+                            userPreferences.setHasSeenReferralPopup(false)
+                        }
+
                         viewModel.checkIfUserExists(
                             it.uid,
                             it.displayName ?:"User",
                             it.email?:"",
+                            androidId,
+                            this,
                             onSuccess = {
                                 navigateToMain()
                                 lifecycleScope.launch{

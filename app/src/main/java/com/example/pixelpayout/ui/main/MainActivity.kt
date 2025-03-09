@@ -31,12 +31,12 @@ class MainActivity : AppCompatActivity() {
     lateinit var binding: ActivityMainBinding
     private lateinit var userPreferences: UserPreferences
     private val quizViewModel: QuizListViewModel by viewModels()
+    private lateinit var referralViewModel: ReferralViewModel
+
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(UserRepository())
     }
-    private val referralViewModel: ReferralViewModel by viewModels {
-        ReferralViewModelFactory(UserRepository())
-    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -45,10 +45,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
+        Log.d("ReferralDebug", "Initializing ReferralViewModel...") // ✅ Add log before initialization
+        lifecycleScope.launch {
+            delay(1000)  // ✅ Delay ViewModel initialization
+            referralViewModel = ReferralViewModel(UserRepository())
+            checkAndShowReferralPopup()
+        }
 
-
-
-        checkAndShowReferralPopup()
         setupToolbar()
         setupNavigation()
         observeViewModel()

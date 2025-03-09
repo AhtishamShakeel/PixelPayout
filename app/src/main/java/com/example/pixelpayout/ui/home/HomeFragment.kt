@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.pixelpayout.R
@@ -34,9 +35,16 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupClickListeners()
+        observeViewModel()
     }
     override fun onResume() {
         super.onResume()
+    }
+
+    private fun observeViewModel(){
+        mainViewModel.points.observe(viewLifecycleOwner){
+            points -> binding.totalPoints.text = "Total Stars: $points"
+        }
     }
 
 
@@ -66,6 +74,10 @@ class HomeFragment : Fragment() {
 
             gameDetails.setOnClickListener {
                 navigateToDetails("game")
+            }
+
+            btnPayout.setOnClickListener{
+                (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_redemption
             }
         }
     }

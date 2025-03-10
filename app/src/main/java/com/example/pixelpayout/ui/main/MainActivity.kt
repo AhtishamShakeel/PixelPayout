@@ -25,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MainActivity : AppCompatActivity() {
 
@@ -47,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         userPreferences = UserPreferences(this)
         Log.d("ReferralDebug", "Initializing ReferralViewModel...") // ✅ Add log before initialization
         lifecycleScope.launch {
-            delay(1000)  // ✅ Delay ViewModel initialization
+            delay(1000)
             referralViewModel = ReferralViewModel(UserRepository())
             checkAndShowReferralPopup()
         }
@@ -96,30 +97,36 @@ class MainActivity : AppCompatActivity() {
     private fun checkAndShowReferralPopup() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
 
-        FirebaseFirestore.getInstance().collection("users").document(user.uid)
-            .get()
-            .addOnSuccessListener { document ->
-                if (document.exists()) {
-                    val hasUsedReferral = document.getBoolean("hasUsedReferral") ?: false  // ✅ Default to false
-                    Log.d("ReferralDebug", "Firebase hasUsedReferral: $hasUsedReferral")
-                    lifecycleScope.launch {
-                        val hasSeenPopup = userPreferences.hasSeenReferralPopup.firstOrNull() ?: false  // ✅ Use firstOrNull() to avoid crashes
-                        Log.d("ReferralDebug", "DataStore hasSeenPopup: $hasSeenPopup")
+        lifecycleScope.launch {
+            val hasSeenPopup = userPreferences.hasSeenReferralPopup.firstOrNull() ?: false
+            if (hasSeenPopup) {
+                Log.d("ReferralDebug", "User has seen the popup. Skipping Firebase check")
+                return@launch
+            }
+            userPreferences.setHasSeenReferralPopup(true)
 
-                        if (!hasUsedReferral && !hasSeenPopup) {  // ✅ Now both !values are non-null
-                            showReferralPopup()
-                            userPreferences.setHasSeenReferralPopup(true)
-                        } else {
-                            Log.d("ReferralDebug", "❌ Popup conditions not met")
-                        }
+            try{
+                val document = FirebaseFirestore.getInstance().collection("users")
+                    .document(user.uid)
+                    .get()
+                    .await()
+                if (document.exists()){
+                    val hasUsedReferral = document.getBoolean("hasUsedReferral") ?: false
+                    Log.d("ReferralDebug", "Firebase hasUsedReferral: $hasUsedReferral")
+
+
+                    if(!hasUsedReferral){
+                        showReferralPopup()
+                    } else {
+                        Log.d("ReferralDebug", "User has already used a referral code.")
                     }
                 } else {
-                    Log.d("ReferralDebug", "❌ Firebase document does not exist")
+                    Log.d("ReferralDebug", "User document does not exist in Firebase.")
                 }
+            } catch (e: Exception) {
+                Log.e("ReferralDebug", "Error fetching Firebase data: ${e.message}")
             }
-            .addOnFailureListener { e ->
-                Log.e("ReferralDebug", "❌ Firebase fetch error: ${e.message}")
-            }
+        }
     }
 
     private fun showReferralPopup() {

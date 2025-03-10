@@ -15,7 +15,7 @@ class RewardsFragment : Fragment() {
     private var _binding: FragmentRewardsBinding? = null
     private val binding get() = _binding!!
 
-    private val userRepository = UserRepository()
+    private val userRepository = UserRepository.getInstance()
     private var userId: String? = null
     private var offerwallPlacement: TJPlacement? = null
 

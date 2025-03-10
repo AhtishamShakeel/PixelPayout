@@ -22,7 +22,7 @@ class ReferralDialogFragment : DialogFragment() {
 
     // ✅ Get ViewModel from MainActivity (shared ViewModel)
     private val referralViewModel: ReferralViewModel by activityViewModels {
-        ReferralViewModelFactory(UserRepository())
+        ReferralViewModelFactory(UserRepository.getInstance())
     }
 
     override fun onCreateView(

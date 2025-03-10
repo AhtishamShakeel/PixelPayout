@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 
 class QuizListViewModel : ViewModel() {
     private val repository = QuizRepository()
-    private val userRepository = UserRepository()
+    private val userRepository = UserRepository.getInstance()
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 

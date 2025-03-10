@@ -32,7 +32,7 @@ class QuizViewModel : ViewModel() {
     private val _totalPoints = MutableLiveData<Int>()
     val totalPoints: LiveData<Int> = _totalPoints
 
-    private val userRepository = UserRepository()
+    private val userRepository = UserRepository.getInstance()
 
     fun setQuiz(quiz: Quiz) {
         this.quiz = quiz

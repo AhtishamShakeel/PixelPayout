@@ -7,6 +7,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -33,11 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userPreferences: UserPreferences
     private val quizViewModel: QuizListViewModel by viewModels()
     private lateinit var referralViewModel: ReferralViewModel
-
-    private val viewModel: MainViewModel by viewModels {
-        MainViewModelFactory(UserRepository())
-    }
-
+    private val userRepository = UserRepository.getInstance()
+    private lateinit var viewModel: MainViewModel
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -46,10 +44,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
-        Log.d("ReferralDebug", "Initializing ReferralViewModel...") // ✅ Add log before initialization
+
+        // Initialize ViewModel with factory
+        viewModel = ViewModelProvider(this, MainViewModelFactory(userRepository))[MainViewModel::class.java]
+
+        Log.d("ReferralDebug", "Initializing ReferralViewModel...")
         lifecycleScope.launch {
             delay(1000)
-            referralViewModel = ReferralViewModel(UserRepository())
+            referralViewModel = ReferralViewModel(userRepository)
             checkAndShowReferralPopup()
         }
 
@@ -57,7 +59,11 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         observeViewModel()
         loadQuizzes()
+    }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        userRepository.cleanup()
     }
 
     private fun setupToolbar() {
@@ -85,6 +91,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun observeViewModel() {
         viewModel.points.observe(this) { points ->
+            Log.d("UIUpdate", "Points updated in UI: $points")
             binding.customToolbar.pointsHeader.pointsText.text =
                 getString(R.string.points_value, points)
         }
@@ -132,7 +139,5 @@ class MainActivity : AppCompatActivity() {
     private fun showReferralPopup() {
         val dialog = ReferralDialogFragment()
         dialog.show(supportFragmentManager, "ReferralDialog")
-
     }
-
 }

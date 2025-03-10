@@ -31,7 +31,7 @@ class AuthViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val userRepository = UserRepository()
+    private val userRepository = UserRepository.getInstance()
 
 
 

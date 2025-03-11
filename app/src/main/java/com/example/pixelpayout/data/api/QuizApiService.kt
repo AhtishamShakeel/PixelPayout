@@ -11,10 +11,13 @@ import java.util.UUID
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Query
+import retrofit2.http.Url
 
 
 // Update to:
 interface QuizApiService {
+    @GET
+    suspend fun getQuestionsFromUrl(@Url url: String): Response<TriviaResponse>
     @GET("api.php")
     suspend fun getQuestions(
         @Query("amount") amount: Int
@@ -52,4 +55,6 @@ object QuizApi {
             .build()
             .create(QuizApiService::class.java)
     }
+
+
 }

@@ -16,10 +16,10 @@ class SpacingItemDecoration(private val space: Int) : RecyclerView.ItemDecoratio
         val column = position % spanCount
 
         if (column == 0){
-            outRect.right = space/ 2
+            outRect.right = space
         }
         else{
-            outRect.left = space / 2
+            outRect.left = space
         }
 
     }

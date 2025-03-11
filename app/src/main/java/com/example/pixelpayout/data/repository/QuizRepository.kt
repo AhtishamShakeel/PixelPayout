@@ -56,4 +56,33 @@ class QuizRepository {
         cachedQuizzes = cachedQuizzes?.filter { it.id != quizId }
     }
 
+    suspend fun getSingleQuizByCategory(apiUrl: String): Quiz? {
+        return withContext(Dispatchers.IO) {
+            val response = api.getQuestionsFromUrl(apiUrl)
+            val body = response.body()?.results ?: emptyList()
+
+            body.firstOrNull()?.let { apiQuestion ->
+                val allOptions = apiQuestion.incorrectAnswers + apiQuestion.correctAnswer
+                val shuffledOptions = allOptions.shuffled()
+                val correctAnswerIndex = shuffledOptions.indexOf(apiQuestion.correctAnswer)
+
+                Quiz(
+                    id = apiQuestion.question.hashCode().toString(),
+                    title = apiQuestion.category,
+                    difficulty = apiQuestion.difficulty,
+                    pointsReward = 10,
+                    questions = listOf(
+                        Question(
+                            text = apiQuestion.question,
+                            options = shuffledOptions,
+                            correctAnswer = correctAnswerIndex
+                        )
+                    )
+                )
+            }
+        }
+    }
+
+
+
 }

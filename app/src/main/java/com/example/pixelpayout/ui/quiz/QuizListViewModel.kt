@@ -5,6 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixelpayout.data.api.Quiz
+import com.pixelpayout.R
 import com.pixelpayout.data.repository.QuizRepository
 import kotlinx.coroutines.launch
 
@@ -17,6 +18,9 @@ class QuizListViewModel : ViewModel() {
 
     private val _quizzes = MutableLiveData<List<Quiz>>()
     val quizzes: LiveData<List<Quiz>> = _quizzes
+
+    private val _selectedQuiz = MutableLiveData<Quiz?>()
+    val selectedQuiz: LiveData<Quiz?> = _selectedQuiz
 
     private val _loadingState = MutableLiveData<Boolean>()
     val loadingState: LiveData<Boolean> = _loadingState
@@ -69,5 +73,34 @@ class QuizListViewModel : ViewModel() {
 
     private fun clearCache(){
         repository.cachedQuizzes = null
+    }
+
+    data class QuizCategory(val name: String, val imageResId: Int, val apiUrl: String)
+
+    val categories = listOf(
+        QuizCategory("Vehicle", R.drawable.ic_user, "https://opentdb.com/api.php?amount=10&category=28&difficulty=easy"),
+        QuizCategory("Sports", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=21&difficulty=easy&type=multiple"),
+        QuizCategory("Celebrities", R.drawable.ic_user_icon, "https://opentdb.com/api.php?amount=15&category=26&difficulty=easy&type=multiple"),
+        QuizCategory("Science", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=17&difficulty=easy&type=multiple"),
+        QuizCategory("History", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=23&difficulty=easy&type=multiple"),
+        QuizCategory("Geography", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=22&difficulty=easy&type=multiple"),
+        QuizCategory("Movies", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=11&difficulty=easy&type=multiple"),
+        QuizCategory("Music", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=12&difficulty=easy&type=multiple")
+    )
+
+    fun loadSingleQuizByCategory(apiUrl: String) {
+        _loadingState.value = true
+
+        viewModelScope.launch {
+            try {
+                val quiz = repository.getSingleQuizByCategory(apiUrl)
+                _selectedQuiz.value = quiz
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = "Error: ${e.message ?: "Unknown error"}"
+            } finally {
+                _loadingState.value = false
+            }
+        }
     }
 }

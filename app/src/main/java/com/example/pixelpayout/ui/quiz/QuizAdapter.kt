@@ -6,62 +6,60 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.pixelpayout.R
-import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.databinding.ItemQuizBinding
 
-class QuizAdapter(private val onQuizClick: (Quiz) -> Unit) :
-    ListAdapter<Quiz, QuizAdapter.QuizViewHolder>(QuizDiffCallback()) {
+class QuizAdapter(
+    private val categories: List<QuizListViewModel.QuizCategory>,
+    private val onCategoryClick: (QuizListViewModel.QuizCategory) -> Unit
+) : ListAdapter<QuizListViewModel.QuizCategory, QuizAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): QuizViewHolder {
-        val binding = ItemQuizBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false
-        )
-        return QuizViewHolder(binding)
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
+        val binding = ItemQuizBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return CategoryViewHolder(binding)
     }
 
-    override fun onBindViewHolder(holder: QuizViewHolder, position: Int) {
-        holder.bind(getItem(position))
+    override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
+        holder.bind(categories[position])
 
         val layoutParams = holder.binding.root.layoutParams
-        val context = holder.binding.root.context
-        layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
-        layoutParams.height = if (position == 0) dpToPx(context, 200) else dpToPx(context, 230)
+        layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 190) else dpToPx(holder.binding.root.context, 210)
         holder.binding.root.layoutParams = layoutParams
-    }
 
-    inner class QuizViewHolder(
-        val binding: ItemQuizBinding
-    ) : RecyclerView.ViewHolder(binding.root) {
-
-        init {
-            binding.root.setOnClickListener {
-                val position = absoluteAdapterPosition
-                if (position != RecyclerView.NO_POSITION) {
-                    onQuizClick(getItem(position))
-                }
-            }
-        }
-
-        fun bind(quiz: Quiz) {
-            binding.apply {
-                titleText.text = quiz.title
-            }
+        // Ensure the layout gets redrawn
+        holder.binding.root.post {
+            holder.binding.root.requestLayout()
         }
     }
 
-    private class QuizDiffCallback : DiffUtil.ItemCallback<Quiz>() {
-        override fun areItemsTheSame(oldItem: Quiz, newItem: Quiz): Boolean {
-            return oldItem.title == newItem.title
+
+
+
+
+
+    override fun getItemCount(): Int = categories.size
+
+    inner class CategoryViewHolder(val binding: ItemQuizBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+
+        fun bind(category: QuizListViewModel.QuizCategory) {
+            binding.titleText.text = category.name
+            binding.floatingImage.setImageResource(category.imageResId)
+            binding.root.setOnClickListener { onCategoryClick(category) }
+        }
+    }
+
+    class CategoryDiffCallback : DiffUtil.ItemCallback<QuizListViewModel.QuizCategory>() {
+        override fun areItemsTheSame(oldItem: QuizListViewModel.QuizCategory, newItem: QuizListViewModel.QuizCategory): Boolean {
+            return oldItem.name == newItem.name
         }
 
-        override fun areContentsTheSame(oldItem: Quiz, newItem: Quiz): Boolean {
+        override fun areContentsTheSame(oldItem: QuizListViewModel.QuizCategory, newItem: QuizListViewModel.QuizCategory): Boolean {
             return oldItem == newItem
         }
     }
-    private fun dpToPx(context: Context, dp: Int): Int {
+
+    fun dpToPx(context: Context, dp: Int): Int {
         return (dp * context.resources.displayMetrics.density).toInt()
     }
-} 
+
+}

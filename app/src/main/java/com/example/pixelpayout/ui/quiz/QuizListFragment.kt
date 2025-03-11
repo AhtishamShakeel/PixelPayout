@@ -49,15 +49,16 @@ class QuizListFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        quizAdapter = QuizAdapter { quiz ->
-            startQuiz(quiz)
+        quizAdapter = QuizAdapter(viewModel.categories) { category ->
+            fetchQuizzesForCategory(category)
         }
 
         binding.recyclerView.apply {
             adapter = quizAdapter
-            layoutManager = StaggeredGridLayoutManager(2, GridLayoutManager.VERTICAL)
-            addItemDecoration(SpacingItemDecoration(43))
+            layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL) // 2 columns
+            addItemDecoration(SpacingItemDecoration(24)) // 24dp spacing (adjust as needed)
         }
+
     }
 
     private fun setupSwipeRefresh() {
@@ -73,29 +74,46 @@ class QuizListFragment : Fragment() {
             }
         }
 
+        viewModel.selectedQuiz.observe(viewLifecycleOwner) { quiz ->
+            quiz?.let {
+                startQuiz(it)
+            }
+        }
+
+
         viewModel.loadingState.observe(viewLifecycleOwner) { isLoading ->
             binding.swipeRefresh.isRefreshing = isLoading
         }
 
-        viewModel.quizzes.observe(viewLifecycleOwner) { quizzes ->
-            quizAdapter.submitList(quizzes)
-            binding.recyclerView.visibility = if (quizzes.isEmpty()) View.GONE else View.VISIBLE
+        // Instead of observing quizzes, we directly use the category list
+        quizAdapter = QuizAdapter(viewModel.categories) { category ->
+            fetchQuizzesForCategory(category)
         }
-    }
+        binding.recyclerView.adapter = quizAdapter
+        binding.recyclerView.visibility = View.VISIBLE
 
-    private fun loadQuizzes(forceRefresh: Boolean = false) {
-        viewModel.loadQuizzes(forceRefresh)
     }
 
     private fun startQuiz(quiz: Quiz) {
         val intent = Intent(requireContext(), QuizActivity::class.java).apply {
             putExtra(QuizActivity.EXTRA_QUIZ, quiz)
         }
-        quizLauncher.launch(intent)
+        startActivity(intent)
+    }
+
+
+    private fun loadQuizzes(forceRefresh: Boolean = false) {
+        viewModel.loadQuizzes(forceRefresh)
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
     }
+
+    private fun fetchQuizzesForCategory(category: QuizListViewModel.QuizCategory) {
+        viewModel.loadSingleQuizByCategory(category.apiUrl)
+    }
+
+
 }

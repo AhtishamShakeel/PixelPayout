@@ -40,7 +40,7 @@ class QuizListViewModel : ViewModel() {
             _categories.value = quizData.categories.map { category ->
                 QuizCategory(
                     name = category.name,
-                    imageResId = R.drawable.ic_user, // Placeholder
+                    imageResId = getCategoryImage(category.name), // Placeholder
                     apiUrl = "" // No API needed since quizzes are local
                 )
             }
@@ -95,6 +95,21 @@ class QuizListViewModel : ViewModel() {
         QuizCategory("Movies", R.drawable.ic_movies, ""),
         QuizCategory("Music", R.drawable.ic_music, "")*/
     )
+
+    private fun getCategoryImage(categoryName: String): Int {
+        return when (categoryName.lowercase()) {
+            "animals" -> R.drawable.ic_user
+            "sports" -> R.drawable.ic_user_icon
+           /* "celebrities" -> R.drawable.ic_celebrities
+            "science" -> R.drawable.ic_science
+            "history" -> R.drawable.ic_history
+            "geography" -> R.drawable.ic_geography
+            "movies" -> R.drawable.ic_movies
+            "music" -> R.drawable.ic_music*/
+            else -> R.drawable.ic_quiz // Default image
+        }
+    }
+
 
 
 

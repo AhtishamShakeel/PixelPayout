@@ -10,7 +10,6 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import com.pixelpayout.R
-import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.databinding.ActivityQuizBinding
 import android.text.Html
 import android.os.Build
@@ -22,6 +21,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.TimeZone
 import com.google.firebase.Timestamp
+import com.pixelpayout.data.model.Quiz
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -37,7 +37,7 @@ class QuizActivity : AppCompatActivity() {
         val quiz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)
         } else {
-            @Suppress("DEPRECATION")
+            ("DEPRECATION")
             intent.getParcelableExtra(EXTRA_QUIZ)
         }
 

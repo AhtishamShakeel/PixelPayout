@@ -1,10 +1,10 @@
 package com.pixelpayout.data.repository
 
 import android.text.Html
-import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.data.api.QuizApi
 import com.example.pixelpayout.data.api.TriviaResponse
 import com.pixelpayout.data.model.Question
+import com.pixelpayout.data.model.Quiz
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 

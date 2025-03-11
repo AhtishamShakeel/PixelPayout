@@ -56,7 +56,6 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
-        loadQuizzes()
 
     }
 
@@ -90,9 +89,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadQuizzes(forceRefresh: Boolean = false) {
-        quizViewModel.loadQuizzes(forceRefresh)
-    }
 
     private fun checkAndShowReferralPopup() {
         val user = FirebaseAuth.getInstance().currentUser ?: return

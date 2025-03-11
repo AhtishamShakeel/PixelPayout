@@ -1,21 +1,17 @@
 package com.pixelpayout.ui.quiz
 
+import android.content.Context
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.pixelpayout.data.api.Quiz
+import com.google.gson.Gson
+import com.pixelpayout.utils.QuizDataManager
 import com.pixelpayout.R
-import com.pixelpayout.data.repository.QuizRepository
+import com.pixelpayout.data.model.Quiz
 import kotlinx.coroutines.launch
 
 class QuizListViewModel : ViewModel() {
-    private val repository = QuizRepository()
-
-    init {
-        clearCache()
-    }
-
     private val _quizzes = MutableLiveData<List<Quiz>>()
     val quizzes: LiveData<List<Quiz>> = _quizzes
 
@@ -28,72 +24,53 @@ class QuizListViewModel : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    private var hasLoaded = false
-    private var isCurrentlyLoading = false
+    private val _categories = MutableLiveData<List<QuizCategory>>() // ✅ Fix missing variable
+    val categories: LiveData<List<QuizCategory>> = _categories
 
-    fun loadQuizzes(forceRefresh: Boolean = false) {
-        if (isCurrentlyLoading) return
-        if (!forceRefresh && hasLoaded && _quizzes.value?.isNotEmpty() == true) return
 
-        isCurrentlyLoading = true
-        _loadingState.value = true
+    // ✅ Fixed list of categories
 
-        viewModelScope.launch {
-            try {
-                val quizzes = repository.getQuizzes(forceRefresh || (repository.cachedQuizzes?.size?:0) <=5)
-                _quizzes.value = quizzes
-                hasLoaded = true
-                _error.value = null
-            } catch (e: Exception) {
-                _error.value = "Error: ${e.message ?: "Unknown error"}"
-                _quizzes.value = emptyList()
-            } finally {
-                isCurrentlyLoading = false
-                _loadingState.value = false
+    // ✅ Load quizzes from cache
+    fun loadCachedQuizzes(context: Context) {
+        val json = QuizDataManager.loadCachedQuizzes(context)
+        if (!json.isNullOrEmpty()) {
+            val quizData = Gson().fromJson(json, QuizData::class.java)
+
+            // ✅ Store categories
+            _categories.value = quizData.categories.map { category ->
+                QuizCategory(
+                    name = category.name,
+                    imageResId = R.drawable.ic_user, // Placeholder
+                    apiUrl = "" // No API needed since quizzes are local
+                )
             }
-        }
-    }
-    fun onQuizCompleted(quizId: String) {
-        viewModelScope.launch {
-            try {
-                repository.removeQuizFromCache(quizId)
-                var remainingQuizzes = repository.cachedQuizzes ?: emptyList()
-                if (remainingQuizzes.size <= 5){
-                    repository.getQuizzes(forcedRefresh = true)
-                    remainingQuizzes = repository.cachedQuizzes ?: emptyList()
-                }
-                _quizzes.value = remainingQuizzes.take(3)
-                hasLoaded = false
-                loadQuizzes(forceRefresh = false)
-            } catch (e: Exception) {
-                _error.value = "Error updating quiz: ${e.message}"
+
+            // ✅ Store quizzes with correct mapping
+            _quizzes.value = quizData.categories.flatMap { category ->
+                category.quizzes.map { quiz -> quiz.copy(title = category.name) } // Assign category name to quiz title
             }
         }
     }
 
-    private fun clearCache(){
-        repository.cachedQuizzes = null
+
+
+
+    // ✅ Check for updates & refresh if needed
+    fun checkAndUpdateQuizzes(context: Context) {
+        QuizDataManager.fetchQuizzesFromGitHub(context) { isUpdated ->
+            if (isUpdated) {
+                loadCachedQuizzes(context) // Load new quizzes
+            }
+        }
     }
 
-    data class QuizCategory(val name: String, val imageResId: Int, val apiUrl: String)
-
-    val categories = listOf(
-        QuizCategory("Vehicle", R.drawable.ic_user, "https://opentdb.com/api.php?amount=10&category=28&difficulty=easy"),
-        QuizCategory("Sports", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=21&difficulty=easy&type=multiple"),
-        QuizCategory("Celebrities", R.drawable.ic_user_icon, "https://opentdb.com/api.php?amount=15&category=26&difficulty=easy&type=multiple"),
-        QuizCategory("Science", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=17&difficulty=easy&type=multiple"),
-        QuizCategory("History", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=23&difficulty=easy&type=multiple"),
-        QuizCategory("Geography", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=22&difficulty=easy&type=multiple"),
-        QuizCategory("Movies", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=11&difficulty=easy&type=multiple"),
-        QuizCategory("Music", R.drawable.ic_user, "https://opentdb.com/api.php?amount=15&category=12&difficulty=easy&type=multiple")
-    )
-
+    // ✅ Load a single quiz from GitHub for a selected category
     fun loadSingleQuizByCategory(apiUrl: String) {
         _loadingState.value = true
 
         viewModelScope.launch {
             try {
-                val quiz = repository.getSingleQuizByCategory(apiUrl)
+                val quiz = QuizDataManager.getSingleQuizByCategory(apiUrl)
                 _selectedQuiz.value = quiz
                 _error.value = null
             } catch (e: Exception) {
@@ -103,4 +80,22 @@ class QuizListViewModel : ViewModel() {
             }
         }
     }
+
+    fun getQuizByCategory(categoryName: String): Quiz? {
+        return _quizzes.value?.firstOrNull { it.title.equals(categoryName, ignoreCase = true) }
+    }
+
+    fun getCategories(): List<QuizCategory> = listOf(
+        QuizCategory("Animals", R.drawable.ic_user_icon, ""),
+        QuizCategory("Sports", R.drawable.ic_user_icon, ""),
+        /*QuizCategory("Celebrities", R.drawable.ic_celebrities, ""),
+        QuizCategory("Science", R.drawable.ic_science, ""),
+        QuizCategory("History", R.drawable.ic_history, ""),
+        QuizCategory("Geography", R.drawable.ic_geography, ""),
+        QuizCategory("Movies", R.drawable.ic_movies, ""),
+        QuizCategory("Music", R.drawable.ic_music, "")*/
+    )
+
+
+
 }

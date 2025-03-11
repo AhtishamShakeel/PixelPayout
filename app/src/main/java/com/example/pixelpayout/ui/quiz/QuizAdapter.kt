@@ -7,11 +7,13 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.pixelpayout.databinding.ItemQuizBinding
+import com.pixelpayout.ui.quiz.QuizCategory // ✅ Add this import
+
 
 class QuizAdapter(
-    private val categories: List<QuizListViewModel.QuizCategory>,
-    private val onCategoryClick: (QuizListViewModel.QuizCategory) -> Unit
-) : ListAdapter<QuizListViewModel.QuizCategory, QuizAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
+    private val categories: List<QuizCategory>,
+    private val onCategoryClick: (QuizCategory) -> Unit
+) : ListAdapter<QuizCategory, QuizAdapter.CategoryViewHolder>(CategoryDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {
         val binding = ItemQuizBinding.inflate(LayoutInflater.from(parent.context), parent, false)
@@ -19,10 +21,14 @@ class QuizAdapter(
     }
 
     override fun onBindViewHolder(holder: CategoryViewHolder, position: Int) {
-        holder.bind(categories[position])
+        val category = categories[position]  // ✅ Define `category` before using it
+        holder.bind(category)
+
+        holder.binding.titleText.text = category.name
+        holder.binding.floatingImage.setImageResource(category.imageResId) // ✅ Set category image
 
         val layoutParams = holder.binding.root.layoutParams
-        layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 190) else dpToPx(holder.binding.root.context, 210)
+        layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 200) else dpToPx(holder.binding.root.context, 230)
         holder.binding.root.layoutParams = layoutParams
 
         // Ensure the layout gets redrawn
@@ -36,24 +42,25 @@ class QuizAdapter(
 
 
 
+
     override fun getItemCount(): Int = categories.size
 
     inner class CategoryViewHolder(val binding: ItemQuizBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(category: QuizListViewModel.QuizCategory) {
+        fun bind(category: QuizCategory) {
             binding.titleText.text = category.name
             binding.floatingImage.setImageResource(category.imageResId)
             binding.root.setOnClickListener { onCategoryClick(category) }
         }
     }
 
-    class CategoryDiffCallback : DiffUtil.ItemCallback<QuizListViewModel.QuizCategory>() {
-        override fun areItemsTheSame(oldItem: QuizListViewModel.QuizCategory, newItem: QuizListViewModel.QuizCategory): Boolean {
+    class CategoryDiffCallback : DiffUtil.ItemCallback<QuizCategory>() {
+        override fun areItemsTheSame(oldItem: QuizCategory, newItem: QuizCategory): Boolean {
             return oldItem.name == newItem.name
         }
 
-        override fun areContentsTheSame(oldItem: QuizListViewModel.QuizCategory, newItem: QuizListViewModel.QuizCategory): Boolean {
+        override fun areContentsTheSame(oldItem: QuizCategory, newItem: QuizCategory): Boolean {
             return oldItem == newItem
         }
     }

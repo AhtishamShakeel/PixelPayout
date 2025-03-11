@@ -23,7 +23,7 @@
             android:id="@+id/floatingImage"
             android:layout_width="80dp"
             android:layout_height="80dp"
-            android:src="@drawable/ic_user"
+            android:src="@drawable/ic_user_icon"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toTopOf="@+id/textContainer"
             app:layout_constraintStart_toStartOf="parent"

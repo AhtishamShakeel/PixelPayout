@@ -45,9 +45,7 @@ class UserRepository {
                     snapshot?.let {
                         _userData.postValue(
                             UserData(
-                                points = it.getLong("points")?.toInt() ?: 0,
-                                quizAttempts = it.getLong("quizAttempts")?.toInt() ?: 0,
-                                lastQuizDate = it.getTimestamp("lastQuizDate")
+                                points = it.getLong("points")?.toInt() ?: 0
                             )
                         )
                     }
@@ -56,9 +54,7 @@ class UserRepository {
     }
 
     data class UserData(
-        val points: Int,
-        val quizAttempts: Int,
-        val lastQuizDate: Timestamp?
+        val points: Int
     )
 
 

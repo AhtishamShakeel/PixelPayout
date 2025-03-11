@@ -1,6 +1,5 @@
 package com.pixelpayout.ui.quiz
 
-
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -16,10 +15,8 @@ import com.pixelpayout.databinding.ActivityQuizBinding
 import android.text.Html
 import android.os.Build
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.data.model.Question
-import com.pixelpayout.ui.quiz.QuizListViewModel.Companion.MAX_DAILY_QUIZZES
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 import java.util.Date

@@ -10,17 +10,12 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.recyclerview.widget.GridLayoutManager
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.utils.SpacingItemDecoration
-import java.util.concurrent.TimeUnit
-import com.pixelpayout.utils.AdManager
 
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
@@ -32,11 +27,6 @@ class QuizListFragment : Fragment() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val completedQuizId = result.data?.getStringExtra("COMPLETED_QUIZ_ID") ?: return@registerForActivityResult
-            // Show loading state
-            binding.progressIndicator.visibility = View.VISIBLE
-            binding.contentLayout.visibility = View.GONE
-
-            // Trigger quiz completion and reload
             viewModel.onQuizCompleted(completedQuizId)
         }
     }
@@ -55,16 +45,7 @@ class QuizListFragment : Fragment() {
         setupRecyclerView()
         setupSwipeRefresh()
         observeViewModel()
-
-        // Initial load only if we haven't loaded before
         loadQuizzes()
-
-        // Preload ad
-        viewModel.preloadAd(requireContext())
-
-        binding.watchAdButton.setOnClickListener {
-            showRewardedAd()
-        }
     }
 
     private fun setupRecyclerView() {
@@ -86,68 +67,19 @@ class QuizListFragment : Fragment() {
     }
 
     private fun observeViewModel() {
-        viewModel.quizzes.observe(viewLifecycleOwner) { quizzes ->
-            quizAdapter.submitList(quizzes)
-        }
-
-        viewModel.loadingState.observe(viewLifecycleOwner) { isLoading ->
-            binding.progressIndicator.visibility = if (isLoading && !binding.swipeRefresh.isRefreshing) View.VISIBLE else View.GONE
-            binding.contentLayout.visibility = if (isLoading) View.GONE else View.VISIBLE
-            if (!isLoading) {
-                binding.swipeRefresh.isRefreshing = false
-            }
-        }
-
         viewModel.error.observe(viewLifecycleOwner) { error ->
             if (error != null) {
                 Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
             }
         }
 
-        viewModel.quizLimitReached.observe(viewLifecycleOwner) { limitReached ->
-            binding.apply {
-                if (limitReached) {
-                    limitReachedLayout.visibility = View.VISIBLE
-                    recyclerView.visibility = View.GONE
-                    swipeRefresh.isEnabled = false
-                } else {
-                    limitReachedLayout.visibility = View.GONE
-                    recyclerView.visibility = View.VISIBLE
-                    swipeRefresh.isEnabled = true
-                }
-            }
+        viewModel.loadingState.observe(viewLifecycleOwner) { isLoading ->
+            binding.swipeRefresh.isRefreshing = isLoading
         }
 
-        viewModel.nextQuizTime.observe(viewLifecycleOwner) { nextQuizTime ->
-            if (nextQuizTime > 0) {
-                val remainingTime = nextQuizTime - System.currentTimeMillis()
-                if (remainingTime > 0) {
-                    val hours = TimeUnit.MILLISECONDS.toHours(remainingTime)
-                    val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingTime) % 60
-
-                    binding.nextQuizText.text = getString(
-                        R.string.next_quiz_time,
-                        hours,
-                        minutes
-                    )
-                    binding.nextQuizText.visibility = View.VISIBLE
-                } else {
-                    binding.nextQuizText.visibility = View.GONE
-                    // Time has passed, reload quizzes
-                    loadQuizzes()
-                }
-            }
-        }
-
-        viewModel.remainingQuizzes.observe(viewLifecycleOwner) { remaining ->
-            binding.remainingQuizzesText.text = getString(
-                R.string.remaining_quizzes,
-                remaining
-            )
-        }
-
-        viewModel.adAvailable.observe(viewLifecycleOwner) { available ->
-            binding.watchAdButton.isEnabled = available
+        viewModel.quizzes.observe(viewLifecycleOwner) { quizzes ->
+            quizAdapter.submitList(quizzes)
+            binding.recyclerView.visibility = if (quizzes.isEmpty()) View.GONE else View.VISIBLE
         }
     }
 
@@ -162,27 +94,8 @@ class QuizListFragment : Fragment() {
         quizLauncher.launch(intent)
     }
 
-    private fun showRewardedAd() {
-        AdManager.getInstance().showRewardedAd(
-            requireActivity(),
-            onRewarded = {
-                viewModel.watchAdForExtraQuiz()
-            },
-            onAdClosed = {
-                // Ad closed without reward
-            },
-            onAdFailedToShow = {
-                Toast.makeText(context, R.string.ad_not_available, Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
-    }
-
-    companion object {
-        private const val REQUEST_QUIZ = 1001
     }
 }

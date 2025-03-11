@@ -127,7 +127,6 @@ class AuthViewModel : ViewModel() {
                             "lastActive" to Timestamp.now(),
                             "lastServerDate" to currentDate,
                             "points" to 0,
-                            "quizAttempts" to 0,
                             "referralCode" to generateReferralCode(),
                             "referralRewardClaimed" to false,
                         )
@@ -236,7 +235,6 @@ class AuthViewModel : ViewModel() {
             "lastActive" to Timestamp.now(),
             "lastServerDate" to currentDate,
             "points" to 0,
-            "quizAttempts" to 0,
             "referralCode" to generateReferralCode(),
             "referralRewardClaimed" to false
         )

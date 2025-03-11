@@ -25,6 +25,12 @@ class QuizRepository {
 
                 val selectedQuizzes = quizzesByCategory.values.mapNotNull { categoryQuizzes ->
                     categoryQuizzes.randomOrNull()?.let { apiQuestion ->
+                        // First combine all options
+                        val allOptions = apiQuestion.incorrectAnswers + apiQuestion.correctAnswer
+                        // Shuffle and keep track of where the correct answer moved to
+                        val shuffledOptions = allOptions.shuffled()
+                        val correctAnswerIndex = shuffledOptions.indexOf(apiQuestion.correctAnswer)
+
                         Quiz(
                             id = apiQuestion.question.hashCode().toString(),
                             title = apiQuestion.category,
@@ -33,8 +39,8 @@ class QuizRepository {
                             questions = listOf(
                                 Question(
                                     text = Html.fromHtml(apiQuestion.question).toString(),
-                                    options = (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).shuffled(),
-                                    correctAnswer = (apiQuestion.incorrectAnswers + apiQuestion.correctAnswer).indexOf(apiQuestion.correctAnswer)
+                                    options = shuffledOptions,
+                                    correctAnswer = correctAnswerIndex
                                 )
                             )
                         )

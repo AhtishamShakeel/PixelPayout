@@ -1,6 +1,7 @@
 package com.pixelpayout.utils
 
 import android.content.Context
+import android.util.Log
 import com.example.pixelpayout.data.api.TriviaResponse
 import com.google.gson.Gson
 import com.pixelpayout.data.model.Question
@@ -20,31 +21,46 @@ object QuizDataManager {
 
     // ✅ Fetch JSON from GitHub
     fun fetchQuizzesFromGitHub(context: Context, onComplete: (Boolean) -> Unit) {
+        Log.d("QuizDebug", "Fetching quizzes from GitHub...")
+
+        if (isCachedVersionAvailable(context)) { // ✅ Check if cache exists before downloading
+            Log.d("QuizDebug", "Using cached quizzes instead of GitHub fetch.")
+            onComplete(false)
+            return
+        }
+
+        val startTime = System.currentTimeMillis()
+
         Thread {
             try {
                 val request = Request.Builder().url(GITHUB_URL).build()
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
 
-                if (!json.isNullOrEmpty()) {
-                    val newVersion = Gson().fromJson(json, QuizData::class.java).version
-                    val cachedVersion = getCachedVersion(context)
+                val endTime = System.currentTimeMillis()
+                Log.d("QuizDebug", "GitHub fetch time: ${endTime - startTime}ms")
 
-                    if (newVersion > cachedVersion) {
-                        saveJsonToCache(context, json)
-                        saveVersionToCache(context, newVersion)
-                        onComplete(true)  // ✅ New update found
-                    } else {
-                        onComplete(false) // ❌ No update
-                    }
+                if (!json.isNullOrEmpty()) {
+                    saveJsonToCache(context, json) // ✅ Save to cache
+                    Log.d("QuizDebug", "Quizzes saved to cache.")
+                    onComplete(true)
                 } else {
+                    Log.d("QuizDebug", "GitHub response was empty!")
                     onComplete(false)
                 }
             } catch (e: Exception) {
+                Log.e("QuizDebug", "Error fetching quizzes: ${e.message}")
                 onComplete(false)
             }
         }.start()
     }
+
+    // ✅ Check if cached version exists
+    private fun isCachedVersionAvailable(context: Context): Boolean {
+        val file = File(context.filesDir, CACHE_FILE_NAME)
+        return file.exists() && file.length() > 0
+    }
+
 
     // ✅ Load JSON from local storage
     fun loadCachedQuizzes(context: Context): String? {

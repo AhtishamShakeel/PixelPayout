@@ -54,8 +54,7 @@ class QuizListFragment : Fragment() {
 
         binding.recyclerView.apply {
             adapter = quizAdapter
-            layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
-            addItemDecoration(SpacingItemDecoration(24))
+            layoutManager = GridLayoutManager(context, 2)
         }
     }
 

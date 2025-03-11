@@ -7,6 +7,7 @@ import com.example.pixelpayout.data.api.Quiz
 import com.pixelpayout.data.model.Question
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.launch
@@ -41,9 +42,10 @@ class QuizViewModel : ViewModel() {
 
     fun submitAnswer(selectedAnswerIndex: Int) {
         val currentQuestion = quiz.questions[currentQuestionIndex]
+        val isCorrect = selectedAnswerIndex == currentQuestion.correctAnswer
 
-        // Check if answer is correct
-        if (selectedAnswerIndex == currentQuestion.correctAnswer) {
+        // Only add points if answer is correct
+        if (isCorrect) {
             points += quiz.pointsReward
         }
 
@@ -53,8 +55,12 @@ class QuizViewModel : ViewModel() {
             showCurrentQuestion()
         } else {
             _score.value = points
-            // Update points in Firebase before showing completion
-            updatePoints {
+            // Only update points in Firebase if points were earned
+            if (points > 0) {
+                updatePoints {
+                    _isQuizComplete.value = true
+                }
+            } else {
                 _isQuizComplete.value = true
             }
         }
@@ -64,7 +70,7 @@ class QuizViewModel : ViewModel() {
         _currentQuestion.value = quiz.questions[currentQuestionIndex]
     }
 
-    private fun updatePoints(onComplete: () -> Unit) {
+    fun updatePoints(onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
                 userRepository.updateUserPoints(points) {
@@ -76,5 +82,17 @@ class QuizViewModel : ViewModel() {
                 onComplete()
             }
         }
+    }
+
+    fun submitQuiz() {
+        val userRef = FirebaseFirestore.getInstance()
+            .collection("users")
+            .document(FirebaseAuth.getInstance().currentUser?.uid ?: return)
+
+        userRef.update(
+            "quizAttempts", FieldValue.increment(1),
+            "lastQuizDate", FieldValue.serverTimestamp(),
+            "serverTime", FieldValue.serverTimestamp()  // Extra validation field
+        )
     }
 }

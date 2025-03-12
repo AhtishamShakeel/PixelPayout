@@ -6,33 +6,87 @@
     android:layout_height="match_parent"
     android:padding="16dp">
 
-    <TextView
-        android:id="@+id/timerText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        tools:text="00:30" />
-
-    <TextView
-        android:id="@+id/questionText"
+    <androidx.cardview.widget.CardView
+        android:id="@+id/questionContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:textSize="18sp"
-        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="80dp"
+        app:cardCornerRadius="12dp"
+        android:background="@drawable/dashboard_ui"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/timerText"
-        tools:text="What is the capital of France?" />
+        app:layout_constraintEnd_toEndOf="parent">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/questionText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:textSize="18sp"
+                android:layout_marginTop="35dp"
+
+                android:textStyle="bold"
+                android:textColor="@color/primary_text"
+                android:textAlignment="viewStart"
+                tools:text="Which animal has the strongest bite?" />
+
+            <View
+                android:layout_width="wrap_content"
+                android:layout_height="85dp"/>
+
+
+
+        </LinearLayout>
+
+
+
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- Circular Timer (Placed Over Question Box) -->
+    <FrameLayout
+        android:id="@+id/timerContainer"
+        android:layout_width="63dp"
+        android:layout_height="63dp"
+        android:elevation="5dp"
+        android:background="@drawable/circular_background"
+        app:layout_constraintBottom_toTopOf="@id/questionContainer"
+        app:layout_constraintStart_toStartOf="@id/questionContainer"
+        app:layout_constraintEnd_toEndOf="@id/questionContainer"
+        android:layout_marginBottom="-25dp"> <!-- Overlapping effect -->
+
+        <ImageView
+            android:layout_width="55dp"
+            android:layout_height="55dp"
+            android:layout_gravity="center"
+            android:src="@drawable/circular_border"/>
+
+        <TextView
+            android:id="@+id/timerText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:layout_gravity="center"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:text="7s"
+            android:gravity="center"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"/>
+    </FrameLayout>
     <RadioGroup
         android:id="@+id/optionsGroup"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/questionText">
+        app:layout_constraintTop_toBottomOf="@id/questionContainer">
 
         <com.google.android.material.radiobutton.MaterialRadioButton
             android:id="@+id/option1"
@@ -41,6 +95,8 @@
             android:layout_marginBottom="8dp"
             android:textSize="16sp"
             tools:text="Paris" />
+
+
 
         <com.google.android.material.radiobutton.MaterialRadioButton
             android:id="@+id/option2"

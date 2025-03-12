@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Bigger Solid Background Circle -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/background_dark" /> <!-- Change to your desired background color -->
+            <size android:width="100dp" android:height="100dp" /> <!-- Adjust size as needed -->
+        </shape>
+    </item>
+
+    <!-- Smaller Circle with Blue Stroke on Top -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="5dp" android:color="@color/primary" />
+            <size android:width="90dp" android:height="90dp" /> <!-- Slightly smaller than the background -->
+        </shape>
+    </item>
+
+</layer-list>

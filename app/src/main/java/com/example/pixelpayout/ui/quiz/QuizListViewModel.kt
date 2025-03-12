@@ -17,7 +17,9 @@ import kotlinx.coroutines.withContext
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
 
-    private val _categories = MutableLiveData<List<QuizCategory>>()
+    private val _categories = MutableLiveData<List<QuizCategory>>().apply {
+        value = defaultCategories  // Set categories immediately
+    }
     val categories: LiveData<List<QuizCategory>> = _categories
 
     private val defaultCategories = listOf(
@@ -30,6 +32,10 @@ class QuizListViewModel : ViewModel() {
         QuizCategory("Video Games", R.raw.games_quiz_animation, ""),
         QuizCategory("GK", R.raw.general_quiz_animation, "")
     )
+
+    init {
+        _categories.value = defaultCategories  // Ensure categories load immediately
+    }
 
     fun loadCachedQuizzes(context: Context) {
         Log.d("QuizDebug", "Loading quizzes from cache...")

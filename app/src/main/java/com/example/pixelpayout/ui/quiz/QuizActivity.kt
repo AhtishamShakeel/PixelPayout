@@ -142,7 +142,11 @@ class QuizActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            delay(2000)
+            if (selectedAnswerIndex != correctIndex){
+                delay(1000)
+            } else {
+                delay(200)
+            }
             viewModel.submitAnswer(selectedAnswerIndex)
 
         }

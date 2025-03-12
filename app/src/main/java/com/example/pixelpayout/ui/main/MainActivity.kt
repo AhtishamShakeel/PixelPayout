@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
+import com.airbnb.lottie.LottieAnimationView
 import com.example.pixelpayout.utils.UserPreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -46,6 +47,21 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
+
+        quizViewModel.loadCachedQuizzes(this)
+        quizViewModel.categories.observe(this) { categories ->
+            categories.forEach { category ->
+                val animationView = LottieAnimationView(this)
+                animationView.setAnimation(category.lottieAnimationResId)
+                animationView.post {
+                    animationView.playAnimation() // Start animation to ensure it's preloaded
+                    animationView.pauseAnimation() // Pause so it doesn’t keep running in the background
+                }
+            }
+            Log.d("LottiePreload", "Categories loaded: ${categories.size}")
+        }
+
+
         Log.d("ReferralDebug", "Initializing ReferralViewModel...") // ✅ Add log before initialization
         lifecycleScope.launch {
             delay(1000)

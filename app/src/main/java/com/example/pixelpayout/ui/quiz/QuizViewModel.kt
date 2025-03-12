@@ -75,16 +75,4 @@ class QuizViewModel : ViewModel() {
             }
         }
     }
-
-    fun submitQuiz() {
-        val userRef = FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(FirebaseAuth.getInstance().currentUser?.uid ?: return)
-
-        userRef.update(
-            "quizAttempts", FieldValue.increment(1),
-            "lastQuizDate", FieldValue.serverTimestamp(),
-            "serverTime", FieldValue.serverTimestamp()  // Extra validation field
-        )
-    }
 }

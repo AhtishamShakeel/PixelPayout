@@ -1,21 +1,12 @@
 package com.pixelpayout.data.repository
 
-import android.widget.Toast
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.Timestamp
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
-import com.pixelpayout.data.model.RedemptionRequest
-import com.pixelpayout.data.model.RedemptionOption
-import com.pixelpayout.data.model.RedemptionType
-import java.util.*
-import java.util.Calendar
 import com.google.firebase.firestore.FieldValue
 import com.pixelpayout.ui.redemption.ReferralResult
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()

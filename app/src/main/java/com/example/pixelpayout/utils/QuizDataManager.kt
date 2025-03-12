@@ -2,10 +2,7 @@ package com.pixelpayout.utils
 
 import android.content.Context
 import android.util.Log
-import com.example.pixelpayout.data.api.TriviaResponse
 import com.google.gson.Gson
-import com.pixelpayout.data.model.Question
-import com.pixelpayout.data.model.Quiz
 import com.pixelpayout.ui.quiz.QuizData
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -86,41 +83,6 @@ object QuizDataManager {
     private fun saveVersionToCache(context: Context, version: Int) {
         val prefs = context.getSharedPreferences(VERSION_PREFS, Context.MODE_PRIVATE)
         prefs.edit().putInt("version", version).apply()
-    }
-
-    fun getSingleQuizByCategory(apiUrl: String): Quiz? {
-        return try {
-            val request = Request.Builder().url(apiUrl).build()
-            val response = client.newCall(request).execute()
-            val json = response.body?.string()
-
-            if (!json.isNullOrEmpty()) {
-                val body = Gson().fromJson(json, TriviaResponse::class.java)
-                val apiQuestion = body.results.firstOrNull() ?: return null
-
-                val allOptions = apiQuestion.incorrectAnswers + apiQuestion.correctAnswer
-                val shuffledOptions = allOptions.shuffled()
-                val correctAnswerIndex = shuffledOptions.indexOf(apiQuestion.correctAnswer)
-
-                Quiz(
-                    id = apiQuestion.question.hashCode().toString(),
-                    title = apiQuestion.category,
-                    difficulty = apiQuestion.difficulty,
-                    pointsReward = 10,
-                    questions = listOf(
-                        Question(
-                            text = apiQuestion.question,
-                            options = shuffledOptions,
-                            correctAnswer = correctAnswerIndex
-                        )
-                    )
-                )
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            null
-        }
     }
 
 }

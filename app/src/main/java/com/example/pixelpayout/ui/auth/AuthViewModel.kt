@@ -2,7 +2,6 @@ package com.example.pixelpayout.ui.auth
 
 import android.content.Context
 import android.util.Log
-import android.provider.Settings.Secure
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -30,8 +29,6 @@ class AuthViewModel : ViewModel() {
 
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
-
-    private val userRepository = UserRepository()
 
 
 

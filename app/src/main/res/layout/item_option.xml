@@ -1,0 +1,19 @@
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/optionCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    app:cardCornerRadius="12dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/default_option_background"
+    app:cardElevation="4dp">
+
+    <TextView
+        android:id="@+id/optionText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp"
+        android:textSize="16sp"
+        android:textColor="@color/primary_text"
+        android:textAlignment="center"/>
+</androidx.cardview.widget.CardView>

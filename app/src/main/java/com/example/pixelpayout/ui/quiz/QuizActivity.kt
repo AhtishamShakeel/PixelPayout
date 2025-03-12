@@ -4,40 +4,38 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.view.LayoutInflater
 import android.view.View
-import android.widget.RadioButton
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityQuizBinding
+import com.pixelpayout.data.model.Question
+import com.pixelpayout.data.model.Quiz
 import android.text.Html
 import android.os.Build
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.pixelpayout.data.model.Question
-import kotlinx.coroutines.tasks.await
-import java.util.Calendar
-import java.util.Date
-import java.util.TimeZone
-import com.google.firebase.Timestamp
-import com.pixelpayout.data.model.Quiz
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
     private val viewModel: QuizViewModel by viewModels()
     private var timer: CountDownTimer? = null
+    private var selectedAnswerIndex: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Replace the quiz retrieval code in onCreate()
         val quiz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)
         } else {
-            ("DEPRECATION")
+            @Suppress("DEPRECATION")
             intent.getParcelableExtra(EXTRA_QUIZ)
         }
 
@@ -54,16 +52,14 @@ class QuizActivity : AppCompatActivity() {
 
     private fun setupViews() {
         binding.submitButton.setOnClickListener {
-            binding.submitButton.isEnabled = false
-            val selectedId = binding.optionsGroup.checkedRadioButtonId
-            if (selectedId == -1) {
+            if (selectedAnswerIndex == -1) {
                 Toast.makeText(this, R.string.select_answer, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val selectedOption = findViewById<RadioButton>(selectedId)
-            val answerIndex = binding.optionsGroup.indexOfChild(selectedOption)
-            viewModel.submitAnswer(answerIndex)
+            binding.submitButton.isEnabled = false
+
+            checkAnswer()
         }
     }
 
@@ -80,14 +76,12 @@ class QuizActivity : AppCompatActivity() {
         }
 
         viewModel.totalPoints.observe(this) { totalPoints ->
-            // Points have been updated in Firebase
-            // We can now show the results dialog
+            // Handle total points update if needed
         }
     }
 
     private fun displayQuestion(question: Question) {
         binding.apply {
-            // Decode HTML entities in the question text
             val decodedQuestion = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 Html.fromHtml(question.text, Html.FROM_HTML_MODE_LEGACY).toString()
             } else {
@@ -97,34 +91,68 @@ class QuizActivity : AppCompatActivity() {
             questionText.text = decodedQuestion
 
             // Clear previous answers
-            optionsGroup.removeAllViews()
+            optionsContainer.removeAllViews()
+            selectedAnswerIndex = -1  // Reset selection
 
-            // Add radio buttons for answers
             question.options.forEachIndexed { index, option ->
-                val radioButton = RadioButton(this@QuizActivity).apply {
-                    id = View.generateViewId()
-                    // Decode HTML entities in the answer options
-                    text = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                        Html.fromHtml(option, Html.FROM_HTML_MODE_LEGACY)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        Html.fromHtml(option)
-                    }
-                    textSize = 16f
-                    setPadding(0, 16, 0, 16)
+                val optionView = LayoutInflater.from(this@QuizActivity)
+                    .inflate(R.layout.item_option, optionsContainer, false)
+                val textView = optionView.findViewById<TextView>(R.id.optionText)
+                val cardView = optionView.findViewById<CardView>(R.id.optionCard)
+
+                textView.text = option
+                cardView.setBackgroundResource(R.drawable.default_option_background)
+
+                optionView.setOnClickListener {
+                    resetOptions() // Reset all options before selecting a new one
+                    selectedAnswerIndex = index
+                    cardView.setBackgroundResource(R.drawable.selected_option_background)
                 }
-                optionsGroup.addView(radioButton)
+
+                optionsContainer.addView(optionView)
             }
         }
     }
 
+    private fun resetOptions() {
+        for (i in 0 until binding.optionsContainer.childCount) {
+            val child = binding.optionsContainer.getChildAt(i)
+            val cardView = child.findViewById<CardView>(R.id.optionCard)
+            cardView.setBackgroundResource(R.drawable.default_option_background)
+        }
+    }
+
+    private fun checkAnswer() {
+        val correctIndex = viewModel.currentQuestion.value?.correctAnswer ?: -1
+
+        for (i in 0 until binding.optionsContainer.childCount) {
+            val child = binding.optionsContainer.getChildAt(i)
+            val cardView = child.findViewById<CardView>(R.id.optionCard)
+
+            if (i == correctIndex) {
+                // Highlight correct answer in green
+                cardView.setBackgroundResource(R.drawable.correct_option_background)
+            } else if (i == selectedAnswerIndex) {
+                // Highlight the selected wrong answer in red
+                cardView.setBackgroundResource(R.drawable.wrong_option_background)
+            } else {
+                // Keep unselected answers in default state
+                cardView.setBackgroundResource(R.drawable.default_option_background)
+            }
+        }
+
+        lifecycleScope.launch {
+            delay(2000)
+            viewModel.submitAnswer(selectedAnswerIndex)
+
+        }
+    }
+
+
     private fun startTimer() {
         timer = object : CountDownTimer(30000, 1000) {
             override fun onTick(millisUntilFinished: Long) {
-                binding.timerText.text = getString(
-                    R.string.timer_format,
-                    millisUntilFinished / 1000
-                )
+                binding.timerText.text = getString(R.string.timer_format, millisUntilFinished / 1000)
             }
 
             override fun onFinish() {
@@ -139,23 +167,19 @@ class QuizActivity : AppCompatActivity() {
             points = viewModel.score.value ?: 0,
             onDismiss = {
                 val resultIntent = Intent()
-                resultIntent.putExtra("COMPLETED_QUIZ_ID", viewModel.quizId.value)
-                setResult(Activity.RESULT_OK,  resultIntent)
+                resultIntent.putExtra("COMPLETED_QUIZ_ID", viewModel.quizId.value ?: "")
+                        setResult(Activity.RESULT_OK, resultIntent)
                 finish()
             }
         )
     }
 
-
     override fun onDestroy() {
         super.onDestroy()
-
         timer?.cancel()
     }
-
 
     companion object {
         const val EXTRA_QUIZ = "extra_quiz"
     }
-
 }

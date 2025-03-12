@@ -16,16 +16,6 @@ import kotlinx.coroutines.withContext
 
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
-    val quizzes: LiveData<List<Quiz>> = _quizzes
-
-    private val _selectedQuiz = MutableLiveData<Quiz?>()
-    val selectedQuiz: LiveData<Quiz?> = _selectedQuiz
-
-    private val _loadingState = MutableLiveData<Boolean>()
-    val loadingState: LiveData<Boolean> = _loadingState
-
-    private val _error = MutableLiveData<String?>()
-    val error: LiveData<String?> = _error
 
     private val _categories = MutableLiveData<List<QuizCategory>>() // ✅ Fix missing variable
     val categories: LiveData<List<QuizCategory>> = _categories
@@ -76,23 +66,6 @@ class QuizListViewModel : ViewModel() {
         }
     }
 
-    // ✅ Load a single quiz from GitHub for a selected category
-    fun loadSingleQuizByCategory(apiUrl: String) {
-        _loadingState.value = true
-
-        viewModelScope.launch {
-            try {
-                val quiz = QuizDataManager.getSingleQuizByCategory(apiUrl)
-                _selectedQuiz.value = quiz
-                _error.value = null
-            } catch (e: Exception) {
-                _error.value = "Error: ${e.message ?: "Unknown error"}"
-            } finally {
-                _loadingState.value = false
-            }
-        }
-    }
-
     fun getQuizByCategory(categoryName: String): Quiz? {
         val categoryQuizzes = _quizzes.value?.filter { it.title.equals(categoryName, ignoreCase = true) }
 
@@ -106,7 +79,11 @@ class QuizListViewModel : ViewModel() {
         Log.d("QuizDebug", "Valid quizzes count: ${validQuizzes?.size ?: 0}")
 
         return if (!validQuizzes.isNullOrEmpty()) {
-            validQuizzes.random()
+            val selectedQuiz = validQuizzes.random()
+            // Select one random question from the quiz
+            val randomQuestion = selectedQuiz.questions.random()
+            // Return a new quiz with only the selected question
+            selectedQuiz.copy(questions = listOf(randomQuestion))
         } else {
             null
         }

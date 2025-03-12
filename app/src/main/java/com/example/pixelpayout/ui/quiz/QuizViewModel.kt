@@ -47,30 +47,22 @@ class QuizViewModel : ViewModel() {
         // Only add points if answer is correct
         if (isCorrect) {
             points += quiz.pointsReward
-        }
-
-        // Move to next question or complete quiz
-        currentQuestionIndex++
-        if (currentQuestionIndex < quiz.questions.size) {
-            showCurrentQuestion()
-        } else {
             _score.value = points
-            // Only update points in Firebase if points were earned
-            if (points > 0) {
-                updatePoints {
-                    _isQuizComplete.value = true
-                }
-            } else {
+            updatePoints {
                 _isQuizComplete.value = true
             }
+            return
         }
-    }
+        _score.value = points
+        _isQuizComplete.value = true
+        }
+
 
     private fun showCurrentQuestion() {
         _currentQuestion.value = quiz.questions[currentQuestionIndex]
     }
 
-    fun updatePoints(onComplete: () -> Unit) {
+    private fun updatePoints(onComplete: () -> Unit) {
         viewModelScope.launch {
             try {
                 userRepository.updateUserPoints(points) {

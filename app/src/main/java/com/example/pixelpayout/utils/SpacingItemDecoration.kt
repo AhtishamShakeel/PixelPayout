@@ -22,6 +22,7 @@ class SpacingItemDecoration(private val space: Int) : RecyclerView.ItemDecoratio
             outRect.left = space / 2
         }
 
-        outRect.top = space
+
+        outRect.top = space / 2
     }
 }

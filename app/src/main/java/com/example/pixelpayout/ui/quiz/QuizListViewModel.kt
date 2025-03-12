@@ -17,13 +17,22 @@ import kotlinx.coroutines.withContext
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
 
-    private val _categories = MutableLiveData<List<QuizCategory>>() // ✅ Fix missing variable
+    private val _categories = MutableLiveData<List<QuizCategory>>()
     val categories: LiveData<List<QuizCategory>> = _categories
 
+    private val defaultCategories = listOf(
+        QuizCategory("Animals", R.drawable.ic_user, ""),
+        QuizCategory("Sports", R.drawable.ic_user_icon, ""),
+        QuizCategory("Science", R.drawable.ic_game, ""),
+        QuizCategory("Riddles", R.drawable.ic_game, ""),
+        QuizCategory("Geography", R.drawable.ic_game, ""),
+        QuizCategory("Math", R.drawable.ic_google, ""),
+        QuizCategory("Video Games", R.drawable.ic_google, "") ,
+        QuizCategory("GK", R.drawable.ic_google, "")
 
-    // ✅ Fixed list of categories
 
-    // ✅ Load quizzes from cache
+    )
+
     fun loadCachedQuizzes(context: Context) {
         Log.d("QuizDebug", "Loading quizzes from cache...")
 
@@ -33,8 +42,10 @@ class QuizListViewModel : ViewModel() {
                 val quizData = Gson().fromJson(json, QuizData::class.java)
 
                 withContext(Dispatchers.Main) {
-                    _categories.value = quizData.categories.map {
-                        QuizCategory(it.name, getCategoryImage(it.name), "")
+                    // Map cached categories to our default categories to maintain consistent images
+                    _categories.value = quizData.categories.map { category ->
+                        defaultCategories.find { it.name.equals(category.name, ignoreCase = true) }
+                            ?: QuizCategory(category.name, R.drawable.ic_quiz, "")
                     }
                     _quizzes.value = quizData.categories.flatMap { category ->
                         category.quizzes.map { quiz ->
@@ -47,21 +58,17 @@ class QuizListViewModel : ViewModel() {
                 }
             } else {
                 Log.d("QuizDebug", "No cached quizzes found.")
+                withContext(Dispatchers.Main) {
+                    _categories.value = defaultCategories
+                }
             }
         }
     }
 
-
-
-
-
-
-
-    // ✅ Check for updates & refresh if needed
     fun checkAndUpdateQuizzes(context: Context) {
         QuizDataManager.fetchQuizzesFromGitHub(context) { isUpdated ->
             if (isUpdated) {
-                loadCachedQuizzes(context) // Load new quizzes
+                loadCachedQuizzes(context)
             }
         }
     }
@@ -89,35 +96,5 @@ class QuizListViewModel : ViewModel() {
         }
     }
 
-
-
-
-    fun getCategories(): List<QuizCategory> = listOf(
-        QuizCategory("Animals", R.drawable.ic_user_icon, ""),
-        QuizCategory("Sports", R.drawable.ic_user_icon, ""),
-        /*QuizCategory("Celebrities", R.drawable.ic_celebrities, ""),
-        QuizCategory("Science", R.drawable.ic_science, ""),
-        QuizCategory("History", R.drawable.ic_history, ""),
-        QuizCategory("Geography", R.drawable.ic_geography, ""),
-        QuizCategory("Movies", R.drawable.ic_movies, ""),
-        QuizCategory("Music", R.drawable.ic_music, "")*/
-    )
-
-    private fun getCategoryImage(categoryName: String): Int {
-        return when (categoryName.lowercase()) {
-            "animals" -> R.drawable.ic_user
-            "sports" -> R.drawable.ic_user_icon
-           /* "celebrities" -> R.drawable.ic_celebrities
-            "science" -> R.drawable.ic_science
-            "history" -> R.drawable.ic_history
-            "geography" -> R.drawable.ic_geography
-            "movies" -> R.drawable.ic_movies
-            "music" -> R.drawable.ic_music*/
-            else -> R.drawable.ic_quiz // Default image
-        }
-    }
-
-
-
-
+    fun getCategories(): List<QuizCategory> = defaultCategories
 }

@@ -23,27 +23,30 @@ object QuizDataManager {
     fun fetchQuizzesFromGitHub(context: Context, onComplete: (Boolean) -> Unit) {
         Log.d("QuizDebug", "Fetching quizzes from GitHub...")
 
-        if (isCachedVersionAvailable(context)) { // ✅ Check if cache exists before downloading
-            Log.d("QuizDebug", "Using cached quizzes instead of GitHub fetch.")
-            onComplete(false)
-            return
-        }
-
-        val startTime = System.currentTimeMillis()
-
         Thread {
             try {
                 val request = Request.Builder().url(GITHUB_URL).build()
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
 
-                val endTime = System.currentTimeMillis()
-                Log.d("QuizDebug", "GitHub fetch time: ${endTime - startTime}ms")
-
                 if (!json.isNullOrEmpty()) {
-                    saveJsonToCache(context, json) // ✅ Save to cache
-                    Log.d("QuizDebug", "Quizzes saved to cache.")
-                    onComplete(true)
+                    // Parse the JSON to get the version
+                    val quizData = Gson().fromJson(json, QuizData::class.java)
+                    val newVersion = quizData.version
+                    val currentVersion = getCachedVersion(context)
+
+                    Log.d("QuizDebug", "Current version: $currentVersion, New version: $newVersion")
+
+                    if (newVersion > currentVersion) {
+                        // New version available, update cache
+                        saveJsonToCache(context, json)
+                        saveVersionToCache(context, newVersion)
+                        Log.d("QuizDebug", "Updated to new version: $newVersion")
+                        onComplete(true)
+                    } else {
+                        Log.d("QuizDebug", "Using cached version: $currentVersion")
+                        onComplete(false)
+                    }
                 } else {
                     Log.d("QuizDebug", "GitHub response was empty!")
                     onComplete(false)
@@ -58,14 +61,13 @@ object QuizDataManager {
     // ✅ Check if cached version exists
     private fun isCachedVersionAvailable(context: Context): Boolean {
         val file = File(context.filesDir, CACHE_FILE_NAME)
-        return file.exists() && file.length() > 0
+        return file.exists() && file.length() > 0 && getCachedVersion(context) > 0
     }
-
 
     // ✅ Load JSON from local storage
     fun loadCachedQuizzes(context: Context): String? {
         val file = File(context.filesDir, CACHE_FILE_NAME)
-        return if (file.exists()) file.readText() else null
+        return if (file.exists() && file.length() > 0) file.readText() else null
     }
 
     // ✅ Save JSON to local storage
@@ -77,7 +79,7 @@ object QuizDataManager {
     // ✅ Get cached version number
     private fun getCachedVersion(context: Context): Int {
         val prefs = context.getSharedPreferences(VERSION_PREFS, Context.MODE_PRIVATE)
-        return prefs.getInt("version", 0) // Default: 0
+        return prefs.getInt("version", 0)
     }
 
     // ✅ Save new version number

@@ -17,12 +17,12 @@ class SpacingItemDecoration(private val space: Int) : RecyclerView.ItemDecoratio
         val spanIndex = params.spanIndex
 
         if (spanIndex == 0) {
-            outRect.right = space / 2
+            outRect.right = space / 4
         } else {
-            outRect.left = space / 2
+            outRect.left = space / 4
         }
 
 
-        outRect.top = space / 2
+        outRect.top = space
     }
 }

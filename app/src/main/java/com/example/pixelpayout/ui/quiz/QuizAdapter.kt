@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.airbnb.lottie.LottieAnimationView
 import com.pixelpayout.databinding.ItemQuizBinding
 import com.pixelpayout.ui.quiz.QuizCategory // ✅ Add this import
 
@@ -25,7 +26,13 @@ class QuizAdapter(
         holder.bind(category)
 
         holder.binding.titleText.text = category.name
-        holder.binding.floatingImage.setImageResource(category.imageResId) // ✅ Set category image
+
+        // Setup Lottie animation
+        holder.binding.lottieAnimation.apply {
+            setAnimation(category.lottieAnimationResId)
+            playAnimation()
+            loop(true)
+        }
 
         val layoutParams = holder.binding.root.layoutParams
         layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 200) else dpToPx(holder.binding.root.context, 230)
@@ -48,10 +55,17 @@ class QuizAdapter(
     inner class CategoryViewHolder(val binding: ItemQuizBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        init {
+            binding.root.setOnClickListener {
+                val position = bindingAdapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onCategoryClick(categories[position])
+                }
+            }
+        }
+
         fun bind(category: QuizCategory) {
             binding.titleText.text = category.name
-            binding.floatingImage.setImageResource(category.imageResId)
-            binding.root.setOnClickListener { onCategoryClick(category) }
         }
     }
 

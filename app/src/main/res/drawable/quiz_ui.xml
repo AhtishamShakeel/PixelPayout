@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 30% transparent primary color (adjust #4DFF0000 to match your color) -->
+    <solid android:color="#358A8AFF" />
+    <!-- Rounded corners (adjust radius as needed) -->
+    <corners android:radius="16dp" />
+</shape>

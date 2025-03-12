@@ -21,16 +21,14 @@ class QuizListViewModel : ViewModel() {
     val categories: LiveData<List<QuizCategory>> = _categories
 
     private val defaultCategories = listOf(
-        QuizCategory("Animals", R.drawable.ic_user, ""),
-        QuizCategory("Sports", R.drawable.ic_user_icon, ""),
-        QuizCategory("Science", R.drawable.ic_game, ""),
-        QuizCategory("Riddles", R.drawable.ic_game, ""),
-        QuizCategory("Geography", R.drawable.ic_game, ""),
-        QuizCategory("Math", R.drawable.ic_google, ""),
-        QuizCategory("Video Games", R.drawable.ic_google, "") ,
-        QuizCategory("GK", R.drawable.ic_google, "")
-
-
+        QuizCategory("Animals", R.raw.animal_quiz_animation, ""),
+        QuizCategory("Sports", R.raw.sports_quiz_animation, ""),
+        QuizCategory("Science", R.raw.science_quiz_animation, ""),
+        QuizCategory("Riddles", R.raw.riddles_quiz_animation, ""),
+        QuizCategory("Geography", R.raw.geography_quiz_animation, ""),
+        QuizCategory("Math Fun", R.raw.math_quiz_animation, ""),
+        QuizCategory("Video Games", R.raw.games_quiz_animation, ""),
+        QuizCategory("GK", R.raw.general_quiz_animation, "")
     )
 
     fun loadCachedQuizzes(context: Context) {
@@ -45,7 +43,7 @@ class QuizListViewModel : ViewModel() {
                     // Map cached categories to our default categories to maintain consistent images
                     _categories.value = quizData.categories.map { category ->
                         defaultCategories.find { it.name.equals(category.name, ignoreCase = true) }
-                            ?: QuizCategory(category.name, R.drawable.ic_quiz, "")
+                            ?: QuizCategory(category.name, R.raw.default_quiz_animation, "")
                     }
                     _quizzes.value = quizData.categories.flatMap { category ->
                         category.quizzes.map { quiz ->

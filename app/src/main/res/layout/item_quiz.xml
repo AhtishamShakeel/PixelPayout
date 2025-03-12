@@ -1,71 +1,41 @@
-<androidx.cardview.widget.CardView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="200dp"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
     app:cardCornerRadius="16dp"
-    android:layout_gravity="center"
-    android:layout_marginTop="@dimen/spacing_large"
-    app:cardBackgroundColor="#222222"
-    app:cardElevation="8dp">
+    app:cardElevation="4dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#222222"
-        android:paddingBottom="16dp"
-        android:clipChildren="false"
-        android:clipToPadding="false">
+        android:layout_height="wrap_content"
+        android:background="@drawable/quiz_ui"
+        android:padding="16dp">
 
-        <!-- Floating Image (Always Centered) -->
-        <ImageView
-            android:id="@+id/floatingImage"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:src="@drawable/ic_user_icon"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@+id/textContainer"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            android:elevation="10dp" />
 
-        <!-- Shadow below image -->
-        <View
-            android:id="@+id/shadowView"
-            android:layout_width="60dp"
-            android:layout_height="10dp"
-            android:layout_marginBottom="10dp"
-            android:background="@drawable/shadow_drawable"
-            app:layout_constraintTop_toBottomOf="@id/floatingImage"
-            app:layout_constraintStart_toStartOf="@id/floatingImage"
-            app:layout_constraintEnd_toEndOf="@id/floatingImage" />
-
-        <!-- Text Container (Aligned to Start) -->
-        <LinearLayout
-            android:id="@+id/textContainer"
-            android:layout_width="match_parent"
+        <TextView
+            android:id="@+id/titleText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="7dp"
-            app:layout_constraintTop_toBottomOf="@id/shadowView"
+            android:textSize="22sp"
+            android:fontFamily="@font/lexend_regular"
+            android:textStyle="bold"
             app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Category Name" />
+
+        <com.airbnb.lottie.LottieAnimationView
+            android:id="@+id/lottieAnimation"
+            android:layout_width="120dp"
+            android:layout_height="120dp"
+            android:layout_marginTop="8dp"
             app:layout_constraintEnd_toEndOf="parent"
-            android:paddingEnd="16dp"
-            android:paddingStart="12dp">
-
-            <TextView
-                android:id="@+id/titleText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Sports"
-                android:textColor="#FFFFFF"
-                android:fontFamily="@font/ptserif_bold"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:layout_marginBottom="4dp" />
-
-        </LinearLayout>
+            app:layout_constraintTop_toBottomOf="@id/titleText"
+            app:lottie_autoPlay="true"
+            app:lottie_loop="true"
+            tools:lottie_rawRes="@raw/default_animation"/>
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

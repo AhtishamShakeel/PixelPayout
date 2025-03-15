@@ -8,8 +8,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
+import androidx.navigation.navOptions
 import com.airbnb.lottie.LottieAnimationView
 import com.example.pixelpayout.utils.UserPreferences
 import com.google.firebase.auth.FirebaseAuth
@@ -96,17 +98,43 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
+        // Use the built-in setupWithNavController and customize it for better animations
         binding.bottomNav.setupWithNavController(navController)
         
-        // Refresh quiz attempts when navigating back to home tab
+        // Override the default behavior with custom animations
         binding.bottomNav.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.navigation_home -> {
-                    // Check if we need to refresh quiz data when returning to home
+            // Store the current and target destination IDs
+            val currentDestinationId = navController.currentDestination?.id ?: 0
+            val targetDestinationId = item.itemId
+            
+            // Only navigate if we're actually changing destinations
+            if (currentDestinationId != targetDestinationId) {
+                // Check if we need to refresh quiz data when returning to home
+                if (targetDestinationId == R.id.navigation_home) {
                     quizViewModel.refreshAttemptsIfNeeded()
                 }
+                
+                // Create the navigation options with fade animations
+                val navOptions = NavOptions.Builder()
+                    .setEnterAnim(R.anim.fade_in)
+                    .setExitAnim(R.anim.fade_out)
+                    .setPopEnterAnim(R.anim.fade_in)
+                    .setPopExitAnim(R.anim.fade_out)
+                    .build()
+                
+                try {
+                    // Try to navigate using the safe approach
+                    navController.navigate(targetDestinationId, null, navOptions)
+                    return@setOnItemSelectedListener true
+                } catch (e: Exception) {
+                    // If navigation fails, at least select the tab in the UI
+                    Log.e("Navigation", "Failed to navigate: ${e.message}")
+                    // Return true to still update the selected item
+                    return@setOnItemSelectedListener true
+                }
             }
-            navController.navigate(item.itemId)
+            
+            // If we're already at the destination, just return true to handle the selection
             true
         }
     }

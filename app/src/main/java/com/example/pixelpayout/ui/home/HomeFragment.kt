@@ -2,15 +2,16 @@ package com.pixelpayout.ui.home
 
 import android.graphics.Point
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import androidx.activity.viewModels
 import android.view.ViewGroup
-import android.view.animation.AnimationUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import com.pixelpayout.R
 import com.pixelpayout.data.repository.UserRepository
@@ -123,176 +124,107 @@ class HomeFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.apply {
-            // Quiz card clicks with touch feedback
-            quizCard.apply {
-                setOnClickListener {
-                    // Apply animation to the card
-                    val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                    startAnimation(scaleDown)
-                    
-                    // Navigate with a small delay for smoother transition
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        navigateToQuizzes()
-                    }, 150) // 150ms delay feels responsive yet gives time for animation
-                }
-                
-                // Add touch listener for better feedback
-                setOnTouchListener { view, event ->
-                    when (event.action) {
-                        android.view.MotionEvent.ACTION_DOWN -> {
-                            // Scale down when pressed
-                            val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                            startAnimation(scaleDown)
-                            false
-                        }
-                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                            // Scale back up when released or canceled
-                            val scaleUp = AnimationUtils.loadAnimation(context, R.anim.scale_up)
-                            startAnimation(scaleUp)
-                            false
-                        }
-                        else -> false
-                    }
-                }
+            // Quiz card clicks - direct navigation without animation
+            quizCard.setOnClickListener {
+                navigateToQuizzes()
             }
 
-            // Game card with improved animations
-            gameCard.apply {
-                setOnClickListener {
-                    // Apply animation to the card
-                    val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                    startAnimation(scaleDown)
-                    
-                    // Navigate with a small delay for smoother transition
-                    Handler(Looper.getMainLooper()).postDelayed({
-                        navigateToGame()
-                    }, 150)
-                }
-                
-                // Add touch listener for better feedback
-                setOnTouchListener { view, event ->
-                    when (event.action) {
-                        android.view.MotionEvent.ACTION_DOWN -> {
-                            val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                            startAnimation(scaleDown)
-                            false
-                        }
-                        android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
-                            val scaleUp = AnimationUtils.loadAnimation(context, R.anim.scale_up)
-                            startAnimation(scaleUp)
-                            false
-                        }
-                        else -> false
-                    }
-                }
+            // Game card - direct navigation without animation
+            gameCard.setOnClickListener {
+                navigateToGame()
             }
 
-            // Keep the existing button click handlers but add animations
+            // Keep the existing button click handlers but without animations
             playGameButton.setOnClickListener {
-                val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                gameCard.startAnimation(scaleDown)
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    navigateToGame()
-                }, 150)
+                navigateToGame()
             }
             
             gameImage.setOnClickListener {
-                val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                gameCard.startAnimation(scaleDown)
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    navigateToGame()
-                }, 150)
+                navigateToGame()
             }
 
             gameDetails.setOnClickListener {
-                val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                gameCard.startAnimation(scaleDown)
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    navigateToDetails("game")
-                }, 150)
+                navigateToDetails("game")
             }
 
             btnPayout.setOnClickListener {
-                val scaleDown = AnimationUtils.loadAnimation(context, R.anim.scale_down)
-                btnPayout.startAnimation(scaleDown)
-                
-                Handler(Looper.getMainLooper()).postDelayed({
-                    navigateToRedemption()
-                }, 150)
+                navigateToRedemption()
             }
         }
     }
 
     private fun navigateToQuizzes() {
-        // Add animation for smoother tab transition
-        val mainActivity = activity as? MainActivity
-        
-        // Apply custom animations - determine direction based on current and target tabs
-        val currentTabId = mainActivity?.binding?.bottomNav?.selectedItemId ?: 0
-        val targetTabId = R.id.navigation_quizzes
-        
-        applyNavigationAnimation(currentTabId, targetTabId)
-        
-        // Then change the selected tab
-        mainActivity?.binding?.bottomNav?.selectedItemId = targetTabId
+        try {
+            // Create nav options with bottom-to-top animation
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.fade_in)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.slide_out_down)
+                .build()
+                
+            // Navigate with animations
+            findNavController().navigate(R.id.navigation_quizzes, null, navOptions)
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to quizzes: ${e.message}")
+            // Fallback to direct tab selection
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_quizzes
+        }
     }
 
     private fun navigateToGame() {
-        // Add animation for smoother tab transition
-        val mainActivity = activity as? MainActivity
-        
-        // Apply custom animations - determine direction based on current and target tabs
-        val currentTabId = mainActivity?.binding?.bottomNav?.selectedItemId ?: 0
-        val targetTabId = R.id.navigation_play
-        
-        applyNavigationAnimation(currentTabId, targetTabId)
-        
-        // Then change the selected tab
-        mainActivity?.binding?.bottomNav?.selectedItemId = targetTabId
+        try {
+            // Create nav options with bottom-to-top animation
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.slide_in_up)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.slide_out_down)
+                .build()
+                
+            // Navigate with animations
+            findNavController().navigate(R.id.navigation_play, null, navOptions)
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to game: ${e.message}")
+            // Fallback to direct tab selection
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
+        }
     }
 
     private fun navigateToDetails(type: String) {
-        findNavController().navigate(
-            HomeFragmentDirections.actionHomeToDetails(type)
-        )
+        try {
+            // Use directions for safe args with animation
+            val action = HomeFragmentDirections.actionHomeToDetails(type)
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.slide_in_up)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.slide_out_down)
+                .build()
+                
+            findNavController().navigate(action, navOptions)
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to details: ${e.message}")
+        }
     }
 
     private fun navigateToRedemption() {
-        // Add animation for smoother tab transition
-        val mainActivity = activity as? MainActivity
-        
-        // Apply custom animations - determine direction based on current and target tabs
-        val currentTabId = mainActivity?.binding?.bottomNav?.selectedItemId ?: 0
-        val targetTabId = R.id.navigation_redemption
-        
-        applyNavigationAnimation(currentTabId, targetTabId)
-        
-        // Then change the selected tab
-        mainActivity?.binding?.bottomNav?.selectedItemId = targetTabId
-    }
-
-    private fun applyNavigationAnimation(currentTabId: Int, targetTabId: Int) {
-        // Determine if we're moving left or right in the bottom nav
-        val fragmentTransaction = parentFragmentManager.beginTransaction()
-        
-        if (currentTabId < targetTabId) {
-            // Moving right
-            fragmentTransaction.setCustomAnimations(
-                R.anim.slide_in_right,
-                R.anim.slide_out_left
-            )
-        } else {
-            // Moving left
-            fragmentTransaction.setCustomAnimations(
-                R.anim.slide_in_left,
-                R.anim.slide_out_right
-            )
+        try {
+            // Create nav options with bottom-to-top animation
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.slide_in_up)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.slide_out_down)
+                .build()
+                
+            // Navigate with animations
+            findNavController().navigate(R.id.navigation_redemption, null, navOptions)
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to redemption: ${e.message}")
+            // Fallback to direct tab selection
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_redemption
         }
-        
-        fragmentTransaction.commit()
     }
 
     override fun onDestroyView() {

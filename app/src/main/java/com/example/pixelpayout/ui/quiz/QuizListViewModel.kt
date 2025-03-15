@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.functions.FirebaseFunctions
 import com.google.gson.Gson
 import com.pixelpayout.utils.QuizDataManager
 import com.pixelpayout.R
@@ -23,6 +24,10 @@ class QuizListViewModel : ViewModel() {
     val dailyAttempts: LiveData<Int> = _dailyAttempts
     val MAX_DAILY_ATTEMPTS = 10
 
+    // Cache control variables
+    private var lastCheckTimestamp: Long = 0
+    private val CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes in milliseconds
+    
     private val _categories = MutableLiveData<List<QuizCategory>>().apply {
         value = defaultCategories  // Set categories immediately
     }
@@ -45,17 +50,46 @@ class QuizListViewModel : ViewModel() {
         _categories.value = defaultCategories  // Ensure categories load immediately
     }
 
-    fun fetchDailyAttempts() {
+    fun fetchDailyAttempts(forceRefresh: Boolean = false) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val now = System.currentTimeMillis()
+        
+        // Only check if it's been more than 5 minutes since last check or forceRefresh is true
+        if (!forceRefresh && now - lastCheckTimestamp < CHECK_INTERVAL && _dailyAttempts.value != null) {
+            Log.d("QuizDebug", "Using cached attempts value, last checked ${(now - lastCheckTimestamp) / 1000} seconds ago")
+            return
+        }
+        
+        lastCheckTimestamp = now
+        Log.d("QuizDebug", "Fetching attempts from server")
 
-        FirebaseFirestore.getInstance().collection("users").document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
+        // Call our checkAndResetQuizAttempts function
+        FirebaseFunctions.getInstance()
+            .getHttpsCallable("checkAndResetQuizAttempts")
+            .call()
+            .addOnSuccessListener { result ->
+                val data = result.data as? Map<*, *>
+                val attempts = (data?.get("attempts") as? Number)?.toInt() ?: 0
+                val resetPerformed = data?.get("resetPerformed") as? Boolean ?: false
+                
                 _dailyAttempts.postValue(attempts)
+                
+                if (resetPerformed) {
+                    Log.d("QuizDebug", "Quiz attempts were reset to 0 for a new day")
+                }
             }
-            .addOnFailureListener {
-                _dailyAttempts.postValue(0) // Default to 0 if error
+            .addOnFailureListener { e ->
+                Log.e("QuizDebug", "Failed to check/reset attempts: ${e.message}")
+                // Fall back to direct Firestore access if function fails
+                FirebaseFirestore.getInstance().collection("users").document(userId)
+                    .get()
+                    .addOnSuccessListener { document ->
+                        val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
+                        _dailyAttempts.postValue(attempts)
+                    }
+                    .addOnFailureListener {
+                        _dailyAttempts.postValue(0) // Default to 0 if error
+                    }
             }
     }
 

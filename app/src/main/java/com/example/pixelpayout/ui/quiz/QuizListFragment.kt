@@ -41,6 +41,7 @@ class QuizListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
+        setupSwipeRefresh()
         observeViewModel()
 
         viewModel.loadCachedQuizzes(requireContext())
@@ -59,6 +60,15 @@ class QuizListFragment : Fragment() {
             adapter = quizAdapter
             layoutManager = StaggeredGridLayoutManager(2, StaggeredGridLayoutManager.VERTICAL)
             addItemDecoration(SpacingItemDecoration(43) )
+        }
+    }
+
+    private fun setupSwipeRefresh() {
+        binding.swipeRefresh.setOnRefreshListener {
+            // Force refresh attempts when user manually pulls to refresh
+            viewModel.fetchDailyAttempts(forceRefresh = true)
+            viewModel.checkAndUpdateQuizzes(requireContext())
+            binding.swipeRefresh.isRefreshing = false
         }
     }
 
@@ -108,8 +118,8 @@ class QuizListFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh the daily attempts count when returning to this fragment
-        viewModel.fetchDailyAttempts()
+        // Force refresh the daily attempts when returning from a quiz
+        viewModel.fetchDailyAttempts(forceRefresh = true)
     }
 
 

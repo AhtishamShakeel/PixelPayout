@@ -40,9 +40,6 @@ class QuizViewModel : ViewModel() {
         showCurrentQuestion()
     }
 
-
-
-
     fun submitAnswer(selectedAnswerIndex: Int) {
         val currentQuestion = quiz.questions[currentQuestionIndex]
         val isCorrect = selectedAnswerIndex == currentQuestion.correctAnswer
@@ -52,17 +49,13 @@ class QuizViewModel : ViewModel() {
             _score.postValue(points)  // 🔥 Use postValue to ensure UI updates
         }
 
-        // 🔥 Increment attempts first before marking quiz as complete
+        // Increment attempts and update points
         userRepository.incrementDailyAttempts {
             updatePoints {
-                _isQuizComplete.postValue(true)  // ✅ Now mark quiz as complete
+                _isQuizComplete.postValue(true)
             }
         }
     }
-
-
-
-
 
     private fun showCurrentQuestion() {
         _currentQuestion.value = quiz.questions[currentQuestionIndex]

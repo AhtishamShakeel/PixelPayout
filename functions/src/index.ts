@@ -4,17 +4,22 @@ import {CallableRequest} from "firebase-functions/v2/https";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 admin.initializeApp();
 
-export const dailyReset = onSchedule("every day 00:00", async (_event) => {
+// Changed from daily to weekly as a safety net backup
+export const weeklyReset = onSchedule("every monday 00:00", async (_event) => {
   const usersRef = admin.firestore().collection("users");
   const usersSnapshot = await usersRef.get();
 
   const batch = admin.firestore().batch();
   usersSnapshot.forEach((doc) => {
-    batch.update(doc.ref, {quiz_attempts: 0});
- });
+    // Update both the quiz_attempts counter and last_reset_time
+    batch.update(doc.ref, {
+      quiz_attempts: 0,
+      last_reset_time: admin.firestore.Timestamp.now()
+    });
+  });
 
   await batch.commit();
-  console.log("Daily quiz attempts reset");
+  console.log("Weekly quiz attempts reset completed - all users reset");
 });
 
 
@@ -71,13 +76,21 @@ export const checkAndResetQuizAttempts = functions.https.onCall(async (request: 
       quiz_attempts: 0,
       last_reset_time: now
     });
-    return { success: true, attempts: 0, resetPerformed: true };
+    return { 
+      success: true, 
+      attempts: 0, 
+      resetPerformed: true,
+      lastResetTime: now.toMillis(),
+      serverTime: now.toMillis()
+    };
   } else {
     // Not a new day, return current attempts
     return { 
       success: true, 
       attempts: userData?.quiz_attempts || 0, 
-      resetPerformed: false
+      resetPerformed: false,
+      lastResetTime: lastResetTime.toMillis(),
+      serverTime: now.toMillis()
     };
   }
 });

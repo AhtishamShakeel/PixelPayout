@@ -16,6 +16,7 @@ import com.pixelpayout.data.model.Quiz
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.*
 
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
@@ -23,6 +24,12 @@ class QuizListViewModel : ViewModel() {
     private val _dailyAttempts = MutableLiveData<Int>()
     val dailyAttempts: LiveData<Int> = _dailyAttempts
     val MAX_DAILY_ATTEMPTS = 10
+
+    // Add LiveData for timer-related values
+    private val _lastResetTime = MutableLiveData<Long>()
+    val lastResetTime: LiveData<Long> = _lastResetTime
+    private val _nextResetTime = MutableLiveData<Long>()
+    val nextResetTime: LiveData<Long> = _nextResetTime
 
     // Cache control variables
     private var lastCheckTimestamp: Long = 0
@@ -71,8 +78,15 @@ class QuizListViewModel : ViewModel() {
                 val data = result.data as? Map<*, *>
                 val attempts = (data?.get("attempts") as? Number)?.toInt() ?: 0
                 val resetPerformed = data?.get("resetPerformed") as? Boolean ?: false
+                val lastResetTime = (data?.get("lastResetTime") as? Number)?.toLong() ?: System.currentTimeMillis()
+                val serverTime = (data?.get("serverTime") as? Number)?.toLong() ?: System.currentTimeMillis()
                 
                 _dailyAttempts.postValue(attempts)
+                _lastResetTime.postValue(lastResetTime)
+                
+                // Calculate next reset time (midnight UTC of the next day after reset)
+                val nextResetTime = calculateNextResetTime(lastResetTime)
+                _nextResetTime.postValue(nextResetTime)
                 
                 if (resetPerformed) {
                     Log.d("QuizDebug", "Quiz attempts were reset to 0 for a new day")
@@ -86,11 +100,39 @@ class QuizListViewModel : ViewModel() {
                     .addOnSuccessListener { document ->
                         val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
                         _dailyAttempts.postValue(attempts)
+                        
+                        // In fallback scenario, just use current time to estimate reset
+                        val lastResetTime = document.getTimestamp("last_reset_time")?.toDate()?.time ?: System.currentTimeMillis()
+                        _lastResetTime.postValue(lastResetTime)
+                        
+                        val nextResetTime = calculateNextResetTime(lastResetTime)
+                        _nextResetTime.postValue(nextResetTime)
                     }
                     .addOnFailureListener {
                         _dailyAttempts.postValue(0) // Default to 0 if error
                     }
             }
+    }
+    
+    /**
+     * Calculate the next reset time (midnight UTC of next day after the last reset)
+     */
+    private fun calculateNextResetTime(lastResetTimeMillis: Long): Long {
+        val lastResetCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        lastResetCalendar.timeInMillis = lastResetTimeMillis
+        
+        // Create midnight UTC for the current day of the last reset
+        val midnightCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
+        midnightCalendar.timeInMillis = lastResetTimeMillis
+        midnightCalendar.set(Calendar.HOUR_OF_DAY, 0)
+        midnightCalendar.set(Calendar.MINUTE, 0)
+        midnightCalendar.set(Calendar.SECOND, 0)
+        midnightCalendar.set(Calendar.MILLISECOND, 0)
+        
+        // Add one day to get the next day's midnight
+        midnightCalendar.add(Calendar.DAY_OF_MONTH, 1)
+        
+        return midnightCalendar.timeInMillis
     }
 
 

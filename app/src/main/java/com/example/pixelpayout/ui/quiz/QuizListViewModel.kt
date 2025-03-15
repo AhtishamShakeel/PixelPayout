@@ -35,6 +35,9 @@ class QuizListViewModel : ViewModel() {
     private var lastCheckTimestamp: Long = 0
     private val CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes in milliseconds
     
+    // App state tracking
+    private var hasCompletedInitialLoad = false
+
     private val _categories = MutableLiveData<List<QuizCategory>>().apply {
         value = defaultCategories  // Set categories immediately
     }
@@ -61,8 +64,15 @@ class QuizListViewModel : ViewModel() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val now = System.currentTimeMillis()
         
-        // Only check if it's been more than 5 minutes since last check or forceRefresh is true
-        if (!forceRefresh && now - lastCheckTimestamp < CHECK_INTERVAL && _dailyAttempts.value != null) {
+        // Skip fetch if conditions are met:
+        // 1. Not forcing refresh AND
+        // 2. Last check was recent enough AND
+        // 3. We already have data loaded
+        // 4. Unless we've never loaded data before (initial app launch)
+        if (!forceRefresh && 
+            now - lastCheckTimestamp < CHECK_INTERVAL && 
+            _dailyAttempts.value != null &&
+            hasCompletedInitialLoad) {
             Log.d("QuizDebug", "Using cached attempts value, last checked ${(now - lastCheckTimestamp) / 1000} seconds ago")
             return
         }
@@ -88,32 +98,43 @@ class QuizListViewModel : ViewModel() {
                 val nextResetTime = calculateNextResetTime(lastResetTime)
                 _nextResetTime.postValue(nextResetTime)
                 
+                hasCompletedInitialLoad = true
+                
+                // If a reset was performed, log it
                 if (resetPerformed) {
-                    Log.d("QuizDebug", "Quiz attempts were reset to 0 for a new day")
+                    Log.d("QuizDebug", "Quiz attempts were reset")
                 }
             }
             .addOnFailureListener { e ->
-                Log.e("QuizDebug", "Failed to check/reset attempts: ${e.message}")
-                // Fall back to direct Firestore access if function fails
-                FirebaseFirestore.getInstance().collection("users").document(userId)
-                    .get()
-                    .addOnSuccessListener { document ->
-                        val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
-                        _dailyAttempts.postValue(attempts)
-                        
-                        // In fallback scenario, just use current time to estimate reset
-                        val lastResetTime = document.getTimestamp("last_reset_time")?.toDate()?.time ?: System.currentTimeMillis()
-                        _lastResetTime.postValue(lastResetTime)
-                        
-                        val nextResetTime = calculateNextResetTime(lastResetTime)
-                        _nextResetTime.postValue(nextResetTime)
-                    }
-                    .addOnFailureListener {
-                        _dailyAttempts.postValue(0) // Default to 0 if error
-                    }
+                Log.e("QuizDebug", "Error checking quiz attempts", e)
             }
     }
     
+    /**
+     * Refreshes attempts only if needed - at app startup or after completing a quiz
+     */
+    fun refreshAttemptsIfNeeded() {
+        val shouldRefresh = !hasCompletedInitialLoad || 
+                           System.currentTimeMillis() - lastCheckTimestamp > CHECK_INTERVAL ||
+                           shouldRefreshDueToResetTime()
+        
+        if (shouldRefresh) {
+            fetchDailyAttempts(forceRefresh = true)
+        }
+    }
+
+    /**
+     * Checks if we should refresh attempts because we've passed the reset time
+     */
+    private fun shouldRefreshDueToResetTime(): Boolean {
+        val nextReset = _nextResetTime.value
+        return if (nextReset != null) {
+            System.currentTimeMillis() >= nextReset
+        } else {
+            false
+        }
+    }
+
     /**
      * Calculate the next reset time (midnight UTC of next day after the last reset)
      */

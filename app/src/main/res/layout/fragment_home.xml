@@ -177,7 +177,7 @@
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@drawable/dark_card_background"
+                android:background="@drawable/card_ripple_effect"
                 android:paddingVertical="16dp"
                 android:paddingHorizontal="20dp">
 

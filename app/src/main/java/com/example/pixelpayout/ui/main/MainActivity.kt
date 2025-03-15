@@ -49,13 +49,14 @@ class MainActivity : AppCompatActivity() {
         userPreferences = UserPreferences(this)
 
         quizViewModel.loadCachedQuizzes(this)
+        quizViewModel.refreshAttemptsIfNeeded()
         quizViewModel.categories.observe(this) { categories ->
             categories.forEach { category ->
                 val animationView = LottieAnimationView(this)
                 animationView.setAnimation(category.lottieAnimationResId)
                 animationView.post {
                     animationView.playAnimation() // Start animation to ensure it's preloaded
-                    animationView.pauseAnimation() // Pause so it doesn’t keep running in the background
+                    animationView.pauseAnimation() // Pause so it doesn't keep running in the background
                 }
             }
             Log.d("LottiePreload", "Categories loaded: ${categories.size}")
@@ -96,6 +97,18 @@ class MainActivity : AppCompatActivity() {
         val navController = navHostFragment.navController
 
         binding.bottomNav.setupWithNavController(navController)
+        
+        // Refresh quiz attempts when navigating back to home tab
+        binding.bottomNav.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.navigation_home -> {
+                    // Check if we need to refresh quiz data when returning to home
+                    quizViewModel.refreshAttemptsIfNeeded()
+                }
+            }
+            navController.navigate(item.itemId)
+            true
+        }
     }
 
     private fun observeViewModel() {

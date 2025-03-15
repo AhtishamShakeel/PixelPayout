@@ -34,6 +34,16 @@ class QuizListFragment : Fragment() {
         }
     }
 
+    // Add activity result launcher to listen for quiz completion
+    private val quizLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            // Quiz was completed, refresh the attempts
+            viewModel.fetchDailyAttempts(forceRefresh = true)
+        }
+    }
+
     private lateinit var quizAdapter: QuizAdapter
 
     override fun onCreateView(
@@ -55,13 +65,14 @@ class QuizListFragment : Fragment() {
         viewModel.loadCachedQuizzes(requireContext())
         viewModel.checkAndUpdateQuizzes(requireContext())
 
-        viewModel.fetchDailyAttempts() // Fetch attempts when fragment loads
+        // Remove the fetch here - it's now done at app startup in MainActivity
+        // viewModel.fetchDailyAttempts()
     }
 
     override fun onResume() {
         super.onResume()
-        // Force refresh the daily attempts when returning from a quiz
-        viewModel.fetchDailyAttempts(forceRefresh = true)
+        // Don't force refresh every time - only start the timer
+        // viewModel.fetchDailyAttempts(forceRefresh = true)
         
         // Start the countdown timer
         timerHandler.post(timerRunnable)
@@ -163,7 +174,8 @@ class QuizListFragment : Fragment() {
         val intent = Intent(requireContext(), QuizActivity::class.java).apply {
             putExtra(QuizActivity.EXTRA_QUIZ, quiz)
         }
-        startActivity(intent)
+        // Use the launcher instead of startActivity to get the result
+        quizLauncher.launch(intent)
     }
 
     override fun onDestroyView() {

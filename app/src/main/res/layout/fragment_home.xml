@@ -161,104 +161,79 @@
         </androidx.constraintlayout.widget.ConstraintLayout>
 
 
-        <com.google.android.material.card.MaterialCardView
+        <androidx.cardview.widget.CardView
             android:id="@+id/quizCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#00000000"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
             app:layout_constraintTop_toBottomOf="@id/balanceLayout">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content">
+                android:layout_height="wrap_content"
+                android:background="@drawable/dark_card_background"
+                android:paddingVertical="16dp"
+                android:paddingHorizontal="20dp">
 
                 <ImageView
-                    android:id="@+id/quizImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="180dp"
-                    android:scaleType="centerCrop"
-                    android:src="@drawable/quiz_banner"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:importantForAccessibility="no"
-                    android:foreground="?attr/selectableItemBackground"
-                    app:layout_constraintTop_toTopOf="parent" />
+                    android:id="@+id/quizIcon"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:src="@drawable/ic_quiz"
+                    android:background="@drawable/circular_background"
+                    android:padding="12dp"
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent"
+                    app:tint="#FFDF00" />
 
-                <androidx.constraintlayout.widget.ConstraintLayout
-                    android:layout_width="match_parent"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:padding="16dp"
-                    app:layout_constraintTop_toBottomOf="@id/quizImage">
+                    android:orientation="vertical"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginEnd="8dp"
+                    app:layout_constraintStart_toEndOf="@id/quizIcon"
+                    app:layout_constraintEnd_toStartOf="@id/arrowIcon"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent">
 
                     <TextView
                         android:id="@+id/quizTitle"
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Quiz - Answer MCQs"
+                        android:text="Daily Quiz"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        app:layout_constraintEnd_toStartOf="@id/quizDetails"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        android:textColor="@android:color/white" />
 
                     <TextView
-                        android:id="@+id/quizDetails"
+                        android:id="@+id/quizStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Details->"
-                        android:textColor="@color/primary"
-                        android:padding="3dp"
-                        android:textSize="15sp"
-                        android:background="?attr/selectableItemBackground"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="@id/quizTitle" />
+                        android:text="5 quizzes left or 15:40 hours left for reset"
+                        android:textSize="14sp"
+                        android:textColor="#B3FFFFFF"
+                        android:layout_marginTop="4dp" />
+                </LinearLayout>
 
-                    <LinearLayout
-                        android:id="@+id/quizRewardsLayout"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/quizTitle">
-
-                        <ImageView
-                            android:layout_width="24dp"
-                            android:layout_height="24dp"
-                            android:src="@drawable/ic_star" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="10-30 per quiz"
-                            android:textSize="15sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/playQuizButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="60dp"
-                        android:background="@drawable/rounded_button"
-                        android:text="Play Now"
-                        android:textColor="@android:color/white"
-                        android:textSize="18sp"
-                        android:gravity="center"
-                        android:padding="10dp"
-                        android:elevation="4dp"
-                        android:layout_marginTop="16dp"
-                        android:textAllCaps="false"
-                        app:layout_constraintTop_toBottomOf="@id/quizRewardsLayout" />
-
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                <ImageView
+                    android:id="@+id/arrowIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/ic_arrow_right"
+                    app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintTop_toTopOf="parent"
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
-
-        </com.google.android.material.card.MaterialCardView>
+        </androidx.cardview.widget.CardView>
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/gameCard"

@@ -51,16 +51,8 @@ class HomeFragment : Fragment() {
     private fun setupClickListeners() {
         binding.apply {
             // Quiz card clicks
-            playQuizButton.setOnClickListener {
+            quizCard.setOnClickListener {
                 navigateToQuizzes()
-            }
-
-            quizImage.setOnClickListener {
-                navigateToQuizzes()
-            }
-
-            quizDetails.setOnClickListener {
-                navigateToDetails("quiz")
             }
 
             // Game card clicks

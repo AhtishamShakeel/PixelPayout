@@ -34,28 +34,41 @@ class QuizViewModel : ViewModel() {
 
     private val userRepository = UserRepository()
 
+    private val MAX_DAILY_ATTEMPTS = 5
+
     fun setQuiz(quiz: Quiz) {
-        this.quiz = quiz
-        _quizId.value = quiz.id
-        showCurrentQuestion()
+        userRepository.getDailyAttempts { attempts ->
+            if (attempts >= MAX_DAILY_ATTEMPTS) {
+                _isQuizComplete.postValue(true)  // Prevent quiz start
+            } else {
+                this.quiz = quiz
+                _quizId.postValue(quiz.id)
+                showCurrentQuestion()
+            }
+        }
     }
+
+
 
     fun submitAnswer(selectedAnswerIndex: Int) {
         val currentQuestion = quiz.questions[currentQuestionIndex]
         val isCorrect = selectedAnswerIndex == currentQuestion.correctAnswer
 
-        // Only add points if answer is correct
         if (isCorrect) {
             points += quiz.pointsReward
-            _score.value = points
+            _score.postValue(points)  // 🔥 Use postValue to ensure UI updates
+        }
+
+        // 🔥 Increment attempts first before marking quiz as complete
+        userRepository.incrementDailyAttempts {
             updatePoints {
-                _isQuizComplete.value = true
+                _isQuizComplete.postValue(true)  // ✅ Now mark quiz as complete
             }
-            return
         }
-        _score.value = points
-        _isQuizComplete.value = true
-        }
+    }
+
+
+
 
 
     private fun showCurrentQuestion() {

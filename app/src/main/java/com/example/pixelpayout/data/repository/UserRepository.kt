@@ -140,4 +140,23 @@ class UserRepository {
             ReferralResult.Error(e.message ?: "Unknown error occurred")
         }
     }
+    fun getDailyAttempts(onResult: (Int) -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+
+        firestore.collection("users").document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
+                onResult(attempts)
+            }
+    }
+
+    fun incrementDailyAttempts(onComplete: () -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+
+        firestore.collection("users").document(userId)
+            .update("quiz_attempts", FieldValue.increment(1))
+            .addOnSuccessListener { onComplete() }
+    }
+
 }

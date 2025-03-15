@@ -45,6 +45,14 @@ class QuizActivity : AppCompatActivity() {
             finish()
         }
 
+        viewModel.isQuizComplete.observe(this) { isComplete ->
+            if (isComplete && viewModel.totalPoints.value == null) {
+                Toast.makeText(this, "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        }
+
+
         setupViews()
         observeViewModel()
         startTimer()
@@ -69,11 +77,14 @@ class QuizActivity : AppCompatActivity() {
         }
 
         viewModel.isQuizComplete.observe(this) { isComplete ->
-            if (isComplete) {
-                timer?.cancel()
+            if (isComplete && viewModel.totalPoints.value == null) {
+                Toast.makeText(this, "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
+                finish()
+            } else if (isComplete) {
                 showQuizCompleteDialog()
             }
         }
+
 
         viewModel.totalPoints.observe(this) { totalPoints ->
             // Handle total points update if needed

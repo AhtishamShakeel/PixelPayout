@@ -5,15 +5,21 @@ import { CallableRequest } from 'firebase-functions/v2/https';
 admin.initializeApp();
 
 // ✅ Fix for Scheduled Daily Reset Function
-export const dailyReset = functions.scheduler.onSchedule(
-  { schedule: 'every day 00:00', timeZone: 'UTC' },
-  async (event) => {
-    const resetRef = admin.firestore().collection("metadata").doc("daily_resets");
-    await resetRef.set({ count: 0, lastReset: admin.firestore.FieldValue.serverTimestamp() });
+export const dailyReset = functions.pubsub.schedule('every day 00:00')
+  .timeZone('UTC')
+  .onRun(async (context) => {
+    const usersRef = admin.firestore().collection("users");
+    const usersSnapshot = await usersRef.get();
 
-    console.log('Daily counters reset');
-  }
-);
+    const batch = admin.firestore().batch();
+    usersSnapshot.forEach((doc) => {
+      batch.update(doc.ref, { quiz_attempts: 0 });
+    });
+
+    await batch.commit();
+    console.log("Daily quiz attempts reset");
+});
+
 
 
 // ✅ Fix for Checking If Email Exists

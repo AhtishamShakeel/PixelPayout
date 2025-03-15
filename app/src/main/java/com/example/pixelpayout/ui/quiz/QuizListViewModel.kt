@@ -6,6 +6,8 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import com.pixelpayout.utils.QuizDataManager
 import com.pixelpayout.R
@@ -17,9 +19,15 @@ import kotlinx.coroutines.withContext
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
 
+    private val _dailyAttempts = MutableLiveData<Int>()
+    val dailyAttempts: LiveData<Int> = _dailyAttempts
+    private val MAX_DAILY_ATTEMPTS = 12
+
     private val _categories = MutableLiveData<List<QuizCategory>>().apply {
         value = defaultCategories  // Set categories immediately
     }
+
+
     val categories: LiveData<List<QuizCategory>> = _categories
 
     private val defaultCategories = listOf(
@@ -36,6 +44,21 @@ class QuizListViewModel : ViewModel() {
     init {
         _categories.value = defaultCategories  // Ensure categories load immediately
     }
+
+    fun fetchDailyAttempts() {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        FirebaseFirestore.getInstance().collection("users").document(userId)
+            .get()
+            .addOnSuccessListener { document ->
+                val attempts = document.getLong("quiz_attempts")?.toInt() ?: 0
+                _dailyAttempts.postValue(attempts)
+            }
+            .addOnFailureListener {
+                _dailyAttempts.postValue(0) // Default to 0 if error
+            }
+    }
+
 
     fun loadCachedQuizzes(context: Context) {
         Log.d("QuizDebug", "Loading quizzes from cache...")

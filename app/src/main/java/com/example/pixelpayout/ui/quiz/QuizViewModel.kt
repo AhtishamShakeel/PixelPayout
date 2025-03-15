@@ -34,19 +34,12 @@ class QuizViewModel : ViewModel() {
 
     private val userRepository = UserRepository()
 
-    private val MAX_DAILY_ATTEMPTS = 5
-
     fun setQuiz(quiz: Quiz) {
-        userRepository.getDailyAttempts { attempts ->
-            if (attempts >= MAX_DAILY_ATTEMPTS) {
-                _isQuizComplete.postValue(true)  // Prevent quiz start
-            } else {
-                this.quiz = quiz
-                _quizId.postValue(quiz.id)
-                showCurrentQuestion()
-            }
-        }
+        this.quiz = quiz
+        _quizId.postValue(quiz.id)
+        showCurrentQuestion()
     }
+
 
 
 

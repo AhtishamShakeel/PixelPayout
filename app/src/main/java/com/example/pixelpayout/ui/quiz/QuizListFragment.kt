@@ -36,16 +36,20 @@ class QuizListFragment : Fragment() {
         return binding.root
     }
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
         setupRecyclerView()
         setupSwipeRefresh()
         observeViewModel()
 
-        // ✅ Load quizzes from cache & check for updates
         viewModel.loadCachedQuizzes(requireContext())
         viewModel.checkAndUpdateQuizzes(requireContext())
+
+        viewModel.fetchDailyAttempts() // 🔥 Fetch attempts when fragment loads
     }
+
 
     private fun setupRecyclerView() {
         quizAdapter = QuizAdapter(emptyList()) { category -> // ✅ Initialize with empty list
@@ -66,6 +70,11 @@ class QuizListFragment : Fragment() {
             }
             binding.recyclerView.adapter = quizAdapter
         }
+
+        viewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
+            val remaining = maxOf(15 - attempts, 0)  // Ensure it never goes below 0
+            binding.tvQuizzesLeft.text = "Quizzes Left: $remaining"
+        }
     }
 
     private fun setupSwipeRefresh() {
@@ -74,13 +83,21 @@ class QuizListFragment : Fragment() {
         }
     }
     private fun fetchQuizzesForCategory(category: QuizCategory) {
-        val selectedQuiz = viewModel.getQuizByCategory(category.name)
-        if (selectedQuiz != null) {
-            startQuiz(selectedQuiz)
-        } else {
-            Toast.makeText(requireContext(), "No quizzes found for ${category.name}", Toast.LENGTH_SHORT).show()
+        viewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
+            if (attempts >= 5) {
+                Toast.makeText(requireContext(), "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
+                return@observe
+            }
+
+            val selectedQuiz = viewModel.getQuizByCategory(category.name)
+            if (selectedQuiz != null) {
+                startQuiz(selectedQuiz)
+            } else {
+                Toast.makeText(requireContext(), "No quizzes found for ${category.name}", Toast.LENGTH_SHORT).show()
+            }
         }
     }
+
 
 
     private fun startQuiz(quiz: Quiz) {

@@ -77,13 +77,11 @@ class QuizActivity : AppCompatActivity() {
         }
 
         viewModel.isQuizComplete.observe(this) { isComplete ->
-            if (isComplete && viewModel.totalPoints.value == null) {
-                Toast.makeText(this, "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
-                finish()
-            } else if (isComplete) {
+            if (isComplete) {
                 showQuizCompleteDialog()
             }
         }
+
 
 
         viewModel.totalPoints.observe(this) { totalPoints ->

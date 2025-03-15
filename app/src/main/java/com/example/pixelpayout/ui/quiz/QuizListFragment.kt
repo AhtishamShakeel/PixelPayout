@@ -41,7 +41,6 @@ class QuizListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
-        setupSwipeRefresh()
         observeViewModel()
 
         viewModel.loadCachedQuizzes(requireContext())
@@ -72,29 +71,24 @@ class QuizListFragment : Fragment() {
         }
 
         viewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
-            val remaining = maxOf(15 - attempts, 0)  // Ensure it never goes below 0
-            binding.tvQuizzesLeft.text = "Quizzes Left: $remaining"
+            val remaining = maxOf(viewModel.MAX_DAILY_ATTEMPTS - attempts, 0)  // Using the constant from ViewModel
+            binding.tvQuizzesLeft.text = "Quizzes Left:  $remaining"
         }
     }
 
-    private fun setupSwipeRefresh() {
-        binding.swipeRefresh.setOnRefreshListener {
-            viewModel.checkAndUpdateQuizzes(requireContext()) // ✅ Refresh quizzes from GitHub
-        }
-    }
     private fun fetchQuizzesForCategory(category: QuizCategory) {
-        viewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
-            if (attempts >= 5) {
-                Toast.makeText(requireContext(), "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
-                return@observe
-            }
+        // Get the current attempts value directly instead of creating a new observer
+        val attempts = viewModel.dailyAttempts.value ?: 0
+        if (attempts >= viewModel.MAX_DAILY_ATTEMPTS) {
+            Toast.makeText(requireContext(), "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
+            return
+        }
 
-            val selectedQuiz = viewModel.getQuizByCategory(category.name)
-            if (selectedQuiz != null) {
-                startQuiz(selectedQuiz)
-            } else {
-                Toast.makeText(requireContext(), "No quizzes found for ${category.name}", Toast.LENGTH_SHORT).show()
-            }
+        val selectedQuiz = viewModel.getQuizByCategory(category.name)
+        if (selectedQuiz != null) {
+            startQuiz(selectedQuiz)
+        } else {
+            Toast.makeText(requireContext(), "No quizzes found for ${category.name}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -110,6 +104,12 @@ class QuizListFragment : Fragment() {
             putExtra(QuizActivity.EXTRA_QUIZ, quiz)
         }
         startActivity(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh the daily attempts count when returning to this fragment
+        viewModel.fetchDailyAttempts()
     }
 
 

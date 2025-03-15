@@ -149,16 +149,7 @@ class QuizActivity : AppCompatActivity() {
                 cardView.setBackgroundResource(R.drawable.default_option_background)
             }
         }
-
-        lifecycleScope.launch {
-            if (selectedAnswerIndex != correctIndex){
-                delay(1000)
-            } else {
-                delay(200)
-            }
-            viewModel.submitAnswer(selectedAnswerIndex)
-
-        }
+        viewModel.submitAnswer(selectedAnswerIndex)
     }
 
 

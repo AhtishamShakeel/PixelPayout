@@ -21,7 +21,7 @@ class QuizListViewModel : ViewModel() {
 
     private val _dailyAttempts = MutableLiveData<Int>()
     val dailyAttempts: LiveData<Int> = _dailyAttempts
-    private val MAX_DAILY_ATTEMPTS = 12
+    val MAX_DAILY_ATTEMPTS = 10
 
     private val _categories = MutableLiveData<List<QuizCategory>>().apply {
         value = defaultCategories  // Set categories immediately

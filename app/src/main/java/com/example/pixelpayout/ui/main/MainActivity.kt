@@ -13,6 +13,8 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
 import androidx.navigation.navOptions
 import com.airbnb.lottie.LottieAnimationView
+import com.airbnb.lottie.LottieComposition
+import com.airbnb.lottie.LottieCompositionFactory
 import com.example.pixelpayout.utils.UserPreferences
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -24,11 +26,12 @@ import com.pixelpayout.ui.quiz.QuizListViewModel
 import com.pixelpayout.ui.redemption.ReferralResult
 import com.pixelpayout.ui.redemption.ReferralViewModel
 import com.pixelpayout.ui.redemption.ReferralViewModelFactory
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,11 +39,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userPreferences: UserPreferences
     private val quizViewModel: QuizListViewModel by viewModels()
     private lateinit var referralViewModel: ReferralViewModel
+    
+    // Cache for Lottie compositions
+    private val lottieCache = mutableMapOf<Int, LottieComposition>()
 
     private val viewModel: MainViewModel by viewModels {
         MainViewModelFactory(UserRepository())
     }
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -52,22 +57,39 @@ class MainActivity : AppCompatActivity() {
 
         quizViewModel.loadCachedQuizzes(this)
         quizViewModel.refreshAttemptsIfNeeded()
+        
+        // Observe categories and preload animations efficiently
         quizViewModel.categories.observe(this) { categories ->
-            categories.forEach { category ->
-                val animationView = LottieAnimationView(this)
-                animationView.setAnimation(category.lottieAnimationResId)
-                animationView.post {
-                    animationView.playAnimation() // Start animation to ensure it's preloaded
-                    animationView.pauseAnimation() // Pause so it doesn't keep running in the background
+            lifecycleScope.launch(Dispatchers.IO) {
+                categories.forEach { category ->
+                    // Skip if already cached
+                    if (lottieCache.containsKey(category.lottieAnimationResId)) {
+                        return@forEach
+                    }
+                    
+                    try {
+                        // Load composition in background
+                        val result = withContext(Dispatchers.Main) {
+                            LottieCompositionFactory.fromRawRes(
+                                this@MainActivity, 
+                                category.lottieAnimationResId
+                            ).addListener { composition ->
+                                composition?.let {
+                                    lottieCache[category.lottieAnimationResId] = it
+                                    Log.d("LottiePreload", "Cached animation for category: ${category.lottieAnimationResId}")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("LottiePreload", "Failed to load animation: ${e.message}")
+                    }
                 }
+                Log.d("LottiePreload", "Finished preloading ${categories.size} animations")
             }
-            Log.d("LottiePreload", "Categories loaded: ${categories.size}")
         }
 
-
-        Log.d("ReferralDebug", "Initializing ReferralViewModel...") // ✅ Add log before initialization
+        Log.d("ReferralDebug", "Initializing ReferralViewModel...")
         lifecycleScope.launch {
-            delay(1000)
             referralViewModel = ReferralViewModel(UserRepository())
             checkAndShowReferralPopup()
         }
@@ -75,8 +97,10 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
-
     }
+
+    // Function to get cached composition
+    fun getCachedAnimation(resId: Int): LottieComposition? = lottieCache[resId]
 
     private fun setupToolbar() {
         setSupportActionBar(binding.customToolbar.toolbar)
@@ -146,7 +170,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun checkAndShowReferralPopup() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
 
@@ -167,7 +190,6 @@ class MainActivity : AppCompatActivity() {
                     val hasUsedReferral = document.getBoolean("hasUsedReferral") ?: false
                     Log.d("ReferralDebug", "Firebase hasUsedReferral: $hasUsedReferral")
 
-
                     if(!hasUsedReferral){
                         showReferralPopup()
                     } else {
@@ -185,7 +207,5 @@ class MainActivity : AppCompatActivity() {
     private fun showReferralPopup() {
         val dialog = ReferralDialogFragment()
         dialog.show(supportFragmentManager, "ReferralDialog")
-
     }
-
 }

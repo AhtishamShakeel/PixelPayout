@@ -1,4 +1,4 @@
-package com.pixelpayout.data.repository
+package com.example.pixelpayout.data.repository
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -6,7 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.FieldValue
-import com.pixelpayout.ui.redemption.ReferralResult
+import com.example.pixelpayout.ui.redemption.ReferralResult
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()

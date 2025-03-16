@@ -1,6 +1,6 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
 
 data class QuizData(
     val version: Int,

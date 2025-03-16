@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.redemption
+package com.example.pixelpayout.ui.redemption
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -9,7 +9,7 @@ import androidx.fragment.app.viewModels
 import com.google.android.material.snackbar.Snackbar
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentRedemptionBinding
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.repository.UserRepository
 
 class RedemptionFragment : Fragment() {
     private var _binding: FragmentRedemptionBinding? = null

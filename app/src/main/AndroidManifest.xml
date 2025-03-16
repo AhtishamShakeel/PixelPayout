@@ -28,7 +28,7 @@
             tools:replace="android:resource" />
 
         <activity
-            android:name=".ui.onboarding.OnboardingActivity"
+            android:name="com.example.pixelpayout.ui.onboarding.OnboardingActivity"
             android:exported="true"
             tools:ignore="MissingClass">
             <intent-filter>
@@ -37,12 +37,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ui.main.MainActivity" />
+        <activity android:name="com.example.pixelpayout.ui.main.MainActivity" />
         <activity
-            android:name=".ui.quiz.QuizActivity"
+            android:name="com.example.pixelpayout.ui.quiz.QuizActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".ui.game.GamePlayActivity"
+            android:name="com.example.pixelpayout.ui.game.GamePlayActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.PixelPayout"
             tools:ignore="MissingClass" />

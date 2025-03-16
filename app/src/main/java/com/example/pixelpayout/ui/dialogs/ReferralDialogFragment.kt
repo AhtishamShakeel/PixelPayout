@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.dialogs
+package com.example.pixelpayout.ui.dialogs
 
 import android.app.Dialog
 import android.os.Bundle
@@ -9,11 +9,11 @@ import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
 import com.google.android.material.snackbar.Snackbar
 import com.pixelpayout.R
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.repository.UserRepository
 import com.pixelpayout.databinding.DialogReferralBinding
-import com.pixelpayout.ui.redemption.ReferralResult
-import com.pixelpayout.ui.redemption.ReferralViewModel
-import com.pixelpayout.ui.redemption.ReferralViewModelFactory
+import com.example.pixelpayout.ui.redemption.ReferralResult
+import com.example.pixelpayout.ui.redemption.ReferralViewModel
+import com.example.pixelpayout.ui.redemption.ReferralViewModelFactory
 
 class ReferralDialogFragment : DialogFragment() {
 

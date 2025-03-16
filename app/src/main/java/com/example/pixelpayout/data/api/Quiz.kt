@@ -1,5 +1,6 @@
-package com.pixelpayout.data.model
+package com.example.pixelpayout.data.api
 
+import com.example.pixelpayout.data.api.Question
 import java.io.Serializable
 
 data class Quiz(

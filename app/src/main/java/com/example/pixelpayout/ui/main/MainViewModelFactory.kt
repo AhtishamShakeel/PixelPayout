@@ -1,8 +1,8 @@
-package com.pixelpayout.ui.main
+package com.example.pixelpayout.ui.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.repository.UserRepository
 
 class MainViewModelFactory(
     private val userRepository: UserRepository

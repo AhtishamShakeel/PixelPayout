@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.game
+package com.example.pixelpayout.ui.game
 
 import android.annotation.SuppressLint
 import android.net.http.SslError

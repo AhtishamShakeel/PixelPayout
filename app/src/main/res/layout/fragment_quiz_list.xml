@@ -27,7 +27,7 @@
                 android:layout_gravity="center"
                 android:gravity="center"
                 android:padding="8dp"
-                android:text="Quizzes Left: 5"
+                android:text="Quizzes Left: Loading..,"
                 android:textColor="#FFFFFF"
                 android:textSize="24sp"
                 android:textStyle="bold" />

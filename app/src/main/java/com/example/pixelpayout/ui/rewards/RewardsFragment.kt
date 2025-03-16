@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.rewards
+package com.example.pixelpayout.ui.rewards
 
 import android.os.Bundle
 import android.util.Log
@@ -7,7 +7,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.pixelpayout.databinding.FragmentRewardsBinding
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.repository.UserRepository
 import com.tapjoy.*
 import java.util.Hashtable
 

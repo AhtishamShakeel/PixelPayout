@@ -1,15 +1,12 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import com.pixelpayout.data.model.Question
+import com.example.pixelpayout.data.api.Question
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.pixelpayout.data.model.Quiz
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.api.Quiz
+import com.example.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.launch
 
 class QuizViewModel : ViewModel() {

@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.onboarding
+package com.example.pixelpayout.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth

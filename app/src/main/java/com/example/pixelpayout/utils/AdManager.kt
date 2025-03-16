@@ -1,4 +1,4 @@
-package com.pixelpayout.utils
+package com.example.pixelpayout.utils
 
 import android.app.Activity
 import android.content.Context

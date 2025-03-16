@@ -28,7 +28,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.material.textfield.TextInputLayout
 import com.pixelpayout.databinding.ActivityAuthBinding
-import com.pixelpayout.ui.main.MainActivity
+import com.example.pixelpayout.ui.main.MainActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 

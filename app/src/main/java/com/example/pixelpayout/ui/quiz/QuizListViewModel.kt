@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
 import android.content.Context
 import android.util.Log
@@ -7,12 +7,12 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.gson.Gson
-import com.pixelpayout.utils.QuizDataManager
+import com.example.pixelpayout.utils.QuizDataManager
 import com.pixelpayout.R
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
+import com.example.pixelpayout.data.api.QuizCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -58,6 +58,7 @@ class QuizListViewModel : ViewModel() {
 
     init {
         _categories.value = defaultCategories  // Ensure categories load immediately
+        _dailyAttempts.value = 10
     }
 
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {

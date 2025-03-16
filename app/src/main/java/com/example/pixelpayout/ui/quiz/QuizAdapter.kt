@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -6,9 +6,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.airbnb.lottie.LottieAnimationView
 import com.pixelpayout.databinding.ItemQuizBinding
-import com.pixelpayout.ui.quiz.QuizCategory // ✅ Add this import
+import com.example.pixelpayout.data.api.QuizCategory // ✅ Add this import
 
 
 class QuizAdapter(

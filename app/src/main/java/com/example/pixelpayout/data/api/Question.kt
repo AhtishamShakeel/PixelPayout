@@ -1,4 +1,4 @@
-package com.pixelpayout.data.model
+package com.example.pixelpayout.data.api
 
 import java.io.Serializable
 

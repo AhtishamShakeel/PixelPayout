@@ -1,9 +1,9 @@
-package com.pixelpayout.utils
+package com.example.pixelpayout.utils
 
 import android.content.Context
 import android.util.Log
 import com.google.gson.Gson
-import com.pixelpayout.ui.quiz.QuizData
+import com.example.pixelpayout.ui.quiz.QuizData
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File

@@ -1,11 +1,9 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.viewModels
@@ -13,13 +11,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityQuizBinding
-import com.pixelpayout.data.model.Question
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Question
+import com.example.pixelpayout.data.api.Quiz
 import android.text.Html
 import android.os.Build
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
@@ -172,7 +167,7 @@ class QuizActivity : AppCompatActivity() {
             onDismiss = {
                 val resultIntent = Intent()
                 resultIntent.putExtra("COMPLETED_QUIZ_ID", viewModel.quizId.value ?: "")
-                        setResult(Activity.RESULT_OK, resultIntent)
+                setResult(RESULT_OK, resultIntent)
                 finish()
             }
         )

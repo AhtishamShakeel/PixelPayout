@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.onboarding
+package com.example.pixelpayout.ui.onboarding
 
 import android.content.Intent
 import android.os.Bundle
@@ -12,15 +12,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
 import com.example.pixelpayout.ui.auth.Auth
-import com.example.pixelpayout.ui.onboarding.SlideAdapter
-import com.example.pixelpayout.ui.onboarding.SlideItem
-import com.example.pixelpayout.ui.onboarding.TermsDialogFragment
 import com.example.pixelpayout.utils.startLoading
 import com.example.pixelpayout.utils.stopLoading
 import com.google.android.material.tabs.TabLayoutMediator
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityOnboardingBinding
-import com.pixelpayout.ui.main.MainActivity
+import com.example.pixelpayout.ui.main.MainActivity
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

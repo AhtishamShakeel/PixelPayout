@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
 import android.app.Activity
 import android.content.Intent
@@ -10,16 +10,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.activityViewModels
-import com.pixelpayout.ui.quiz.QuizCategory
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.example.pixelpayout.utils.SpacingItemDecoration
-import com.pixelpayout.data.model.Quiz
+import com.example.pixelpayout.data.api.Quiz
+import com.example.pixelpayout.data.api.QuizCategory
 import java.util.concurrent.TimeUnit
 
 class QuizListFragment : Fragment() {

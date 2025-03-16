@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.data.api
 
 data class QuizCategory(
     val name: String,

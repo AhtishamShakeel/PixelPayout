@@ -1,4 +1,4 @@
-package com.pixelpayout.data.model
+package com.example.pixelpayout.data.model
 
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize

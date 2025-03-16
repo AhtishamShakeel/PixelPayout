@@ -1,17 +1,12 @@
-package com.pixelpayout.ui.quiz
+package com.example.pixelpayout.ui.quiz
 
 import android.app.AlertDialog
 import android.app.Dialog
-import android.content.Context
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.FragmentManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.DialogQuizResultsBinding
-import com.pixelpayout.ui.main.MainActivity
 
 class QuizResultsDialog : DialogFragment() {
     private var _binding: DialogQuizResultsBinding? = null

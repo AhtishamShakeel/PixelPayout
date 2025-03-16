@@ -1,10 +1,10 @@
-package com.pixelpayout.ui.redemption
+package com.example.pixelpayout.ui.redemption
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.launch
 
 class ReferralViewModel(private val userRepository: UserRepository) : ViewModel() {

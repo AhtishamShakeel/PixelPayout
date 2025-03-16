@@ -1,4 +1,4 @@
-package com.pixelpayout.ui.details
+package com.example.pixelpayout.ui.details
 
 import android.os.Bundle
 import android.view.LayoutInflater

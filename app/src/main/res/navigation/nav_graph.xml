@@ -6,7 +6,7 @@
 
     <fragment
         android:id="@+id/navigation_home"
-        android:name="com.pixelpayout.ui.home.HomeFragment"
+        android:name="com.example.pixelpayout.ui.home.HomeFragment"
         android:label="Home">
         <action
             android:id="@+id/action_home_to_details"
@@ -15,27 +15,27 @@
 
     <fragment
         android:id="@+id/navigation_play"
-        android:name="com.pixelpayout.ui.game.GameFragment"
+        android:name="com.example.pixelpayout.ui.game.GameFragment"
         android:label="Play Game" />
 
     <fragment
         android:id="@+id/navigation_quizzes"
-        android:name="com.pixelpayout.ui.quiz.QuizListFragment"
+        android:name="com.example.pixelpayout.ui.quiz.QuizListFragment"
         android:label="Quizzes" />
 
     <fragment
         android:id="@+id/navigation_rewards"
-        android:name="com.pixelpayout.ui.rewards.RewardsFragment"
+        android:name="com.example.pixelpayout.ui.rewards.RewardsFragment"
         android:label="Rewards" />
 
     <fragment
         android:id="@+id/navigation_redemption"
-        android:name="com.pixelpayout.ui.redemption.RedemptionFragment"
+        android:name="com.example.pixelpayout.ui.redemption.RedemptionFragment"
         android:label="Cashout" />
 
     <fragment
         android:id="@+id/detailsFragment"
-        android:name="com.pixelpayout.ui.details.DetailsFragment"
+        android:name="com.example.pixelpayout.ui.details.DetailsFragment"
         android:label="Details">
         <argument
             android:name="type"

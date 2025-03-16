@@ -33,5 +33,17 @@
         <item name="colorOnPrimary">@color/white</item>
     </style>
 
+    <!-- Alert Dialog Theme -->
+    <style name="AlertDialogTheme" parent="ThemeOverlay.MaterialComponents.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="android:background">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@android:style/Animation.Dialog</item>
+        <item name="colorSurface">#2C2C2C</item>
+        <item name="colorOnSurface">@android:color/white</item>
+    </style>
 
 </resources> 

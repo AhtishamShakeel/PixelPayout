@@ -20,6 +20,8 @@ import com.pixelpayout.databinding.ActivityMainBinding
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
+import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.ui.dialogs.NoInternetDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -32,6 +34,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var userPreferences: UserPreferences
     private val quizViewModel: QuizListViewModel by viewModels()
     private lateinit var referralViewModel: ReferralViewModel
+    private lateinit var connectivityCheck: AndroidConnectivityCheck
+    private var noInternetDialog: NoInternetDialog? = null
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -47,7 +51,9 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
+        connectivityCheck = AndroidConnectivityCheck(this)
 
+        setupConnectivityCheck()
         quizViewModel.loadCachedQuizzes(this)
         quizViewModel.refreshAttemptsIfNeeded()
         
@@ -90,6 +96,30 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
+    }
+
+    private fun setupConnectivityCheck() {
+        lifecycleScope.launch {
+            connectivityCheck.isConnected.collect { isConnected ->
+                if (!isConnected) {
+                    showNoInternetDialog()
+                } else {
+                    hideNoInternetDialog()
+                }
+            }
+        }
+    }
+
+    private fun showNoInternetDialog() {
+        if (noInternetDialog == null) {
+            noInternetDialog = NoInternetDialog()
+            noInternetDialog?.show(supportFragmentManager, NoInternetDialog.TAG)
+        }
+    }
+
+    private fun hideNoInternetDialog() {
+        noInternetDialog?.dismiss()
+        noInternetDialog = null
     }
 
     // Function to get cached composition

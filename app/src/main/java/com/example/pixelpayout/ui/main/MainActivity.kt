@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.main
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.viewModels
@@ -22,6 +23,7 @@ import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
+import com.example.pixelpayout.ui.dialogs.LoadingDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -36,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var referralViewModel: ReferralViewModel
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
+    private var loadingDialog: LoadingDialog? = null
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -102,12 +105,35 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             connectivityCheck.isConnected.collect { isConnected ->
                 if (!isConnected) {
+                    hideLoadingDialog()
                     showNoInternetDialog()
                 } else {
                     hideNoInternetDialog()
+                    showLoadingDialog()
+                    // Refresh quiz attempts when internet is restored
+                    quizViewModel.fetchDailyAttempts(forceRefresh = true)
                 }
             }
         }
+
+        // Observe quiz attempts loading state
+        quizViewModel.isLoading.observe(this) { isLoading ->
+            if (!isLoading) {
+                hideLoadingDialog()
+            }
+        }
+    }
+
+    private fun showLoadingDialog() {
+        if (loadingDialog == null) {
+            loadingDialog = LoadingDialog()
+            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
+        }
+    }
+
+    private fun hideLoadingDialog() {
+        loadingDialog?.dismiss()
+        loadingDialog = null
     }
 
     private fun showNoInternetDialog() {
@@ -230,5 +256,26 @@ class MainActivity : AppCompatActivity() {
     private fun showReferralPopup() {
         val dialog = ReferralDialogFragment()
         dialog.show(supportFragmentManager, "ReferralDialog")
+    }
+
+    // Add this method to be called from other activities
+    companion object {
+        fun handleInternetDisconnection(activity: AppCompatActivity) {
+            if (activity !is MainActivity) {
+                activity.runOnUiThread {
+                    try {
+                        // Finish the current activity and return to MainActivity
+                        activity.finish()
+                        activity.startActivity(
+                            Intent(activity, MainActivity::class.java)
+                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        )
+                    } catch (e: Exception) {
+                        // Log but don't crash if there's an issue
+                        Log.e("MainActivity", "Error handling internet disconnection: ${e.message}")
+                    }
+                }
+            }
+        }
     }
 }

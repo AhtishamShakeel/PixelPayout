@@ -9,23 +9,31 @@ import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
+import androidx.lifecycle.lifecycleScope
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityQuizBinding
 import com.example.pixelpayout.data.api.Question
 import com.example.pixelpayout.data.api.Quiz
+import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.ui.main.MainActivity
 import android.text.Html
 import android.os.Build
+import kotlinx.coroutines.launch
 
 class QuizActivity : AppCompatActivity() {
     private lateinit var binding: ActivityQuizBinding
     private val viewModel: QuizViewModel by viewModels()
     private var timer: CountDownTimer? = null
     private var selectedAnswerIndex: Int = -1
+    private lateinit var connectivityCheck: AndroidConnectivityCheck
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityQuizBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        connectivityCheck = AndroidConnectivityCheck(this)
+        setupConnectivityCheck()
 
         val quiz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)
@@ -47,10 +55,19 @@ class QuizActivity : AppCompatActivity() {
             }
         }
 
-
         setupViews()
         observeViewModel()
         startTimer()
+    }
+
+    private fun setupConnectivityCheck() {
+        lifecycleScope.launch {
+            connectivityCheck.isConnected.collect { isConnected ->
+                if (!isConnected && !isFinishing) {
+                    MainActivity.handleInternetDisconnection(this@QuizActivity)
+                }
+            }
+        }
     }
 
     private fun setupViews() {
@@ -76,8 +93,6 @@ class QuizActivity : AppCompatActivity() {
                 showQuizCompleteDialog()
             }
         }
-
-
 
         viewModel.totalPoints.observe(this) { totalPoints ->
             // Handle total points update if needed
@@ -146,7 +161,6 @@ class QuizActivity : AppCompatActivity() {
         }
         viewModel.submitAnswer(selectedAnswerIndex)
     }
-
 
     private fun startTimer() {
         timer = object : CountDownTimer(30000, 1000) {

@@ -17,6 +17,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.*
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
@@ -56,12 +58,33 @@ class QuizListViewModel : ViewModel() {
         QuizCategory("GK", R.raw.general_quiz_animation, "")
     )
 
+    private val _isLoading = MutableLiveData<Boolean>()
+    val isLoading: LiveData<Boolean> = _isLoading
+    
+    // Add retry mechanism
+    private var retryAttempts = 0
+    private val MAX_RETRY_ATTEMPTS = 3
+    private var lastFailureTime = 0L
+    private val RETRY_COOLDOWN = 5000L // 5 seconds cooldown between retries
+
     init {
         _categories.value = defaultCategories  // Ensure categories load immediately
-        _dailyAttempts.value = 10
+        _dailyAttempts.value = 0  // Start with 0 attempts until we fetch from server
     }
 
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {
+        if (_isLoading.value == true) {
+            // If we're loading for too long, force a retry
+            if (lastFailureTime > 0 && System.currentTimeMillis() - lastFailureTime > RETRY_COOLDOWN) {
+                Log.d("QuizDebug", "Loading state stuck, forcing retry")
+                _isLoading.value = false
+                retryAttempts = 0
+                lastFailureTime = 0
+            } else {
+                return
+            }
+        }
+        
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
         val now = System.currentTimeMillis()
         
@@ -78,37 +101,76 @@ class QuizListViewModel : ViewModel() {
             return
         }
         
+        _isLoading.value = true
         lastCheckTimestamp = now
-        Log.d("QuizDebug", "Fetching attempts from server")
+        Log.d("QuizDebug", "Fetching attempts from server (Attempt ${retryAttempts + 1})")
 
         // Call our checkAndResetQuizAttempts function
         FirebaseFunctions.getInstance()
             .getHttpsCallable("checkAndResetQuizAttempts")
             .call()
             .addOnSuccessListener { result ->
-                val data = result.data as? Map<*, *>
-                val attempts = (data?.get("attempts") as? Number)?.toInt() ?: 0
-                val resetPerformed = data?.get("resetPerformed") as? Boolean ?: false
-                val lastResetTime = (data?.get("lastResetTime") as? Number)?.toLong() ?: System.currentTimeMillis()
-                val serverTime = (data?.get("serverTime") as? Number)?.toLong() ?: System.currentTimeMillis()
-                
-                _dailyAttempts.postValue(attempts)
-                _lastResetTime.postValue(lastResetTime)
-                
-                // Calculate next reset time (midnight UTC of the next day after reset)
-                val nextResetTime = calculateNextResetTime(lastResetTime)
-                _nextResetTime.postValue(nextResetTime)
-                
-                hasCompletedInitialLoad = true
-                
-                // If a reset was performed, log it
-                if (resetPerformed) {
-                    Log.d("QuizDebug", "Quiz attempts were reset")
+                try {
+                    val data = result.data as? Map<*, *>
+                    if (data != null) {
+                        val attempts = (data["attempts"] as? Number)?.toInt() ?: throw Exception("Invalid attempts value")
+                        val resetPerformed = data["resetPerformed"] as? Boolean ?: false
+                        val lastResetTime = (data["lastResetTime"] as? Number)?.toLong() 
+                            ?: throw Exception("Invalid lastResetTime")
+                        val serverTime = (data["serverTime"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                        
+                        _dailyAttempts.postValue(attempts)
+                        _lastResetTime.postValue(lastResetTime)
+                        
+                        // Calculate next reset time (midnight UTC of the next day after reset)
+                        val nextResetTime = calculateNextResetTime(lastResetTime)
+                        _nextResetTime.postValue(nextResetTime)
+                        
+                        hasCompletedInitialLoad = true
+                        retryAttempts = 0
+                        lastFailureTime = 0
+                        _isLoading.postValue(false)
+                        
+                        // If a reset was performed, log it
+                        if (resetPerformed) {
+                            Log.d("QuizDebug", "Quiz attempts were reset")
+                        }
+                    } else {
+                        throw Exception("No data received from server")
+                    }
+                } catch (e: Exception) {
+                    Log.e("QuizDebug", "Error processing server response: ${e.message}")
+                    handleFetchError()
                 }
             }
             .addOnFailureListener { e ->
                 Log.e("QuizDebug", "Error checking quiz attempts", e)
+                handleFetchError()
             }
+    }
+
+    private fun handleFetchError() {
+        lastFailureTime = System.currentTimeMillis()
+        
+        if (retryAttempts < MAX_RETRY_ATTEMPTS) {
+            retryAttempts++
+            Log.d("QuizDebug", "Scheduling retry attempt $retryAttempts")
+            
+            // Use viewModelScope to handle retries
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(RETRY_COOLDOWN)
+                if (!hasCompletedInitialLoad || _dailyAttempts.value == 0) {
+                    Log.d("QuizDebug", "Retrying fetch after cooldown")
+                    fetchDailyAttempts(true)
+                } else {
+                    _isLoading.postValue(false)
+                }
+            }
+        } else {
+            Log.d("QuizDebug", "Max retry attempts reached")
+            retryAttempts = 0
+            _isLoading.postValue(false)
+        }
     }
     
     /**

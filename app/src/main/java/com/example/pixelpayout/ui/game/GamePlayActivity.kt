@@ -7,17 +7,25 @@ import android.view.View
 import android.webkit.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.databinding.ActivityGamePlayBinding
+import kotlinx.coroutines.launch
 
 class GamePlayActivity : AppCompatActivity() {
     private lateinit var binding: ActivityGamePlayBinding
     private val viewModel: GamePlayViewModel by viewModels()
+    private lateinit var connectivityCheck: AndroidConnectivityCheck
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityGamePlayBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        connectivityCheck = AndroidConnectivityCheck(this)
+        setupConnectivityCheck()
 
         if (GAME_URL_1.startsWith("http")) {
             setupWebView()
@@ -96,6 +104,16 @@ class GamePlayActivity : AppCompatActivity() {
                 // Set result to notify MainActivity that points were updated
                 setResult(RESULT_OK)
                 finish()
+            }
+        }
+    }
+
+    private fun setupConnectivityCheck() {
+        lifecycleScope.launch {
+            connectivityCheck.isConnected.collect { isConnected ->
+                if (!isConnected && !isFinishing) {
+                    MainActivity.handleInternetDisconnection(this@GamePlayActivity)
+                }
             }
         }
     }

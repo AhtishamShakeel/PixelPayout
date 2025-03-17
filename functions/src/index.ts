@@ -81,7 +81,10 @@ export const checkAndResetQuizAttempts = functions.https.onCall(async (request: 
       attempts: 0, 
       resetPerformed: true,
       lastResetTime: now.toMillis(),
-      serverTime: now.toMillis()
+      serverTime: now.toMillis(),
+
+      referredBy: userData?.referredBy || null,
+      referralRewardClaimed: userData?.referralRewardClaimed || false
     };
   } else {
     // Not a new day, return current attempts
@@ -90,7 +93,10 @@ export const checkAndResetQuizAttempts = functions.https.onCall(async (request: 
       attempts: userData?.quiz_attempts || 0, 
       resetPerformed: false,
       lastResetTime: lastResetTime.toMillis(),
-      serverTime: now.toMillis()
+      serverTime: now.toMillis(),
+
+      referredBy: userData?.referredBy || null,
+      referralRewardClaimed: userData?.referralRewardClaimed || false
     };
   }
 });

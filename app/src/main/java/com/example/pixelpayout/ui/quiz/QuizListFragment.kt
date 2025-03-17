@@ -61,16 +61,10 @@ class QuizListFragment : Fragment() {
 
         viewModel.loadCachedQuizzes(requireContext())
         viewModel.checkAndUpdateQuizzes(requireContext())
-
-        // Remove the fetch here - it's now done at app startup in MainActivity
-        // viewModel.fetchDailyAttempts()
     }
 
     override fun onResume() {
         super.onResume()
-        // Don't force refresh every time - only start the timer
-        // viewModel.fetchDailyAttempts(forceRefresh = true)
-        
         // Start the countdown timer
         timerHandler.post(timerRunnable)
     }
@@ -95,7 +89,6 @@ class QuizListFragment : Fragment() {
 
     private fun setupSwipeRefresh() {
         binding.swipeRefresh.setOnRefreshListener {
-            // Force refresh attempts when user manually pulls to refresh
             viewModel.fetchDailyAttempts(forceRefresh = true)
             viewModel.checkAndUpdateQuizzes(requireContext())
             binding.swipeRefresh.isRefreshing = false

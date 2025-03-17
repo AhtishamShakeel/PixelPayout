@@ -21,6 +21,11 @@ class NoInternetDialog : DialogFragment() {
             .create()
     }
 
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        isCancelable = false
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

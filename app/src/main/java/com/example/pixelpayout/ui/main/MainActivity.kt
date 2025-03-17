@@ -23,7 +23,6 @@ import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
-import com.example.pixelpayout.ui.dialogs.LoadingDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -38,7 +37,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var referralViewModel: ReferralViewModel
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
-    private var loadingDialog: LoadingDialog? = null
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -105,35 +103,12 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             connectivityCheck.isConnected.collect { isConnected ->
                 if (!isConnected) {
-                    hideLoadingDialog()
                     showNoInternetDialog()
                 } else {
                     hideNoInternetDialog()
-                    showLoadingDialog()
-                    // Refresh quiz attempts when internet is restored
-                    quizViewModel.fetchDailyAttempts(forceRefresh = true)
                 }
             }
         }
-
-        // Observe quiz attempts loading state
-        quizViewModel.isLoading.observe(this) { isLoading ->
-            if (!isLoading) {
-                hideLoadingDialog()
-            }
-        }
-    }
-
-    private fun showLoadingDialog() {
-        if (loadingDialog == null) {
-            loadingDialog = LoadingDialog()
-            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
-        }
-    }
-
-    private fun hideLoadingDialog() {
-        loadingDialog?.dismiss()
-        loadingDialog = null
     }
 
     private fun showNoInternetDialog() {

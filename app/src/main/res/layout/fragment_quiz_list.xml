@@ -46,7 +46,7 @@
     </androidx.cardview.widget.CardView>
 
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+    <LinearLayout
         android:id="@+id/swipeRefresh"
         android:layout_width="0dp"
         android:layout_height="0dp"
@@ -63,6 +63,6 @@
             android:clipChildren="false"
             android:clipToPadding="false"
             android:padding="8dp" />
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

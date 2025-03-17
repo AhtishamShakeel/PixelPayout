@@ -56,7 +56,6 @@ class QuizListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
-        setupSwipeRefresh()
         observeViewModel()
 
         viewModel.loadCachedQuizzes(requireContext())
@@ -87,13 +86,13 @@ class QuizListFragment : Fragment() {
         }
     }
 
-    private fun setupSwipeRefresh() {
+    /*private fun setupSwipeRefresh() {
         binding.swipeRefresh.setOnRefreshListener {
             viewModel.fetchDailyAttempts(forceRefresh = true)
             viewModel.checkAndUpdateQuizzes(requireContext())
             binding.swipeRefresh.isRefreshing = false
         }
-    }
+    }*/
 
     private fun observeViewModel() {
         viewModel.categories.observe(viewLifecycleOwner) { categoryList ->

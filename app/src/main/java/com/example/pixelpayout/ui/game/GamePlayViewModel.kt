@@ -8,7 +8,7 @@ import com.example.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.launch
 
 class GamePlayViewModel : ViewModel() {
-    private val userRepository = UserRepository()
+    private val userRepository = UserRepository.getInstance()
 
     private val _pointsUpdated = MutableLiveData<Boolean>()
     val pointsUpdated: LiveData<Boolean> = _pointsUpdated

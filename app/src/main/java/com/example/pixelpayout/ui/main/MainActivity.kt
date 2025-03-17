@@ -44,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModelFactory(UserRepository())
+        MainViewModelFactory(UserRepository.getInstance())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
 
         Log.d("ReferralDebug", "Initializing ReferralViewModel...")
         lifecycleScope.launch {
-            referralViewModel = ReferralViewModel(UserRepository())
+            referralViewModel = ReferralViewModel(UserRepository.getInstance())
             checkAndShowReferralPopup()
         }
 

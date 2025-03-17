@@ -16,7 +16,7 @@ class RedemptionFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: ReferralViewModel by viewModels {
-        ReferralViewModelFactory(UserRepository())
+        ReferralViewModelFactory(UserRepository.getInstance())
     }
 
     override fun onCreateView(

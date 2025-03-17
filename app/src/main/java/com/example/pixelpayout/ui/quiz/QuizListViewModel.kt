@@ -13,6 +13,7 @@ import com.example.pixelpayout.utils.QuizDataManager
 import com.pixelpayout.R
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.data.api.QuizCategory
+import com.example.pixelpayout.data.repository.UserRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -23,6 +24,9 @@ import kotlinx.coroutines.tasks.await
 
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
+
+    private val userRepository = UserRepository.getInstance()
+
 
     private val _dailyAttempts = MutableLiveData<Int>()
     val dailyAttempts: LiveData<Int> = _dailyAttempts
@@ -39,6 +43,14 @@ class QuizListViewModel : ViewModel() {
 
     private val _errorState = MutableLiveData<String?>()
     val errorState: LiveData<String?> = _errorState
+
+    private val _referredBy = MutableLiveData<String?>()
+    val referredBy: LiveData<String?> = _referredBy
+
+    private val _referralRewardClaimed = MutableLiveData<Boolean>()
+    val referralRewardClaimed: LiveData<Boolean> = _referralRewardClaimed
+
+
 
 
     // Cache control variables
@@ -72,10 +84,14 @@ class QuizListViewModel : ViewModel() {
             .setPersistenceEnabled(true)  // Enable offline persistence
             .build()
         FirebaseFirestore.getInstance().firestoreSettings = settings
+        fetchDailyAttempts()
     }
 
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+
+
 
         val now = System.currentTimeMillis()
         lastCheckTimestamp = now  // Ensure timestamp updates on every attempt
@@ -96,9 +112,22 @@ class QuizListViewModel : ViewModel() {
                                 ?: throw Exception("Invalid lastResetTime")
 
                             val nextResetTime = calculateNextResetTime(lastResetTime)
+                            val referredBy = data["referredBy"] as? String
+                            val referralRewardClaimed = data["referralRewardClaimed"] as? Boolean ?: false
+
+
                             _dailyAttempts.postValue(attempts)
                             _lastResetTime.postValue(lastResetTime)
                             _nextResetTime.postValue(nextResetTime)
+
+                            _referredBy.postValue(referredBy)
+                            _referralRewardClaimed.postValue(referralRewardClaimed)
+
+                            Log.d("QuizViewModel", "Updating referral data: $referredBy, $referralRewardClaimed")
+
+
+                            userRepository.updateReferralData(referredBy, referralRewardClaimed)
+
                             Log.e("QuizDebug", "Fetched ddta")
 
                             _showLoadingDialog.postValue(false) // Hide dialog only if successful
@@ -139,8 +168,11 @@ class QuizListViewModel : ViewModel() {
             System.currentTimeMillis() >= nextReset
         } else {
             false
+
         }
     }
+
+
 
     /**
      * Calculate the next reset time (midnight UTC of next day after the last reset)

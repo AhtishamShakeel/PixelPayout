@@ -47,28 +47,13 @@ class QuizViewModel : ViewModel() {
         }
 
         // Increment attempts and update points
-        userRepository.incrementDailyAttempts {
-            updatePoints {
-                _isQuizComplete.postValue(true)
-            }
+        userRepository.updateUserPointsAndAttempts(points) {
+            _totalPoints.postValue(it)
+            _isQuizComplete.postValue(true)
         }
     }
 
     private fun showCurrentQuestion() {
         _currentQuestion.value = quiz.questions[currentQuestionIndex]
-    }
-
-    private fun updatePoints(onComplete: () -> Unit) {
-        viewModelScope.launch {
-            try {
-                userRepository.updateUserPoints(points) {
-                    _totalPoints.value = it
-                    onComplete()
-                }
-            } catch (e: Exception) {
-                // Handle error if needed
-                onComplete()
-            }
-        }
     }
 }

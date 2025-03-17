@@ -51,43 +51,67 @@ class UserRepository {
 
     fun updateUserPoints(pointsToAdd: Int, onComplete: (Int) -> Unit) {
         val userId = auth.currentUser?.uid ?: return
+        val userRef = firestore.collection("users").document(userId)
 
-        firestore.collection("users").document(userId)
-            .get()
-            .addOnSuccessListener { document ->
-                val currentPoints = document.getLong("points")?.toInt() ?: 0
-                val newTotal = currentPoints + pointsToAdd
-                val referredBy = document.getString("referredBy") // Get referrer ID
-                val referralRewardClaimed = document.getBoolean("referralRewardClaimed") ?: false
-
-
-                // Update points
-                firestore.collection("users").document(userId)
-                    .update("points", FieldValue.increment(pointsToAdd.toLong()))
-                    .addOnSuccessListener {
-                        onComplete(newTotal)
-
-                        // If user was referred and has reached 50 points, reward referrer
-                        if (newTotal >= 100 && referredBy != null && !referralRewardClaimed) {
-                            giveReferralReward(referredBy, userId)
-                        }
-                    }
-            }
-    }
-
-    // Function to give 100 points to the referrer
-    private fun giveReferralReward(referrerId: String, referredUserId: String) {
-        val referrerRef = firestore.collection("users").document(referrerId)
-        val referredUserRef = firestore.collection("users").document(referredUserId)
         firestore.runTransaction { transaction ->
-            val referrerDoc = transaction.get(referrerRef)
-            val currentPoints = referrerDoc.getLong("points") ?: 0
-            transaction.update(referrerRef, "points", currentPoints + 100)
+            val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
+            val currentPoints = userDoc.getLong("points")?.toInt() ?: 0
+            val referredBy = userDoc.getString("referredBy")
+            val referralRewardClaimed = userDoc.getBoolean("referralRewardClaimed") ?: false
 
-            transaction.update(referredUserRef, "referralRewardClaimed", true)
+            val newTotal = currentPoints + pointsToAdd
+            transaction.update(userRef, "points", FieldValue.increment(pointsToAdd.toLong()))
+
+            // Referral condition check within the transaction
+            if (newTotal >= 100 && referredBy != null && !referralRewardClaimed) {
+                val referrerRef = firestore.collection("users").document(referredBy)
+                val referrerDoc = transaction.get(referrerRef) // This read only happens if needed
+                val referrerPoints = referrerDoc.getLong("points") ?: 0
+
+                transaction.update(referrerRef, "points", referrerPoints + 100)
+                transaction.update(userRef, "referralRewardClaimed", true)
+            }
+
+            newTotal
+        }.addOnSuccessListener { newTotal ->
+            onComplete(newTotal) // Update UI
+        }.addOnFailureListener {
+            onComplete(0) // Handle errors
         }
     }
 
+    fun updateUserPointsAndAttempts(pointsToAdd: Int, onComplete: (Int) -> Unit) {
+        val userId = auth.currentUser?.uid ?: return
+        val userRef = firestore.collection("users").document(userId)
+
+        firestore.runTransaction { transaction ->
+            val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
+            val currentPoints = userDoc.getLong("points")?.toInt() ?: 0
+            val referredBy = userDoc.getString("referredBy")
+            val referralRewardClaimed = userDoc.getBoolean("referralRewardClaimed") ?: false
+
+            val newTotal = currentPoints + pointsToAdd
+            transaction.update(userRef, mapOf(
+                "points" to FieldValue.increment(pointsToAdd.toLong()),
+                "quiz_attempts" to FieldValue.increment(1)
+            ))
+            // Referral condition check within the transaction
+            if (newTotal >= 100 && referredBy != null && !referralRewardClaimed) {
+                val referrerRef = firestore.collection("users").document(referredBy)
+                val referrerDoc = transaction.get(referrerRef) // This read only happens if needed
+                val referrerPoints = referrerDoc.getLong("points") ?: 0
+
+                transaction.update(referrerRef, "points", referrerPoints + 100)
+                transaction.update(userRef, "referralRewardClaimed", true)
+            }
+
+            newTotal
+        }.addOnSuccessListener { newTotal ->
+            onComplete(newTotal) // Update UI
+        }.addOnFailureListener {
+            onComplete(0) // Handle errors
+        }
+    }
 
     suspend fun submitReferral(referralCode: String): ReferralResult {
         return try {
@@ -140,6 +164,19 @@ class UserRepository {
             ReferralResult.Error(e.message ?: "Unknown error occurred")
         }
     }
+
+    private fun giveReferralReward(referrerId: String, referredUserId: String) {
+        val referrerRef = firestore.collection("users").document(referrerId)
+        val referredUserRef = firestore.collection("users").document(referredUserId)
+        firestore.runTransaction { transaction ->
+            val referrerDoc = transaction.get(referrerRef)
+            val currentPoints = referrerDoc.getLong("points") ?: 0
+            transaction.update(referrerRef, "points", currentPoints + 100)
+
+            transaction.update(referredUserRef, "referralRewardClaimed", true)
+        }
+    }
+
     fun getDailyAttempts(onResult: (Int) -> Unit) {
         val userId = auth.currentUser?.uid ?: return
 

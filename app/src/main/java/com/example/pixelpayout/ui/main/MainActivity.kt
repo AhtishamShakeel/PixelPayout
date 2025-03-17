@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.R
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.ui.dialogs.LoadingDialog
 import com.pixelpayout.databinding.ActivityMainBinding
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
@@ -37,6 +38,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var referralViewModel: ReferralViewModel
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
+    private var loadingDialog: LoadingDialog? = null
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -157,12 +159,6 @@ class MainActivity : AppCompatActivity() {
             
             // Only navigate if we're actually changing destinations
             if (currentDestinationId != targetDestinationId) {
-                // Check if we need to refresh quiz data when returning to home
-                if (targetDestinationId == R.id.navigation_home) {
-                    quizViewModel.refreshAttemptsIfNeeded()
-                }
-                
-                // Create the navigation options with fade animations
                 val navOptions = NavOptions.Builder()
                     .setEnterAnim(R.anim.fade_in)
                     .setExitAnim(R.anim.fade_out)
@@ -192,6 +188,43 @@ class MainActivity : AppCompatActivity() {
             binding.customToolbar.pointsHeader.pointsText.text =
                 getString(R.string.points_value, points)
         }
+        quizViewModel.showLoadingDialog.observe(this) { isLoading ->
+            if (isLoading){
+                showLoadingDialog()
+            } else {
+                hideLoadingDialog()
+            }
+        }
+        quizViewModel.errorState.observe(this) { errorMsg ->
+            if (errorMsg != null) {
+                showRetryButtonInDialog()
+            }
+        }
+    }
+
+    private fun showLoadingDialog() {
+        if (loadingDialog == null) {
+            loadingDialog = LoadingDialog { retryFetchingData() } // Pass retry function
+            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
+        } else {
+            loadingDialog?.setLoadingState() // Reset to loading state if already shown
+        }
+    }
+
+
+    private fun hideLoadingDialog() {
+        loadingDialog?.dismiss()
+        loadingDialog = null
+    }
+
+    private fun showRetryButtonInDialog() {
+        Log.d("QuizDebug", "showRetryButtonInDialog() called") // Debugging
+        loadingDialog?.showRetry()
+    }
+
+    private fun retryFetchingData() {
+        loadingDialog?.setLoadingState()
+        quizViewModel.fetchDailyAttempts(forceRefresh = true)
     }
 
     private fun checkAndShowReferralPopup() {
@@ -227,6 +260,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+
 
     private fun showReferralPopup() {
         val dialog = ReferralDialogFragment()

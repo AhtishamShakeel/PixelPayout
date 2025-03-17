@@ -56,7 +56,7 @@ class QuizListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         setupRecyclerView()
-        setupSwipeRefresh()
+        //setupSwipeRefresh()
         observeViewModel()
 
         viewModel.loadCachedQuizzes(requireContext())

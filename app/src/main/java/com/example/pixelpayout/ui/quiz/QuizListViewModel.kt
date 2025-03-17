@@ -34,6 +34,13 @@ class QuizListViewModel : ViewModel() {
     private val _nextResetTime = MutableLiveData<Long>()
     val nextResetTime: LiveData<Long> = _nextResetTime
 
+    private val _showLoadingDialog = MutableLiveData<Boolean>()
+    val showLoadingDialog: LiveData<Boolean> = _showLoadingDialog
+
+    private val _errorState = MutableLiveData<String?>()
+    val errorState: LiveData<String?> = _errorState
+
+
     // Cache control variables
     private var lastCheckTimestamp: Long = 0
     private val CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes in milliseconds
@@ -69,54 +76,46 @@ class QuizListViewModel : ViewModel() {
 
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {
         val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val now = System.currentTimeMillis()
-        if (!forceRefresh && 
-            now - lastCheckTimestamp < CHECK_INTERVAL && 
-            _dailyAttempts.value != null &&
-            hasCompletedInitialLoad) {
-            return
-        }
-        
-        lastCheckTimestamp = now
 
-        // Call our checkAndResetQuizAttempts function
+        val now = System.currentTimeMillis()
+        lastCheckTimestamp = now  // Ensure timestamp updates on every attempt
+
+        _showLoadingDialog.postValue(true) // Show loading dialog before starting
+        _errorState.postValue(null) // Reset error state before retrying
+
         FirebaseFunctions.getInstance()
             .getHttpsCallable("checkAndResetQuizAttempts")
             .call()
-            .addOnSuccessListener { result ->
-                try {
-                    val data = result.data as? Map<*, *>
-                    if (data != null) {
-                        val attempts = (data["attempts"] as? Number)?.toInt() ?: throw Exception("Invalid attempts value")
-                        val resetPerformed = data["resetPerformed"] as? Boolean ?: false
-                        val lastResetTime = (data["lastResetTime"] as? Number)?.toLong() 
-                            ?: throw Exception("Invalid lastResetTime")
-                        val serverTime = (data["serverTime"] as? Number)?.toLong() ?: System.currentTimeMillis()
-                        
-                        _dailyAttempts.postValue(attempts)
-                        _lastResetTime.postValue(lastResetTime)
-                        
-                        // Calculate next reset time (midnight UTC of the next day after reset)
-                        val nextResetTime = calculateNextResetTime(lastResetTime)
-                        _nextResetTime.postValue(nextResetTime)
-                        
-                        hasCompletedInitialLoad = true
-                        
-                        // If a reset was performed, log it
-                        if (resetPerformed) {
-                            Log.d("QuizDebug", "Quiz attempts were reset")
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    try {
+                        val data = task.result?.data as? Map<*, *>
+                        if (data != null) {
+                            val attempts = (data["attempts"] as? Number)?.toInt() ?: throw Exception("Invalid attempts value")
+                            val lastResetTime = (data["lastResetTime"] as? Number)?.toLong()
+                                ?: throw Exception("Invalid lastResetTime")
+
+                            val nextResetTime = calculateNextResetTime(lastResetTime)
+                            _dailyAttempts.postValue(attempts)
+                            _lastResetTime.postValue(lastResetTime)
+                            _nextResetTime.postValue(nextResetTime)
+                            Log.e("QuizDebug", "Fetched ddta")
+
+                            _showLoadingDialog.postValue(false) // Hide dialog only if successful
+                        } else {
+                            throw Exception("No data received from server")
                         }
-                    } else {
-                        throw Exception("No data received from server")
+                    } catch (e: Exception) {
+                        Log.e("QuizDebug", "Error processing server response: ${e.message}")
+                        _errorState.postValue("Error processing response")
                     }
-                } catch (e: Exception) {
-                    Log.e("QuizDebug", "Error processing server response: ${e.message}")
+                } else {
+                    Log.e("QuizDebug", "Error checking quiz attempts", task.exception)
+                    _errorState.postValue("Failed to fetch data. Please retry.") // Show retry button
                 }
             }
-            .addOnFailureListener { e ->
-                Log.e("QuizDebug", "Error checking quiz attempts", e)
-            }
     }
+
 
     /**
      * Refreshes attempts only if needed - at app startup or after completing a quiz

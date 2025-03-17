@@ -60,7 +60,7 @@ class QuizListViewModel : ViewModel() {
 
     init {
         _categories.value = defaultCategories  // Ensure categories load immediately
-        _dailyAttempts.value = 10  // Start with 0 attempts until we fetch from server
+        _dailyAttempts.value = MAX_DAILY_ATTEMPTS  // Start with 0 attempts until we fetch from server
         val settings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)  // Enable offline persistence
             .build()

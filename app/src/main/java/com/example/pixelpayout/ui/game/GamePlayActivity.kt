@@ -27,8 +27,11 @@ class GamePlayActivity : AppCompatActivity() {
         connectivityCheck = AndroidConnectivityCheck(this)
         setupConnectivityCheck()
 
-        if (GAME_URL_1.startsWith("http")) {
-            setupWebView()
+        val gameUrl = intent.getStringExtra("GAME_URL") ?: ""
+
+
+        if (gameUrl.startsWith("http")) {
+            setupWebView(gameUrl)
         } else {
             showPlaceholder()
         }
@@ -43,7 +46,7 @@ class GamePlayActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupWebView() {
+    private fun setupWebView(gameUrl: String) {
         binding.apply {
             gameWebView.visibility = View.VISIBLE
             placeholderText.visibility = View.GONE
@@ -55,13 +58,11 @@ class GamePlayActivity : AppCompatActivity() {
                     allowFileAccess = true
                     useWideViewPort = true
                     loadWithOverviewMode = true
-                    // Force initial scale to fit screen
                     setSupportZoom(false)
                     builtInZoomControls = false
                     cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                 }
 
-                // Add JavaScript interface for game-app communication
                 addJavascriptInterface(
                     GameJavaScriptInterface(viewModel),
                     "AndroidInterface"
@@ -71,29 +72,24 @@ class GamePlayActivity : AppCompatActivity() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         loadingIndicator.visibility = View.GONE
-                        // Inject CSS to force portrait layout
                         evaluateJavascript("""
-                            javascript:(function() {
-                                var style = document.createElement('style');
-                                style.type = 'text/css';
-                                style.innerHTML = 'body { max-width: 100vw; overflow-x: hidden; }';
-                                document.head.appendChild(style);
-                            })()
-                        """.trimIndent(), null)
+                        javascript:(function() {
+                            var style = document.createElement('style');
+                            style.type = 'text/css';
+                            style.innerHTML = 'body { max-width: 100vw; overflow-x: hidden; }';
+                            document.head.appendChild(style);
+                        })()
+                    """.trimIndent(), null)
                     }
 
-                    // Handle potential SSL certificate issues
                     @SuppressLint("WebViewClientOnReceivedSslError")
                     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                        handler?.proceed() // Proceed with SSL certificate issues
+                        handler?.proceed()
                     }
                 }
 
-                // Request focus for keyboard input
                 requestFocus()
-
-                // Load the game URL
-                loadUrl(GAME_URL_1)
+                loadUrl(gameUrl) // Load the correct game URL
             }
         }
     }
@@ -120,5 +116,6 @@ class GamePlayActivity : AppCompatActivity() {
 
     companion object {
         private const val GAME_URL_1 = "https://game-ccdff.web.app/" // Updated to your 2048 game URL
+        private const val GAME_URL_2 = "https://floppybird-bc843.web.app/"
     }
 } 

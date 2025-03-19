@@ -27,7 +27,7 @@
         app:layout_constraintEnd_toEndOf="parent"/>
 
     <com.google.android.material.button.MaterialButton
-    android:id="@+id/playGameButton"
+    android:id="@+id/play2048"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:layout_marginTop="16dp"
@@ -39,7 +39,7 @@
     app:layout_constraintTop_toBottomOf="@id/gamePreviewImage" />
 
     <com.google.android.material.button.MaterialButton
-        android:id="@+id/playGame2Button"
+        android:id="@+id/playFlappyBird"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
@@ -48,6 +48,6 @@
         android:drawablePadding="8dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/playGameButton" />
+        app:layout_constraintTop_toBottomOf="@id/play2048" />
 
 </androidx.constraintlayout.widget.ConstraintLayout> 

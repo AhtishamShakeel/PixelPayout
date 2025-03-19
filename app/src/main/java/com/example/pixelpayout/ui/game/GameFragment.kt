@@ -23,9 +23,17 @@ class GameFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
-        binding.playGameButton.setOnClickListener {
-            startActivity(Intent(requireContext(), GamePlayActivity::class.java))
+
+        binding.play2048.setOnClickListener {
+            val intent = Intent(requireContext(), GamePlayActivity::class.java)
+            intent.putExtra("GAME_URL", "https://game-ccdff.web.app/") // URL for 2048
+            startActivity(intent)
+        }
+
+        binding.playFlappyBird.setOnClickListener {
+            val intent = Intent(requireContext(), GamePlayActivity::class.java)
+            intent.putExtra("GAME_URL", "https://floppybird-bc843.web.app/") // URL for Flappy Bird
+            startActivity(intent)
         }
     }
 

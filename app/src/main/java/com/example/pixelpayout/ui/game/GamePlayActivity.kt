@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.http.SslError
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import android.webkit.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
@@ -51,6 +52,17 @@ class GamePlayActivity : AppCompatActivity() {
             gameWebView.visibility = View.VISIBLE
             placeholderText.visibility = View.GONE
 
+            // Adjust WebView size based on game
+            val layoutParams = gameWebView.layoutParams
+            if (gameUrl.contains("floppybird")) {
+                layoutParams.width = (resources.displayMetrics.widthPixels * 0.9).toInt()  // 90% of screen width
+                layoutParams.height = (resources.displayMetrics.heightPixels * 0.75).toInt() // 75% of screen height
+            } else {
+                layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT  // Default width
+                layoutParams.height = ViewGroup.LayoutParams.MATCH_PARENT  // Default height
+            }
+            gameWebView.layoutParams = layoutParams
+
             gameWebView.apply {
                 settings.apply {
                     javaScriptEnabled = true
@@ -63,10 +75,8 @@ class GamePlayActivity : AppCompatActivity() {
                     cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
                 }
 
-                addJavascriptInterface(
-                    GameJavaScriptInterface(viewModel),
-                    "AndroidInterface"
-                )
+                // Pass Activity instance along with ViewModel
+                addJavascriptInterface(GameJavaScriptInterface(this@GamePlayActivity, viewModel), "AndroidInterface")
 
                 webViewClient = object : WebViewClient() {
                     override fun onPageFinished(view: WebView?, url: String?) {
@@ -89,10 +99,12 @@ class GamePlayActivity : AppCompatActivity() {
                 }
 
                 requestFocus()
-                loadUrl(gameUrl) // Load the correct game URL
+                loadUrl(gameUrl)
             }
         }
     }
+
+
 
     private fun observeViewModel() {
         viewModel.pointsUpdated.observe(this) { success ->
@@ -100,6 +112,8 @@ class GamePlayActivity : AppCompatActivity() {
                 // Set result to notify MainActivity that points were updated
                 setResult(RESULT_OK)
                 finish()
+            } else {
+                binding.loadingIndicator.visibility = View.VISIBLE
             }
         }
     }

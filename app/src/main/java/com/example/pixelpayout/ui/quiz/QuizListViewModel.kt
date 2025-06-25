@@ -196,7 +196,7 @@ class QuizListViewModel : ViewModel() {
     }
 
     fun checkAndUpdateQuizzes(context: Context) {
-        QuizDataManager.fetchQuizzesFromGitHub(context) { isUpdated ->
+        QuizDataManager.fetchQuizzesFromFirebase(context) { isUpdated ->
             if (isUpdated) {
                 loadCachedQuizzes(context)
             }

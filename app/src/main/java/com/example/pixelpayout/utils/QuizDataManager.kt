@@ -10,19 +10,19 @@ import java.io.File
 import java.io.FileWriter
 
 object QuizDataManager {
-    private const val GITHUB_URL = "https://raw.githubusercontent.com/AhtishamShakeel/quizzes/refs/heads/main/quizzes.json"
+    private const val Firebase_URL = "https://quizzes-b446b.web.app/quizzes.json"
     private const val CACHE_FILE_NAME = "quizzes.json"
     private const val VERSION_PREFS = "quiz_version"
 
     private val client = OkHttpClient()
 
-    // ✅ Fetch JSON from GitHub
-    fun fetchQuizzesFromGitHub(context: Context, onComplete: (Boolean) -> Unit) {
+    // ✅ Fetch JSON from Firebase
+    fun fetchQuizzesFromFirebase(context: Context, onComplete: (Boolean) -> Unit) {
         Log.d("QuizDebug", "Fetching quizzes from GitHub...")
 
         Thread {
             try {
-                val request = Request.Builder().url(GITHUB_URL).build()
+                val request = Request.Builder().url(Firebase_URL).build()
                 val response = client.newCall(request).execute()
                 val json = response.body?.string()
 

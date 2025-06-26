@@ -112,8 +112,7 @@ class QuizListFragment : Fragment() {
     
     private fun updateCountdownTimer() {
         val nextResetTime = viewModel.nextResetTime.value ?: return
-        val currentTime = System.currentTimeMillis()
-        
+        val currentTime = viewModel.getCurrentServerTime()
         val timeUntilReset = nextResetTime - currentTime
         
         if (timeUntilReset <= 0) {

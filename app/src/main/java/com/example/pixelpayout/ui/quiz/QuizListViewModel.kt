@@ -40,6 +40,9 @@ class QuizListViewModel : ViewModel() {
     private val _errorState = MutableLiveData<String?>()
     val errorState: LiveData<String?> = _errorState
 
+    // Server time tracking
+    private var lastFetchedServerTime: Long = 0L
+    private var deviceTimeAtFetch: Long = 0L
 
     // Cache control variables
     private var lastCheckTimestamp: Long = 0
@@ -94,6 +97,9 @@ class QuizListViewModel : ViewModel() {
                             val attempts = (data["attempts"] as? Number)?.toInt() ?: throw Exception("Invalid attempts value")
                             val lastResetTime = (data["lastResetTime"] as? Number)?.toLong()
                                 ?: throw Exception("Invalid lastResetTime")
+                            val serverTime = (data["serverTime"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                            lastFetchedServerTime = serverTime
+                            deviceTimeAtFetch = System.currentTimeMillis()
 
                             val nextResetTime = calculateNextResetTime(lastResetTime)
                             _dailyAttempts.postValue(attempts)
@@ -115,7 +121,6 @@ class QuizListViewModel : ViewModel() {
                 }
             }
     }
-
 
     /**
      * Refreshes attempts only if needed - at app startup or after completing a quiz
@@ -227,4 +232,11 @@ class QuizListViewModel : ViewModel() {
     }
 
     fun getCategories(): List<QuizCategory> = defaultCategories
+
+    /**
+     * Returns the current server time, adjusted for elapsed time since last fetch
+     */
+    fun getCurrentServerTime(): Long {
+        return lastFetchedServerTime + (System.currentTimeMillis() - deviceTimeAtFetch)
+    }
 }

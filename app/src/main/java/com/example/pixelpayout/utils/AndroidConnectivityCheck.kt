@@ -26,12 +26,12 @@ class AndroidConnectivityCheck(
     private suspend fun isInternetReachable(): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
             withTimeoutOrNull(3000) { // 3 second timeout
-                val connection = URL("https://8.8.8.8").openConnection() as HttpURLConnection
+                val connection = URL("https://clients3.google.com/generate_204").openConnection() as HttpURLConnection
                 connection.setRequestProperty("User-Agent", "Android")
                 connection.setRequestProperty("Connection", "close")
                 connection.connectTimeout = 1500
                 connection.connect()
-                connection.responseCode == 200
+                connection.responseCode == 204
             } ?: false
         } catch (e: Exception) {
             false

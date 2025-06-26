@@ -84,11 +84,11 @@ class HomeFragment : Fragment() {
         if (remaining > 0) {
             // Show remaining quizzes
             binding.quizStatus.text = "$remaining quizzes left"
-        } else {
+        
             // Show reset timer if no quizzes left
             val nextResetTime = quizViewModel.nextResetTime.value
             if (nextResetTime != null) {
-                val currentTime = System.currentTimeMillis()
+                val currentTime = quizViewModel.getCurrentServerTime()
                 val timeUntilReset = nextResetTime - currentTime
                 
                 if (timeUntilReset <= 0) {

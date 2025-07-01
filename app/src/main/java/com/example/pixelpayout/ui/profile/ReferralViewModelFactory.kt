@@ -1,4 +1,4 @@
-package com.example.pixelpayout.ui.redemption
+package com.example.pixelpayout.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider

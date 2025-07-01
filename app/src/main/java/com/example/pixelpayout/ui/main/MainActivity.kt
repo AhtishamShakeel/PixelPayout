@@ -21,7 +21,7 @@ import com.example.pixelpayout.ui.dialogs.LoadingDialog
 import com.pixelpayout.databinding.ActivityMainBinding
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
-import com.example.pixelpayout.ui.redemption.ReferralViewModel
+import com.example.pixelpayout.ui.profile.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
 import kotlinx.coroutines.Dispatchers

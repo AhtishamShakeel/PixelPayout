@@ -1,18 +1,16 @@
-package com.example.pixelpayout.ui.rewards
+package com.example.pixelpayout.ui.redeem_section
 
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
-import com.pixelpayout.databinding.FragmentRewardsBinding
+import com.pixelpayout.databinding.FragmentRedeemBinding
 import com.example.pixelpayout.data.repository.UserRepository
 import com.tapjoy.*
-import java.util.Hashtable
 
-class RewardsFragment : Fragment() {
-    private var _binding: FragmentRewardsBinding? = null
+class RedeemFragment : Fragment() {
+    private var _binding: FragmentRedeemBinding? = null
     private val binding get() = _binding!!
 
     private val userRepository = UserRepository()
@@ -24,18 +22,15 @@ class RewardsFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentRewardsBinding.inflate(inflater, container, false)
+        _binding = FragmentRedeemBinding.inflate(inflater, container, false)
 
-        getUserIdAndInitializeTapjoy()
+        /*getUserIdAndInitializeTapjoy()*/
 
-        binding.offerwallButton.setOnClickListener {
-            showOfferwall()
-        }
 
         return binding.root
     }
 
-    private fun getUserIdAndInitializeTapjoy() {
+    /*private fun getUserIdAndInitializeTapjoy() {
         userId = userRepository.getCurrentUserId() // Get user ID
 
         if (userId != null) {
@@ -43,9 +38,9 @@ class RewardsFragment : Fragment() {
         } else {
             Log.e("Tapjoy", "Failed to get user ID")
         }
-    }
+    }*/
 
-    private fun initializeTapjoy(userId: String) {
+    /*private fun initializeTapjoy(userId: String) {
         val connectFlags = Hashtable<String, Any>().apply {
             put(TapjoyConnectFlag.ENABLE_LOGGING, "false") // Disable in production
             put(TapjoyConnectFlag.USER_ID, userId) // Assign user ID to Tapjoy
@@ -117,7 +112,7 @@ class RewardsFragment : Fragment() {
         } else {
             Log.w("Tapjoy", "Offerwall content not available")
         }
-    }
+    }*/
 
     override fun onDestroyView() {
         super.onDestroyView()

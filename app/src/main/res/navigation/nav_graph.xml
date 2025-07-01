@@ -25,12 +25,12 @@
 
     <fragment
         android:id="@+id/navigation_rewards"
-        android:name="com.example.pixelpayout.ui.rewards.RewardsFragment"
+        android:name="com.example.pixelpayout.ui.redeem_section.RedeemFragment"
         android:label="Rewards" />
 
     <fragment
         android:id="@+id/navigation_redemption"
-        android:name="com.example.pixelpayout.ui.redemption.RedemptionFragment"
+        android:name="com.example.pixelpayout.ui.profile.ProfileFragment"
         android:label="Cashout" />
 
     <fragment

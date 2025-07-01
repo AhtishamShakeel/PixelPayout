@@ -1,4 +1,4 @@
-package com.example.pixelpayout.ui.redemption
+package com.example.pixelpayout.ui.profile
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -8,11 +8,11 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.google.android.material.snackbar.Snackbar
 import com.pixelpayout.R
-import com.pixelpayout.databinding.FragmentRedemptionBinding
 import com.example.pixelpayout.data.repository.UserRepository
+import com.pixelpayout.databinding.FragmentProfileBinding
 
-class RedemptionFragment : Fragment() {
-    private var _binding: FragmentRedemptionBinding? = null
+class ProfileFragment : Fragment() {
+    private var _binding: FragmentProfileBinding? = null
     private val binding get() = _binding!!
 
     private val viewModel: ReferralViewModel by viewModels {
@@ -24,7 +24,7 @@ class RedemptionFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentRedemptionBinding.inflate(inflater, container, false)
+        _binding = FragmentProfileBinding.inflate(inflater, container, false)
         return binding.root
     }
 

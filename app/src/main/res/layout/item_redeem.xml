@@ -4,48 +4,87 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_margin="5dp"
     app:cardCornerRadius="16dp"
     app:cardElevation="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/quiz_ui"
-        android:padding="16dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center_horizontal"
+        android:paddingLeft="6dp"
+        android:paddingRight="6dp"
+        android:paddingTop="7dp"
+        android:paddingBottom="7dp">
 
-        <ImageView
-            android:id="@+id/iconImageRedeem"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:src="@drawable/quiz_ui"
-            android:layout_marginEnd="16dp" />
-
+        <!-- Top section with colored background -->
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/quiz_ui"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="16dp">
 
             <TextView
                 android:id="@+id/titleTextRedeem"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="22sp"
                 android:fontFamily="@font/lexend_regular"
+                android:paddingBottom="5dp"
+                android:textColor="@color/primary_text"
+                android:textSize="18sp"
                 android:textStyle="bold"
-                tools:text="100 UC" />
+                tools:text="100dasdsasa UC" />
 
-            <TextView
-                android:id="@+id/starsTextRedeem"
-                android:layout_width="wrap_content"
+            <ImageView
+                android:id="@+id/iconImageRedeem"
+                android:layout_width="75dp"
+                android:layout_height="75dp"
+                android:src="@drawable/ic_google" />
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="22sp"
-                android:fontFamily="@font/lexend_regular"
-                android:textStyle="bold"
-                tools:text="Require 100 Stars" />
-        </LinearLayout>
-    </LinearLayout>
+                android:gravity="center"
+                android:paddingTop="5dp"
+                android:orientation="horizontal">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/lexend_regular"
+                    android:textColor="@color/primary_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:text="Require"/>
+
+
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/ic_star"
+                    android:layout_marginStart="@dimen/spacing_small"/>
+
+                <TextView
+                    android:id="@+id/starsTextRedeem"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/lexend_regular"
+                    android:textColor="@color/primary_text"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    tools:text="Require 100 Stars" />
+
+            </LinearLayout>
+
+
+
+
+
+        </LinearLayout>
+
+    </LinearLayout>
 
 </androidx.cardview.widget.CardView>

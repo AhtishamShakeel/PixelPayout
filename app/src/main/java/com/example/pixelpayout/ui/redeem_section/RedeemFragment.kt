@@ -6,18 +6,20 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
-import com.example.pixelpayout.data.api.RedeemOption
 import com.example.pixelpayout.utils.SpacingItemDecoration
+import com.example.pixelpayout.utils.UserPreferences
 import com.pixelpayout.databinding.FragmentRedeemBinding
-import com.pixelpayout.R
-import com.tapjoy.*
+
 
 class RedeemFragment : Fragment() {
+
     private var _binding: FragmentRedeemBinding? = null
     private val binding get() = _binding!!
     private lateinit var redeemAdapter: RedeemAdapter
+    private lateinit var viewModel: RedeemViewModel
+
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -29,28 +31,25 @@ class RedeemFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        viewModel = ViewModelProvider(this)[RedeemViewModel::class.java]
         setupRecyclerView()
+        setUpSwipeRefresh()
 
-        val fakeList = listOf(
-            RedeemOption("100 UC", 100, R.drawable.ic_game),
-            RedeemOption("500 pkr", 200, R.drawable.ic_google),
-            RedeemOption("300 CP", 300, R.drawable.quiz_ui),
-            RedeemOption("300 CP", 300, R.drawable.quiz_ui)
+        val userPrefs = UserPreferences(requireContext())
+        viewModel.loadRedeemOptionsWithCache(userPrefs)
 
-        )
-        binding.recyclerViewRedeem.adapter = RedeemAdapter(fakeList) { redeemOption ->
-            Toast.makeText(requireContext(), "Clicked on ${redeemOption.title}", Toast.LENGTH_SHORT).show()
-
+        viewModel.redeemList.observe(viewLifecycleOwner) { list ->
+            redeemAdapter = RedeemAdapter(list) { selected ->
+                Toast.makeText(requireContext(), "Clicked on ${selected.title}", Toast.LENGTH_SHORT).show()
+            }
+            binding.recyclerViewRedeem.adapter = redeemAdapter
+            binding.swipeRefreshRedeem.isRefreshing = false
         }
     }
-    override fun onDestroyView() {
-        super.onDestroyView()
-        _binding = null
-    }
     private fun setupRecyclerView() {
-        redeemAdapter = RedeemAdapter(emptyList()) { redeemOption ->
+        redeemAdapter = RedeemAdapter(emptyList()) { selected ->
             // Handle item click here
-            Toast.makeText(requireContext(), "Clicked on ${redeemOption.title}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(requireContext(), "Clicked on ${selected.title}", Toast.LENGTH_SHORT).show()
         }
 
         binding.recyclerViewRedeem.apply {
@@ -59,5 +58,20 @@ class RedeemFragment : Fragment() {
             addItemDecoration(SpacingItemDecoration(0))
         }
 
+    }
+
+    private fun setUpSwipeRefresh(){
+        binding.swipeRefreshRedeem.setOnRefreshListener {
+            viewModel.resetLoadFlag()
+            val userPrefs = UserPreferences(requireContext())
+            viewModel.loadRedeemOptionsWithCache(userPrefs)
+        }
+    }
+
+
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }

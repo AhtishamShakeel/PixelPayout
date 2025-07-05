@@ -7,7 +7,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.pixelpayout.data.api.RedeemOption
 import com.pixelpayout.databinding.ItemRedeemBinding
 
-class RedeemAdapter (
+class
+RedeemAdapter (
     private val redeemList: List<RedeemOption>,
     private val onRedeemClick: (RedeemOption) -> Unit
 ) : RecyclerView.Adapter<RedeemAdapter.RedeemViewHolder>() {
@@ -24,7 +25,6 @@ class RedeemAdapter (
 
         holder.binding.titleTextRedeem.text = redeem.title
         holder.binding.starsTextRedeem.text = redeem.requiredStars.toString()
-        holder.binding.iconImageRedeem.setImageResource(redeem.imageRedId)
 
         val layoutParams = holder.binding.root.layoutParams
         layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 200) else dpToPx(holder.binding.root.context, 225)
@@ -57,6 +57,7 @@ class RedeemAdapter (
     fun dpToPx(context: Context, dp: Int): Int {
         return (dp * context.resources.displayMetrics.density).toInt()
     }
+
 
 
 }

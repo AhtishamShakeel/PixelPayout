@@ -74,8 +74,10 @@ class RedeemViewModel : ViewModel() {
         }
     }
 
-    fun resetLoadFlag(){
+    fun forceRefresh(userPreferences: UserPreferences){
         hasLoaded = false
+        loadRedeemOptionsWithCache(userPreferences)
+
     }
 
 

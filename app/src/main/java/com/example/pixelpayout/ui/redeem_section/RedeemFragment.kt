@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.example.pixelpayout.utils.SpacingItemDecoration
@@ -18,7 +19,9 @@ class RedeemFragment : Fragment() {
     private var _binding: FragmentRedeemBinding? = null
     private val binding get() = _binding!!
     private lateinit var redeemAdapter: RedeemAdapter
-    private lateinit var viewModel: RedeemViewModel
+    /*private lateinit var viewModel: RedeemViewModel*/
+
+    private val viewModel: RedeemViewModel by activityViewModels()
 
 
     override fun onCreateView(
@@ -31,7 +34,7 @@ class RedeemFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        viewModel = ViewModelProvider(this)[RedeemViewModel::class.java]
+        super.onViewCreated(view, savedInstanceState)
         setupRecyclerView()
         setUpSwipeRefresh()
 
@@ -62,9 +65,8 @@ class RedeemFragment : Fragment() {
 
     private fun setUpSwipeRefresh(){
         binding.swipeRefreshRedeem.setOnRefreshListener {
-            viewModel.resetLoadFlag()
             val userPrefs = UserPreferences(requireContext())
-            viewModel.loadRedeemOptionsWithCache(userPrefs)
+            viewModel.forceRefresh(userPrefs)
         }
     }
 

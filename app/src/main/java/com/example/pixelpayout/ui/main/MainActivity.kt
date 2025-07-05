@@ -24,6 +24,7 @@ import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.profile.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
+import com.example.pixelpayout.ui.redeem_section.RedeemViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -39,7 +40,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
     private var loadingDialog: LoadingDialog? = null
-    
+    private val redeemViewModel: RedeemViewModel by viewModels()
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
 
@@ -59,6 +60,8 @@ class MainActivity : AppCompatActivity() {
         setupConnectivityCheck()
         quizViewModel.loadCachedQuizzes(this)
         quizViewModel.refreshAttemptsIfNeeded()
+
+        redeemViewModel.loadRedeemOptionsWithCache(userPreferences)
         
         // Observe categories and preload animations efficiently
         quizViewModel.categories.observe(this) { categories ->

@@ -42,8 +42,12 @@ class RedeemFragment : Fragment() {
         viewModel.loadRedeemOptionsWithCache(userPrefs)
 
         viewModel.redeemList.observe(viewLifecycleOwner) { list ->
-            redeemAdapter = RedeemAdapter(list) { selected ->
-                Toast.makeText(requireContext(), "Clicked on ${selected.title}", Toast.LENGTH_SHORT).show()
+            redeemAdapter = RedeemAdapter(list) { selectedOptions ->
+                val bottomSheet = RedeemBottomSheet(selectedOptions) { userInput ->
+                    // Handle submission here
+                    Toast.makeText(requireContext(), "Submitted: $userInput", Toast.LENGTH_SHORT).show()
+                }
+                bottomSheet.show(childFragmentManager, bottomSheet.tag)
             }
             binding.recyclerViewRedeem.adapter = redeemAdapter
             binding.swipeRefreshRedeem.isRefreshing = false

@@ -4,6 +4,7 @@ import android.content.Context
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.pixelpayout.data.api.RedeemOption
 import com.pixelpayout.databinding.ItemRedeemBinding
 
@@ -25,6 +26,10 @@ RedeemAdapter (
 
         holder.binding.titleTextRedeem.text = redeem.title
         holder.binding.starsTextRedeem.text = redeem.requiredStars.toString()
+
+        Glide.with(holder.binding.root.context)
+            .load(redeem.imageUrl)
+            .into(holder.binding.iconImageRedeem)
 
         val layoutParams = holder.binding.root.layoutParams
         layoutParams.height = if (position == 0) dpToPx(holder.binding.root.context, 200) else dpToPx(holder.binding.root.context, 225)

@@ -6,10 +6,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.pixelpayout.data.api.RedeemOption
+import com.example.pixelpayout.data.api.RedeemRequest
+import com.example.pixelpayout.data.api.RewardSnapshot
 import com.example.pixelpayout.utils.UserPreferences
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.util.UUID
 
 class RedeemViewModel : ViewModel() {
     private val _redeemList = MutableLiveData<List<RedeemOption>>()
@@ -29,6 +33,11 @@ class RedeemViewModel : ViewModel() {
             Log.e("RedeemViewModel", "Failed to fetch version from Firestore", e)
             -1
         }
+    }
+
+    fun generateRedemptionId(): String {
+        val uuid = UUID.randomUUID().toString().take(8).uppercase()
+        return "RED$uuid"
     }
 
 
@@ -73,6 +82,45 @@ class RedeemViewModel : ViewModel() {
             Log.e("RedemptionViewModel", "Failed to load redemption options", e)
         }
     }
+
+    /*fun testSubmitRedemption(options: RedeemOption){
+        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+
+        val rewardSnapshot = RewardSnapshot(
+            title = options.title,
+            type = options.type,
+            requiredStars = options.requiredStars,
+            imageUrl = options.imageUrl,
+            inputLabel = "Game ID",
+            inputExample = "123456789"
+        )
+
+        val request = RedeemRequest(
+            redemptionId = generateRedemptionId(),
+            userId = userId,
+            rewardId = options.rewardId ?: "unknown",
+            rewardSnapshot = rewardSnapshot,
+            userInput = "Fake-Test",
+            status = "pending",
+            timestamp = System.currentTimeMillis(),
+            processedAt = null,
+            adminNotes = "",
+            version = 1
+        )
+
+        FirebaseFirestore.getInstance().collection("redemptionRequests")
+            .add(request)
+            .addOnSuccessListener {
+                Log.d("RedeemViewModel", "Redemption request submitted successfully")
+            }
+            .addOnFailureListener { e ->
+                Log.e("RedeemViewModel", "Failed to submit redemption request", e)
+            }
+    }*/
+
+
+
+
 
     fun forceRefresh(userPreferences: UserPreferences){
         hasLoaded = false

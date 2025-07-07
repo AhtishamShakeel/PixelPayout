@@ -84,13 +84,14 @@ class HomeFragment : Fragment() {
         if (remaining > 0) {
             // Show remaining quizzes
             binding.quizStatus.text = "$remaining quizzes left"
-        
+        }
+        else {
             // Show reset timer if no quizzes left
             val nextResetTime = quizViewModel.nextResetTime.value
             if (nextResetTime != null) {
                 val currentTime = quizViewModel.getCurrentServerTime()
                 val timeUntilReset = nextResetTime - currentTime
-                
+
                 if (timeUntilReset <= 0) {
                     binding.quizStatus.text = "Resetting soon..."
                     /*// Refresh attempts when timer reaches zero
@@ -104,13 +105,14 @@ class HomeFragment : Fragment() {
                         minutes > 0 -> "${minutes}m ${seconds}s left for reset"
                         else -> "${seconds}s left for reset"
                     }
-                    
+
                     binding.quizStatus.text = timerText
                 }
             } else {
                 binding.quizStatus.text = "Quizzes available soon"
             }
         }
+
     }
 
     private fun setupClickListeners() {

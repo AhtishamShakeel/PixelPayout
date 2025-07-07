@@ -6,5 +6,8 @@ data class RedeemOption(
     val imageUrl: String = "",
     val active: Boolean = true,
     val type: String = "",
-    val tag: String = ""
+    val rewardId: String = "",
+    val tag: String = "",
+    val inputLabel: String = "Game Id",
+    val inputExample: String = "613738123"
 )

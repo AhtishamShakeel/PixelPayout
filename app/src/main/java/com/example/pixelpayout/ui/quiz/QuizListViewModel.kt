@@ -211,7 +211,8 @@ class QuizListViewModel : ViewModel() {
     }
 
     fun checkAndUpdateQuizzes(context: Context) {
-        QuizDataManager.fetchQuizzesFromFirebase(context) { isUpdated ->
+        viewModelScope.launch {
+            val isUpdated = QuizDataManager.fetchQuizzesFromFirebase(context.applicationContext)
             if (isUpdated) {
                 loadCachedQuizzes(context)
             }

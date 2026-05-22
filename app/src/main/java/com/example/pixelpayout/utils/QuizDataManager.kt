@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.example.pixelpayout.ui.quiz.QuizData
 import com.google.gson.Gson
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -19,58 +21,55 @@ object QuizDataManager {
 
     private val client = OkHttpClient()
 
-    fun fetchQuizzesFromFirebase(
+    suspend fun fetchQuizzesFromFirebase(
         context: Context,
-        forceRefresh: Boolean = false,
-        onComplete: (Boolean) -> Unit
-    ) {
+        forceRefresh: Boolean = false
+    ): Boolean = withContext(Dispatchers.IO) {
         val hasCache = hasCachedQuizzes(context)
 
         if (!forceRefresh && hasCache && !shouldCheckForUpdates(context)) {
             Log.d("QuizDebug", "Skipping quiz update check; cache is fresh")
-            onComplete(false)
-            return
+            return@withContext false
         }
 
         Log.d("QuizDebug", "Checking Firebase for quiz updates")
 
-        Thread {
-            try {
-                if (hasCache) {
-                    saveLastUpdateCheckTime(context)
-                }
-
-                val request = Request.Builder().url(FIREBASE_URL).build()
-                val response = client.newCall(request).execute()
-                val json = response.body?.string()
-
-                if (!json.isNullOrEmpty()) {
-                    val quizData = Gson().fromJson(json, QuizData::class.java)
-                    val newVersion = quizData.version
-                    val currentVersion = getCachedVersion(context)
-
-                    Log.d("QuizDebug", "Current version: $currentVersion, New version: $newVersion")
-
-                    if (newVersion > currentVersion) {
-                        saveJsonToCache(context, json)
-                        saveVersionToCache(context, newVersion)
-                        Log.d("QuizDebug", "Updated to new version: $newVersion")
-                        onComplete(true)
-                    } else {
-                        Log.d("QuizDebug", "Using cached version: $currentVersion")
-                        onComplete(false)
-                    }
-
-                    saveLastUpdateCheckTime(context)
-                } else {
-                    Log.d("QuizDebug", "Firebase response was empty")
-                    onComplete(false)
-                }
-            } catch (e: Exception) {
-                Log.e("QuizDebug", "Error fetching quizzes: ${e.message}")
-                onComplete(false)
+        try {
+            if (hasCache) {
+                saveLastUpdateCheckTime(context)
             }
-        }.start()
+
+            val request = Request.Builder().url(FIREBASE_URL).build()
+            val response = client.newCall(request).execute()
+            val json = response.body?.string()
+
+            if (!json.isNullOrEmpty()) {
+                val quizData = Gson().fromJson(json, QuizData::class.java)
+                val newVersion = quizData.version
+                val currentVersion = getCachedVersion(context)
+
+                Log.d("QuizDebug", "Current version: $currentVersion, New version: $newVersion")
+
+                val isUpdated = if (newVersion > currentVersion) {
+                    saveJsonToCache(context, json)
+                    saveVersionToCache(context, newVersion)
+                    Log.d("QuizDebug", "Updated to new version: $newVersion")
+                    true
+                } else {
+                    Log.d("QuizDebug", "Using cached version: $currentVersion")
+                    false
+                }
+
+                saveLastUpdateCheckTime(context)
+                isUpdated
+            } else {
+                Log.d("QuizDebug", "Firebase response was empty")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("QuizDebug", "Error fetching quizzes: ${e.message}")
+            false
+        }
     }
 
     fun loadCachedQuizzes(context: Context): String? {

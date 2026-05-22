@@ -108,5 +108,6 @@
 - Your data is encrypted in transit and at rest</string>
     <string name="ok">OK</string>
     <string name="slide_image_description">Onboarding slide image</string>
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
     <string name="default_web_client_id">461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com</string>
 </resources>

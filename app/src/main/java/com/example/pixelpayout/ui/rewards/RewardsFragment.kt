@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import com.example.pixelpayout.config.AppConfig
 import com.pixelpayout.databinding.FragmentRewardsBinding
 import com.example.pixelpayout.data.repository.UserRepository
 import com.tapjoy.*
@@ -52,7 +53,7 @@ class RewardsFragment : Fragment() {
         }
 
         activity?.applicationContext?.let { context ->
-            Tapjoy.connect(context, "ouc7hbV7TwOZCHX3YYtQIQECcCkzfjwMerEDDZNQ32kCdsznWomW_spBpqbx", connectFlags, object : TJConnectListener() {
+            Tapjoy.connect(context, AppConfig.TAPJOY_SDK_KEY, connectFlags, object : TJConnectListener() {
                 override fun onConnectSuccess() {
                     Log.d("Tapjoy", "Tapjoy connected successfully")
                     setupOfferwall()
@@ -71,7 +72,7 @@ class RewardsFragment : Fragment() {
 
     private fun setupOfferwall() {
         activity?.let { activityContext ->
-            offerwallPlacement = TJPlacement(activityContext, "offerwall", object : TJPlacementListener {
+            offerwallPlacement = TJPlacement(activityContext, AppConfig.TAPJOY_OFFERWALL_PLACEMENT, object : TJPlacementListener {
                 override fun onRequestSuccess(placement: TJPlacement?) {
                     Log.d("Tapjoy", "Offerwall request successful")
                     placement?.requestContent() // Ensure requestContent() is called

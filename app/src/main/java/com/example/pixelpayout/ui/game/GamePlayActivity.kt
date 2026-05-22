@@ -9,6 +9,7 @@ import android.webkit.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.example.pixelpayout.config.AppConfig
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.databinding.ActivityGamePlayBinding
@@ -46,7 +47,7 @@ class GamePlayActivity : AppCompatActivity() {
     private fun setupBannerAd() {
         adView = AdView(this)
         adView.setAdSize(AdSize.BANNER)
-        adView.adUnitId = "ca-app-pub-3940256099942544/6300978111" // Replace with your ad unit ID in production
+        adView.adUnitId = AppConfig.ADMOB_GAME_BANNER_AD_UNIT_ID
         binding.adContainer.addView(adView)
         
         val adRequest = AdRequest.Builder().build()
@@ -183,8 +184,4 @@ class GamePlayActivity : AppCompatActivity() {
         }
     }
 
-    companion object {
-        private const val GAME_URL_1 = "https://game-ccdff.web.app/" // Updated to your 2048 game URL
-        private const val GAME_URL_2 = "https://floppybird-bc843.web.app/"
-    }
 } 

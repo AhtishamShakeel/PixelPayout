@@ -116,7 +116,6 @@ class AuthViewModel : ViewModel() {
                         val userData = hashMapOf(
                             "displayName" to name,
                             "email" to email,
-                            "password" to password,
                             "androidId" to androidId,
                             "hasUsedReferral" to hasUsedReferral,
                             "joinedDate" to Timestamp.now(),

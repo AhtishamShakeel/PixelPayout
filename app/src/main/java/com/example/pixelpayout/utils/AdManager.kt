@@ -8,6 +8,7 @@ import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.example.pixelpayout.config.AppConfig
 
 class AdManager private constructor() {
     private var rewardedAd: RewardedAd? = null
@@ -27,7 +28,7 @@ class AdManager private constructor() {
 
         // Use test ad unit ID for development
         RewardedAd.load(context,
-            "ca-app-pub-3940256099942544/5224354917", // Replace with your actual ad unit ID in production
+            AppConfig.ADMOB_REWARDED_AD_UNIT_ID,
             adRequest,
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {

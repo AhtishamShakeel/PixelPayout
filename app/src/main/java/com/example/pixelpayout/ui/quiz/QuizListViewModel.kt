@@ -19,7 +19,6 @@ import kotlinx.coroutines.withContext
 import java.util.*
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
-import kotlinx.coroutines.tasks.await
 
 class QuizListViewModel : ViewModel() {
     private val _quizzes = MutableLiveData<List<Quiz>>()
@@ -51,12 +50,6 @@ class QuizListViewModel : ViewModel() {
     // App state tracking
     private var hasCompletedInitialLoad = false
 
-    private val _categories = MutableLiveData<List<QuizCategory>>().apply {
-        value = defaultCategories  // Set categories immediately
-    }
-
-    val categories: LiveData<List<QuizCategory>> = _categories
-
     private val defaultCategories = listOf(
         QuizCategory("Animals", R.raw.animal_quiz_animation, ""),
         QuizCategory("Sports", R.raw.sports_quiz_animation, ""),
@@ -67,10 +60,15 @@ class QuizListViewModel : ViewModel() {
         QuizCategory("Video Games", R.raw.games_quiz_animation, ""),
         QuizCategory("GK", R.raw.general_quiz_animation, "")
     )
+    private val _categories = MutableLiveData<List<QuizCategory>>().apply {
+        value = defaultCategories  // Set categories immediately
+    }
+
+    val categories: LiveData<List<QuizCategory>> = _categories
 
     init {
         _categories.value = defaultCategories  // Ensure categories load immediately
-        _dailyAttempts.value = MAX_DAILY_ATTEMPTS  // Start with 0 attempts until we fetch from server
+        _dailyAttempts.value = MAX_DAILY_ATTEMPTS
         val settings = FirebaseFirestoreSettings.Builder()
             .setPersistenceEnabled(true)  // Enable offline persistence
             .build()
@@ -78,9 +76,21 @@ class QuizListViewModel : ViewModel() {
     }
 
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-
         val now = System.currentTimeMillis()
+
+        if (!forceRefresh &&
+            hasCompletedInitialLoad &&
+            now - lastCheckTimestamp <= CHECK_INTERVAL &&
+            !shouldRefreshDueToResetTime()
+        ) {
+            return
+        }
+
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            _errorState.postValue("Please sign in again.")
+            return
+        }
+
         lastCheckTimestamp = now  // Ensure timestamp updates on every attempt
 
         _showLoadingDialog.postValue(true) // Show loading dialog before starting
@@ -105,17 +115,20 @@ class QuizListViewModel : ViewModel() {
                             _dailyAttempts.postValue(attempts)
                             _lastResetTime.postValue(lastResetTime)
                             _nextResetTime.postValue(nextResetTime)
-                            Log.e("QuizDebug", "Fetched ddta")
+                            hasCompletedInitialLoad = true
+                            Log.d("QuizDebug", "Fetched daily attempts")
 
                             _showLoadingDialog.postValue(false) // Hide dialog only if successful
                         } else {
                             throw Exception("No data received from server")
                         }
                     } catch (e: Exception) {
+                        hasCompletedInitialLoad = false
                         Log.e("QuizDebug", "Error processing server response: ${e.message}")
                         _errorState.postValue("Error processing response")
                     }
                 } else {
+                    hasCompletedInitialLoad = false
                     Log.e("QuizDebug", "Error checking quiz attempts", task.exception)
                     _errorState.postValue("Failed to fetch data. Please retry.") // Show retry button
                 }
@@ -151,9 +164,6 @@ class QuizListViewModel : ViewModel() {
      * Calculate the next reset time (midnight UTC of next day after the last reset)
      */
     private fun calculateNextResetTime(lastResetTimeMillis: Long): Long {
-        val lastResetCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
-        lastResetCalendar.timeInMillis = lastResetTimeMillis
-        
         // Create midnight UTC for the current day of the last reset
         val midnightCalendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         midnightCalendar.timeInMillis = lastResetTimeMillis
@@ -230,8 +240,6 @@ class QuizListViewModel : ViewModel() {
             null
         }
     }
-
-    fun getCategories(): List<QuizCategory> = defaultCategories
 
     /**
      * Returns the current server time, adjusted for elapsed time since last fetch

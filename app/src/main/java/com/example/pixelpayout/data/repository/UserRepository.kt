@@ -6,13 +6,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.DocumentReference
-import com.google.firebase.firestore.Transaction
+import com.google.firebase.functions.FirebaseFunctions
+import com.google.firebase.functions.FirebaseFunctionsException
 import com.example.pixelpayout.ui.redemption.ReferralResult
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
+    private val functions = FirebaseFunctions.getInstance()
     private val _userData = MutableLiveData<UserData>()
     val userData: LiveData<UserData> = _userData
 
@@ -58,13 +59,9 @@ class UserRepository {
         firestore.runTransaction { transaction ->
             val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
             val currentPoints = userDoc.getLong(FIELD_POINTS)?.toInt() ?: 0
-            val referredBy = userDoc.getString(FIELD_REFERRED_BY)
-            val referralRewardClaimed = userDoc.getBoolean(FIELD_REFERRAL_REWARD_CLAIMED) ?: false
 
             val newTotal = currentPoints + pointsToAdd
             transaction.update(userRef, FIELD_POINTS, FieldValue.increment(pointsToAdd.toLong()))
-
-            applyReferralRewardIfEligible(transaction, userRef, referredBy, referralRewardClaimed, newTotal)
 
             newTotal
         }.addOnSuccessListener { newTotal ->
@@ -81,15 +78,12 @@ class UserRepository {
         firestore.runTransaction { transaction ->
             val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
             val currentPoints = userDoc.getLong(FIELD_POINTS)?.toInt() ?: 0
-            val referredBy = userDoc.getString(FIELD_REFERRED_BY)
-            val referralRewardClaimed = userDoc.getBoolean(FIELD_REFERRAL_REWARD_CLAIMED) ?: false
 
             val newTotal = currentPoints + pointsToAdd
             transaction.update(userRef, mapOf(
                 FIELD_POINTS to FieldValue.increment(pointsToAdd.toLong()),
                 FIELD_QUIZ_ATTEMPTS to FieldValue.increment(1)
             ))
-            applyReferralRewardIfEligible(transaction, userRef, referredBy, referralRewardClaimed, newTotal)
 
             newTotal
         }.addOnSuccessListener { newTotal ->
@@ -101,66 +95,25 @@ class UserRepository {
 
     suspend fun submitReferral(referralCode: String): ReferralResult {
         return try {
-            val currentUser = auth.currentUser ?: throw Exception("User not logged in")
-
-            // Check if user has already used a referral code
-            val userDoc = firestore.collection(COLLECTION_USERS)
-                .document(currentUser.uid)
-                .get()
+            val result = functions
+                .getHttpsCallable("submitReferral")
+                .call(mapOf("referralCode" to referralCode))
                 .await()
 
-            if (userDoc.getBoolean(FIELD_HAS_USED_REFERRAL) == true) {
-                return ReferralResult.AlreadyUsed
+            val data = result.data as? Map<*, *>
+            when (data?.get("status") as? String) {
+                "success" -> ReferralResult.Success
+                "invalid_code" -> ReferralResult.InvalidCode
+                else -> ReferralResult.Error("Unexpected referral response")
             }
-
-            // Look up the referral code
-            val referralQuery = firestore.collection(COLLECTION_USERS)
-                .whereEqualTo("referralCode", referralCode)
-                .get()
-                .await()
-
-            if (referralQuery.isEmpty) {
-                return ReferralResult.InvalidCode
+        } catch (e: FirebaseFunctionsException) {
+            if (e.code == FirebaseFunctionsException.Code.FAILED_PRECONDITION) {
+                ReferralResult.AlreadyUsed
+            } else {
+                ReferralResult.Error(e.message ?: "Unknown error occurred")
             }
-
-            val referrerDoc = referralQuery.documents.first()
-            val referrerId = referrerDoc.id
-
-            // Don't allow self-referral
-            if (referrerId == currentUser.uid) {
-                return ReferralResult.InvalidCode
-            }
-
-            // Store referral relationship and give the referred user their signup bonus.
-            val userRef = firestore.collection(COLLECTION_USERS).document(currentUser.uid)
-            firestore.runTransaction { transaction ->
-                transaction.update(
-                    userRef,
-                    mapOf(
-                        FIELD_HAS_USED_REFERRAL to true,
-                        FIELD_REFERRED_BY to referrerId
-                    )
-                )
-                transaction.update(userRef, FIELD_POINTS, FieldValue.increment(REFERRED_USER_REWARD_POINTS.toLong()))
-            }.await()
-
-            ReferralResult.Success
         } catch (e: Exception) {
             ReferralResult.Error(e.message ?: "Unknown error occurred")
-        }
-    }
-
-    private fun applyReferralRewardIfEligible(
-        transaction: Transaction,
-        userRef: DocumentReference,
-        referredBy: String?,
-        referralRewardClaimed: Boolean,
-        newTotal: Int
-    ) {
-        if (newTotal >= REFERRAL_REWARD_UNLOCK_POINTS && referredBy != null && !referralRewardClaimed) {
-            val referrerRef = firestore.collection(COLLECTION_USERS).document(referredBy)
-            transaction.update(referrerRef, FIELD_POINTS, FieldValue.increment(REFERRER_REWARD_POINTS.toLong()))
-            transaction.update(userRef, FIELD_REFERRAL_REWARD_CLAIMED, true)
         }
     }
 
@@ -168,12 +121,5 @@ class UserRepository {
         private const val COLLECTION_USERS = "users"
         private const val FIELD_POINTS = "points"
         private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
-        private const val FIELD_HAS_USED_REFERRAL = "hasUsedReferral"
-        private const val FIELD_REFERRED_BY = "referredBy"
-        private const val FIELD_REFERRAL_REWARD_CLAIMED = "referralRewardClaimed"
-
-        private const val REFERRED_USER_REWARD_POINTS = 50
-        private const val REFERRER_REWARD_POINTS = 100
-        private const val REFERRAL_REWARD_UNLOCK_POINTS = 100
     }
 }

@@ -33,10 +33,4 @@
         android:textColor="@android:color/white"
         android:alpha="0.8" />
 
-    <ProgressBar
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_marginTop="16dp"
-        android:indeterminate="true" />
-
 </LinearLayout> 

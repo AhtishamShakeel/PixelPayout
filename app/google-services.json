@@ -12,7 +12,20 @@
           "package_name": "com.pixelpayout"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "461737828827-pd4smj65jsvr7ejf4siao8lug2gfrbvt.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pixelpayout",
+            "certificate_hash": "8acedb628d2ea7a0a3a2bfad51d53cc3ef871a97"
+          }
+        },
+        {
+          "client_id": "461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAKoH_Fo-laUG4gRtRTuyqBvudx6K3wG5Y"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

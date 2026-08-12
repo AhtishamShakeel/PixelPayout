@@ -1,6 +1,7 @@
 package com.example.pixelpayout.ui.game
 
 import android.annotation.SuppressLint
+import android.net.Uri
 import android.net.http.SslError
 import android.os.Bundle
 import android.view.View
@@ -36,7 +37,7 @@ class GamePlayActivity : AppCompatActivity() {
 
         val gameUrl = intent.getStringExtra("GAME_URL") ?: ""
 
-        if (gameUrl.startsWith("http")) {
+        if (isAllowedGameUrl(gameUrl)) {
             setupWebView(gameUrl)
         } else {
             showPlaceholder()
@@ -87,6 +88,16 @@ class GamePlayActivity : AppCompatActivity() {
                 addJavascriptInterface(GameJavaScriptInterface(this@GamePlayActivity, viewModel), "AndroidInterface")
 
                 webViewClient = object : WebViewClient() {
+                    override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+                        val requestedUrl = request?.url?.toString() ?: return true
+                        return if (isAllowedGameUrl(requestedUrl)) {
+                            false
+                        } else {
+                            showPlaceholder()
+                            true
+                        }
+                    }
+
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         loadingIndicator.visibility = View.GONE
@@ -138,7 +149,8 @@ class GamePlayActivity : AppCompatActivity() {
 
                     @SuppressLint("WebViewClientOnReceivedSslError")
                     override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                        handler?.proceed()
+                        handler?.cancel()
+                        showPlaceholder()
                     }
                 }
 
@@ -182,6 +194,18 @@ class GamePlayActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun isAllowedGameUrl(url: String): Boolean {
+        val uri = Uri.parse(url)
+        return uri.scheme == "https" && uri.host in ALLOWED_GAME_HOSTS
+    }
+
+    companion object {
+        private val ALLOWED_GAME_HOSTS = setOf(
+            "game-ccdff.web.app",
+            "floppybird-bc843.web.app"
+        )
     }
 
 } 

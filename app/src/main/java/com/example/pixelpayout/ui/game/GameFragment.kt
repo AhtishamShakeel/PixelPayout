@@ -29,6 +29,7 @@ class GameFragment : Fragment() {
             intent.putExtra("GAME_URL", "https://game-ccdff.web.app/") // URL for 2048
             startActivity(intent)
         }
+        //
 
         binding.playFlappyBird.setOnClickListener {
             val intent = Intent(requireContext(), GamePlayActivity::class.java)

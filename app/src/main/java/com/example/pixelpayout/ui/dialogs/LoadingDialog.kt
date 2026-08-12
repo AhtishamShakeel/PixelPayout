@@ -14,6 +14,7 @@ class LoadingDialog(private val onRetry: (() -> Unit)? = null) : DialogFragment(
 
     private var _binding: DialogLoadingBinding? = null
     private val binding get() = _binding!!
+    private var showRetryWhenReady = false
 
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         _binding = DialogLoadingBinding.inflate(LayoutInflater.from(context))
@@ -32,15 +33,34 @@ class LoadingDialog(private val onRetry: (() -> Unit)? = null) : DialogFragment(
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initially hide the retry button
-        binding.retryButton.visibility = View.GONE
-
+        if (showRetryWhenReady) {
+            applyRetryState()
+        } else {
+            applyLoadingState()
+        }
     }
 
     /**
      * Show retry UI when an error occurs.
      */
     fun showRetry() {
+        showRetryWhenReady = true
+        if (_binding == null) return
+
+        applyRetryState()
+    }
+
+    /**
+     * Reset UI to loading state.
+     */
+    fun setLoadingState() {
+        showRetryWhenReady = false
+        if (_binding == null) return
+
+        applyLoadingState()
+    }
+
+    private fun applyRetryState() {
         Log.d("QuizDebug", "showRetry() called, making retry button visible") // Debugging
         binding.loadingText.text = "Failed to Load"
         binding.loadingSubText.text = "Please check your internet and try again."
@@ -53,10 +73,7 @@ class LoadingDialog(private val onRetry: (() -> Unit)? = null) : DialogFragment(
         }
     }
 
-    /**
-     * Reset UI to loading state.
-     */
-    fun setLoadingState() {
+    private fun applyLoadingState() {
         binding.loadingText.text = "Loading Data"
         binding.loadingSubText.text = "Please wait while we fetch your data"
         binding.loadingProgressBar.visibility = View.VISIBLE

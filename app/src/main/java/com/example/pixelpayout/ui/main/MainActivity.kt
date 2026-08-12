@@ -39,6 +39,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
     private var loadingDialog: LoadingDialog? = null
+    private var isConnectedToInternet = true
+    private var isDataLoading = false
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -104,16 +106,15 @@ class MainActivity : AppCompatActivity() {
     private fun setupConnectivityCheck() {
         lifecycleScope.launch {
             connectivityCheck.isConnected.collect { isConnected ->
-                if (!isConnected) {
-                    showNoInternetDialog()
-                } else {
-                    hideNoInternetDialog()
-                }
+                isConnectedToInternet = isConnected
+                updateBlockingDialogState()
             }
         }
     }
 
     private fun showNoInternetDialog() {
+        if (supportFragmentManager.isStateSaved) return
+
         if (noInternetDialog == null) {
             noInternetDialog = NoInternetDialog()
             noInternetDialog?.show(supportFragmentManager, NoInternetDialog.TAG)
@@ -189,11 +190,8 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.points_value, points)
         }
         quizViewModel.showLoadingDialog.observe(this) { isLoading ->
-            if (isLoading){
-                showLoadingDialog()
-            } else {
-                hideLoadingDialog()
-            }
+            isDataLoading = isLoading
+            updateBlockingDialogState()
         }
         quizViewModel.errorState.observe(this) { errorMsg ->
             if (errorMsg != null) {
@@ -202,7 +200,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun updateBlockingDialogState() {
+        if (!isConnectedToInternet) {
+            hideLoadingDialog()
+            showNoInternetDialog()
+            return
+        }
+
+        hideNoInternetDialog()
+
+        if (isDataLoading) {
+            showLoadingDialog()
+        } else {
+            hideLoadingDialog()
+        }
+    }
+
     private fun showLoadingDialog() {
+        if (!isConnectedToInternet || supportFragmentManager.isStateSaved) return
+
         if (loadingDialog == null) {
             loadingDialog = LoadingDialog { retryFetchingData() } // Pass retry function
             loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
@@ -218,6 +234,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showRetryButtonInDialog() {
+        if (!isConnectedToInternet) return
+
+        if (loadingDialog == null) {
+            loadingDialog = LoadingDialog { retryFetchingData() }
+            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
+        }
+
         Log.d("QuizDebug", "showRetryButtonInDialog() called") // Debugging
         loadingDialog?.showRetry()
     }

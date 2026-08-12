@@ -87,6 +87,7 @@ class QuizListViewModel : ViewModel() {
         }
 
         if (FirebaseAuth.getInstance().currentUser == null) {
+            _showLoadingDialog.postValue(false)
             _errorState.postValue("Please sign in again.")
             return
         }
@@ -125,11 +126,13 @@ class QuizListViewModel : ViewModel() {
                     } catch (e: Exception) {
                         hasCompletedInitialLoad = false
                         Log.e("QuizDebug", "Error processing server response: ${e.message}")
+                        _showLoadingDialog.postValue(false)
                         _errorState.postValue("Error processing response")
                     }
                 } else {
                     hasCompletedInitialLoad = false
                     Log.e("QuizDebug", "Error checking quiz attempts", task.exception)
+                    _showLoadingDialog.postValue(false)
                     _errorState.postValue("Failed to fetch data. Please retry.") // Show retry button
                 }
             }

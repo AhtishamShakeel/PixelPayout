@@ -8,6 +8,6 @@ class GameJavaScriptInterface(
 ) {
     @JavascriptInterface
     fun onGameComplete(points: Int) {
-        viewModel.claimGameReward(gameId)
+        viewModel.claimGameReward(gameId, points)
     }
 }

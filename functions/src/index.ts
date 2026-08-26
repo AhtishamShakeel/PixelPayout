@@ -17,10 +17,7 @@ const QUIZ_CORRECT_REWARD_POINTS = 10;
 const REFERRED_USER_REWARD_POINTS = 50;
 const REFERRER_REWARD_POINTS = 100;
 const REFERRAL_REWARD_UNLOCK_POINTS = 100;
-const GAME_REWARDS: Record<string, number> = {
-  game_2048: 10,
-  floppy_bird: 10,
-};
+const MAX_GAME_SCORE = 1_000_000;
 
 // Changed from daily to weekly as a safety net backup
 export const weeklyReset = onSchedule("every monday 00:00", async (_event) => {
@@ -128,13 +125,19 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     pointsAwarded = request.data.wasCorrect === true ? QUIZ_CORRECT_REWARD_POINTS : 0;
   } else if (rewardType === "game") {
     const gameId = String(request.data.gameId || "").trim();
-    const gameReward = GAME_REWARDS[gameId];
+    const score = Number(request.data.score || 0);
 
-    if (gameReward === undefined) {
-      throw new functions.https.HttpsError("invalid-argument", "Unknown game reward");
+    if (!Number.isFinite(score) || score < 0 || score > MAX_GAME_SCORE) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid game score");
     }
 
-    pointsAwarded = gameReward;
+    if (gameId === "floppy_bird") {
+      pointsAwarded = Math.floor(score);
+    } else if (gameId === "game_2048") {
+      pointsAwarded = Math.floor(score / 10);
+    } else {
+      throw new functions.https.HttpsError("invalid-argument", "Unknown game reward");
+    }
   } else {
     throw new functions.https.HttpsError("invalid-argument", "Unknown reward type");
   }

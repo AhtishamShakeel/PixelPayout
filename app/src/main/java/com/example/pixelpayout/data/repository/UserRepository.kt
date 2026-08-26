@@ -55,11 +55,12 @@ class UserRepository {
         val totalPoints: Int
     )
 
-    suspend fun claimGameReward(gameId: String): RewardClaimResult {
+    suspend fun claimGameReward(gameId: String, score: Int): RewardClaimResult {
         return claimReward(
             mapOf(
                 "rewardType" to "game",
-                "gameId" to gameId
+                "gameId" to gameId,
+                "score" to score
             )
         )
     }

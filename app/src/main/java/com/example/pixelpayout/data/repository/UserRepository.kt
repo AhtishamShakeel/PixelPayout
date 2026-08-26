@@ -5,7 +5,6 @@ import com.google.firebase.firestore.FirebaseFirestore
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
-import com.google.firebase.firestore.FieldValue
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.example.pixelpayout.ui.redemption.ReferralResult
@@ -51,46 +50,28 @@ class UserRepository {
         val points: Int
     )
 
+    data class RewardClaimResult(
+        val pointsAwarded: Int,
+        val totalPoints: Int
+    )
 
-    fun updateUserPoints(pointsToAdd: Int, onComplete: (Int) -> Unit) {
-        val userId = auth.currentUser?.uid ?: return
-        val userRef = firestore.collection(COLLECTION_USERS).document(userId)
-
-        firestore.runTransaction { transaction ->
-            val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
-            val currentPoints = userDoc.getLong(FIELD_POINTS)?.toInt() ?: 0
-
-            val newTotal = currentPoints + pointsToAdd
-            transaction.update(userRef, FIELD_POINTS, FieldValue.increment(pointsToAdd.toLong()))
-
-            newTotal
-        }.addOnSuccessListener { newTotal ->
-            onComplete(newTotal) // Update UI
-        }.addOnFailureListener {
-            onComplete(0) // Handle errors
-        }
+    suspend fun claimGameReward(gameId: String): RewardClaimResult {
+        return claimReward(
+            mapOf(
+                "rewardType" to "game",
+                "gameId" to gameId
+            )
+        )
     }
 
-    fun updateUserPointsAndAttempts(pointsToAdd: Int, onComplete: (Int) -> Unit) {
-        val userId = auth.currentUser?.uid ?: return
-        val userRef = firestore.collection(COLLECTION_USERS).document(userId)
-
-        firestore.runTransaction { transaction ->
-            val userDoc = transaction.get(userRef) // This read is part of the transaction, avoids double read
-            val currentPoints = userDoc.getLong(FIELD_POINTS)?.toInt() ?: 0
-
-            val newTotal = currentPoints + pointsToAdd
-            transaction.update(userRef, mapOf(
-                FIELD_POINTS to FieldValue.increment(pointsToAdd.toLong()),
-                FIELD_QUIZ_ATTEMPTS to FieldValue.increment(1)
-            ))
-
-            newTotal
-        }.addOnSuccessListener { newTotal ->
-            onComplete(newTotal) // Update UI
-        }.addOnFailureListener {
-            onComplete(0) // Handle errors
-        }
+    suspend fun claimQuizReward(quizId: String, wasCorrect: Boolean): RewardClaimResult {
+        return claimReward(
+            mapOf(
+                "rewardType" to "quiz",
+                "quizId" to quizId,
+                "wasCorrect" to wasCorrect
+            )
+        )
     }
 
     suspend fun submitReferral(referralCode: String): ReferralResult {
@@ -117,9 +98,28 @@ class UserRepository {
         }
     }
 
+    private suspend fun claimReward(payload: Map<String, Any>): RewardClaimResult {
+        val result = functions
+            .getHttpsCallable("claimReward")
+            .call(payload)
+            .await()
+
+        val data = result.data as? Map<*, *>
+            ?: throw IllegalStateException("Unexpected reward response")
+
+        return RewardClaimResult(
+            pointsAwarded = data.getInt("pointsAwarded"),
+            totalPoints = data.getInt("totalPoints")
+        )
+    }
+
+    private fun Map<*, *>.getInt(key: String): Int {
+        return (this[key] as? Number)?.toInt()
+            ?: throw IllegalStateException("Missing reward field: $key")
+    }
+
     companion object {
         private const val COLLECTION_USERS = "users"
         private const val FIELD_POINTS = "points"
-        private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
     }
 }

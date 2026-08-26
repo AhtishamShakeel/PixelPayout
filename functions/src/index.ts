@@ -7,13 +7,20 @@ admin.initializeApp();
 
 const USERS_COLLECTION = "users";
 const FIELD_POINTS = "points";
+const FIELD_QUIZ_ATTEMPTS = "quiz_attempts";
 const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
 const FIELD_REFERRED_BY = "referredBy";
 const FIELD_REFERRAL_CODE = "referralCode";
 const FIELD_REFERRAL_REWARD_CLAIMED = "referralRewardClaimed";
+const MAX_DAILY_QUIZ_ATTEMPTS = 10;
+const QUIZ_CORRECT_REWARD_POINTS = 10;
 const REFERRED_USER_REWARD_POINTS = 50;
 const REFERRER_REWARD_POINTS = 100;
 const REFERRAL_REWARD_UNLOCK_POINTS = 100;
+const GAME_REWARDS: Record<string, number> = {
+  game_2048: 10,
+  floppy_bird: 10,
+};
 
 // Changed from daily to weekly as a safety net backup
 export const weeklyReset = onSchedule("every monday 00:00", async (_event) => {
@@ -104,6 +111,70 @@ export const checkAndResetQuizAttempts = functions.https.onCall(async (request: 
       serverTime: now.toMillis()
     };
   }
+});
+
+export const claimReward = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const rewardType = String(request.data.rewardType || "").trim();
+  const userId = request.auth.uid;
+  let pointsAwarded = 0;
+  let incrementQuizAttempt = false;
+
+  if (rewardType === "quiz") {
+    incrementQuizAttempt = true;
+    pointsAwarded = request.data.wasCorrect === true ? QUIZ_CORRECT_REWARD_POINTS : 0;
+  } else if (rewardType === "game") {
+    const gameId = String(request.data.gameId || "").trim();
+    const gameReward = GAME_REWARDS[gameId];
+
+    if (gameReward === undefined) {
+      throw new functions.https.HttpsError("invalid-argument", "Unknown game reward");
+    }
+
+    pointsAwarded = gameReward;
+  } else {
+    throw new functions.https.HttpsError("invalid-argument", "Unknown reward type");
+  }
+
+  const userRef = admin.firestore().collection(USERS_COLLECTION).doc(userId);
+  const result = await admin.firestore().runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
+    const currentAttempts = Number(userDoc.get(FIELD_QUIZ_ATTEMPTS) || 0);
+
+    if (incrementQuizAttempt && currentAttempts >= MAX_DAILY_QUIZ_ATTEMPTS) {
+      throw new functions.https.HttpsError("failed-precondition", "Daily quiz limit reached");
+    }
+
+    const updateData: Record<string, admin.firestore.FieldValue> = {
+      [FIELD_POINTS]: admin.firestore.FieldValue.increment(pointsAwarded),
+    };
+
+    if (incrementQuizAttempt) {
+      updateData[FIELD_QUIZ_ATTEMPTS] = admin.firestore.FieldValue.increment(1);
+    }
+
+    transaction.update(userRef, updateData);
+
+    return {
+      pointsAwarded,
+      totalPoints: currentPoints + pointsAwarded,
+      attempts: incrementQuizAttempt ? currentAttempts + 1 : currentAttempts,
+    };
+  });
+
+  return {
+    success: true,
+    ...result,
+  };
 });
 
 export const submitReferral = functions.https.onCall(async (request: CallableRequest) => {

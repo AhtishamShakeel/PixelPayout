@@ -13,12 +13,11 @@ class GamePlayViewModel : ViewModel() {
     private val _pointsUpdated = MutableLiveData<Boolean>()
     val pointsUpdated: LiveData<Boolean> = _pointsUpdated
 
-    fun updateGamePoints(points: Int) {
+    fun claimGameReward(gameId: String) {
         viewModelScope.launch {
             try {
-                userRepository.updateUserPoints(points) {
-                    _pointsUpdated.value = true
-                }
+                userRepository.claimGameReward(gameId)
+                _pointsUpdated.value = true
             } catch (e: Exception) {
                 _pointsUpdated.value = false
             }

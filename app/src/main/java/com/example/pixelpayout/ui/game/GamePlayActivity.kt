@@ -37,8 +37,10 @@ class GamePlayActivity : AppCompatActivity() {
 
         val gameUrl = intent.getStringExtra("GAME_URL") ?: ""
 
-        if (isAllowedGameUrl(gameUrl)) {
-            setupWebView(gameUrl)
+        val gameId = getGameId(gameUrl)
+
+        if (gameId != null) {
+            setupWebView(gameUrl, gameId)
         } else {
             showPlaceholder()
         }
@@ -63,7 +65,7 @@ class GamePlayActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupWebView(gameUrl: String) {
+    private fun setupWebView(gameUrl: String, gameId: String) {
         binding.apply {
             gameWebView.visibility = View.VISIBLE
             placeholderText.visibility = View.GONE
@@ -85,7 +87,7 @@ class GamePlayActivity : AppCompatActivity() {
                 }
 
                 // Pass Activity instance along with ViewModel
-                addJavascriptInterface(GameJavaScriptInterface(this@GamePlayActivity, viewModel), "AndroidInterface")
+                addJavascriptInterface(GameJavaScriptInterface(viewModel, gameId), "AndroidInterface")
 
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -197,14 +199,20 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     private fun isAllowedGameUrl(url: String): Boolean {
+        return getGameId(url) != null
+    }
+
+    private fun getGameId(url: String): String? {
         val uri = Uri.parse(url)
-        return uri.scheme == "https" && uri.host in ALLOWED_GAME_HOSTS
+        if (uri.scheme != "https") return null
+
+        return ALLOWED_GAME_HOSTS[uri.host]
     }
 
     companion object {
-        private val ALLOWED_GAME_HOSTS = setOf(
-            "game-ccdff.web.app",
-            "floppybird-bc843.web.app"
+        private val ALLOWED_GAME_HOSTS = mapOf(
+            "game-ccdff.web.app" to "game_2048",
+            "floppybird-bc843.web.app" to "floppy_bird"
         )
     }
 

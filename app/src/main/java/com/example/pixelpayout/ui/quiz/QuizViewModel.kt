@@ -41,15 +41,16 @@ class QuizViewModel : ViewModel() {
         val currentQuestion = quiz.questions[currentQuestionIndex]
         val isCorrect = selectedAnswerIndex == currentQuestion.correctAnswer
 
-        if (isCorrect) {
-            points += quiz.pointsReward
-            _score.postValue(points)  // 🔥 Use postValue to ensure UI updates
-        }
-
-        // Increment attempts and update points
-        userRepository.updateUserPointsAndAttempts(points) {
-            _totalPoints.postValue(it)
-            _isQuizComplete.postValue(true)
+        viewModelScope.launch {
+            try {
+                val result = userRepository.claimQuizReward(quiz.id, isCorrect)
+                points += result.pointsAwarded
+                _score.postValue(points)
+                _totalPoints.postValue(result.totalPoints)
+                _isQuizComplete.postValue(true)
+            } catch (e: Exception) {
+                _isQuizComplete.postValue(true)
+            }
         }
     }
 

@@ -34,14 +34,14 @@ class DetailsFragment : Fragment() {
                 binding.apply {
                     titleText.text = "Quiz Rules"
                     descriptionText.text = getString(R.string.quiz_rules_description)
-                    rewardsText.text = "Rewards:\n• Easy: 10 stars\n• Medium: 20 stars\n• Hard: 30 stars"
+                    rewardsText.text = getString(R.string.quiz_rewards_summary)
                 }
             }
             "game" -> {
                 binding.apply {
                     titleText.text = "Game Rules"
                     descriptionText.text = getString(R.string.game_rules_description)
-                    rewardsText.text = "Rewards:\n• 5-10 stars per minute based on performance"
+                    rewardsText.text = getString(R.string.game_rewards_summary)
                 }
             }
         }

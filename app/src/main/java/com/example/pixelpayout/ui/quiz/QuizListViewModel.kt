@@ -197,7 +197,7 @@ class QuizListViewModel : ViewModel() {
                     }
                     _quizzes.value = quizData.categories.flatMap { category ->
                         category.quizzes.map { quiz ->
-                            quiz.copy(title = category.name)
+                            quiz.copy(title = category.name, category = category.name)
                         }
                     }
 
@@ -236,10 +236,13 @@ class QuizListViewModel : ViewModel() {
 
         return if (!validQuizzes.isNullOrEmpty()) {
             val selectedQuiz = validQuizzes.random()
-            // Select one random question from the quiz
-            val randomQuestion = selectedQuiz.questions.random()
-            // Return a new quiz with only the selected question
-            selectedQuiz.copy(questions = listOf(randomQuestion))
+            // Select one random question from the quiz, keeping its original
+            // index so the server can grade it against its own answer key.
+            val randomQuestionIndex = selectedQuiz.questions.indices.random()
+            selectedQuiz.copy(
+                questions = listOf(selectedQuiz.questions[randomQuestionIndex]),
+                questionIndex = randomQuestionIndex
+            )
         } else {
             null
         }

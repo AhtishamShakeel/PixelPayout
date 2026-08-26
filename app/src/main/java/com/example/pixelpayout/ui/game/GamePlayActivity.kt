@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.config.AppConfig
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.utils.showLevelUp
 import com.example.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.databinding.ActivityGamePlayBinding
 import com.google.android.gms.ads.AdRequest
@@ -40,6 +41,7 @@ class GamePlayActivity : AppCompatActivity() {
         val gameId = getGameId(gameUrl)
 
         if (gameId != null) {
+            viewModel.startSession(gameId)
             setupWebView(gameUrl, gameId)
         } else {
             showPlaceholder()
@@ -178,6 +180,12 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
+        // Emitted before pointsUpdated, so the toast is queued before this
+        // activity finishes below (a Toast outlives the activity that showed it).
+        viewModel.levelUp.observe(this) { event ->
+            event?.let { showLevelUp(it) }
+        }
+
         viewModel.pointsUpdated.observe(this) { success ->
             if (success) {
                 setResult(RESULT_OK)

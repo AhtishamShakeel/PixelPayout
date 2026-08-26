@@ -87,6 +87,59 @@
                             android:textSize="14sp"
                             android:layout_marginTop="4dp"/>
 
+                        <!-- Progression (XP/level) is shown separately from
+                             the redeemable star balance above. The bar shows
+                             progress through the current level, not lifetime
+                             XP, so it visibly resets on each level up. -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:layout_marginTop="6dp">
+
+                            <TextView
+                                android:id="@+id/levelText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Lv 1"
+                                android:textColor="@color/primary"
+                                android:textSize="14sp"
+                                android:textStyle="bold"/>
+
+                            <TextView
+                                android:id="@+id/xpText"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0 / 50 XP"
+                                android:textColor="#B1B1B1"
+                                android:textSize="13sp"
+                                android:layout_marginStart="8dp"/>
+                        </LinearLayout>
+
+                        <ProgressBar
+                            android:id="@+id/xpProgressBar"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="150dp"
+                            android:layout_height="6dp"
+                            android:layout_marginTop="4dp"
+                            android:max="100"
+                            android:progress="0"
+                            android:progressTint="@color/primary"
+                            android:progressBackgroundTint="#3A3A3A"/>
+
+                        <!-- Only visible while a Points buff is running. -->
+                        <TextView
+                            android:id="@+id/buffText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="2x stars"
+                            android:textColor="@color/primary"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            android:visibility="gone"/>
+
                     </LinearLayout>
 
                     <!-- Payout Button (Right Side) -->

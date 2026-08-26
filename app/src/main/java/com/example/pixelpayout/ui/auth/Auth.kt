@@ -181,9 +181,7 @@ class Auth : AppCompatActivity() {
                         }
 
                         viewModel.checkIfUserExists(
-                            it.uid,
                             it.displayName ?:"User",
-                            it.email?:"",
                             androidId,
                             this,
                             onSuccess = {

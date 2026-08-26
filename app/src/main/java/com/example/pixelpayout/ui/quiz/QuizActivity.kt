@@ -15,6 +15,7 @@ import com.pixelpayout.databinding.ActivityQuizBinding
 import com.example.pixelpayout.data.api.Question
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.utils.showLevelUp
 import com.example.pixelpayout.ui.main.MainActivity
 import android.text.Html
 import android.os.Build
@@ -35,11 +36,13 @@ class QuizActivity : AppCompatActivity() {
         connectivityCheck = AndroidConnectivityCheck(this)
         setupConnectivityCheck()
 
+        // Quiz is Serializable, not Parcelable - reading it as a Parcelable
+        // always yields null, which silently finished this activity.
         val quiz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getParcelableExtra(EXTRA_QUIZ, Quiz::class.java)
+            intent.getSerializableExtra(EXTRA_QUIZ, Quiz::class.java)
         } else {
             @Suppress("DEPRECATION")
-            intent.getParcelableExtra(EXTRA_QUIZ)
+            intent.getSerializableExtra(EXTRA_QUIZ) as? Quiz
         }
 
         if (quiz != null) {
@@ -96,6 +99,10 @@ class QuizActivity : AppCompatActivity() {
 
         viewModel.totalPoints.observe(this) { totalPoints ->
             // Handle total points update if needed
+        }
+
+        viewModel.levelUp.observe(this) { event ->
+            event?.let { showLevelUp(it) }
         }
     }
 

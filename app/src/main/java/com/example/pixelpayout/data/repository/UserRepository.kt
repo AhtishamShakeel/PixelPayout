@@ -7,6 +7,9 @@ import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
+import com.example.pixelpayout.data.model.RedemptionOption
+import com.example.pixelpayout.data.model.RedemptionType
+import com.example.pixelpayout.ui.redemption.RedemptionResult
 import com.example.pixelpayout.ui.redemption.ReferralResult
 
 class UserRepository {
@@ -15,6 +18,9 @@ class UserRepository {
     private val functions = FirebaseFunctions.getInstance()
     private val _userData = MutableLiveData<UserData>()
     val userData: LiveData<UserData> = _userData
+
+    private val _levelCurve = MutableLiveData<LevelCurve?>()
+    val levelCurve: LiveData<LevelCurve?> = _levelCurve
 
     init {
         waitForUserLogin()
@@ -27,7 +33,41 @@ class UserRepository {
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
             auth.currentUser?.uid?.let { userId ->
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
+                fetchLevelCurve()
             }
+        }
+    }
+
+    /**
+     * The XP thresholds are published by the server so the client never
+     * duplicates the curve (which would drift the moment it's retuned).
+     * Fetched once per session; a failure just means the UI falls back to
+     * showing lifetime XP without a progress bar.
+     */
+    private fun fetchLevelCurve() {
+        if (_levelCurve.value != null) return
+
+        firestore.collection(COLLECTION_CONFIG).document(DOC_LEVEL_CURVE).get()
+            .addOnSuccessListener { snapshot ->
+                val thresholds = (snapshot.get(FIELD_THRESHOLDS) as? List<*>)
+                    ?.mapNotNull { (it as? Number)?.toInt() }
+                val maxLevel = snapshot.getLong(FIELD_MAX_LEVEL)?.toInt()
+
+                if (!thresholds.isNullOrEmpty() && maxLevel != null) {
+                    _levelCurve.postValue(LevelCurve(maxLevel, thresholds))
+                }
+            }
+    }
+
+    data class LevelCurve(
+        val maxLevel: Int,
+        /** Cumulative XP required to reach level (index + 2). */
+        val thresholds: List<Int>
+    ) {
+        /** Total XP needed to reach [level]; 0 for level 1. */
+        fun xpRequiredFor(level: Int): Int = when {
+            level <= 1 -> 0
+            else -> thresholds.getOrElse(minOf(level, maxLevel) - 2) { thresholds.last() }
         }
     }
 
@@ -38,7 +78,10 @@ class UserRepository {
                     snapshot?.let {
                         _userData.postValue(
                             UserData(
-                                points = it.getLong(FIELD_POINTS)?.toInt() ?: 0
+                                points = it.getLong(FIELD_POINTS)?.toInt() ?: 0,
+                                xp = it.getLong(FIELD_XP)?.toInt() ?: 0,
+                                level = it.getLong(FIELD_LEVEL)?.toInt() ?: 1,
+                                activeBuff = parseBuff(it.get(FIELD_ACTIVE_BUFF))
                             )
                         )
                     }
@@ -47,32 +90,142 @@ class UserRepository {
     }
 
     data class UserData(
-        val points: Int
+        val points: Int,
+        val xp: Int = 0,
+        val level: Int = 1,
+        val activeBuff: PointsBuff? = null
     )
+
+    /**
+     * A temporary Points multiplier. Only applies to sources the server marks
+     * multiplier-eligible - never to quiz/game XP or referrals.
+     */
+    data class PointsBuff(
+        val multiplier: Double,
+        val expiresAtMillis: Long
+    ) {
+        fun isActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
+            multiplier > 1.0 && expiresAtMillis > nowMillis
+    }
+
+    private fun parseBuff(raw: Any?): PointsBuff? {
+        val map = raw as? Map<*, *> ?: return null
+        val multiplier = (map["multiplier"] as? Number)?.toDouble() ?: return null
+        val expiresAt = (map["expiresAt"] as? Number)?.toLong() ?: return null
+        return PointsBuff(multiplier, expiresAt)
+    }
 
     data class RewardClaimResult(
         val pointsAwarded: Int,
-        val totalPoints: Int
+        val totalPoints: Int,
+        val xpAwarded: Int = 0,
+        val totalXp: Int = 0,
+        val level: Int = 1,
+        val leveledUp: Boolean = false,
+        /** One-time Points bonus from any milestone level reached by this claim. */
+        val milestonePoints: Int = 0,
+        val wasCorrect: Boolean = false
     )
 
-    suspend fun claimGameReward(gameId: String, score: Int): RewardClaimResult {
+    suspend fun startGameSession(gameId: String): String {
+        val result = functions
+            .getHttpsCallable("startGameSession")
+            .call(mapOf("gameId" to gameId))
+            .await()
+
+        val data = result.data as? Map<*, *>
+            ?: throw IllegalStateException("Unexpected game session response")
+
+        return data["sessionId"] as? String
+            ?: throw IllegalStateException("Missing game session id")
+    }
+
+    suspend fun claimGameReward(gameId: String, score: Int, sessionId: String): RewardClaimResult {
         return claimReward(
             mapOf(
                 "rewardType" to "game",
                 "gameId" to gameId,
-                "score" to score
+                "score" to score,
+                "sessionId" to sessionId
             )
         )
     }
 
-    suspend fun claimQuizReward(quizId: String, wasCorrect: Boolean): RewardClaimResult {
+    /**
+     * Correctness is decided by the server against its own answer key - the
+     * client no longer reports whether the answer was right.
+     */
+    suspend fun claimQuizReward(
+        category: String,
+        quizId: String,
+        questionIndex: Int,
+        selectedAnswer: Int
+    ): RewardClaimResult {
         return claimReward(
             mapOf(
                 "rewardType" to "quiz",
+                "category" to category,
                 "quizId" to quizId,
-                "wasCorrect" to wasCorrect
+                "questionIndex" to questionIndex,
+                "selectedAnswer" to selectedAnswer
             )
         )
+    }
+
+    /** Redemption options are server-managed; the client only reads them. */
+    suspend fun getRedemptionOptions(): List<RedemptionOption> {
+        val snapshot = firestore.collection(COLLECTION_REDEMPTION_OPTIONS).get().await()
+        return snapshot.documents.mapNotNull { doc ->
+            val title = doc.getString("title") ?: return@mapNotNull null
+            val cost = doc.getLong("pointsCost")?.toInt() ?: return@mapNotNull null
+            if (doc.getBoolean("enabled") != true) return@mapNotNull null
+
+            RedemptionOption(
+                id = doc.id,
+                title = title,
+                description = doc.getString("description").orEmpty(),
+                pointsCost = cost,
+                type = when (doc.getString("type")) {
+                    "EASYPAISA" -> RedemptionType.EASYPAISA
+                    else -> RedemptionType.GAME_CURRENCY
+                },
+                imageUrl = doc.getString("imageUrl"),
+                minLevel = doc.getLong("minLevel")?.toInt() ?: 1
+            )
+        }.sortedBy { it.pointsCost }
+    }
+
+    /**
+     * Spends points on an option. The cost is decided server-side from the
+     * option document - nothing about the price is sent from here.
+     */
+    suspend fun redeem(optionId: String, payoutNumber: String?): RedemptionResult {
+        return try {
+            val payload = mutableMapOf<String, Any>("optionId" to optionId)
+            payoutNumber?.let { payload["payoutNumber"] = it }
+
+            val result = functions.getHttpsCallable("redeemReward").call(payload).await()
+            val data = result.data as? Map<*, *>
+                ?: return RedemptionResult.Error("Unexpected response")
+
+            RedemptionResult.Success(
+                pointsSpent = (data["pointsSpent"] as? Number)?.toInt() ?: 0,
+                remainingPoints = (data["remainingPoints"] as? Number)?.toInt() ?: 0
+            )
+        } catch (e: FirebaseFunctionsException) {
+            RedemptionResult.Error(redemptionErrorMessage(e.message))
+        } catch (e: Exception) {
+            RedemptionResult.Error(e.message ?: "Unknown error occurred")
+        }
+    }
+
+    private fun redemptionErrorMessage(raw: String?): String = when (raw) {
+        "insufficient_points" -> "You don't have enough stars yet."
+        "level_too_low" -> "Reach a higher level to unlock this reward."
+        "option_disabled" -> "This reward is no longer available."
+        "payout_details_required" -> "Enter a valid phone number."
+        "unknown_option" -> "This reward could not be found."
+        else -> raw ?: "Redemption failed"
     }
 
     suspend fun submitReferral(referralCode: String): ReferralResult {
@@ -110,7 +263,13 @@ class UserRepository {
 
         return RewardClaimResult(
             pointsAwarded = data.getInt("pointsAwarded"),
-            totalPoints = data.getInt("totalPoints")
+            totalPoints = data.getInt("totalPoints"),
+            xpAwarded = data.optInt("xpAwarded"),
+            totalXp = data.optInt("totalXp"),
+            level = data.optInt("level", default = 1),
+            leveledUp = data["leveledUp"] as? Boolean ?: false,
+            milestonePoints = data.optInt("milestonePoints"),
+            wasCorrect = data["wasCorrect"] as? Boolean ?: false
         )
     }
 
@@ -119,8 +278,20 @@ class UserRepository {
             ?: throw IllegalStateException("Missing reward field: $key")
     }
 
+    private fun Map<*, *>.optInt(key: String, default: Int = 0): Int {
+        return (this[key] as? Number)?.toInt() ?: default
+    }
+
     companion object {
         private const val COLLECTION_USERS = "users"
+        private const val COLLECTION_CONFIG = "config"
+        private const val COLLECTION_REDEMPTION_OPTIONS = "redemptionOptions"
+        private const val DOC_LEVEL_CURVE = "levelCurve"
         private const val FIELD_POINTS = "points"
+        private const val FIELD_XP = "xp"
+        private const val FIELD_LEVEL = "level"
+        private const val FIELD_THRESHOLDS = "thresholds"
+        private const val FIELD_MAX_LEVEL = "maxLevel"
+        private const val FIELD_ACTIVE_BUFF = "activeBuff"
     }
 }

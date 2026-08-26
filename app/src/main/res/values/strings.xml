@@ -23,7 +23,14 @@
     <string name="select_answer">Please select an answer</string>
     <string name="timer_format">%d s</string>
     <string name="quiz_completed">Quiz Completed!</string>
-    <string name="points_earned">You earned %d points!</string>
+    <string name="points_earned">You earned %d XP!</string>
+    <string name="xp_value">%d XP</string>
+    <string name="xp_progress">%1$d / %2$d XP</string>
+    <string name="xp_max_level">Max level</string>
+    <string name="level_value">Lv %d</string>
+    <string name="buff_active">%1$sx stars · %2$s left</string>
+    <string name="level_up_with_bonus">Level %1$d reached! Bonus: %2$d stars</string>
+    <string name="level_up">Level up! You reached level %d</string>
     <string name="done">Done</string>
     <string name="redeem">Redeem</string>
     <string name="insufficient_points">Insufficient points</string>
@@ -50,22 +57,27 @@
     <string name="extra_attempt_added">Extra quiz attempt added!</string>
     <string name="failed_to_add_attempt">Failed to add extra attempt: %1$s</string>
     <string name="loading_ad">Loading Ad...</string>
-    <string name="quiz_rules_description">Test your knowledge and earn stars by answering questions correctly!\n\n
+    <string name="quiz_rules_description">Test your knowledge and earn XP by answering questions correctly!\n\n
         Rules:\n
         • Each quiz has multiple choice questions\n
         • You have 30 seconds to answer each question\n
-        • Correct answers earn you stars based on difficulty\n
+        • Correct answers earn XP, which raises your level\n
         • You can attempt up to 10 quizzes per day\n
         • Watch ads to get extra attempts
     </string>
-    <string name="game_rules_description">Play our exciting Color Puzzle game to earn stars!\n\n
+    <string name="game_rules_description">Play games to earn XP and level up!\n\n
         Rules:\n
-        • Sort the colors to match the pattern\n
-        • Faster completion gives more stars\n
-        • Earn 5-10 stars per minute based on performance\n
+        • A higher score earns more XP\n
+        • XP raises your level and unlocks rewards\n
         • No daily limit on game plays\n
-        • Practice to improve your speed and earn more!
+        • Practice to improve your score and earn more!
     </string>
+    <string name="quiz_rewards_summary">Rewards:\n• 10 XP per correct answer\n• Up to 10 quizzes per day</string>
+    <string name="game_rewards_summary">Rewards:\n• XP based on your score\n• Up to 30 XP per game</string>
+    <string name="points_cost">%d stars</string>
+    <string name="locked_until_level">Level %d</string>
+    <string name="confirm_redemption">This will use %d stars. Continue?</string>
+    <string name="redemption_submitted">Request submitted. %d stars used.</string>
     <string name="enter_referral_code">Enter Referral Code</string>
     <string name="or_signup_using_google">Or Login with</string>
     <string name="get_started">Get Started</string>

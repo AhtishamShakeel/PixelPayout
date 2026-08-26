@@ -8,3 +8,10 @@ typings/
 # Node.js dependency directory
 node_modules/
 *.local
+
+# Runtime config (loaded into the function environment at deploy time).
+# Kept out of git: this repo is public, and .env names the accounts that are
+# allowed to claim admin rights.
+.env
+.env.*
+!.env.example

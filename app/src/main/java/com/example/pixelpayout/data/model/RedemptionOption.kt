@@ -10,7 +10,9 @@ data class RedemptionOption(
     val description: String,
     val pointsCost: Int,
     val type: RedemptionType,
-    val imageUrl: String? = null
+    val imageUrl: String? = null,
+    /** Level required to redeem this option; 1 means no gate. */
+    val minLevel: Int = 1
 ) : Parcelable
 
 enum class RedemptionType {

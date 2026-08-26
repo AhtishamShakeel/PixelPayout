@@ -101,36 +101,12 @@ class AuthViewModel : ViewModel() {
                 withTimeout(15000){
                     val result = auth.createUserWithEmailAndPassword(email,password).await()
 
-                    result.user?.let { user ->
-                        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-
-                        val existingUserQuery = firestore.collection("users")
-                            .whereEqualTo("androidId", androidId)
-                            .get()
-                            .await()
-
-
-                        val hasUsedReferral = existingUserQuery.documents.isNotEmpty()
-
-
-                        val userData = hashMapOf(
-                            "displayName" to name,
-                            "email" to email,
-                            "androidId" to androidId,
-                            "hasUsedReferral" to hasUsedReferral,
-                            "joinedDate" to Timestamp.now(),
-                            "lastActive" to Timestamp.now(),
-                            "lastServerDate" to currentDate,
-                            "points" to 0,
-                            "referralCode" to generateReferralCode(),
-                            "referralRewardClaimed" to false,
-                        )
-
-                        firestore.collection("users")
-                            .document(user.uid)
-                            .set(userData)
-                            .await()
-
+                    result.user?.let { _ ->
+                        // The user document is created server-side: the client
+                        // is not allowed to write points/xp/level, and the
+                        // device check and referral code need reads across
+                        // users that only the server can do.
+                        completeSignup(name, androidId)
 
                         val userPreferences = UserPreferences(context)
                         userPreferences.setHasSeenReferralPopup(false)
@@ -167,94 +143,47 @@ class AuthViewModel : ViewModel() {
     }
 
 
-    //for Google
-    fun checkIfUserExists(
-        uid: String,
-        displayName: String,
-        email: String,
-        androidId: String,  // ✅ Ensure Android ID is always passed
-        context: Context,  // ✅ Pass context for saving preferences
-        onSuccess: () -> Unit,
-        onFailure: (String) -> Unit
-    ) {
-        val userRef = firestore.collection("users").document(uid)
-
-        userRef.get().addOnSuccessListener { document ->
-            if (document.exists()) {
-                Log.d("Firestore", "User already exists. Logging in...")
-                val userPreferences = UserPreferences(context)
-                viewModelScope.launch {
-                    userPreferences.setUsername(displayName)
-                    userPreferences.setHasSeenReferralPopup(false)
-                }
-
-                onSuccess()
-            } else {
-                viewModelScope.launch {
-                    createNewUser(uid, displayName, email, androidId, context, onSuccess, onFailure)
-                }
-            }
-        }.addOnFailureListener {
-            Log.e("Firestore", "Error checking user existence: ${it.message}")
-            onFailure("Database error. Try again.")
-        }
+    /**
+     * Calls the server to create this account's user document. Idempotent, so
+     * it is safe on both a first sign-up and a repeat sign-in.
+     */
+    private suspend fun completeSignup(displayName: String, androidId: String) {
+        functions.getHttpsCallable("completeSignup")
+            .call(
+                hashMapOf(
+                    "displayName" to displayName,
+                    "androidId" to androidId.ifEmpty { "UNKNOWN_ANDROID_ID" }
+                )
+            )
+            .await()
     }
 
-
-    private suspend fun createNewUser(
-        uid: String,
+    // for Google. The server takes uid and email from the auth token, so they
+    // are no longer passed from here.
+    fun checkIfUserExists(
         displayName: String,
-        email: String,
         androidId: String,
         context: Context,
         onSuccess: () -> Unit,
         onFailure: (String) -> Unit
     ) {
-        val safeAndroidId = androidId.ifEmpty { "UNKNOWN_ANDROID_ID" }
-        val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        // completeSignup handles both cases, so there is no longer a separate
+        // "does this user exist?" read here - which also means the client no
+        // longer needs read access across the users collection.
+        viewModelScope.launch {
+            try {
+                completeSignup(displayName, androidId)
 
-        val existingUserQuery = firestore.collection("users")
-            .whereEqualTo("androidId", safeAndroidId)
-            .get()
-            .await()
-
-        val hasUsedReferral = existingUserQuery.documents.isNotEmpty()
-
-        val userData = hashMapOf(
-            "uid" to uid,
-            "displayName" to displayName,
-            "email" to email,
-            "androidId" to safeAndroidId,
-            "hasUsedReferral" to hasUsedReferral,
-            "joinedDate" to Timestamp.now(),
-            "lastActive" to Timestamp.now(),
-            "lastServerDate" to currentDate,
-            "points" to 0,
-            "referralCode" to generateReferralCode(),
-            "referralRewardClaimed" to false
-        )
-
-        firestore.collection("users").document(uid).set(userData)
-            .addOnSuccessListener {
-                Log.d("Firestore", "User created successfully!")
                 val userPreferences = UserPreferences(context)
-                viewModelScope.launch {
-                    userPreferences.setUsername(displayName)
-                    userPreferences.setHasSeenReferralPopup(false)
-                }
-
+                userPreferences.setUsername(displayName)
+                userPreferences.setHasSeenReferralPopup(false)
 
                 onSuccess()
-            }
-            .addOnFailureListener {
-                Log.e("Firestore", "Error saving user: ${it.message}")
+            } catch (e: Exception) {
+                Log.e("Firestore", "Error completing signup: ${e.message}")
                 onFailure("Failed to create account. Try again.")
             }
-    }
-
-    private fun generateReferralCode(): String {
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-        return (1..6).map { chars.random() }.joinToString("")
+        }
     }
 
     sealed class LoginState {

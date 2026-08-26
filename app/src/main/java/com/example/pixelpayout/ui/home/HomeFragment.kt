@@ -29,6 +29,7 @@ class HomeFragment : Fragment() {
     private val timerRunnable = object : Runnable {
         override fun run() {
             updateQuizStatusText()
+            updateBuffBadge()
             timerHandler.postDelayed(this, 1000) // Update every second
         }
     }
@@ -61,10 +62,42 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel(){
-        mainViewModel.points.observe(viewLifecycleOwner){ points -> 
+        mainViewModel.points.observe(viewLifecycleOwner){ points ->
             binding.totalPoints.text = "Total Stars: $points"
         }
+
+        // XP/level are progression, kept visually separate from redeemable points.
+        // The bar shows progress within the current level rather than lifetime
+        // XP, so it resets each time the user levels up.
+        mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
+            binding.levelText.text = getString(R.string.level_value, progress.level)
+
+            when {
+                progress.isMaxLevel -> {
+                    binding.xpText.text = getString(R.string.xp_max_level)
+                    binding.xpProgressBar.progress = 100
+                }
+                progress.xpForNextLevel > 0 -> {
+                    binding.xpText.text = getString(
+                        R.string.xp_progress,
+                        progress.xpIntoLevel,
+                        progress.xpForNextLevel
+                    )
+                    binding.xpProgressBar.progress =
+                        (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
+                }
+                else -> {
+                    // Level curve hasn't loaded yet - fall back to lifetime XP.
+                    binding.xpText.text = getString(R.string.xp_value, progress.totalXp)
+                    binding.xpProgressBar.progress = 0
+                }
+            }
+        }
         
+        // The badge only appears while a buff is running; the countdown is
+        // driven by the existing per-second timer below.
+        mainViewModel.activeBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
+
         // Observe quiz attempts
         quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
             updateQuizStatusText()
@@ -76,6 +109,36 @@ class HomeFragment : Fragment() {
         }
     }
     
+    private fun updateBuffBadge() {
+        val binding = _binding ?: return
+        val buff = mainViewModel.activeBuff.value
+
+        if (buff == null || !buff.isActive()) {
+            binding.buffText.visibility = View.GONE
+            return
+        }
+
+        val remainingMs = buff.expiresAtMillis - System.currentTimeMillis()
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs)
+        val remaining = if (minutes >= 60) {
+            "${TimeUnit.MILLISECONDS.toHours(remainingMs)}h"
+        } else if (minutes >= 1) {
+            "${minutes}m"
+        } else {
+            "${TimeUnit.MILLISECONDS.toSeconds(remainingMs)}s"
+        }
+
+        // Multipliers are whole-ish; drop a trailing .0 so it reads "2x".
+        val multiplier = if (buff.multiplier % 1.0 == 0.0) {
+            buff.multiplier.toInt().toString()
+        } else {
+            buff.multiplier.toString()
+        }
+
+        binding.buffText.text = getString(R.string.buff_active, multiplier, remaining)
+        binding.buffText.visibility = View.VISIBLE
+    }
+
     private fun updateQuizStatusText() {
         val attempts = quizViewModel.dailyAttempts.value ?: 0
         val maxAttempts = quizViewModel.MAX_DAILY_ATTEMPTS

@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>PixelPayout Admin</title>
+  <style>
+    :root {
+      --bg: #12141a;
+      --card: #1b1e27;
+      --line: #2a2e3a;
+      --text: #e8eaf0;
+      --muted: #9aa1b2;
+      --accent: #6ea8fe;
+      --good: #4ade80;
+      --bad: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--line);
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 1.1rem; margin: 0; }
+    .muted { color: var(--muted); font-size: .875rem; }
+    main { padding: 1.25rem; max-width: 900px; margin: 0 auto; }
+    button {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #232733;
+      color: var(--text);
+      padding: .5rem .9rem;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.approve { border-color: #2f6b45; }
+    button.reject { border-color: #6b2f2f; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: .75rem;
+    }
+    .row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .title { font-weight: 600; }
+    .cost { color: var(--accent); font-weight: 600; }
+    .payout {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #232733;
+      padding: .15rem .4rem;
+      border-radius: 4px;
+    }
+    .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+    .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; }
+    .banner {
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      border: 1px solid var(--line);
+    }
+    .banner.error { border-color: #6b2f2f; color: #fca5a5; }
+    .banner.ok { border-color: #2f6b45; color: #86efac; }
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+    .status { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+    .status.pending { color: var(--accent); }
+    .status.approved { color: var(--good); }
+    .status.rejected { color: var(--bad); }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>PixelPayout Admin</h1>
+      <div class="muted" id="who">Not signed in</div>
+    </div>
+    <div class="actions" style="margin:0">
+      <button id="signIn">Sign in with Google</button>
+      <button id="signOut" hidden>Sign out</button>
+      <button id="refresh" hidden>Refresh</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="banner" hidden></div>
+
+    <div class="tabs" id="tabs" hidden>
+      <button data-status="pending" aria-selected="true">Pending</button>
+      <button data-status="approved" aria-selected="false">Approved</button>
+      <button data-status="rejected" aria-selected="false">Rejected</button>
+    </div>
+
+    <div id="list"></div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut,
+      onAuthStateChanged, getIdTokenResult,
+    } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+    import {
+      getFunctions, httpsCallable,
+    } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-functions.js";
+
+    const app = initializeApp({
+      apiKey: "AIzaSyBQKipI7SOJKByN8gSzzAZc-Umt4NrT7Rw",
+      authDomain: "pixelpayout-check.firebaseapp.com",
+      projectId: "pixelpayout-check",
+      storageBucket: "pixelpayout-check.firebasestorage.app",
+      messagingSenderId: "461737828827",
+      appId: "1:461737828827:web:d030b243499c727e58c7fe",
+    });
+
+    const auth = getAuth(app);
+    const fns = getFunctions(app);
+
+    const el = (id) => document.getElementById(id);
+    const listEl = el("list");
+    let currentStatus = "pending";
+
+    function banner(message, kind = "error") {
+      const b = el("banner");
+      b.textContent = message;
+      b.className = `banner ${kind}`;
+      b.hidden = !message;
+    }
+
+    function fmtDate(millis) {
+      if (!millis) return "";
+      return new Date(millis).toLocaleString();
+    }
+
+    el("signIn").onclick = async () => {
+      banner("");
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch (e) {
+        banner(e.message);
+      }
+    };
+    el("signOut").onclick = () => fbSignOut(auth);
+    el("refresh").onclick = () => load();
+
+    for (const tab of el("tabs").querySelectorAll("button")) {
+      tab.onclick = () => {
+        currentStatus = tab.dataset.status;
+        for (const t of el("tabs").querySelectorAll("button")) {
+          t.setAttribute("aria-selected", String(t === tab));
+        }
+        load();
+      };
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      el("signIn").hidden = !!user;
+      el("signOut").hidden = !user;
+      el("refresh").hidden = !user;
+      el("tabs").hidden = !user;
+      listEl.innerHTML = "";
+      banner("");
+
+      if (!user) {
+        el("who").textContent = "Not signed in";
+        return;
+      }
+
+      el("who").textContent = user.email;
+
+      // Custom claims live in the ID token, so a freshly-granted admin claim
+      // only appears after the token is refreshed.
+      let token = await getIdTokenResult(user);
+      if (token.claims.admin !== true) {
+        try {
+          await httpsCallable(fns, "bootstrapAdmin")({});
+          token = await getIdTokenResult(user, true);
+        } catch (e) {
+          banner(`This account is not an admin (${user.email}).`);
+          return;
+        }
+      }
+
+      if (token.claims.admin !== true) {
+        banner("Admin claim not present. Sign out and back in, then retry.");
+        return;
+      }
+
+      load();
+    });
+
+    async function load() {
+      listEl.innerHTML = '<div class="empty">Loading…</div>';
+      banner("");
+      try {
+        const res = await httpsCallable(fns, "listRedemptions")({status: currentStatus});
+        render(res.data?.redemptions ?? []);
+      } catch (e) {
+        listEl.innerHTML = "";
+        banner(`Could not load redemptions: ${e.message}`);
+      }
+    }
+
+    function render(rows) {
+      if (!rows.length) {
+        listEl.innerHTML = `<div class="empty">No ${currentStatus} redemptions.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = "";
+      for (const r of rows) {
+        const card = document.createElement("div");
+        card.className = "card";
+
+        const payout = r.payoutNumber
+          ? `<span class="payout">${escapeHtml(r.payoutNumber)}</span>`
+          : '<span class="muted">n/a</span>';
+
+        card.innerHTML = `
+          <div class="row">
+            <div>
+              <div class="title">${escapeHtml(r.optionTitle || r.optionId || "Reward")}</div>
+              <div class="muted">
+                ${escapeHtml(r.userDisplayName || "")}
+                ${r.userEmail ? "&middot; " + escapeHtml(r.userEmail) : ""}
+              </div>
+              <div class="muted">Send to: ${payout}</div>
+              <div class="muted">${fmtDate(r.createdAtMillis)}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="cost">${Number(r.pointsCost || 0).toLocaleString()} stars</div>
+              <div class="status ${escapeHtml(r.status)}">${escapeHtml(r.status)}</div>
+            </div>
+          </div>
+        `;
+
+        if (r.status === "pending") {
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
+          const approve = document.createElement("button");
+          approve.className = "approve";
+          approve.textContent = "Mark paid";
+          approve.onclick = () => resolve(r.id, "approved", actions);
+
+          const reject = document.createElement("button");
+          reject.className = "reject";
+          reject.textContent = "Reject & refund";
+          reject.onclick = () => {
+            const reason = prompt("Reason for rejection (optional):") ?? "";
+            resolve(r.id, "rejected", actions, reason);
+          };
+
+          actions.append(approve, reject);
+          card.append(actions);
+        }
+
+        listEl.append(card);
+      }
+    }
+
+    async function resolve(redemptionId, status, actionsEl, reason = "") {
+      if (status === "approved" &&
+          !confirm("Only do this AFTER you have actually sent the payout. Continue?")) {
+        return;
+      }
+
+      for (const b of actionsEl.querySelectorAll("button")) b.disabled = true;
+      try {
+        const res = await httpsCallable(fns, "resolveRedemption")({redemptionId, status, reason});
+        const refunded = res.data?.refunded || 0;
+        banner(
+          status === "rejected"
+            ? `Rejected. ${refunded.toLocaleString()} stars refunded.`
+            : "Marked as paid.",
+          "ok",
+        );
+        load();
+      } catch (e) {
+        banner(e.message);
+        for (const b of actionsEl.querySelectorAll("button")) b.disabled = false;
+      }
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+  </script>
+</body>
+</html>

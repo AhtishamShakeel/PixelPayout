@@ -83,7 +83,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Total stars: 1,500"
-                            android:textColor="#B1B1B1"
+                            android:textColor="@color/text_secondary"
                             android:textSize="14sp"
                             android:layout_marginTop="4dp"/>
 
@@ -112,7 +112,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="0 / 50 XP"
-                                android:textColor="#B1B1B1"
+                                android:textColor="@color/text_secondary"
                                 android:textSize="13sp"
                                 android:layout_marginStart="8dp"/>
                         </LinearLayout>
@@ -126,7 +126,7 @@
                             android:max="100"
                             android:progress="0"
                             android:progressTint="@color/primary"
-                            android:progressBackgroundTint="#3A3A3A"/>
+                            android:progressBackgroundTint="@color/track_dark"/>
 
                         <!-- Only visible while a Points buff is running. -->
                         <TextView
@@ -244,7 +244,7 @@
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent"
                     app:layout_constraintBottom_toBottomOf="parent"
-                    app:tint="#FFDF00" />
+                    app:tint="@color/quiz_gold" />
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -272,7 +272,7 @@
                         android:layout_height="wrap_content"
                         android:text="5 quizzes left or 15:40 hours left for reset"
                         android:textSize="14sp"
-                        android:textColor="#B3FFFFFF"
+                        android:textColor="@color/text_muted"
                         android:layout_marginTop="4dp" />
                 </LinearLayout>
 

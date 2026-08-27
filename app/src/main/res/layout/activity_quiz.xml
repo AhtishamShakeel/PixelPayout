@@ -89,38 +89,13 @@
         android:layout_marginTop="24dp"
         app:layout_constraintTop_toBottomOf="@id/questionContainer">
 
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/option1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textSize="16sp"
-            tools:text="Paris" />
-
-
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/option2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textSize="16sp"
-            tools:text="London" />
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/option3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
-            android:textSize="16sp"
-            tools:text="Berlin" />
-
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/option4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
-            tools:text="Madrid" />
+        <!--
+            Options are inflated from item_option.xml by QuizActivity, which
+            calls removeAllViews() first. Any option views declared here get
+            wiped on the first question - but they still paint for the frames
+            before that, showing a second set of options behind the real ones.
+            So this container stays empty by design.
+        -->
 
     </LinearLayout>
 

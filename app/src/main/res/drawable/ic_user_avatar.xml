@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Placeholder avatar glyph. Drawn centred in its own viewport so it does not
+    depend on the host view's gravity or padding to sit straight.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/text_secondary">
+
+    <!-- Head -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,11.6c2.1,0 3.8,-1.7 3.8,-3.8S14.1,4 12,4S8.2,5.7 8.2,7.8S9.9,11.6 12,11.6z" />
+
+    <!-- Shoulders -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M12,13.4c-3.9,0 -7.1,2.4 -7.1,5.3c0,0.8 0.7,1.5 1.5,1.5h11.2c0.8,0 1.5,-0.7 1.5,-1.5C19.1,15.8 15.9,13.4 12,13.4z" />
+
+</vector>

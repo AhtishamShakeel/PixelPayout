@@ -5,8 +5,14 @@
     progress bar: progression reads as ambient here instead of competing with
     the redeemable balance for attention.
 
-    Sized 52dp overall so the 20dp badge can hang off the 48dp ring without
-    being clipped; the ring itself is 48dp and the avatar 40dp inside it.
+    The ring and the avatar are BOTH centred in this frame rather than pinned
+    with hand-computed margins. CircularProgressIndicator sizes itself from
+    indicatorSize plus its track spec, so the circle it draws is not guaranteed
+    to fill its own bounds exactly - centring both makes them concentric
+    whatever those internal metrics work out to be.
+
+    The frame is 52dp so the 20dp badge can hang off the 48dp ring at the
+    bottom-right without being clipped.
 -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -15,19 +21,19 @@
     android:layout_width="52dp"
     android:layout_height="52dp"
     android:clickable="true"
-    android:focusable="true"
-    android:contentDescription="@string/level_avatar_description">
+    android:contentDescription="@string/level_avatar_description"
+    android:focusable="true">
 
     <!--
         Determinate indicator starts at 12 o'clock and runs clockwise, which is
-        what the design wants. Track thickness is deliberately thin: the ring is
-        a status cue, not a primary control.
+        what the design wants. The track is deliberately thin: the ring is a
+        status cue, not a primary control.
     -->
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/levelRing"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="top|start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
         android:indeterminate="false"
         android:max="100"
         android:progress="0"
@@ -37,17 +43,21 @@
         app:trackCornerRadius="2dp"
         app:trackThickness="2.5dp" />
 
+    <!--
+        Padding insets the placeholder glyph inside the circle. When real
+        profile photos land, drop the padding and switch to centerCrop so the
+        photo fills the circle instead of floating in it.
+    -->
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/userIcon"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:layout_gravity="top|start"
-        android:layout_marginStart="4dp"
-        android:layout_marginTop="4dp"
+        android:layout_gravity="center"
         android:background="@color/card_dark"
         android:importantForAccessibility="no"
-        android:scaleType="centerCrop"
-        android:src="@drawable/ic_user_icon"
+        android:padding="8dp"
+        android:scaleType="centerInside"
+        android:src="@drawable/ic_user_avatar"
         app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.Circle" />
 
     <TextView

@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
@@ -13,6 +14,7 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import android.os.Handler
 import android.os.Looper
@@ -47,6 +49,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupClickListeners()
         observeViewModel()
+
     }
     
     override fun onResume() {
@@ -175,7 +178,7 @@ class HomeFragment : Fragment() {
             quizRow.rowTitle.setText(R.string.quiz_title)
             quizRow.root.setOnClickListener { navigateToQuizzes() }
 
-            btnPayout.setOnClickListener { navigateToRedemption() }
+            btnPayout.setOnClickListener { navigateToRedemption()}
         }
     }
 
@@ -189,10 +192,13 @@ class HomeFragment : Fragment() {
                 .build()
                 
 
-            findNavController().navigate(R.id.navigation_quizzes, null, navOptions)
+            // Quizzes is a tab inside Play now, so land there rather than on
+            // a destination of its own.
+            val args = bundleOf(PlayFragment.ARG_START_TAB to PlayFragment.TAB_QUIZZES)
+            findNavController().navigate(R.id.navigation_play, args, navOptions)
         } catch (e: Exception) {
             Log.e("Navigation", "Error navigating to quizzes: ${e.message}")
-            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_quizzes
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
         }
     }
 

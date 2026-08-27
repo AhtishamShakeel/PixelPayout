@@ -13,15 +13,19 @@
             app:destination="@id/detailsFragment" />
     </fragment>
 
+    <!--
+        Play hosts Games and Quizzes as tabs. startTab picks which one opens,
+        so the quiz row on Home can still land the user straight on quizzes.
+    -->
     <fragment
         android:id="@+id/navigation_play"
-        android:name="com.example.pixelpayout.ui.game.GameFragment"
-        android:label="Play Game" />
-
-    <fragment
-        android:id="@+id/navigation_quizzes"
-        android:name="com.example.pixelpayout.ui.quiz.QuizListFragment"
-        android:label="Quizzes" />
+        android:name="com.example.pixelpayout.ui.play.PlayFragment"
+        android:label="Play">
+        <argument
+            android:name="startTab"
+            android:defaultValue="0"
+            app:argType="integer" />
+    </fragment>
 
     <fragment
         android:id="@+id/navigation_rewards"

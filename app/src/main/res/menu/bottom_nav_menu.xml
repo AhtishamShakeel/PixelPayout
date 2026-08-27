@@ -8,12 +8,7 @@
     <item
         android:id="@+id/navigation_play"
         android:icon="@drawable/ic_game"
-        android:title="Play Game" />
-
-    <item
-        android:id="@+id/navigation_quizzes"
-        android:icon="@drawable/ic_quiz"
-        android:title="Quizzes" />
+        android:title="Play" />
 
     <item
         android:id="@+id/navigation_rewards"

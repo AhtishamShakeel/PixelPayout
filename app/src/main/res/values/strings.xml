@@ -127,4 +127,6 @@
     <string name="game_reward_rate">5-10 stars per minute</string>
     <string name="game_title">Color Puzzle</string>
     <string name="quiz_title">Daily Quiz</string>
+    <string name="play_tab_games">Games</string>
+    <string name="play_tab_quizzes">Quizzes</string>
 </resources>

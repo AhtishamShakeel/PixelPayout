@@ -41,6 +41,10 @@ class MainActivity : AppCompatActivity() {
     private var loadingDialog: LoadingDialog? = null
     private var isConnectedToInternet = true
     private var isDataLoading = false
+
+    // False until the level ring has painted a real value once; the first
+    // paint jumps straight to the value, later ones animate.
+    private var hasShownLevelRing = false
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -141,6 +145,38 @@ class MainActivity : AppCompatActivity() {
 
         binding.customToolbar.pointsHeader.root.setOnClickListener {
             binding.bottomNav.selectedItemId = R.id.navigation_redemption
+        }
+
+        observeLevelRing()
+    }
+
+    /**
+     * Drives the progress ring around the avatar. This is the only place the
+     * level is surfaced in the toolbar, so the separate "Lv N / X XP" row and
+     * its bar are no longer needed on the home screen.
+     *
+     * The ring shows progress through the CURRENT level, not lifetime XP, so
+     * it visibly resets on each level up. At max level there is no next level
+     * to fill toward, so the ring is shown full rather than empty - an empty
+     * ring would read as "no progress" when the truth is the opposite.
+     */
+    private fun observeLevelRing() {
+        val ring = binding.customToolbar.levelAvatar.levelRing
+        val badge = binding.customToolbar.levelAvatar.levelBadge
+
+        viewModel.levelProgress.observe(this) { progress ->
+            badge.text = getString(R.string.level_badge_value, progress.level)
+
+            val percent = when {
+                progress.isMaxLevel -> 100
+                progress.xpForNextLevel <= 0 -> 0
+                else -> (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
+            }
+
+            // Animate only once a real value has been shown, so the ring does
+            // not sweep up from zero every time the activity is recreated.
+            ring.setProgressCompat(percent, hasShownLevelRing)
+            hasShownLevelRing = true
         }
     }
 

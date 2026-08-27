@@ -122,4 +122,6 @@
     <string name="slide_image_description">Onboarding slide image</string>
     <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
     <string name="default_web_client_id">461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com</string>
+    <string name="level_avatar_description">Your profile and level progress</string>
+    <string name="level_badge_value">%1$d</string>
 </resources>

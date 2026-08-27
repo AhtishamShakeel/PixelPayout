@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Level badge on the avatar ring. The 2dp stroke is the page background, not
+    a border - it punches a gap so the badge reads as sitting on top of the
+    ring rather than touching it.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/primary" />
+    <stroke
+        android:width="2dp"
+        android:color="@color/background_dark" />
+    <corners android:radius="10dp" />
+</shape>

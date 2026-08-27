@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Avatar with a level-progress ring around it and the level in a badge.
+
+    This replaces the separate "Lv 12  ·  1,240 / 1,400 XP" row plus its own
+    progress bar: progression reads as ambient here instead of competing with
+    the redeemable balance for attention.
+
+    Sized 52dp overall so the 20dp badge can hang off the 48dp ring without
+    being clipped; the ring itself is 48dp and the avatar 40dp inside it.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/levelAvatarRoot"
+    android:layout_width="52dp"
+    android:layout_height="52dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:contentDescription="@string/level_avatar_description">
+
+    <!--
+        Determinate indicator starts at 12 o'clock and runs clockwise, which is
+        what the design wants. Track thickness is deliberately thin: the ring is
+        a status cue, not a primary control.
+    -->
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/levelRing"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|start"
+        android:indeterminate="false"
+        android:max="100"
+        android:progress="0"
+        app:indicatorColor="@color/primary"
+        app:indicatorSize="48dp"
+        app:trackColor="@color/track_dark"
+        app:trackCornerRadius="2dp"
+        app:trackThickness="2.5dp" />
+
+    <com.google.android.material.imageview.ShapeableImageView
+        android:id="@+id/userIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="4dp"
+        android:background="@color/card_dark"
+        android:importantForAccessibility="no"
+        android:scaleType="centerCrop"
+        android:src="@drawable/ic_user_icon"
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.Circle" />
+
+    <TextView
+        android:id="@+id/levelBadge"
+        android:layout_width="wrap_content"
+        android:layout_height="20dp"
+        android:layout_gravity="bottom|end"
+        android:background="@drawable/bg_level_badge"
+        android:fontFamily="@font/lexend_bold"
+        android:gravity="center"
+        android:minWidth="20dp"
+        android:paddingStart="5dp"
+        android:paddingEnd="5dp"
+        android:textColor="@color/white"
+        android:textSize="11sp"
+        tools:text="12" />
+
+</FrameLayout>

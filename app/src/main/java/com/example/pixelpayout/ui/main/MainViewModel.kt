@@ -2,11 +2,15 @@ package com.example.pixelpayout.ui.main
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.map  // Add this import
+import androidx.lifecycle.viewModelScope
+import com.example.pixelpayout.data.model.RedemptionOption
 import com.example.pixelpayout.data.repository.UserRepository
+import kotlinx.coroutines.launch
 
-class MainViewModel(userRepository: UserRepository) : ViewModel() {
+class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
     val points: LiveData<Int> = userRepository.userData.map { userData ->
         userData.points
     }
@@ -21,6 +25,71 @@ class MainViewModel(userRepository: UserRepository) : ViewModel() {
 
     val activeBuff: LiveData<UserRepository.PointsBuff?> = userRepository.userData.map { userData ->
         userData.activeBuff?.takeIf { it.isActive() }
+    }
+
+    /**
+     * The cheapest redemption the user cannot afford yet - what the balance
+     * bar on the home screen fills toward.
+     *
+     * The label is the OPTION'S OWN TITLE ("100 UC", "Rs 500"), never a
+     * points-to-currency rate computed here. redemptionOptions carries a
+     * pointsCost and a free-text title but no machine-readable currency
+     * amount, so any "= 90 UC" figure would mean parsing that title - which
+     * silently produces a wrong number the moment someone edits a title in
+     * Firestore. Showing the real target is honest; inventing a rate is not.
+     *
+     * Level-gated options the user cannot reach yet are skipped: filling a
+     * bar toward something they are not allowed to buy is a false promise.
+     */
+    data class NextRedemption(
+        val title: String,
+        val pointsCost: Int,
+        val pointsShort: Int,
+        val percent: Int
+    )
+
+    private val redemptionOptions = MutableLiveData<List<RedemptionOption>>(emptyList())
+
+    val nextRedemption: LiveData<NextRedemption?> = MediatorLiveData<NextRedemption?>().apply {
+        fun recompute() {
+            val user = userRepository.userData.value
+            val options = redemptionOptions.value.orEmpty()
+            if (user == null || options.isEmpty()) {
+                value = null
+                return
+            }
+
+            val target = options
+                .filter { it.minLevel <= user.level && it.pointsCost > user.points }
+                .minByOrNull { it.pointsCost }
+
+            // Nothing left to reach means everything on offer is already
+            // affordable - the bar has no meaning, so hide it rather than
+            // showing a permanently full one.
+            if (target == null) {
+                value = null
+                return
+            }
+
+            value = NextRedemption(
+                title = target.title,
+                pointsCost = target.pointsCost,
+                pointsShort = (target.pointsCost - user.points).coerceAtLeast(0),
+                percent = (user.points * 100 / target.pointsCost).coerceIn(0, 100)
+            )
+        }
+
+        addSource(userRepository.userData) { recompute() }
+        addSource(redemptionOptions) { recompute() }
+    }
+
+    init {
+        // Options are server-managed and change rarely, so one read at start
+        // is enough; a failure just leaves the bar hidden.
+        viewModelScope.launch {
+            redemptionOptions.value = runCatching { userRepository.getRedemptionOptions() }
+                .getOrDefault(emptyList())
+        }
     }
 
     /** Points and level together, for screens that gate on both. */

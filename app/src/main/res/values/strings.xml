@@ -24,11 +24,6 @@
     <string name="timer_format">%d s</string>
     <string name="quiz_completed">Quiz Completed!</string>
     <string name="points_earned">You earned %d XP!</string>
-    <string name="xp_value">%d XP</string>
-    <string name="xp_progress">%1$d / %2$d XP</string>
-    <string name="xp_max_level">Max level</string>
-    <string name="level_value">Lv %d</string>
-    <string name="buff_active">%1$sx stars · %2$s left</string>
     <string name="level_up_with_bonus">Level %1$d reached! Bonus: %2$d stars</string>
     <string name="level_up">Level up! You reached level %d</string>
     <string name="done">Done</string>
@@ -124,4 +119,12 @@
     <string name="default_web_client_id">461737828827-t3juodai8ng0jm9oak7i890vggt6ste2.apps.googleusercontent.com</string>
     <string name="level_avatar_description">Your profile and level progress</string>
     <string name="level_badge_value">%1$d</string>
+    <string name="balance_title">Your Balance</string>
+    <string name="keep_earning">Keep earning</string>
+    <string name="next_tier">%1$d more unlocks %2$s</string>
+    <string name="buff_rate_note">Payout rate unchanged</string>
+    <string name="buff_label">%1$sx XP boost</string>
+    <string name="game_reward_rate">5-10 stars per minute</string>
+    <string name="game_title">Color Puzzle</string>
+    <string name="quiz_title">Daily Quiz</string>
 </resources>

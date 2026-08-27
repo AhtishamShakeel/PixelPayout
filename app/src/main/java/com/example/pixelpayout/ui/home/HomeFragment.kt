@@ -62,38 +62,23 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel(){
-        mainViewModel.points.observe(viewLifecycleOwner){ points ->
-            binding.totalPoints.text = "Total Stars: $points"
+        mainViewModel.points.observe(viewLifecycleOwner) { points ->
+            binding.totalPoints.text = points.toString()
         }
 
-        // XP/level are progression, kept visually separate from redeemable points.
-        // The bar shows progress within the current level rather than lifetime
-        // XP, so it resets each time the user levels up.
-        mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
-            binding.levelText.text = getString(R.string.level_value, progress.level)
-
-            when {
-                progress.isMaxLevel -> {
-                    binding.xpText.text = getString(R.string.xp_max_level)
-                    binding.xpProgressBar.progress = 100
-                }
-                progress.xpForNextLevel > 0 -> {
-                    binding.xpText.text = getString(
-                        R.string.xp_progress,
-                        progress.xpIntoLevel,
-                        progress.xpForNextLevel
-                    )
-                    binding.xpProgressBar.progress =
-                        (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
-                }
-                else -> {
-                    // Level curve hasn't loaded yet - fall back to lifetime XP.
-                    binding.xpText.text = getString(R.string.xp_value, progress.totalXp)
-                    binding.xpProgressBar.progress = 0
-                }
+        // Fills toward the cheapest redemption not yet affordable. Null means
+        // there is no such target, so the bar is hidden rather than shown full.
+        mainViewModel.nextRedemption.observe(viewLifecycleOwner) { next ->
+            if (next == null) {
+                binding.nextTierGroup.visibility = View.GONE
+            } else {
+                binding.nextTierGroup.visibility = View.VISIBLE
+                binding.redemptionProgress.progress = next.percent
+                binding.nextTierText.text =
+                    getString(R.string.next_tier, next.pointsShort, next.title)
             }
         }
-        
+
         // The badge only appears while a buff is running; the countdown is
         // driven by the existing per-second timer below.
         mainViewModel.activeBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
@@ -114,7 +99,7 @@ class HomeFragment : Fragment() {
         val buff = mainViewModel.activeBuff.value
 
         if (buff == null || !buff.isActive()) {
-            binding.buffText.visibility = View.GONE
+            binding.buffCard.visibility = View.GONE
             return
         }
 
@@ -135,8 +120,9 @@ class HomeFragment : Fragment() {
             buff.multiplier.toString()
         }
 
-        binding.buffText.text = getString(R.string.buff_active, multiplier, remaining)
-        binding.buffText.visibility = View.VISIBLE
+        binding.buffText.text = getString(R.string.buff_label, multiplier)
+        binding.buffTimer.text = remaining
+        binding.buffCard.visibility = View.VISIBLE
     }
 
     private fun updateQuizStatusText() {
@@ -146,7 +132,7 @@ class HomeFragment : Fragment() {
         
         if (remaining > 0) {
             // Show remaining quizzes
-            binding.quizStatus.text = "$remaining quizzes left"
+            binding.quizRow.rowSubtitle.text = "$remaining quizzes left"
         
             // Show reset timer if no quizzes left
             val nextResetTime = quizViewModel.nextResetTime.value
@@ -155,7 +141,7 @@ class HomeFragment : Fragment() {
                 val timeUntilReset = nextResetTime - currentTime
                 
                 if (timeUntilReset <= 0) {
-                    binding.quizStatus.text = "Resetting soon..."
+                    binding.quizRow.rowSubtitle.text = "Resetting soon..."
                     /*// Refresh attempts when timer reaches zero
                     quizViewModel.fetchDailyAttempts(forceRefresh = true)*/
                 } else {
@@ -168,40 +154,28 @@ class HomeFragment : Fragment() {
                         else -> "${seconds}s left for reset"
                     }
                     
-                    binding.quizStatus.text = timerText
+                    binding.quizRow.rowSubtitle.text = timerText
                 }
             } else {
-                binding.quizStatus.text = "Quizzes available soon"
+                binding.quizRow.rowSubtitle.text = "Quizzes available soon"
             }
         }
     }
 
     private fun setupClickListeners() {
         binding.apply {
-            quizCard.setOnClickListener {
-                navigateToQuizzes()
-            }
+            // Game and quiz are the same row component with different content,
+            // so their static parts are filled in here rather than in XML.
+            gameRow.rowIcon.setImageResource(R.drawable.ic_game)
+            gameRow.rowTitle.setText(R.string.game_title)
+            gameRow.rowSubtitle.setText(R.string.game_reward_rate)
+            gameRow.root.setOnClickListener { navigateToGame() }
 
+            quizRow.rowIcon.setImageResource(R.drawable.ic_quiz)
+            quizRow.rowTitle.setText(R.string.quiz_title)
+            quizRow.root.setOnClickListener { navigateToQuizzes() }
 
-            gameCard.setOnClickListener {
-                navigateToGame()
-            }
-
-            playGameButton.setOnClickListener {
-                navigateToGame()
-            }
-            
-            gameImage.setOnClickListener {
-                navigateToGame()
-            }
-
-            gameDetails.setOnClickListener {
-                navigateToDetails("game")
-            }
-
-            btnPayout.setOnClickListener {
-                navigateToRedemption()
-            }
+            btnPayout.setOnClickListener { navigateToRedemption() }
         }
     }
 

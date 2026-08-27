@@ -48,6 +48,7 @@
         profile photos land, drop the padding and switch to centerCrop so the
         photo fills the circle instead of floating in it.
     -->
+
     <com.google.android.material.imageview.ShapeableImageView
         android:id="@+id/userIcon"
         android:layout_width="40dp"
@@ -55,9 +56,9 @@
         android:layout_gravity="center"
         android:background="@color/card_dark"
         android:importantForAccessibility="no"
-        android:padding="8dp"
+        android:padding="4dp"
         android:scaleType="centerInside"
-        android:src="@drawable/ic_user_avatar"
+        android:src="@drawable/ic_user_icon"
         app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.Circle" />
 
     <TextView

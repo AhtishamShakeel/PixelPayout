@@ -227,4 +227,12 @@
     <string name="time_minutes_ago">%1$dm ago</string>
     <string name="time_hours_ago">%1$dh ago</string>
     <string name="time_days_ago">%1$dd ago</string>
+    <!-- Redemption resolved -->
+    <string name="redemption_result_done">Got it</string>
+    <string name="redemption_approved_title">Payout approved</string>
+    <string name="redemption_approved_message">Your reward is on its way. Thanks for playing.</string>
+    <string name="redemption_declined_title">Payout declined</string>
+    <string name="redemption_declined_refund">+%1$d ★ returned</string>
+    <string name="redemption_declined_message">Your stars have been returned to your balance.</string>
+    <string name="redemption_declined_message_reason">%1$s Your stars have been returned to your balance.</string>
 </resources>

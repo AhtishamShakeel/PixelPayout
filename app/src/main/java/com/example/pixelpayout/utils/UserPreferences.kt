@@ -3,6 +3,7 @@ package com.example.pixelpayout.utils
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -16,6 +17,16 @@ private val USERNAME_KEY = stringPreferencesKey("username")
 class UserPreferences(private val context: Context) {
     companion object {
         private val HAS_SEEN_REFERRAL_POPUP = booleanPreferencesKey("hasSeenReferralPopup")
+
+        /**
+         * When the user was last told about a resolved redemption.
+         *
+         * A timestamp rather than a set of ids: it is one comparison, it never
+         * grows, and anything resolved before it is by definition already
+         * seen. Redemptions resolve in order, so there is no case where an
+         * older one arrives after a newer one has been acknowledged.
+         */
+        private val LAST_SEEN_REDEMPTION = longPreferencesKey("lastSeenRedemptionResolvedAt")
     }
 
     val hasSeenReferralPopup: Flow<Boolean> = context.dataStore.data
@@ -26,6 +37,15 @@ class UserPreferences(private val context: Context) {
             preferences[HAS_SEEN_REFERRAL_POPUP] = value
         }
     }
+    val lastSeenRedemptionResolvedAt: Flow<Long> = context.dataStore.data
+        .map { preferences -> preferences[LAST_SEEN_REDEMPTION] ?: 0L }
+
+    suspend fun setLastSeenRedemptionResolvedAt(value: Long) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_SEEN_REDEMPTION] = value
+        }
+    }
+
     val username: Flow<String?> = context.dataStore.data
         .map { preferences -> preferences[USERNAME_KEY] }
 

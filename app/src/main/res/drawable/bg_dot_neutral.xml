@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A declined payout is a refund, not an error. Gold rather than red: the
+     stars came back, and nothing went wrong for the user. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/gold_warm" />
+</shape>

@@ -38,7 +38,7 @@ class UserRepository {
             auth.currentUser?.uid?.let { userId ->
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
                 fetchLevelCurve()
-                listenToPendingRedemptions(userId)
+                listenToRedemptions(userId)
                 listenToPayoutFeed()
             }
         }
@@ -413,6 +413,19 @@ class UserRepository {
     private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, "", null))
     val pendingRedemptions: LiveData<PendingRedemptions> = _pendingRedemptions
 
+    /** A redemption the admin has settled, approved or rejected. */
+    data class ResolvedRedemption(
+        val id: String,
+        val title: String,
+        val approved: Boolean,
+        val resolvedAtMillis: Long,
+        val refundedPoints: Int,
+        val rejectionReason: String?
+    )
+
+    private val _resolvedRedemptions = MutableLiveData<List<ResolvedRedemption>>(emptyList())
+    val resolvedRedemptions: LiveData<List<ResolvedRedemption>> = _resolvedRedemptions
+
     /** One entry in the public payout feed. The name arrives already masked. */
     data class PayoutFeedEntry(val name: String, val optionTitle: String, val atMillis: Long)
 
@@ -420,40 +433,59 @@ class UserRepository {
     val payoutFeed: LiveData<List<PayoutFeedEntry>> = _payoutFeed
 
     /**
-     * Listens to this user's unresolved redemptions.
+     * Listens to this user's redemptions, settled and unsettled alike.
      *
-     * Two equality filters and no ordering, deliberately: Firestore serves
-     * equality-only queries from its automatic single-field indexes, so this
-     * needs no composite index to be deployed alongside. The handful of
-     * documents involved are sorted here instead.
+     * One equality filter and no ordering, deliberately: that is served from
+     * the automatic single-field indexes, so no composite index has to be
+     * deployed alongside. Splitting settled from unsettled and sorting both
+     * happens here instead, over a handful of documents.
      *
      * The uid filter is also what makes the query legal - the rules allow a
      * read only where the document's uid matches the caller, and a query has
      * to prove that up front rather than per document.
      */
-    private fun listenToPendingRedemptions(userId: String) {
+    private fun listenToRedemptions(userId: String) {
         firestore.collection(COLLECTION_REDEMPTIONS)
             .whereEqualTo(FIELD_UID, userId)
-            .whereEqualTo(FIELD_STATUS, STATUS_PENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {
-                    Log.e("Redemption", "Pending listener failed: ${error?.message}")
+                    Log.e("Redemption", "Listener failed: ${error?.message}")
                     return@addSnapshotListener
+                }
+
+                val (pending, resolved) = snapshot.documents.partition {
+                    it.getString(FIELD_STATUS) == STATUS_PENDING
                 }
 
                 // The oldest request is the one closest to being ready, so it
                 // is the one the row describes.
-                val oldest = snapshot.documents
+                val oldest = pending
                     .filter { it.getTimestamp(FIELD_CREATED_AT) != null }
                     .minByOrNull { it.getTimestamp(FIELD_CREATED_AT)!!.toDate().time }
 
                 _pendingRedemptions.postValue(
                     PendingRedemptions(
-                        count = snapshot.size(),
+                        count = pending.size,
                         title = oldest?.getString(FIELD_OPTION_TITLE).orEmpty(),
                         requestedAtMillis =
                             oldest?.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time
                     )
+                )
+
+                _resolvedRedemptions.postValue(
+                    resolved.mapNotNull { doc ->
+                        val at = doc.getTimestamp(FIELD_RESOLVED_AT)?.toDate()?.time
+                            ?: return@mapNotNull null
+                        ResolvedRedemption(
+                            id = doc.id,
+                            title = doc.getString(FIELD_OPTION_TITLE).orEmpty(),
+                            approved = doc.getString(FIELD_STATUS) == STATUS_APPROVED,
+                            resolvedAtMillis = at,
+                            refundedPoints =
+                                doc.getLong(FIELD_REFUNDED_POINTS)?.toInt() ?: 0,
+                            rejectionReason = doc.getString(FIELD_REJECTION_REASON)
+                        )
+                    }.sortedByDescending { it.resolvedAtMillis }
                 )
             }
     }
@@ -562,6 +594,10 @@ class UserRepository {
         private const val FIELD_UID = "uid"
         private const val FIELD_STATUS = "status"
         private const val STATUS_PENDING = "pending"
+        private const val STATUS_APPROVED = "approved"
+        private const val FIELD_RESOLVED_AT = "resolvedAt"
+        private const val FIELD_REFUNDED_POINTS = "refundedPoints"
+        private const val FIELD_REJECTION_REASON = "rejectionReason"
         private const val FIELD_OPTION_TITLE = "optionTitle"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_APPROVED_AT = "approvedAt"

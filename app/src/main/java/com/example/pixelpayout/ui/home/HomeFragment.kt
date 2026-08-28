@@ -26,9 +26,11 @@ import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
+import com.example.pixelpayout.utils.UserPreferences
 import com.example.pixelpayout.utils.ServerClock
 import android.os.Handler
 import android.os.Looper
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -54,6 +56,11 @@ class HomeFragment : Fragment() {
     /** The server's reward table, fetched once so the strip can show it. */
     private var cycleRewards: List<UserRepository.StreakDayReward> = emptyList()
     private var streakClaimInFlight = false
+    private val userPreferences by lazy { UserPreferences(requireContext().applicationContext) }
+
+    /** Guards against a second dialog stacking on the one already showing. */
+    private var announcingRedemption = false
+
     /** What the next claim would pay, and which day, for the dialog. */
     private var pendingRewardLabel: String? = null
     private var pendingClaimDay: Int = 1
@@ -192,6 +199,10 @@ class HomeFragment : Fragment() {
         mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { renderPending(it) }
 
         mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
+
+        mainViewModel.resolvedRedemptions.observe(viewLifecycleOwner) {
+            announceResolvedRedemptions(it)
+        }
 
         // Observe quiz attempts
         quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
@@ -642,6 +653,92 @@ class HomeFragment : Fragment() {
             cycleRewards = cycle
             mainViewModel.streak.value?.let { renderStreak(it) }
         }
+    }
+
+    /**
+     * Tells the user, once, that a payout was settled.
+     *
+     * Approval happens on our side, usually while the app is closed, so
+     * without this the pending row simply vanishes and a balance quietly
+     * changes - the user is never told the thing they were waiting for
+     * actually happened. A rejection matters more still, since their stars
+     * come back and nothing on screen would say why.
+     *
+     * "Once" is a stored timestamp rather than a set of seen ids: one
+     * comparison, it never grows, and anything settled before it is by
+     * definition already known.
+     */
+    private fun announceResolvedRedemptions(
+        resolved: List<UserRepository.ResolvedRedemption>
+    ) {
+        if (resolved.isEmpty() || announcingRedemption) return
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val lastSeen = userPreferences.lastSeenRedemptionResolvedAt.first()
+
+            // First run on this device: adopt the current history silently.
+            // Everything already settled predates the app knowing about it,
+            // and greeting a fresh install with news of a months-old payout
+            // would be worse than saying nothing.
+            if (lastSeen == 0L) {
+                userPreferences.setLastSeenRedemptionResolvedAt(
+                    resolved.maxOf { it.resolvedAtMillis }
+                )
+                return@launch
+            }
+
+            val unseen = resolved.filter { it.resolvedAtMillis > lastSeen }
+            if (unseen.isEmpty() || !isAdded) return@launch
+
+            // Mark everything unseen as known before showing anything. If
+            // several were settled at once the newest is the one worth a
+            // dialog, and the rest would otherwise queue up behind it.
+            userPreferences.setLastSeenRedemptionResolvedAt(
+                unseen.maxOf { it.resolvedAtMillis }
+            )
+
+            announcingRedemption = true
+            showRedemptionResult(unseen.first())
+        }
+    }
+
+    private fun showRedemptionResult(result: UserRepository.ResolvedRedemption) {
+        val view = layoutInflater.inflate(R.layout.dialog_redemption_result, null)
+        val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
+            setContentView(view)
+            setOnDismissListener { announcingRedemption = false }
+        }
+
+        val title = view.findViewById<TextView>(R.id.redemptionResultTitle)
+        val value = view.findViewById<TextView>(R.id.redemptionResultValue)
+        val message = view.findViewById<TextView>(R.id.redemptionResultMessage)
+        val dot = view.findViewById<View>(R.id.redemptionResultDot)
+
+        if (result.approved) {
+            title.setText(R.string.redemption_approved_title)
+            value.text = result.title
+            value.setTextColor(ContextCompat.getColor(requireContext(), R.color.success))
+            dot.setBackgroundResource(R.drawable.bg_dot_success)
+            message.setText(R.string.redemption_approved_message)
+        } else {
+            title.setText(R.string.redemption_declined_title)
+            value.text = getString(R.string.redemption_declined_refund, result.refundedPoints)
+            value.setTextColor(ContextCompat.getColor(requireContext(), R.color.gold_warm))
+            dot.setBackgroundResource(R.drawable.bg_dot_neutral)
+            // The admin can attach a reason; when there is one it is more use
+            // than the generic line.
+            val reason = result.rejectionReason?.trim().orEmpty()
+            message.text = if (reason.isNotEmpty()) {
+                getString(R.string.redemption_declined_message_reason, reason)
+            } else {
+                getString(R.string.redemption_declined_message)
+            }
+        }
+
+        view.findViewById<View>(R.id.redemptionResultDone).setOnClickListener {
+            dialog.dismiss()
+        }
+        dialog.show()
     }
 
     /**

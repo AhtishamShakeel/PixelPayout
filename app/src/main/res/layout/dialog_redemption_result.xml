@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Told once, when a payout has been settled.
+
+    Approval and rejection share this layout because the user needs the same
+    three things either way: what happened, to which reward, and what they now
+    have. Only the accent colour and the copy differ - a rejection is not an
+    error state, it is a refund, and dressing it in red would read as one.
+
+    Shown through CustomDialogTheme, whose window background is transparent, so
+    the rounded card below is the whole visible dialog.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="24dp"
+    android:layout_marginEnd="24dp"
+    android:background="@drawable/bg_level_card"
+    android:orientation="vertical"
+    android:paddingStart="22dp"
+    android:paddingTop="22dp"
+    android:paddingEnd="22dp"
+    android:paddingBottom="18dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <View
+            android:id="@+id/redemptionResultDot"
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:background="@drawable/bg_dot_success" />
+
+        <TextView
+            android:id="@+id/redemptionResultTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:fontFamily="@font/jakarta_bold"
+            android:textColor="@color/white"
+            android:textSize="17sp"
+            tools:text="Payout approved" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/redemptionResultValue"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:fontFamily="@font/mono_bold"
+        android:includeFontPadding="false"
+        android:letterSpacing="-0.03"
+        android:textColor="@color/success"
+        android:textSize="26sp"
+        tools:text="1M uc" />
+
+    <TextView
+        android:id="@+id/redemptionResultMessage"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/jakarta_medium"
+        android:lineSpacingMultiplier="1.25"
+        android:textColor="@color/text_faint"
+        android:textSize="13sp"
+        tools:text="Your reward has been sent." />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/redemptionResultDone"
+        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="20dp"
+        android:fontFamily="@font/jakarta_bold"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
+        android:minWidth="0dp"
+        android:paddingStart="24dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="12dp"
+        android:text="@string/redemption_result_done"
+        android:textAllCaps="false"
+        android:textColor="@color/white"
+        android:textSize="13sp"
+        app:backgroundTint="@color/brand_violet"
+        app:cornerRadius="12dp" />
+
+</LinearLayout>

@@ -187,4 +187,25 @@
          unlike the Points buff it is visible from ordinary play. -->
     <string name="buff_label_xp">%1$sx XP on quizzes &amp; games</string>
     <string name="buff_xp_note">Levels come faster</string>
+    <!-- Daily streak -->
+    <string name="streak_title">%1$d day streak</string>
+    <string name="streak_title_none">Daily streak</string>
+    <string name="streak_claim">Claim</string>
+    <string name="streak_claimed">Claimed today</string>
+    <string name="streak_ready">Day %1$d ready</string>
+    <string name="streak_start">Start your streak</string>
+    <string name="streak_tomorrow">Tomorrow: +%1$s</string>
+    <string name="streak_reward_points">%1$d ★</string>
+    <string name="streak_reward_xp">%1$d XP</string>
+    <string name="streak_claimed_toast">Day %1$d claimed: +%2$s</string>
+    <string name="streak_try_again">Try again</string>
+    <string name="streak_reward_waiting">Day %1$d reward waiting</string>
+    <string name="streak_dialog_title">Day %1$d reward</string>
+    <string name="streak_dialog_reward">+%1$s</string>
+    <string name="streak_dialog_message_short">Watch a short ad to claim it. Your streak continues either way.</string>
+    <string name="streak_dialog_message_generic">Watch a short ad to claim the reward for today.</string>
+    <string name="streak_dialog_watch">Watch ad</string>
+    <string name="streak_dialog_cancel">Not now</string>
+    <string name="streak_no_reward">Ad not completed - reward still waiting</string>
+    <string name="streak_ad_unavailable">No ad available right now</string>
 </resources>

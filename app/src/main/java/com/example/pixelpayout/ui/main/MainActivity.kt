@@ -106,6 +106,17 @@ class MainActivity : AppCompatActivity() {
         observeViewModel()
     }
 
+    /**
+     * Connectivity can change while this activity is stopped, and both dialog
+     * paths refuse to act during that window - showNoInternetDialog returns
+     * early on a saved state. Without this, dropping the connection in the
+     * background left the user looking at a live screen with no warning.
+     */
+    override fun onResume() {
+        super.onResume()
+        updateBlockingDialogState()
+    }
+
     private fun setupConnectivityCheck() {
         lifecycleScope.launch {
             connectivityCheck.isConnected.collect { isConnected ->
@@ -125,7 +136,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hideNoInternetDialog() {
-        noInternetDialog?.dismiss()
+        // dismissAllowingStateLoss rather than dismiss: connectivity can come
+        // back while the activity is stopped, and a plain dismiss then throws
+        // IllegalStateException. The dialog still goes away - only the
+        // state-loss check is skipped, and there is no state here worth
+        // keeping. showNoInternetDialog already guards the same window.
+        noInternetDialog?.dismissAllowingStateLoss()
         noInternetDialog = null
     }
 

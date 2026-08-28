@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.home
 
+import android.app.Dialog
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -10,7 +11,9 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.debug.BuffDebug
 import com.pixelpayout.BuildConfig
@@ -21,6 +24,8 @@ import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
+import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.ServerClock
 import android.os.Handler
 import android.os.Looper
@@ -28,12 +33,36 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
+private const val MILLIS_PER_DAY = 86_400_000L
+
+/** Matches STREAK_CYCLE_DAYS server-side; the strip draws one cycle. */
+private const val STREAK_CYCLE_DAYS = 7
+
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private val mainViewModel: MainViewModel by activityViewModels()
     private val quizViewModel: QuizListViewModel by activityViewModels()
     
+    /** The server's reward table, fetched once so the strip can show it. */
+    private var cycleRewards: List<UserRepository.StreakDayReward> = emptyList()
+    private var streakClaimInFlight = false
+    /** What the next claim would pay, and which day, for the dialog. */
+    private var pendingRewardLabel: String? = null
+    private var pendingClaimDay: Int = 1
+
+    /**
+     * The day a claim was confirmed for, held until the user document catches
+     * up.
+     *
+     * The card is driven by a Firestore snapshot, and the write behind that
+     * snapshot lands a moment after the callable returns. Without this the
+     * button sat there saying "Try again" after a successful claim - and
+     * tapping it did nothing visible, because the server correctly answered
+     * "already rewarded" and that is not worth a toast.
+     */
+    private var confirmedRewardDayUtc: Long? = null
+
     // Timer handler for countdown if needed
     private val timerHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
@@ -57,6 +86,9 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupClickListeners()
         setupDebugControls()
+        // Warmed here so the claim button does not sit through a cold load.
+        AdManager.getInstance().loadRewardedAd(requireContext())
+        loadStreakConfig()
         observeViewModel()
 
     }
@@ -146,6 +178,8 @@ class HomeFragment : Fragment() {
         // driven by the existing per-second timer below.
         mainViewModel.activeBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
         mainViewModel.activeXpBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
+
+        mainViewModel.streak.observe(viewLifecycleOwner) { renderStreak(it) }
 
         // Observe quiz attempts
         quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
@@ -280,6 +314,8 @@ class HomeFragment : Fragment() {
             btnOffer.setOnClickListener { navigateToRewards() }
             referAction.setOnClickListener { showReferralDialog() }
 
+            streakClaimButton.setOnClickListener { confirmStreakClaim() }
+
             btnPayout.setOnClickListener { navigateToRedemption()}
         }
     }
@@ -342,6 +378,257 @@ class HomeFragment : Fragment() {
                 Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             }
             setDebugControlsEnabled(true)
+        }
+    }
+
+    /**
+     * The seven-cell strip, the footer and the claim button.
+     *
+     * Everything is derived from the streak fields plus the reward table; the
+     * client stores no progress of its own. Two separate day gates drive this,
+     * mirroring the server: whether the STREAK has moved on today, and whether
+     * today's REWARD has been paid. They are not the same question - a claim
+     * whose ad failed advances the first and leaves the second open, which is
+     * exactly the state the retry button exists for.
+     */
+    private fun renderStreak(streak: UserRepository.Streak) {
+        val binding = _binding ?: return
+        val todayUtc = ServerClock.now() / MILLIS_PER_DAY
+
+        val done = streak.cyclePosition(todayUtc, STREAK_CYCLE_DAYS)
+        val streakMovedToday = streak.movedOn(todayUtc)
+        val rewardedToday = streak.rewardedOn(todayUtc) ||
+            confirmedRewardDayUtc == todayUtc
+
+        binding.streakTitle.text = if (streak.isAlive(todayUtc) && streak.count > 0) {
+            getString(R.string.streak_title, streak.count)
+        } else {
+            getString(R.string.streak_title_none)
+        }
+
+        // Every cell shows what that day of the cycle pays, claimed or not, so
+        // the week ahead is legible rather than a row of blanks.
+        streakCells(binding).forEachIndexed { index, cell ->
+            val reward = cycleRewards.getOrNull(index)
+            val filled = index < done
+
+            cell.setBackgroundResource(
+                if (filled) R.drawable.bg_streak_cell_done
+                else R.drawable.bg_streak_cell_todo
+            )
+            cell.text = reward?.let { cellLabel(it) }.orEmpty()
+            cell.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    when {
+                        filled -> R.color.on_gold
+                        reward != null && reward.points > 0 -> R.color.gold
+                        else -> R.color.text_faint
+                    }
+                )
+            )
+        }
+
+        // The cycle position the NEXT claim will pay for. If the streak has
+        // already moved today it lands on the day just reached; otherwise it
+        // advances one. This has to match resolveStreakClaim exactly, or the
+        // dialog promises one figure and the server pays another - which it
+        // did: with a six day streak from yesterday, the dialog offered day
+        // six's 60 XP while the claim correctly paid day seven's 20 stars.
+        val claimPosition = if (streakMovedToday) {
+            maxOf(done, 1)
+        } else {
+            done % STREAK_CYCLE_DAYS + 1
+        }
+        // Only meaningful once today is settled; "tomorrow" is the day after
+        // whichever day the current claim belongs to.
+        val tomorrowPosition = claimPosition % STREAK_CYCLE_DAYS + 1
+
+        val claimReward = cycleRewards.getOrNull(claimPosition - 1)
+        val tomorrowReward = cycleRewards.getOrNull(tomorrowPosition - 1)
+
+        binding.streakFooter.text = when {
+            rewardedToday && tomorrowReward != null ->
+                getString(R.string.streak_tomorrow, describeReward(tomorrowReward))
+            rewardedToday -> getString(R.string.streak_claimed)
+            streakMovedToday -> getString(R.string.streak_reward_waiting, claimPosition)
+            streak.isAlive(todayUtc) && streak.count > 0 ->
+                getString(R.string.streak_ready, claimPosition)
+            else -> getString(R.string.streak_start)
+        }
+
+        binding.streakClaimButton.visibility =
+            if (rewardedToday) View.GONE else View.VISIBLE
+        binding.streakClaimButton.isEnabled = !streakClaimInFlight
+        // A day whose streak already moved on but paid nothing is a retry, and
+        // saying so is the difference between "come back tomorrow" and "have
+        // another go".
+        binding.streakClaimButton.setText(
+            if (streakMovedToday) R.string.streak_try_again else R.string.streak_claim
+        )
+
+        pendingClaimDay = claimPosition
+        pendingRewardLabel = claimReward?.let { describeReward(it) }
+    }
+
+    private fun streakCells(binding: FragmentHomeBinding) = listOf(
+        binding.streakCell1, binding.streakCell2, binding.streakCell3,
+        binding.streakCell4, binding.streakCell5, binding.streakCell6,
+        binding.streakCell7
+    )
+
+    /** Two lines - the figure, then its unit - because a cell is ~22dp wide. */
+    private fun cellLabel(reward: UserRepository.StreakDayReward): String = when {
+        reward.points > 0 -> "${reward.points}\n\u2605"
+        else -> "${reward.xp}\nXP"
+    }
+
+    private fun describeReward(reward: UserRepository.StreakDayReward): String = when {
+        reward.points > 0 -> getString(R.string.streak_reward_points, reward.points)
+        else -> getString(R.string.streak_reward_xp, reward.xp)
+    }
+
+    /**
+     * Asks before spending the user's time on an ad, and names what it buys.
+     * Starting a fullscreen ad straight off a tap reads as an accident.
+     *
+     * Built from its own layout rather than MaterialAlertDialogBuilder, whose
+     * default paints from colorSurface and the platform typeface - on top of
+     * the redrawn home screen that read as a different app.
+     */
+    private fun confirmStreakClaim() {
+        if (streakClaimInFlight) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_streak_claim, null)
+        val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
+            setContentView(view)
+        }
+
+        view.findViewById<TextView>(R.id.streakDialogTitle).text =
+            getString(R.string.streak_dialog_title, pendingClaimDay)
+
+        val reward = pendingRewardLabel
+        val rewardView = view.findViewById<TextView>(R.id.streakDialogReward)
+        if (reward != null) {
+            rewardView.text = getString(R.string.streak_dialog_reward, reward)
+        } else {
+            // The table has not arrived; better to say nothing than a figure
+            // the claim might not pay.
+            rewardView.visibility = View.GONE
+        }
+        view.findViewById<TextView>(R.id.streakDialogMessage)
+            .setText(R.string.streak_dialog_message_short)
+
+        view.findViewById<View>(R.id.streakDialogWatch).setOnClickListener {
+            dialog.dismiss()
+            playAdThenClaim()
+        }
+        view.findViewById<View>(R.id.streakDialogCancel).setOnClickListener {
+            dialog.dismiss()
+        }
+
+        dialog.show()
+    }
+
+    /**
+     * The ad gates the reward, not the streak.
+     *
+     * If no ad plays the claim still goes through with adWatched=false: the
+     * streak moves on, nothing is paid, and the day stays claimable so the
+     * user can retry. Ad fill is our problem, and losing a streak to it would
+     * break the one promise the feature makes.
+     */
+    private fun playAdThenClaim() {
+        streakClaimInFlight = true
+        binding.streakClaimButton.isEnabled = false
+
+        var earned = false
+        AdManager.getInstance().showRewardedAd(
+            activity = requireActivity(),
+            onRewarded = { earned = true },
+            onAdClosed = { submitStreakClaim(adWatched = earned) },
+            onAdFailedToShow = {
+                if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.streak_ad_unavailable,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                submitStreakClaim(adWatched = false)
+            }
+        )
+    }
+
+    private fun submitStreakClaim(adWatched: Boolean) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            when (val result = mainViewModel.claimDailyStreak(adWatched)) {
+                is UserRepository.StreakClaimResult.Rewarded -> {
+                    // Believe the response immediately; the snapshot only
+                    // confirms what the server already told us.
+                    confirmedRewardDayUtc = ServerClock.now() / MILLIS_PER_DAY
+                    if (isAdded) {
+                        val awarded = if (result.pointsAwarded > 0) {
+                            getString(R.string.streak_reward_points, result.pointsAwarded)
+                        } else {
+                            getString(R.string.streak_reward_xp, result.xpAwarded)
+                        }
+                        // The server counts absolutely (day 8 of an unbroken
+                        // run); the card counts within the cycle it draws.
+                        // Showing the absolute number here would contradict
+                        // the dialog that just said "Day 1 reward".
+                        val cycleDay = (result.day - 1) % STREAK_CYCLE_DAYS + 1
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.streak_claimed_toast, cycleDay, awarded),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+
+                is UserRepository.StreakClaimResult.NotRewarded -> {
+                    // The server treats today as settled either way, so stop
+                    // offering the button once it says so.
+                    if (result.reason == "already_rewarded") {
+                        confirmedRewardDayUtc = ServerClock.now() / MILLIS_PER_DAY
+                    }
+                    // Only worth saying when the user expected a reward; an
+                    // already-rewarded day is just a repeat tap.
+                    if (isAdded && result.reason != "already_rewarded") {
+                        Toast.makeText(
+                            requireContext(),
+                            R.string.streak_no_reward,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+
+                is UserRepository.StreakClaimResult.Error -> {
+                    if (isAdded) {
+                        Toast.makeText(
+                            requireContext(), result.message, Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+            streakClaimInFlight = false
+            // The user document repaints the card through its snapshot
+            // listener; this only restores the button.
+            mainViewModel.streak.value?.let { renderStreak(it) }
+        }
+    }
+
+    /**
+     * The reward table, fetched once per screen. Without it the strip has no
+     * figures to show, so the cells render empty rather than guessing.
+     */
+    private fun loadStreakConfig() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val cycle = mainViewModel.getStreakConfig()
+            if (cycle.isEmpty()) return@launch
+            cycleRewards = cycle
+            mainViewModel.streak.value?.let { renderStreak(it) }
         }
     }
 

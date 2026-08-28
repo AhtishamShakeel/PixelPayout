@@ -195,173 +195,395 @@
 
         </LinearLayout>
 
-        <!-- ================= Level ================= -->
+        <!-- ================= Level + boost ================= -->
         <!--
-            Level is shown twice on purpose: as the ring around the toolbar
-            avatar, and here. The ring is ambient - it is on every screen and
-            carries no numbers - while this card is the only place the XP
-            figures are legible. Both read MainViewModel.levelProgress, so
-            there is one source and they cannot drift apart.
+            Boost rides beside the level card rather than beside the streak.
+            It is a narrow readout - a label and a clock - and pairing it with
+            the tallest card in the screen left the streak sitting in a
+            lopsided row. Level is the shorter card and takes the extra width
+            comfortably.
 
-            Progress is through the CURRENT level, not lifetime XP, so the bar
-            visibly resets on each level up.
+            Both are weighted, so when no buff is running - which is most of
+            the time - the level card simply takes the whole row.
         -->
         <LinearLayout
-            android:id="@+id/levelCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            android:background="@drawable/bg_level_card"
-            android:orientation="vertical"
-            android:paddingStart="18dp"
-            android:paddingTop="16dp"
-            android:paddingEnd="18dp"
-            android:paddingBottom="16dp">
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
+            <!--
+                Level is shown twice on purpose: as the ring around the toolbar
+                avatar, and here. The ring is ambient - it is on every screen
+                and carries no numbers - while this card is the only place the
+                XP figures are legible. Both read MainViewModel.levelProgress,
+                so there is one source and they cannot drift apart.
+
+                Progress is through the CURRENT level, not lifetime XP, so the
+                bar visibly resets on each level up.
+            -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:id="@+id/levelCard"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_weight="1.5"
+                android:background="@drawable/bg_level_card"
+                android:orientation="vertical"
+                android:paddingStart="16dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="16dp">
 
-                <TextView
-                    android:id="@+id/levelChip"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:background="@drawable/bg_chip_violet"
-                    android:fontFamily="@font/mono_bold"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="12sp"
-                    tools:text="3" />
-
-                <TextView
-                    android:id="@+id/levelTitle"
-                    android:layout_width="0dp"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:textColor="@color/white"
-                    android:textSize="14sp"
-                    tools:text="Level 3" />
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/levelChip"
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:background="@drawable/bg_chip_violet"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="12sp"
+                        tools:text="3" />
+
+                    <TextView
+                        android:id="@+id/levelTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="14sp"
+                        tools:text="Level 3" />
+
+                </LinearLayout>
 
                 <TextView
                     android:id="@+id/levelXpRatio"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginTop="10dp"
                     android:fontFamily="@font/mono_medium"
                     android:textColor="@color/text_ghost"
                     android:textSize="12sp"
                     tools:text="1 / 70 XP" />
 
+                <ProgressBar
+                    android:id="@+id/levelProgressBar"
+                    style="@android:style/Widget.ProgressBar.Horizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginTop="8dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressDrawable="@drawable/progress_violet"
+                    tools:progress="35" />
+
+                <TextView
+                    android:id="@+id/levelFooter"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12sp"
+                    tools:text="69 XP to Level 4" />
+
             </LinearLayout>
 
-            <ProgressBar
-                android:id="@+id/levelProgressBar"
-                style="@android:style/Widget.ProgressBar.Horizontal"
-                android:layout_width="match_parent"
-                android:layout_height="6dp"
-                android:layout_marginTop="12dp"
-                android:max="100"
-                android:progress="0"
-                android:progressDrawable="@drawable/progress_violet"
-                tools:progress="35" />
+            <!--
+                Only visible while a buff is running.
 
-            <TextView
-                android:id="@+id/levelFooter"
-                android:layout_width="match_parent"
+                The copy deliberately does NOT follow the handoff, which labels
+                this "2x boost on / Double stars, everything". In this app the
+                buff multiplies whichever of Points or XP was granted, and
+                MULTIPLIER_ELIGIBLE marks quiz and game false for Points, so
+                "double stars, everything" would be a promise the server does
+                not keep.
+            -->
+            <LinearLayout
+                android:id="@+id/buffCard"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:fontFamily="@font/jakarta_medium"
-                android:textColor="@color/text_faint"
-                android:textSize="12sp"
-                tools:text="69 XP to Level 4" />
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_boost_card"
+                android:orientation="vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="16dp"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:background="@drawable/bg_dot_boost" />
+
+                    <TextView
+                        android:id="@+id/buffText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="7dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="2"
+                        android:textColor="@color/boost_blue_light"
+                        android:textSize="12sp"
+                        tools:text="2x XP boost" />
+
+                </LinearLayout>
+
+                <!--
+                    Monospace is load-bearing: the clock reruns every second,
+                    and a proportional face makes the digits jump sideways on
+                    each tick. 18sp rather than the handoff's 24sp because this
+                    column is now the narrow one.
+                -->
+                <TextView
+                    android:id="@+id/buffTimer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="@font/mono_bold"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:textColor="@color/white"
+                    android:textSize="18sp"
+                    tools:text="01:42:18" />
+
+                <TextView
+                    android:id="@+id/buffNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:text="@string/buff_rate_note"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
 
         </LinearLayout>
 
-        <!-- ================= Active buff ================= -->
+        <!-- ================= Streak ================= -->
         <!--
-            Only visible while a buff is running.
-
-            The copy deliberately does NOT follow the handoff, which labels
-            this card "2x boost on / Double stars, everything". In this app the
-            buff multiplies XP only: MULTIPLIER_ELIGIBLE marks QUIZ and GAME
-            false, and the sources it does multiply (offerwall, survey,
-            sponsored) award nothing yet. "Double stars" would be a promise the
-            server does not keep, so the honest label and the payout-rate note
-            both stay.
-
-            Full width because the streak card it pairs with in the design does
-            not exist yet. When streak lands this becomes the right-hand half
-            of a two-column row.
+            Full width, so the seven cells have room to carry their own reward
+            figures. At half width they were ~22dp across and the labels sat on
+            top of each other.
         -->
         <LinearLayout
-            android:id="@+id/buffCard"
+            android:id="@+id/streakCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
-            android:background="@drawable/bg_boost_card"
+            android:background="@drawable/bg_streak_card"
             android:orientation="vertical"
-            android:paddingStart="15dp"
+            android:paddingStart="16dp"
             android:paddingTop="14dp"
-            android:paddingEnd="15dp"
-            android:paddingBottom="14dp"
-            android:visibility="gone"
-            tools:visibility="visible">
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
+                android:minHeight="36dp"
                 android:orientation="horizontal">
 
                 <View
                     android:layout_width="7dp"
                     android:layout_height="7dp"
-                    android:background="@drawable/bg_dot_boost" />
+                    android:background="@drawable/bg_dot_streak" />
 
                 <TextView
-                    android:id="@+id/buffText"
+                    android:id="@+id/streakTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="7dp"
                     android:layout_weight="1"
                     android:fontFamily="@font/jakarta_bold"
-                    android:textColor="@color/boost_blue_light"
+                    android:textColor="@color/gold_warm"
                     android:textSize="13sp"
-                    tools:text="2x XP boost" />
+                    tools:text="7 day streak" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/streakClaimButton"
+                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="8dp"
+                    android:text="@string/streak_claim"
+                    android:textAllCaps="false"
+                    android:textColor="@color/on_gold"
+                    android:textSize="12sp"
+                    app:backgroundTint="@color/gold_warm"
+                    app:cornerRadius="10dp" />
 
             </LinearLayout>
 
             <!--
-                Monospace is load-bearing: the clock reruns every second, and a
-                proportional face makes the digits jump sideways on each tick.
+                Seven cells, one cycle, each showing what that day pays. Filled
+                from streakCount rather than from a stored seven-slot array: if
+                the streak is four days in, the first four are done and there
+                is nothing else to keep in sync.
             -->
-            <TextView
-                android:id="@+id/buffTimer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:fontFamily="@font/mono_bold"
-                android:includeFontPadding="false"
-                android:letterSpacing="-0.042"
-                android:textColor="@color/white"
-                android:textSize="24sp"
-                tools:text="01:42:18" />
-
-            <TextView
-                android:id="@+id/buffNote"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="9dp"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/streakCell1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell4"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell5"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell6"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+                    <TextView
+                        android:id="@+id/streakCell7"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:minHeight="34dp"
+                        android:layout_marginStart="5dp"
+                        android:background="@drawable/bg_streak_cell_todo"
+                        android:fontFamily="@font/mono_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:lineSpacingMultiplier="0.95"
+                        android:maxLines="2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="9sp" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/streakFooter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
                 android:fontFamily="@font/jakarta_medium"
-                android:text="@string/buff_rate_note"
                 android:textColor="@color/text_faint"
-                android:textSize="11sp" />
+                android:textSize="11sp"
+                tools:text="Tomorrow: +20 ★" />
 
         </LinearLayout>
 

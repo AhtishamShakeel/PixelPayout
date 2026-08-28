@@ -6,6 +6,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
+import java.util.concurrent.TimeUnit
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.example.pixelpayout.data.model.RedemptionOption
@@ -93,7 +94,13 @@ class UserRepository {
                                 xp = it.getLong(FIELD_XP)?.toInt() ?: 0,
                                 level = it.getLong(FIELD_LEVEL)?.toInt() ?: 1,
                                 activeBuff = parseBuff(it.get(FIELD_ACTIVE_BUFF)),
-                                activeXpBuff = parseBuff(it.get(FIELD_ACTIVE_XP_BUFF))
+                                activeXpBuff = parseBuff(it.get(FIELD_ACTIVE_XP_BUFF)),
+                                streak = Streak(
+                                    count = it.getLong(FIELD_STREAK_COUNT)?.toInt() ?: 0,
+                                    lastClaimedDayUtc = it.getLong(FIELD_LAST_STREAK_DAY),
+                                    lastRewardedDayUtc =
+                                        it.getLong(FIELD_LAST_STREAK_REWARD_DAY)
+                                )
                             )
                         )
                     }
@@ -106,8 +113,57 @@ class UserRepository {
         val xp: Int = 0,
         val level: Int = 1,
         val activeBuff: TimedBuff? = null,
-        val activeXpBuff: TimedBuff? = null
+        val activeXpBuff: TimedBuff? = null,
+        val streak: Streak = Streak()
     )
+
+    /**
+     * The daily streak, as stored on the user document.
+     *
+     * [lastClaimedDayUtc] is whole UTC days since the epoch, matching the
+     * server's own representation. An integer rather than a timestamp because
+     * the only question asked of it is how many days ago - and because it
+     * makes a streak trivial to set up by hand while testing.
+     */
+    data class Streak(
+        val count: Int = 0,
+        val lastClaimedDayUtc: Long? = null,
+        /**
+         * Tracked apart from [lastClaimedDayUtc] on purpose. The streak
+         * advances whether or not an ad played; the reward does not. Until
+         * this catches up, today's reward is still there to be claimed.
+         */
+        val lastRewardedDayUtc: Long? = null
+    ) {
+        /**
+         * A streak survives one missed midnight, not two: yesterday still
+         * counts, anything older has already lapsed.
+         */
+        fun isAlive(todayUtc: Long): Boolean =
+            lastClaimedDayUtc != null && todayUtc - lastClaimedDayUtc <= 1
+
+        /**
+         * The streak has already advanced for today.
+         *
+         * `>=`, not `==`, to mirror resolveStreakClaim server-side: a last
+         * claim dated in the future is treated as already claimed rather than
+         * as a lapse, so a corrupt field cannot wipe a real streak. Testing
+         * with a hand-set future date lands here too, and the client has to
+         * agree with the server about it or the dialog names a day the claim
+         * will not pay for.
+         */
+        fun movedOn(todayUtc: Long): Boolean =
+            lastClaimedDayUtc != null && lastClaimedDayUtc >= todayUtc
+
+        /** Today's reward has been paid. */
+        fun rewardedOn(todayUtc: Long): Boolean = lastRewardedDayUtc == todayUtc
+
+        /** Days completed in the current seven-day cycle, 0 when lapsed. */
+        fun cyclePosition(todayUtc: Long, cycleDays: Int): Int {
+            if (!isAlive(todayUtc) || count <= 0) return 0
+            return (count - 1) % cycleDays + 1
+        }
+    }
 
     /**
      * A temporary multiplier with an expiry. The same shape backs both the
@@ -254,6 +310,91 @@ class UserRepository {
         else -> raw ?: "Redemption failed"
     }
 
+    /** One day of the streak cycle, as the server describes it. */
+    data class StreakDayReward(val points: Int, val xp: Int)
+
+    sealed class StreakClaimResult {
+        /** The reward was paid. */
+        data class Rewarded(
+            val day: Int,
+            val pointsAwarded: Int,
+            val xpAwarded: Int
+        ) : StreakClaimResult()
+
+        /**
+         * The streak moved on but nothing was paid - no ad was watched, or
+         * today was already rewarded. Not an error: with no ad the reward is
+         * simply still waiting, and the user can try again all day.
+         */
+        data class NotRewarded(val day: Int, val reason: String?) : StreakClaimResult()
+
+        data class Error(val message: String) : StreakClaimResult()
+    }
+
+    /**
+     * Advances the streak and, if [adWatched], pays today's reward.
+     *
+     * [adWatched] is only ever true when AdMob's onRewarded callback fired.
+     * The server treats it as a claim, not proof - see resolveStreakReward for
+     * why that is still worth gating on.
+     */
+    suspend fun claimDailyStreak(adWatched: Boolean): StreakClaimResult {
+        return try {
+            // Well under the 70s default. This call happens with the user
+            // watching the button, and offline it would otherwise hang for
+            // over a minute with the button disabled and nothing to explain
+            // why. Failing fast lets them retry - the reward is still there,
+            // because a call that never reached the server changed nothing.
+            val result = functions
+                .getHttpsCallable("claimDailyStreak")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call(mapOf("adWatched" to adWatched))
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return StreakClaimResult.Error("Unexpected response")
+
+            val day = (data["day"] as? Number)?.toInt() ?: 0
+
+            if (data["rewarded"] == true) {
+                StreakClaimResult.Rewarded(
+                    day = day,
+                    pointsAwarded = (data["pointsAwarded"] as? Number)?.toInt() ?: 0,
+                    xpAwarded = (data["xpAwarded"] as? Number)?.toInt() ?: 0
+                )
+            } else {
+                StreakClaimResult.NotRewarded(day, data["reason"] as? String)
+            }
+        } catch (e: Exception) {
+            StreakClaimResult.Error(e.message ?: "Could not claim your streak")
+        }
+    }
+
+    /**
+     * The reward for every day of the cycle, so the strip can show what each
+     * day pays before anything is claimed. Read from the server rather than
+     * duplicated here, for the same reason the level curve is.
+     */
+    suspend fun getStreakConfig(): List<StreakDayReward> {
+        return try {
+            val result = functions.getHttpsCallable("getStreakConfig").call().await()
+            parseCycle((result.data as? Map<*, *>)?.get("cycle"))
+        } catch (e: Exception) {
+            Log.e("Streak", "Could not load streak config: ${e.message}")
+            emptyList()
+        }
+    }
+
+    private fun parseCycle(raw: Any?): List<StreakDayReward> {
+        val list = raw as? List<*> ?: return emptyList()
+        return list.mapNotNull { entry ->
+            val map = entry as? Map<*, *> ?: return@mapNotNull null
+            StreakDayReward(
+                points = (map["points"] as? Number)?.toInt() ?: 0,
+                xp = (map["xp"] as? Number)?.toInt() ?: 0
+            )
+        }
+    }
+
     suspend fun submitReferral(referralCode: String): ReferralResult {
         return try {
             val result = functions
@@ -320,5 +461,8 @@ class UserRepository {
         private const val FIELD_MAX_LEVEL = "maxLevel"
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
         private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"
+        private const val FIELD_STREAK_COUNT = "streakCount"
+        private const val FIELD_LAST_STREAK_DAY = "lastStreakDayUtc"
+        private const val FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc"
     }
 }

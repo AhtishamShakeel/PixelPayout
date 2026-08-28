@@ -17,6 +17,14 @@ import {
 } from "./economy/gameSession";
 import {buildAward, buildMilestoneEvent} from "./economy/awardReward";
 import {
+  resolveStreakClaim,
+  resolveStreakReward,
+  streakRewardForDay,
+  utcDayFor,
+  STREAK_CYCLE_DAYS,
+  STREAK_REWARDS,
+} from "./economy/streak";
+import {
   REFERRAL_CODE_MAX_ATTEMPTS,
   buildNewUserProfile,
   generateReferralCode,
@@ -58,6 +66,14 @@ const LEVEL_CURVE_DOC = "levelCurve";
 const FIELD_POINTS = "points";
 const FIELD_XP = "xp";
 const FIELD_LEVEL = "level";
+const FIELD_STREAK_COUNT = "streakCount";
+const FIELD_LAST_STREAK_DAY = "lastStreakDayUtc";
+// Tracked apart from the streak day: the streak advances whether or not an ad
+// played, the reward does not, and the reward stays claimable all day.
+const FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc";
+// How often a claim moved the streak on without an ad. The number that decides
+// whether AdMob server-side verification is worth building.
+const FIELD_ADLESS_STREAK_CLAIMS = "adlessStreakClaims";
 const FIELD_ACTIVE_BUFF = "activeBuff";
 // Held apart from the Points buff rather than as one field with a kind, so a
 // user can run both at once and neither grant can clobber the other.
@@ -626,6 +642,159 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
   });
 
   return {success: true, kind, ...result};
+});
+
+/**
+ * Advances the daily streak, and pays today's reward if an ad was watched.
+ *
+ * Two independent once-per-day gates, which is the whole design:
+ *
+ *   the STREAK advances on the first call of a new day, always. It is the
+ *   retention mechanic and must not be lost to an ad that would not load.
+ *
+ *   the REWARD pays only when an ad was watched, and only once. Until it does,
+ *   it stays claimable for the rest of the day, so a user whose ad failed can
+ *   simply tap again rather than losing the day.
+ *
+ * The decision and the write share one transaction, so two taps racing cannot
+ * both pass either gate.
+ */
+export const claimDailyStreak = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const adWatched = request.data?.adWatched === true;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    // Server time, never the client's - the same guarantee the quiz reset
+    // gives, and the reason a device clock cannot buy an extra streak day.
+    const now = Date.now();
+    const todayUtc = utcDayFor(now);
+
+    const claim = resolveStreakClaim(
+      (userDoc.get(FIELD_LAST_STREAK_DAY) as number | undefined) ?? null,
+      todayUtc,
+      Number(userDoc.get(FIELD_STREAK_COUNT) || 0)
+    );
+    const reward = resolveStreakReward(
+      (userDoc.get(FIELD_LAST_STREAK_REWARD_DAY) as number | undefined) ?? null,
+      todayUtc,
+      adWatched
+    );
+
+    const day = claim.day;
+    const updates: Record<string, unknown> = {};
+    if (claim.status === "claimed") {
+      updates[FIELD_STREAK_COUNT] = day;
+      updates[FIELD_LAST_STREAK_DAY] = todayUtc;
+    }
+
+    if (!reward.pay) {
+      // A day that moved on without paying is the case worth counting.
+      if (reward.reason === "no_ad" && claim.status === "claimed") {
+        updates[FIELD_ADLESS_STREAK_CLAIMS] = FieldValue.increment(1);
+      }
+      if (Object.keys(updates).length > 0) {
+        transaction.update(
+          userRef,
+          updates as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>
+        );
+      }
+      return {
+        day,
+        streakAdvanced: claim.status === "claimed",
+        rewarded: false as const,
+        reason: reward.reason,
+        pointsAwarded: 0,
+        xpAwarded: 0,
+      };
+    }
+
+    const dayReward = streakRewardForDay(day);
+    const award = buildAward(
+      Number(userDoc.get(FIELD_POINTS) || 0),
+      Number(userDoc.get(FIELD_XP) || 0),
+      {
+        source: "STREAK",
+        basePoints: dayReward.points,
+        baseXp: dayReward.xp,
+        metadata: {
+          streakDay: day,
+          continued: claim.status === "claimed" && claim.continued,
+        },
+        storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
+      }
+    );
+
+    // Keyed by the day, so a retry that somehow passed the gate above writes
+    // the same document rather than paying twice.
+    writeAward(
+      transaction,
+      userRef,
+      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`streak:${todayUtc}`),
+      award,
+      {...updates, [FIELD_LAST_STREAK_REWARD_DAY]: todayUtc}
+    );
+
+    // A day may also hand out a buff. Nothing in the table does yet; the path
+    // exists so that becomes a data change.
+    if (dayReward.buff) {
+      const field = dayReward.buff.kind === "xp" ?
+        FIELD_ACTIVE_XP_BUFF :
+        FIELD_ACTIVE_BUFF;
+      const granted = resolveBuffGrant(
+        userDoc.get(field) as PointsBuff | undefined,
+        {
+          multiplier: dayReward.buff.multiplier,
+          durationMs: dayReward.buff.durationMs,
+          source: "STREAK",
+        },
+        now
+      );
+      if (granted) transaction.update(userRef, {[field]: granted});
+    }
+
+    return {
+      day,
+      streakAdvanced: claim.status === "claimed",
+      rewarded: true as const,
+      pointsAwarded: award.pointsAwarded,
+      xpAwarded: award.xpAwarded,
+    };
+  });
+
+  console.log("Daily streak", {userId, adWatched, ...result});
+  return {
+    success: true,
+    cycleDays: STREAK_CYCLE_DAYS,
+    cycle: STREAK_REWARDS,
+    ...result,
+  };
+});
+
+/**
+ * The streak reward table.
+ *
+ * Served from the same constant the awards are computed from, so the card can
+ * show what every day of the cycle pays - before any claim - without keeping
+ * its own copy to fall out of step. Publishing it to config/ would work too,
+ * but that is a document someone has to remember to edit when the table
+ * changes; this cannot drift.
+ */
+export const getStreakConfig = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  return {cycleDays: STREAK_CYCLE_DAYS, cycle: STREAK_REWARDS};
 });
 
 /**

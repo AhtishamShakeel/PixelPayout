@@ -107,6 +107,15 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
         }
     }
 
+    val streak: LiveData<UserRepository.Streak> = userRepository.userData.map { it.streak }
+
+    /** Claims today's streak reward. The server owns every rule about it. */
+    suspend fun claimDailyStreak(adWatched: Boolean): UserRepository.StreakClaimResult =
+        userRepository.claimDailyStreak(adWatched)
+
+    suspend fun getStreakConfig(): List<UserRepository.StreakDayReward> =
+        userRepository.getStreakConfig()
+
     /** Points and level together, for screens that gate on both. */
     data class UserState(val points: Int, val level: Int)
 

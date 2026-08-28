@@ -37,6 +37,10 @@ android {
 
     buildFeatures {
         viewBinding true
+        // Needed only so BuildConfig.DEBUG exists. AGP 8 stops generating
+        // BuildConfig unless asked, and the debug-only boost trigger on Home
+        // is gated on it - without this the trigger would ship in release.
+        buildConfig true
     }
 
     compileOptions {

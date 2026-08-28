@@ -665,6 +665,29 @@
 
         </LinearLayout>
 
+        <!-- ================= Debug ================= -->
+        <!--
+            Made visible only when BuildConfig.DEBUG is true, so it is dead
+            weight in release rather than a shipped control. See BuffDebug.
+        -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/debugBoostButton"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:text="@string/debug_grant_boost"
+            android:textAllCaps="false"
+            android:textColor="@color/text_faint"
+            android:textSize="12sp"
+            android:visibility="gone"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/stroke_strong"
+            tools:visibility="visible" />
+
     </LinearLayout>
 
 </androidx.core.widget.NestedScrollView>

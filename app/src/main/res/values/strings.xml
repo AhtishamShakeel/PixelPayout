@@ -180,4 +180,6 @@
     <string name="quiz_reset_in_s">Resets in %1$ds</string>
     <string name="quiz_resetting">Resetting…</string>
     <string name="quiz_reset_unknown">Available again soon</string>
+    <!-- Debug only; never visible in a release build. -->
+    <string name="debug_grant_boost" translatable="false">Debug: grant 2x boost</string>
 </resources>

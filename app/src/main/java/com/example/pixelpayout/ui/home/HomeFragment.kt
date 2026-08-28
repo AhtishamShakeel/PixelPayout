@@ -10,6 +10,10 @@ import androidx.core.os.bundleOf
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
+import com.example.pixelpayout.debug.BuffDebug
+import com.pixelpayout.BuildConfig
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
@@ -19,6 +23,7 @@ import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import android.os.Handler
 import android.os.Looper
+import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -50,6 +55,7 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupClickListeners()
+        setupDebugControls()
         observeViewModel()
 
     }
@@ -283,6 +289,26 @@ class HomeFragment : Fragment() {
         } catch (e: Exception) {
             Log.e("Navigation", "Error navigating to game: ${e.message}")
             (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
+        }
+    }
+
+    /**
+     * The boost card cannot otherwise be seen: no source grants a buff yet, so
+     * without this the card is unreachable in a running app. Debug builds only.
+     */
+    private fun setupDebugControls() {
+        if (!BuildConfig.DEBUG) return
+
+        binding.debugBoostButton.visibility = View.VISIBLE
+        binding.debugBoostButton.setOnClickListener {
+            viewLifecycleOwner.lifecycleScope.launch {
+                binding.debugBoostButton.isEnabled = false
+                val message = BuffDebug.grantSelfBuff()
+                if (isAdded) {
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+                }
+                _binding?.debugBoostButton?.isEnabled = true
+            }
         }
     }
 

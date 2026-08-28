@@ -35,6 +35,13 @@ import java.util.concurrent.TimeUnit
 
 private const val MILLIS_PER_DAY = 86_400_000L
 
+/**
+ * How long a redemption is expected to take. A service target we are choosing
+ * to show, not a rule the server applies - resolveRedemption has no deadline
+ * and never will, because a person has to approve each one.
+ */
+private const val REDEEM_TARGET_MILLIS = 48 * 60 * 60 * 1000L
+
 /** Matches STREAK_CYCLE_DAYS server-side; the strip draws one cycle. */
 private const val STREAK_CYCLE_DAYS = 7
 
@@ -69,6 +76,7 @@ class HomeFragment : Fragment() {
         override fun run() {
             updateQuizStatusText()
             updateBuffBadge()
+            mainViewModel.pendingRedemptions.value?.let { renderPending(it) }
             timerHandler.postDelayed(this, 1000) // Update every second
         }
     }
@@ -181,17 +189,7 @@ class HomeFragment : Fragment() {
 
         mainViewModel.streak.observe(viewLifecycleOwner) { renderStreak(it) }
 
-        mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { pending ->
-            // Nothing waiting is the usual state, and an empty row saying so
-            // would be noise on every screen for every user.
-            if (pending.count == 0) {
-                binding.pendingRedeemRow.visibility = View.GONE
-            } else {
-                binding.pendingRedeemRow.visibility = View.VISIBLE
-                binding.pendingRedeemValue.text =
-                    getString(R.string.pending_redeem_value, pending.points)
-            }
-        }
+        mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { renderPending(it) }
 
         mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
 
@@ -643,6 +641,56 @@ class HomeFragment : Fragment() {
             if (cycle.isEmpty()) return@launch
             cycleRewards = cycle
             mainViewModel.streak.value?.let { renderStreak(it) }
+        }
+    }
+
+    /**
+     * The pending redemption row, and its countdown toward the 48 hour
+     * service target.
+     *
+     * The target is ours, not something the server enforces - approval is a
+     * human step - so once the window passes the row stops counting and says
+     * "in review". A timer that has run out, or run negative, would be worse
+     * than no timer at all.
+     */
+    private fun renderPending(pending: UserRepository.PendingRedemptions) {
+        val binding = _binding ?: return
+
+        // Nothing waiting is the usual state, and an empty row saying so would
+        // be noise on every screen for every user.
+        if (pending.count == 0) {
+            binding.pendingRedeemRow.visibility = View.GONE
+            return
+        }
+        binding.pendingRedeemRow.visibility = View.VISIBLE
+
+        // One request names itself; several would not fit, so they are counted.
+        val subject = if (pending.count == 1 && pending.title.isNotBlank()) {
+            pending.title
+        } else {
+            getString(R.string.pending_redeem_many, pending.count)
+        }
+
+        val readyAt = pending.requestedAtMillis?.plus(REDEEM_TARGET_MILLIS)
+        val remaining = readyAt?.minus(ServerClock.now()) ?: 0L
+
+        binding.pendingRedeemValue.text = if (remaining > 0) {
+            getString(R.string.pending_redeem_value, subject, remainingLabel(remaining))
+        } else {
+            getString(R.string.pending_redeem_overdue, subject)
+        }
+    }
+
+    /** Hours until the last one, then minutes - "41h", "35m". */
+    private fun remainingLabel(remainingMs: Long): String {
+        val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
+        return if (hours >= 1) {
+            getString(R.string.pending_redeem_hours, hours)
+        } else {
+            getString(
+                R.string.pending_redeem_minutes,
+                TimeUnit.MILLISECONDS.toMinutes(remainingMs).coerceAtLeast(1)
+            )
         }
     }
 

@@ -398,10 +398,19 @@ class UserRepository {
         }
     }
 
-    /** What the user has redeemed and is waiting on. */
-    data class PendingRedemptions(val count: Int, val points: Int, val oldestAtMillis: Long?)
+    /**
+     * What the user has redeemed and is waiting on.
+     *
+     * [title] and [requestedAtMillis] describe the OLDEST outstanding request -
+     * the one that will clear first, and so the one a countdown should track.
+     */
+    data class PendingRedemptions(
+        val count: Int,
+        val title: String,
+        val requestedAtMillis: Long?
+    )
 
-    private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, 0, null))
+    private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, "", null))
     val pendingRedemptions: LiveData<PendingRedemptions> = _pendingRedemptions
 
     /** One entry in the public payout feed. The name arrives already masked. */
@@ -432,15 +441,19 @@ class UserRepository {
                     return@addSnapshotListener
                 }
 
-                val points = snapshot.documents.sumOf {
-                    it.getLong(FIELD_POINTS_COST)?.toInt() ?: 0
-                }
+                // The oldest request is the one closest to being ready, so it
+                // is the one the row describes.
                 val oldest = snapshot.documents
-                    .mapNotNull { it.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time }
-                    .minOrNull()
+                    .filter { it.getTimestamp(FIELD_CREATED_AT) != null }
+                    .minByOrNull { it.getTimestamp(FIELD_CREATED_AT)!!.toDate().time }
 
                 _pendingRedemptions.postValue(
-                    PendingRedemptions(snapshot.size(), points, oldest)
+                    PendingRedemptions(
+                        count = snapshot.size(),
+                        title = oldest?.getString(FIELD_OPTION_TITLE).orEmpty(),
+                        requestedAtMillis =
+                            oldest?.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time
+                    )
                 )
             }
     }
@@ -549,7 +562,7 @@ class UserRepository {
         private const val FIELD_UID = "uid"
         private const val FIELD_STATUS = "status"
         private const val STATUS_PENDING = "pending"
-        private const val FIELD_POINTS_COST = "pointsCost"
+        private const val FIELD_OPTION_TITLE = "optionTitle"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_APPROVED_AT = "approvedAt"
         private const val PAYOUT_FEED_LIMIT = 20L

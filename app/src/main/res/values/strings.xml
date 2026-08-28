@@ -210,9 +210,15 @@
     <string name="streak_ad_unavailable">No ad available right now</string>
     <!-- Pending redeem -->
     <string name="pending_redeem">Pending redeem</string>
-    <!-- No countdown: approval is a manual review with no promised deadline,
-         so a timer here would be a commitment nobody has made. -->
-    <string name="pending_redeem_value">%1$d ★ · in review</string>
+    <!-- The countdown runs against a 48 hour service target, not against
+         anything the server enforces - approval is still a human step. Once
+         the window passes the row says "in review" rather than showing a
+         negative timer or a deadline that has already been missed. -->
+    <string name="pending_redeem_value">%1$s · ready in %2$s</string>
+    <string name="pending_redeem_overdue">%1$s · in review</string>
+    <string name="pending_redeem_many">%1$d pending</string>
+    <string name="pending_redeem_hours">%1$dh</string>
+    <string name="pending_redeem_minutes">%1$dm</string>
 
     <!-- Public payout feed -->
     <string name="recent_payouts">Recent payouts</string>

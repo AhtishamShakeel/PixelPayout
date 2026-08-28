@@ -1261,14 +1261,27 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
       // Only a masked name, what was redeemed, and when. Never the uid, the
       // points, or the payout number - the whole reason this is a separate
       // collection from `redemptions`.
+      const feedName = maskDisplayName(
+        userDoc.get("displayName") as string | undefined
+      );
+      const feedTitle = String(redemptionDoc.get("optionTitle") || "");
+
       transaction.set(
         firestore.collection(PAYOUT_FEED_COLLECTION).doc(redemptionId),
         {
-          name: maskDisplayName(userDoc.get("displayName") as string | undefined),
-          optionTitle: String(redemptionDoc.get("optionTitle") || ""),
+          name: feedName,
+          optionTitle: feedTitle,
           approvedAt: FieldValue.serverTimestamp(),
         }
       );
+
+      // Logged so an approval that produced no feed row can be told apart
+      // from one that never reached this code at all.
+      console.log("Payout feed entry queued", {
+        redemptionId,
+        name: feedName,
+        optionTitle: feedTitle,
+      });
 
       return {refunded: 0, targetUid};
     }

@@ -9,7 +9,6 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
-import androidx.navigation.ui.setupWithNavController
 import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieCompositionFactory
 import com.example.pixelpayout.utils.UserPreferences
@@ -185,38 +184,32 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         val navController = navHostFragment.navController
 
-        // Use the built-in setupWithNavController and customize it for better animations
-        binding.bottomNav.setupWithNavController(navController)
-        
-        // Override the default behavior with custom animations
-        binding.bottomNav.setOnItemSelectedListener { item ->
-            // Store the current and target destination IDs
+        // The bar is our own view now, so there is no setupWithNavController:
+        // taps navigate here, and the destination listener below moves the
+        // highlight back when navigation happens some other way (system back).
+        binding.bottomNav.setOnItemSelectedListener { itemId ->
             val currentDestinationId = navController.currentDestination?.id ?: 0
-            val targetDestinationId = item.itemId
-            
-            // Only navigate if we're actually changing destinations
-            if (currentDestinationId != targetDestinationId) {
-                val navOptions = NavOptions.Builder()
-                    .setEnterAnim(R.anim.fade_in)
-                    .setExitAnim(R.anim.fade_out)
-                    .setPopEnterAnim(R.anim.fade_in)
-                    .setPopExitAnim(R.anim.fade_out)
-                    .build()
-                
-                try {
-                    // Try to navigate using the safe approach
-                    navController.navigate(targetDestinationId, null, navOptions)
-                    return@setOnItemSelectedListener true
-                } catch (e: Exception) {
-                    // If navigation fails, at least select the tab in the UI
-                    Log.e("Navigation", "Failed to navigate: ${e.message}")
-                    // Return true to still update the selected item
-                    return@setOnItemSelectedListener true
-                }
+            if (currentDestinationId == itemId) return@setOnItemSelectedListener true
+
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.fade_in)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.fade_out)
+                .build()
+
+            try {
+                navController.navigate(itemId, null, navOptions)
+            } catch (e: Exception) {
+                // Keep the tab selected even if the destination refused us;
+                // the bar staying put would be the more confusing failure.
+                Log.e("Navigation", "Failed to navigate: ${e.message}")
             }
-            
-            // If we're already at the destination, just return true to handle the selection
             true
+        }
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            binding.bottomNav.setSelectedItemIdSilently(destination.id)
         }
     }
 

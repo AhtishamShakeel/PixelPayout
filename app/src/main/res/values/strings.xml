@@ -121,12 +121,63 @@
     <string name="level_badge_value">%1$d</string>
     <string name="balance_title">Your Balance</string>
     <string name="keep_earning">Keep earning</string>
-    <string name="next_tier">%1$d more unlocks %2$s</string>
+    <string name="next_tier">%1$d more stars to unlock %2$s</string>
     <string name="buff_rate_note">Payout rate unchanged</string>
-    <string name="buff_label">%1$sx XP boost</string>
+    <!-- The multiplier is applied to basePoints only - buildAward never
+         multiplies baseXp - so this is a stars boost, not an XP one. It also
+         only reaches offerwall/survey/sponsored awards; MULTIPLIER_ELIGIBLE
+         marks quiz and game false. -->
+    <string name="buff_label">%1$sx stars on offers</string>
     <string name="game_reward_rate">5-10 stars per minute</string>
     <string name="game_title">Color Puzzle</string>
     <string name="quiz_title">Daily Quiz</string>
     <string name="play_tab_games">Games</string>
     <string name="play_tab_quizzes">Quizzes</string>
+    <!-- Bottom nav labels -->
+    <string name="nav_home">Home</string>
+    <string name="nav_play">Play</string>
+    <string name="nav_earn">Earn</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_profile">Profile</string>
+    <!-- Balance card -->
+    <string name="balance_label">Balance</string>
+    <string name="balance_unit">stars</string>
+    <string name="payout">Payout</string>
+    <!-- The target is the cheapest reward not yet affordable, not a fixed
+         withdrawal floor - see MainViewModel.nextRedemption. -->
+    <string name="balance_target">Next reward at %1$d ★</string>
+    <string name="balance_ratio">%1$d / %2$d</string>
+    <!-- Level card -->
+    <string name="level_card_title">Level %1$d</string>
+    <string name="level_xp_ratio">%1$d / %2$d XP</string>
+    <string name="level_xp_max">Max level</string>
+    <string name="level_to_next">%1$d XP to Level %2$d</string>
+    <string name="level_reached_max">Highest level reached</string>
+    <!-- Quick actions -->
+    <string name="quick_actions">Quick actions</string>
+    <string name="tile_play_games">Play Games</string>
+    <string name="action_earn_stars">Earn stars</string>
+    <string name="action_refer">Refer &amp; earn</string>
+    <!-- Featured offer.
+         The handoff headline is "Earn up to 2,500 &#9733;". It is not used: no
+         offer document carries that figure, and offerwall completions award
+         nothing at all today (nothing server-side handles the OFFERWALL reward
+         source, and TJPlacement.onRewardRequest only logs). Copy here points
+         at the offer wall without promising a payout. -->
+    <string name="offer_eyebrow">Featured offer</string>
+    <string name="offer_headline">Earn more with offers</string>
+    <string name="offer_subcopy">Browse the offer wall in Earn</string>
+    <string name="offer_cta">Open</string>
+    <!-- Profile -->
+    <string name="profile_placeholder">Nothing here yet.</string>
+    <!-- Quiz tile subtitle -->
+    <plurals name="quizzes_left">
+        <item quantity="one">%1$d quiz left</item>
+        <item quantity="other">%1$d quizzes left</item>
+    </plurals>
+    <string name="quiz_reset_in_hm">Resets in %1$dh %2$dm</string>
+    <string name="quiz_reset_in_ms">Resets in %1$dm %2$ds</string>
+    <string name="quiz_reset_in_s">Resets in %1$ds</string>
+    <string name="quiz_resetting">Resetting…</string>
+    <string name="quiz_reset_unknown">Available again soon</string>
 </resources>

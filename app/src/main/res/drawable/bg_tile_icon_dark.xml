@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon plate on the gold tile. Black at 18% rather than white: on gold,
+     a white plate disappears. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#2E000000" />
+    <corners android:radius="11dp" />
+</shape>

@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Bottom nav, drawn to the home design: five destinations with Earn raised
+    out of the bar on an accent disc.
+
+    The root is 82dp but the painted bar is only the bottom 66dp - the strip
+    above it is transparent so the centre disc can overhang the bar without
+    relying on clipChildren being off all the way up the view tree.
+-->
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:parentTag="android.widget.FrameLayout"
+    tools:layout_height="82dp"
+    tools:background="@color/background_dark">
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="66dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_bottom_nav" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:baselineAligned="false"
+        android:gravity="bottom"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/navigation_home"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:id="@+id/navIconHome"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/nav_home"
+                android:src="@drawable/ic_nav_home" />
+
+            <TextView
+                android:id="@+id/navLabelHome"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="@font/lexend_regular"
+                android:text="@string/nav_home"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navigation_play"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:id="@+id/navIconPlay"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/nav_play"
+                android:src="@drawable/ic_nav_play" />
+
+            <TextView
+                android:id="@+id/navLabelPlay"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="@font/lexend_regular"
+                android:text="@string/nav_play"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navigation_rewards"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <FrameLayout
+                android:id="@+id/navIconEarnHolder"
+                android:layout_width="62dp"
+                android:layout_height="62dp"
+                android:background="@drawable/bg_nav_center">
+
+                <ImageView
+                    android:id="@+id/navIconEarn"
+                    android:layout_width="25dp"
+                    android:layout_height="25dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/nav_earn"
+                    android:src="@drawable/ic_nav_earn" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/navLabelEarn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:fontFamily="@font/lexend_bold"
+                android:text="@string/nav_earn"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navigation_redemption"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:id="@+id/navIconWallet"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/nav_wallet"
+                android:src="@drawable/ic_nav_wallet" />
+
+            <TextView
+                android:id="@+id/navLabelWallet"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="@font/lexend_regular"
+                android:text="@string/nav_wallet"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navigation_profile"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:id="@+id/navIconProfile"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:contentDescription="@string/nav_profile"
+                android:src="@drawable/ic_nav_profile" />
+
+            <TextView
+                android:id="@+id/navLabelProfile"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:fontFamily="@font/lexend_regular"
+                android:text="@string/nav_profile"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</merge>

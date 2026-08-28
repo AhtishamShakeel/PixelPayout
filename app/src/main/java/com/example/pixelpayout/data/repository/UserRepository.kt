@@ -1,5 +1,6 @@
 package com.example.pixelpayout.data.repository
 
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.lifecycle.MutableLiveData
@@ -74,7 +75,16 @@ class UserRepository {
     private fun setupRealtimeUpdates(userId: String) {
         auth.currentUser?.uid?.let { userId ->
             firestore.collection(COLLECTION_USERS).document(userId)
-                .addSnapshotListener { snapshot, _ ->
+                .addSnapshotListener { snapshot, error ->
+
+                    Log.d("BUFF_DEBUG", "Snapshot listener fired")
+                    Log.d("BUFF_DEBUG", "Error = $error")
+                    Log.d("BUFF_DEBUG", "Snapshot exists = ${snapshot?.exists()}")
+                    Log.d(
+                        "BUFF_DEBUG",
+                        "Raw activeBuff = ${snapshot?.get(FIELD_ACTIVE_BUFF)}"
+                    )
+
                     snapshot?.let {
                         _userData.postValue(
                             UserData(

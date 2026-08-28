@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Placeholder for the Profile tab. See ProfileFragment for why an empty
+    screen is preferable to a tab that silently refuses to open.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/jakarta_bold"
+        android:text="@string/nav_profile"
+        android:textColor="@color/white"
+        android:textSize="20sp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/jakarta_medium"
+        android:gravity="center"
+        android:text="@string/profile_placeholder"
+        android:textColor="@color/text_faint"
+        android:textSize="13sp" />
+
+</LinearLayout>

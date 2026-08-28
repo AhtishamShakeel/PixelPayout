@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom nav: Play. Outlined gamepad. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M7,7 L17,7 A4.2,4.2 0 0 1 21.2,11.2 L21.2,13.8 A4.2,4.2 0 0 1 17,18 L7,18 A4.2,4.2 0 0 1 2.8,13.8 L2.8,11.2 A4.2,4.2 0 0 1 7,7 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7" />
+    <path
+        android:pathData="M8,11 L8,14"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M6.5,12.5 L9.5,12.5"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15.05,11.6 a1.15,1.15 0 1,0 2.3,0 a1.15,1.15 0 1,0 -2.3,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M16.85,14 a1.15,1.15 0 1,0 2.3,0 a1.15,1.15 0 1,0 -2.3,0" />
+</vector>

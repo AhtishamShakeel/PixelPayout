@@ -14,10 +14,12 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import android.os.Handler
 import android.os.Looper
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class HomeFragment : Fragment() {
@@ -77,8 +79,59 @@ class HomeFragment : Fragment() {
             } else {
                 binding.nextTierGroup.visibility = View.VISIBLE
                 binding.redemptionProgress.progress = next.percent
+                binding.balanceTarget.text =
+                    getString(R.string.balance_target, next.pointsCost)
+                // Derived rather than read from points separately: taking both
+                // halves of the ratio from the same snapshot stops the bar and
+                // the numbers under it disagreeing mid-update.
+                binding.balanceRatio.text = getString(
+                    R.string.balance_ratio,
+                    next.pointsCost - next.pointsShort,
+                    next.pointsCost
+                )
                 binding.nextTierText.text =
                     getString(R.string.next_tier, next.pointsShort, next.title)
+            }
+        }
+
+        mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
+            binding.levelChip.text = progress.level.toString()
+            binding.levelTitle.text = getString(R.string.level_card_title, progress.level)
+
+            when {
+                progress.isMaxLevel -> {
+                    // No next level to fill toward. A full bar says "nothing
+                    // left to earn here", which is the truth; an empty one
+                    // would read as no progress at all.
+                    binding.levelProgressBar.progress = 100
+                    binding.levelXpRatio.setText(R.string.level_xp_max)
+                    binding.levelFooter.setText(R.string.level_reached_max)
+                }
+
+                // The curve is fetched once per session and can still be in
+                // flight, or have failed. Level is known either way; the XP
+                // figures are not, so they are left blank rather than shown
+                // as 0 / 0.
+                progress.xpForNextLevel <= 0 -> {
+                    binding.levelProgressBar.progress = 0
+                    binding.levelXpRatio.text = ""
+                    binding.levelFooter.text = ""
+                }
+
+                else -> {
+                    binding.levelProgressBar.progress =
+                        (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
+                    binding.levelXpRatio.text = getString(
+                        R.string.level_xp_ratio,
+                        progress.xpIntoLevel,
+                        progress.xpForNextLevel
+                    )
+                    binding.levelFooter.text = getString(
+                        R.string.level_to_next,
+                        progress.xpForNextLevel - progress.xpIntoLevel,
+                        progress.level + 1
+                    )
+                }
             }
         }
 
@@ -106,15 +159,17 @@ class HomeFragment : Fragment() {
             return
         }
 
-        val remainingMs = buff.expiresAtMillis - System.currentTimeMillis()
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs)
-        val remaining = if (minutes >= 60) {
-            "${TimeUnit.MILLISECONDS.toHours(remainingMs)}h"
-        } else if (minutes >= 1) {
-            "${minutes}m"
-        } else {
-            "${TimeUnit.MILLISECONDS.toSeconds(remainingMs)}s"
-        }
+        // HH:MM:SS rather than the previous single largest unit. The card is
+        // now built around the clock, and "1h" sitting at 24sp reads as a
+        // static label rather than something counting down.
+        val remainingMs = (buff.expiresAtMillis - System.currentTimeMillis()).coerceAtLeast(0)
+        val remaining = String.format(
+            Locale.US,
+            "%02d:%02d:%02d",
+            TimeUnit.MILLISECONDS.toHours(remainingMs),
+            TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60,
+            TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
+        )
 
         // Multipliers are whole-ish; drop a trailing .0 so it reads "2x".
         val multiplier = if (buff.multiplier % 1.0 == 0.0) {
@@ -128,55 +183,68 @@ class HomeFragment : Fragment() {
         binding.buffCard.visibility = View.VISIBLE
     }
 
+    /**
+     * The quiz tile's subtitle, refreshed once a second.
+     *
+     * The condition here used to be inverted: the reset countdown was computed
+     * inside the `remaining > 0` branch and overwrote the attempts text, so
+     * "3 quizzes left" was written and then immediately replaced on the same
+     * pass and never actually appeared. Meanwhile the branch where the user
+     * has NO attempts left - the one case the countdown is for, and the one
+     * the original comment described - set no text at all, leaving the
+     * subtitle empty. On a slim row that read as a blank line; on the tile it
+     * reads as a rendering fault.
+     *
+     * So: attempts remaining is what a player needs while they can still
+     * play, and the countdown is what they need once they cannot.
+     */
     private fun updateQuizStatusText() {
         val attempts = quizViewModel.dailyAttempts.value ?: 0
-        val maxAttempts = quizViewModel.MAX_DAILY_ATTEMPTS
-        val remaining = maxOf(maxAttempts - attempts, 0)
-        
-        if (remaining > 0) {
-            // Show remaining quizzes
-            binding.quizRow.rowSubtitle.text = "$remaining quizzes left"
-        
-            // Show reset timer if no quizzes left
-            val nextResetTime = quizViewModel.nextResetTime.value
-            if (nextResetTime != null) {
-                val currentTime = quizViewModel.getCurrentServerTime()
-                val timeUntilReset = nextResetTime - currentTime
-                
-                if (timeUntilReset <= 0) {
-                    binding.quizRow.rowSubtitle.text = "Resetting soon..."
-                    /*// Refresh attempts when timer reaches zero
-                    quizViewModel.fetchDailyAttempts(forceRefresh = true)*/
-                } else {
-                    val hours = TimeUnit.MILLISECONDS.toHours(timeUntilReset)
-                    val minutes = TimeUnit.MILLISECONDS.toMinutes(timeUntilReset) % 60
-                    val seconds = TimeUnit.MILLISECONDS.toSeconds(timeUntilReset) % 60
-                    val timerText = when {
-                        hours > 0 -> "${hours}h ${minutes}m left for reset"
-                        minutes > 0 -> "${minutes}m ${seconds}s left for reset"
-                        else -> "${seconds}s left for reset"
-                    }
-                    
-                    binding.quizRow.rowSubtitle.text = timerText
-                }
-            } else {
-                binding.quizRow.rowSubtitle.text = "Quizzes available soon"
-            }
+        val remaining = maxOf(quizViewModel.MAX_DAILY_ATTEMPTS - attempts, 0)
+
+        binding.quizTileSubtitle.text = if (remaining > 0) {
+            resources.getQuantityString(R.plurals.quizzes_left, remaining, remaining)
+        } else {
+            resetCountdownText()
+        }
+    }
+
+    /**
+     * Time until the daily quiz allowance resets, measured against the
+     * server's clock rather than the device's - changing the phone's date
+     * cannot buy extra attempts.
+     */
+    private fun resetCountdownText(): String {
+        val nextResetTime = quizViewModel.nextResetTime.value
+            ?: return getString(R.string.quiz_reset_unknown)
+
+        val remainingMs = nextResetTime - quizViewModel.getCurrentServerTime()
+        if (remainingMs <= 0) return getString(R.string.quiz_resetting)
+
+        val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60
+        val seconds = TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
+
+        return when {
+            hours > 0 -> getString(R.string.quiz_reset_in_hm, hours, minutes)
+            minutes > 0 -> getString(R.string.quiz_reset_in_ms, minutes, seconds)
+            else -> getString(R.string.quiz_reset_in_s, seconds)
         }
     }
 
     private fun setupClickListeners() {
         binding.apply {
-            // Game and quiz are the same row component with different content,
-            // so their static parts are filled in here rather than in XML.
-            gameRow.rowIcon.setImageResource(R.drawable.ic_game)
-            gameRow.rowTitle.setText(R.string.game_title)
-            gameRow.rowSubtitle.setText(R.string.game_reward_rate)
-            gameRow.root.setOnClickListener { navigateToGame() }
+            // The tiles are fully described in XML now - only the quiz
+            // subtitle is dynamic, and the per-second timer owns that.
+            playTile.setOnClickListener { navigateToGame() }
+            quizTile.setOnClickListener { navigateToQuizzes() }
 
-            quizRow.rowIcon.setImageResource(R.drawable.ic_quiz)
-            quizRow.rowTitle.setText(R.string.quiz_title)
-            quizRow.root.setOnClickListener { navigateToQuizzes() }
+            earnAction.setOnClickListener { navigateToRewards() }
+            // Both the card and its button land on Earn; tapping the card body
+            // is what most people try first.
+            offerCard.setOnClickListener { navigateToRewards() }
+            btnOffer.setOnClickListener { navigateToRewards() }
+            referAction.setOnClickListener { showReferralDialog() }
 
             btnPayout.setOnClickListener { navigateToRedemption()}
         }
@@ -217,6 +285,30 @@ class HomeFragment : Fragment() {
             (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_play
         }
     }
+
+    private fun navigateToRewards() {
+        try {
+            findNavController().navigate(R.id.navigation_rewards, null, defaultNavOptions())
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to rewards: ${e.message}")
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_rewards
+        }
+    }
+
+    /**
+     * Referral has no destination of its own - it is the same dialog the
+     * activity shows on first run, reached here on demand.
+     */
+    private fun showReferralDialog() {
+        ReferralDialogFragment().show(parentFragmentManager, "ReferralDialog")
+    }
+
+    private fun defaultNavOptions() = NavOptions.Builder()
+        .setEnterAnim(R.anim.fade_in)
+        .setExitAnim(R.anim.fade_out)
+        .setPopEnterAnim(R.anim.fade_in)
+        .setPopExitAnim(R.anim.fade_out)
+        .build()
 
     private fun navigateToDetails(type: String) {
         try {

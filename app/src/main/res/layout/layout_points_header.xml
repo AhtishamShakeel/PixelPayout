@@ -1,31 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?><!--
+    The balance pill in the header. Shows the same number as the balance card
+    on Home - both read MainViewModel.points, so they cannot disagree.
+
+    Asymmetric horizontal padding (11dp lead, 13dp trail) is from the design:
+    the star glyph carries its own visual whitespace on the left, so equal
+    padding makes the pill look lopsided.
+-->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:gravity="center_vertical"
-    android:padding="8dp"
+    android:paddingStart="11dp"
+    android:paddingTop="7dp"
+    android:paddingEnd="13dp"
+    android:paddingBottom="7dp"
     android:layout_gravity="end"
     android:layout_marginEnd="17dp"
     android:clickable="true"
     android:focusable="true"
-    android:background="@drawable/points_background">
+    android:background="@drawable/bg_star_pill">
 
     <ImageView
-        android:layout_width="20dp"
-        android:layout_height="20dp"
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:importantForAccessibility="no"
         android:src="@drawable/ic_star"
-        app:tint="@color/white" />
+        app:tint="@color/gold" />
 
     <TextView
         android:id="@+id/pointsText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
+        android:layout_marginStart="6dp"
+        android:fontFamily="@font/mono_bold"
         android:textColor="@color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
+        android:textSize="14sp"
         tools:text="1500" />
 
 </LinearLayout>

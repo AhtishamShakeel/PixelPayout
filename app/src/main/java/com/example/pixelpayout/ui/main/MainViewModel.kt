@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.main
 
+import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
@@ -23,9 +24,12 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
         userData.level
     }
 
-    val activeBuff: LiveData<UserRepository.PointsBuff?> = userRepository.userData.map { userData ->
-        userData.activeBuff?.takeIf { it.isActive() }
-    }
+    val activeBuff: LiveData<UserRepository.PointsBuff?> =
+        userRepository.userData.map { userData ->
+            Log.d("BUFF_DEBUG", "activeBuff = ${userData.activeBuff}")
+            Log.d("BUFF_DEBUG", "isActive = ${userData.activeBuff?.isActive()}")
+            userData.activeBuff
+        }
 
     /**
      * The cheapest redemption the user cannot afford yet - what the balance

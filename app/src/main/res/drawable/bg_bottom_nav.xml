@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bottom nav bar: surface fill with the 1dp hairline along its top edge. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/nav_bar_stroke" />
+        </shape>
+    </item>
+    <item android:top="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/surface_dark" />
+        </shape>
+    </item>
+</layer-list>

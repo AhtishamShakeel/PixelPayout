@@ -1,9 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?><!--
+    The app header, shown on every destination.
+
+    72dp rather than ?attr/actionBarSize (56dp): the avatar is a 52dp frame,
+    which left 2dp of clearance top and bottom and read as cramped once the
+    name and subtitle dropped to their design sizes. The handoff's header
+    block is ~74dp for the same reason.
+-->
 <androidx.appcompat.widget.Toolbar xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/toolbar"
     android:layout_width="match_parent"
-    android:layout_height="?attr/actionBarSize"
+    android:layout_height="72dp"
     android:background="@color/background_dark"
     android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar">
 
@@ -35,21 +42,27 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Hey, User"
-                android:textSize="18sp"
+                android:textSize="17sp"
+                android:letterSpacing="-0.012"
                 android:textColor="@color/white"
-                android:fontFamily="@font/lexend_bold"
+                android:fontFamily="@font/jakarta_bold"
                 android:maxLines="1"
                 android:ellipsize="end"
                 android:maxWidth="150dp"/>
 
+            <!--
+                Dimmed rather than white: at full white it read as a second
+                title competing with the name above it.
+            -->
             <TextView
                 android:id="@+id/welcomeText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Welcome Back"
-                android:textSize="14sp"
-                android:textColor="@color/white"
-                android:fontFamily="@font/lexend_regular"/>
+                android:layout_marginTop="2dp"
+                android:text="Welcome back"
+                android:textSize="12sp"
+                android:textColor="@color/text_faint"
+                android:fontFamily="@font/jakarta_medium"/>
         </LinearLayout>
 
 

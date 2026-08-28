@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon plate on the violet tile: white at 20%, so it lifts off the gradient
+     without introducing another colour. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#33FFFFFF" />
+    <corners android:radius="11dp" />
+</shape>

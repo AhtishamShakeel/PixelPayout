@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Balance card.
+
+    The design specifies linear-gradient(150deg, #8A8AFF 0%, #5757FF 65%,
+    #3a3aa8 100%). Two deliberate approximations, because GradientDrawable
+    cannot express either exactly:
+
+      * Angle: XML gradients only accept multiples of 45. CSS 150deg maps to
+        Android 300, so this uses 315 (top-left -> bottom-right), the nearest
+        legal value.
+      * Midpoint: centerColor always sits at 50%, not the specified 65%, so
+        the violet band starts fading marginally earlier.
+
+    Both are invisible side by side with the mock. If the card ever needs to
+    be exact, it has to be painted by a custom Drawable with a real
+    LinearGradient shader - not fixed here.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="@color/primary"
+        android:centerColor="@color/primary_dark"
+        android:endColor="@color/balance_grad_end"
+        android:type="linear" />
+    <corners android:radius="22dp" />
+</shape>

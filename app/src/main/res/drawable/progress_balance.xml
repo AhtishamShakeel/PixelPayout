@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The bar on the balance card: solid white fill on a translucent white
+    track, because it sits on the violet gradient rather than on the page.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@android:id/background">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/track_on_light" />
+            <corners android:radius="99dp" />
+        </shape>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape android:shape="rectangle">
+                <solid android:color="@color/white" />
+                <corners android:radius="99dp" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>

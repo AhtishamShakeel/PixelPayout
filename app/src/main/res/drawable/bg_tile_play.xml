@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CSS 140deg -> Android 310, rounded to 315. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="315"
+        android:startColor="@color/brand_violet"
+        android:endColor="@color/brand_violet_deep"
+        android:type="linear" />
+    <corners android:radius="18dp" />
+</shape>

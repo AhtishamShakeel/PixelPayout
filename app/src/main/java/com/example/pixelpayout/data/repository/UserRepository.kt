@@ -3,6 +3,7 @@ package com.example.pixelpayout.data.repository
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
@@ -37,6 +38,8 @@ class UserRepository {
             auth.currentUser?.uid?.let { userId ->
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
                 fetchLevelCurve()
+                listenToPendingRedemptions(userId)
+                listenToPayoutFeed()
             }
         }
     }
@@ -395,6 +398,82 @@ class UserRepository {
         }
     }
 
+    /** What the user has redeemed and is waiting on. */
+    data class PendingRedemptions(val count: Int, val points: Int, val oldestAtMillis: Long?)
+
+    private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, 0, null))
+    val pendingRedemptions: LiveData<PendingRedemptions> = _pendingRedemptions
+
+    /** One entry in the public payout feed. The name arrives already masked. */
+    data class PayoutFeedEntry(val name: String, val optionTitle: String, val atMillis: Long)
+
+    private val _payoutFeed = MutableLiveData<List<PayoutFeedEntry>>(emptyList())
+    val payoutFeed: LiveData<List<PayoutFeedEntry>> = _payoutFeed
+
+    /**
+     * Listens to this user's unresolved redemptions.
+     *
+     * Two equality filters and no ordering, deliberately: Firestore serves
+     * equality-only queries from its automatic single-field indexes, so this
+     * needs no composite index to be deployed alongside. The handful of
+     * documents involved are sorted here instead.
+     *
+     * The uid filter is also what makes the query legal - the rules allow a
+     * read only where the document's uid matches the caller, and a query has
+     * to prove that up front rather than per document.
+     */
+    private fun listenToPendingRedemptions(userId: String) {
+        firestore.collection(COLLECTION_REDEMPTIONS)
+            .whereEqualTo(FIELD_UID, userId)
+            .whereEqualTo(FIELD_STATUS, STATUS_PENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    Log.e("Redemption", "Pending listener failed: ${error?.message}")
+                    return@addSnapshotListener
+                }
+
+                val points = snapshot.documents.sumOf {
+                    it.getLong(FIELD_POINTS_COST)?.toInt() ?: 0
+                }
+                val oldest = snapshot.documents
+                    .mapNotNull { it.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time }
+                    .minOrNull()
+
+                _pendingRedemptions.postValue(
+                    PendingRedemptions(snapshot.size(), points, oldest)
+                )
+            }
+    }
+
+    /**
+     * The public payout feed - other people's approved redemptions, names
+     * already masked server-side. Nothing identifying is in this collection;
+     * see economy/payoutFeed.ts for why it is separate from `redemptions`.
+     */
+    private fun listenToPayoutFeed() {
+        firestore.collection(COLLECTION_PAYOUT_FEED)
+            .orderBy(FIELD_APPROVED_AT, Query.Direction.DESCENDING)
+            .limit(PAYOUT_FEED_LIMIT)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null || snapshot == null) {
+                    Log.e("PayoutFeed", "Feed listener failed: ${error?.message}")
+                    return@addSnapshotListener
+                }
+
+                _payoutFeed.postValue(
+                    snapshot.documents.mapNotNull { doc ->
+                        val at = doc.getTimestamp(FIELD_APPROVED_AT)?.toDate()?.time
+                            ?: return@mapNotNull null
+                        PayoutFeedEntry(
+                            name = doc.getString("name").orEmpty(),
+                            optionTitle = doc.getString("optionTitle").orEmpty(),
+                            atMillis = at
+                        )
+                    }
+                )
+            }
+    }
+
     suspend fun submitReferral(referralCode: String): ReferralResult {
         return try {
             val result = functions
@@ -464,5 +543,15 @@ class UserRepository {
         private const val FIELD_STREAK_COUNT = "streakCount"
         private const val FIELD_LAST_STREAK_DAY = "lastStreakDayUtc"
         private const val FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc"
+
+        private const val COLLECTION_REDEMPTIONS = "redemptions"
+        private const val COLLECTION_PAYOUT_FEED = "payoutFeed"
+        private const val FIELD_UID = "uid"
+        private const val FIELD_STATUS = "status"
+        private const val STATUS_PENDING = "pending"
+        private const val FIELD_POINTS_COST = "pointsCost"
+        private const val FIELD_CREATED_AT = "createdAt"
+        private const val FIELD_APPROVED_AT = "approvedAt"
+        private const val PAYOUT_FEED_LIMIT = 20L
     }
 }

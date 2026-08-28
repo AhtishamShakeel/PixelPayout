@@ -56,6 +56,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // The public payout feed. Readable by every signed-in user - that is the
+    // point of it - which is precisely why it is a separate collection from
+    // `redemptions`, whose documents carry uids and payout phone numbers and
+    // stay owner-only above.
+    //
+    // Written only by resolveRedemption through the Admin SDK, which bypasses
+    // these rules. No client writes here, admin or not.
+    match /payoutFeed/{entryId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /config/{docId} {
       allow read: if request.auth != null;
       allow write: if false;

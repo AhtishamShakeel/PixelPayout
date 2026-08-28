@@ -109,6 +109,12 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
 
     val streak: LiveData<UserRepository.Streak> = userRepository.userData.map { it.streak }
 
+    val pendingRedemptions: LiveData<UserRepository.PendingRedemptions> =
+        userRepository.pendingRedemptions
+
+    val payoutFeed: LiveData<List<UserRepository.PayoutFeedEntry>> =
+        userRepository.payoutFeed
+
     /** Claims today's streak reward. The server owns every rule about it. */
     suspend fun claimDailyStreak(adWatched: Boolean): UserRepository.StreakClaimResult =
         userRepository.claimDailyStreak(adWatched)

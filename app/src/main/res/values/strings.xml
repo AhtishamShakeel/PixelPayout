@@ -208,4 +208,17 @@
     <string name="streak_dialog_cancel">Not now</string>
     <string name="streak_no_reward">Ad not completed - reward still waiting</string>
     <string name="streak_ad_unavailable">No ad available right now</string>
+    <!-- Pending redeem -->
+    <string name="pending_redeem">Pending redeem</string>
+    <!-- No countdown: approval is a manual review with no promised deadline,
+         so a timer here would be a commitment nobody has made. -->
+    <string name="pending_redeem_value">%1$d ★ · in review</string>
+
+    <!-- Public payout feed -->
+    <string name="recent_payouts">Recent payouts</string>
+    <string name="payout_feed_row">%1$s got %2$s</string>
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes_ago">%1$dm ago</string>
+    <string name="time_hours_ago">%1$dh ago</string>
+    <string name="time_days_ago">%1$dd ago</string>
 </resources>

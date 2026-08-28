@@ -181,6 +181,20 @@ class HomeFragment : Fragment() {
 
         mainViewModel.streak.observe(viewLifecycleOwner) { renderStreak(it) }
 
+        mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { pending ->
+            // Nothing waiting is the usual state, and an empty row saying so
+            // would be noise on every screen for every user.
+            if (pending.count == 0) {
+                binding.pendingRedeemRow.visibility = View.GONE
+            } else {
+                binding.pendingRedeemRow.visibility = View.VISIBLE
+                binding.pendingRedeemValue.text =
+                    getString(R.string.pending_redeem_value, pending.points)
+            }
+        }
+
+        mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
+
         // Observe quiz attempts
         quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
             updateQuizStatusText()
@@ -629,6 +643,54 @@ class HomeFragment : Fragment() {
             if (cycle.isEmpty()) return@launch
             cycleRewards = cycle
             mainViewModel.streak.value?.let { renderStreak(it) }
+        }
+    }
+
+    /**
+     * The three most recent approved payouts. Names arrive already masked -
+     * the raw ones are never in this collection, so there is nothing here to
+     * get wrong client-side.
+     */
+    private fun renderPayoutFeed(entries: List<UserRepository.PayoutFeedEntry>) {
+        val binding = _binding ?: return
+
+        binding.payoutFeedCard.visibility =
+            if (entries.isEmpty()) View.GONE else View.VISIBLE
+
+        val rows = listOf(
+            Triple(binding.payoutRow1, binding.payoutRow1Text, binding.payoutRow1Time),
+            Triple(binding.payoutRow2, binding.payoutRow2Text, binding.payoutRow2Time),
+            Triple(binding.payoutRow3, binding.payoutRow3Text, binding.payoutRow3Time)
+        )
+
+        rows.forEachIndexed { index, (row, text, time) ->
+            val entry = entries.getOrNull(index)
+            if (entry == null) {
+                row.visibility = View.GONE
+                return@forEachIndexed
+            }
+            row.visibility = View.VISIBLE
+            text.text = getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
+            time.text = relativeTime(entry.atMillis)
+        }
+    }
+
+    /**
+     * "10m ago". Measured against the server clock, since approvedAt is a
+     * server timestamp - on a device with a wrong clock, device time would
+     * put recent payouts in the future.
+     */
+    private fun relativeTime(atMillis: Long): String {
+        val elapsed = (ServerClock.now() - atMillis).coerceAtLeast(0)
+        val minutes = TimeUnit.MILLISECONDS.toMinutes(elapsed)
+        val hours = TimeUnit.MILLISECONDS.toHours(elapsed)
+        val days = TimeUnit.MILLISECONDS.toDays(elapsed)
+
+        return when {
+            minutes < 1 -> getString(R.string.time_just_now)
+            minutes < 60 -> getString(R.string.time_minutes_ago, minutes)
+            hours < 24 -> getString(R.string.time_hours_ago, hours)
+            else -> getString(R.string.time_days_ago, days)
         }
     }
 

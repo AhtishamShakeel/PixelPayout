@@ -17,6 +17,10 @@ import {
 } from "./economy/gameSession";
 import {buildAward, buildMilestoneEvent} from "./economy/awardReward";
 import {
+  maskDisplayName,
+  PAYOUT_FEED_COLLECTION,
+} from "./economy/payoutFeed";
+import {
   resolveStreakClaim,
   resolveStreakReward,
   streakRewardForDay,
@@ -1249,6 +1253,23 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
         redemptionRef,
         resolution as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>
       );
+
+      // The public feed entry is written in the same transaction as the
+      // approval, so the two cannot disagree: nothing is paid out without
+      // appearing here, and nothing appears here that was not paid out.
+      //
+      // Only a masked name, what was redeemed, and when. Never the uid, the
+      // points, or the payout number - the whole reason this is a separate
+      // collection from `redemptions`.
+      transaction.set(
+        firestore.collection(PAYOUT_FEED_COLLECTION).doc(redemptionId),
+        {
+          name: maskDisplayName(userDoc.get("displayName") as string | undefined),
+          optionTitle: String(redemptionDoc.get("optionTitle") || ""),
+          approvedAt: FieldValue.serverTimestamp(),
+        }
+      );
+
       return {refunded: 0, targetUid};
     }
 

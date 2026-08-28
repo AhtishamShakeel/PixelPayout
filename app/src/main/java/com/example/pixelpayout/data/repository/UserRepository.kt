@@ -12,6 +12,7 @@ import com.example.pixelpayout.data.model.RedemptionOption
 import com.example.pixelpayout.data.model.RedemptionType
 import com.example.pixelpayout.ui.redemption.RedemptionResult
 import com.example.pixelpayout.ui.redemption.ReferralResult
+import com.example.pixelpayout.utils.ServerClock
 
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
@@ -124,7 +125,12 @@ class UserRepository {
         val multiplier: Double,
         val expiresAtMillis: Long
     ) {
-        fun isActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        /**
+         * Measured against the server's clock, not the device's: expiresAt was
+         * issued by the server, so comparing it to device time makes a wrong
+         * device clock look like an expired buff.
+         */
+        fun isActive(nowMillis: Long = ServerClock.now()): Boolean =
             multiplier > 1.0 && expiresAtMillis > nowMillis
     }
 

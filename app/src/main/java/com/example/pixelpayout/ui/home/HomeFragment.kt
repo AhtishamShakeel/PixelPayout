@@ -21,6 +21,7 @@ import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
+import com.example.pixelpayout.utils.ServerClock
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.launch
@@ -170,7 +171,7 @@ class HomeFragment : Fragment() {
      */
     private fun updateBuffBadge() {
         val binding = _binding ?: return
-        val now = System.currentTimeMillis()
+        val now = ServerClock.now()
 
         val pointsBuff = mainViewModel.activeBuff.value?.takeIf { it.isActive(now) }
         val xpBuff = mainViewModel.activeXpBuff.value?.takeIf { it.isActive(now) }

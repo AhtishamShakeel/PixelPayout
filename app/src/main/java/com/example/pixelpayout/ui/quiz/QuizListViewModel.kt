@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
+import com.example.pixelpayout.utils.ServerClock
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.gson.Gson
 import com.example.pixelpayout.utils.QuizDataManager
@@ -40,8 +41,6 @@ class QuizListViewModel : ViewModel() {
     val errorState: LiveData<String?> = _errorState
 
     // Server time tracking
-    private var lastFetchedServerTime: Long = 0L
-    private var deviceTimeAtFetch: Long = 0L
 
     // Cache control variables
     private var lastCheckTimestamp: Long = 0
@@ -108,9 +107,11 @@ class QuizListViewModel : ViewModel() {
                             val attempts = (data["attempts"] as? Number)?.toInt() ?: throw Exception("Invalid attempts value")
                             val lastResetTime = (data["lastResetTime"] as? Number)?.toLong()
                                 ?: throw Exception("Invalid lastResetTime")
-                            val serverTime = (data["serverTime"] as? Number)?.toLong() ?: System.currentTimeMillis()
-                            lastFetchedServerTime = serverTime
-                            deviceTimeAtFetch = System.currentTimeMillis()
+                            // The only response in the app that carries a
+                            // server timestamp, so it is what seeds the clock
+                            // every other countdown reads.
+                            val serverTime = (data["serverTime"] as? Number)?.toLong()
+                            if (serverTime != null) ServerClock.sync(serverTime)
 
                             val nextResetTime = calculateNextResetTime(lastResetTime)
                             _dailyAttempts.postValue(attempts)
@@ -157,7 +158,9 @@ class QuizListViewModel : ViewModel() {
     private fun shouldRefreshDueToResetTime(): Boolean {
         val nextReset = _nextResetTime.value
         return if (nextReset != null) {
-            System.currentTimeMillis() >= nextReset
+            // nextReset is derived from the server's lastResetTime, so it
+            // has to be compared against the server's clock.
+            ServerClock.now() >= nextReset
         } else {
             false
         }
@@ -249,9 +252,10 @@ class QuizListViewModel : ViewModel() {
     }
 
     /**
-     * Returns the current server time, adjusted for elapsed time since last fetch
+     * Kept as the quiz screens' way of asking the time. The offset itself now
+     * lives in ServerClock, because the buff card and the countdowns coming
+     * with streaks need the same answer and should not have to reach into a
+     * quiz view model to get it.
      */
-    fun getCurrentServerTime(): Long {
-        return lastFetchedServerTime + (System.currentTimeMillis() - deviceTimeAtFetch)
-    }
+    fun getCurrentServerTime(): Long = ServerClock.now()
 }

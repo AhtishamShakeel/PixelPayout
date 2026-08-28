@@ -181,5 +181,116 @@ assertEq("isBuffActive false once expired", isBuffActive(buff(2, NOW - 1), NOW),
   assertEq("a redemption is never scaled by an active buff", spend.pointsAwarded, -100);
 }
 
+// --- The XP buff -----------------------------------------------------------
+// A separate grant from the Points buff, with its own eligibility table. The
+// two must not leak into each other in either direction.
+{
+  const active = {
+    multiplier: 2,
+    expiresAt: Date.now() + 60_000,
+    grantedAt: Date.now(),
+    source: "ADMIN_GRANT",
+  } as PointsBuff;
+  const xp2 = activeMultiplier(active, Date.now());
+
+  // Quiz and game are the whole point: they are the only XP sources.
+  for (const source of ["QUIZ", "GAME"] as const) {
+    const award = buildAward(0, 0, {
+      source,
+      basePoints: 0,
+      baseXp: 10,
+      metadata: {},
+      activeXpMultiplier: xp2,
+    });
+    assertEq(`${source} xp IS multiplied by an xp buff`,
+      award.xpAwarded, 20);
+    assertEq(`${source} ledger records baseXp before the buff`,
+      award.ledgerDoc.baseXp, 10);
+    assertEq(`${source} ledger records xpMultiplierApplied`,
+      award.ledgerDoc.xpMultiplierApplied, 2);
+    assertEq(`${source} points stay zero under an xp buff`,
+      award.pointsAwarded, 0);
+  }
+
+  // The buffed XP must be what drives the level, or the buff would show in
+  // the ledger and nowhere else.
+  const levelled = buildAward(0, 0, {
+    source: "QUIZ",
+    basePoints: 0,
+    baseXp: 10,
+    metadata: {},
+    activeXpMultiplier: xp2,
+  });
+  const unbuffed = buildAward(0, 0, {
+    source: "QUIZ", basePoints: 0, baseXp: 10, metadata: {},
+  });
+  assertEq("an xp buff feeds the level curve",
+    levelled.level.level >= unbuffed.level.level, true);
+  assertEq("xp increment written is the buffed figure",
+    levelled.userUpdate.xp !== undefined, true);
+
+  // Ineligible sources are untouched however large the grant.
+  const ineligible = ["REFERRAL_REFEREE", "DAILY_LOGIN", "LEVEL_UP"] as const;
+  for (const source of ineligible) {
+    const award = buildAward(0, 0, {
+      source,
+      basePoints: 0,
+      baseXp: 10,
+      metadata: {},
+      activeXpMultiplier: xp2,
+    });
+    assertEq(`${source} xp is NOT multiplied by an xp buff`,
+      award.xpAwarded, 10);
+    assertEq(`${source} records xpMultiplierApplied 1`,
+      award.ledgerDoc.xpMultiplierApplied, 1);
+  }
+
+  // The two buffs are independent: neither one implies the other.
+  const pointsOnly = buildAward(0, 0, {
+    source: "OFFERWALL",
+    basePoints: 100,
+    baseXp: 10,
+    metadata: {},
+    activeMultiplier: xp2,
+  });
+  assertEq("a points buff alone still never touches xp",
+    pointsOnly.xpAwarded, 10);
+  assertEq("a points buff alone scales points", pointsOnly.pointsAwarded, 200);
+
+  const xpOnly = buildAward(0, 0, {
+    source: "OFFERWALL",
+    basePoints: 100,
+    baseXp: 10,
+    metadata: {},
+    activeXpMultiplier: xp2,
+  });
+  assertEq("an xp buff alone never touches points", xpOnly.pointsAwarded, 100);
+  assertEq("an xp buff alone scales xp", xpOnly.xpAwarded, 20);
+
+  const both = buildAward(0, 0, {
+    source: "OFFERWALL",
+    basePoints: 100,
+    baseXp: 10,
+    metadata: {},
+    activeMultiplier: xp2,
+    activeXpMultiplier: xp2,
+  });
+  assertEq("both buffs together scale points", both.pointsAwarded, 200);
+  assertEq("both buffs together scale xp", both.xpAwarded, 20);
+
+  // A redemption carries negative points and no XP; nothing should scale.
+  const spendUnderXpBuff = buildAward(1000, 0, {
+    source: "REDEMPTION",
+    basePoints: -100,
+    baseXp: 0,
+    metadata: {},
+    activeXpMultiplier: xp2,
+  });
+  assertEq("a redemption is untouched by an xp buff",
+    spendUnderXpBuff.pointsAwarded, -100);
+  assertEq("a redemption still awards no xp",
+    spendUnderXpBuff.xpAwarded, 0);
+}
+
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);

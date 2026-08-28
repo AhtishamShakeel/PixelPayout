@@ -21,6 +21,12 @@ import kotlinx.coroutines.tasks.await
  */
 object BuffDebug {
 
+    /** Which of the two independent buffs to grant. */
+    enum class Kind(val wire: String, val label: String) {
+        POINTS("points", "stars"),
+        XP("xp", "XP")
+    }
+
     /** 2x is the mid value; the server caps at MAX_BUFF_MULTIPLIER (3). */
     private const val MULTIPLIER = 2.0
 
@@ -33,7 +39,7 @@ object BuffDebug {
      * only caller is a debug button and a crash there tells us less than a
      * message does.
      */
-    suspend fun grantSelfBuff(): String {
+    suspend fun grantSelfBuff(kind: Kind): String {
         val user = FirebaseAuth.getInstance().currentUser
             ?: return "Not signed in"
         val functions = FirebaseFunctions.getInstance()
@@ -55,6 +61,7 @@ object BuffDebug {
             val result = functions.getHttpsCallable("grantPointsBuff").call(
                 mapOf(
                     "uid" to user.uid,
+                    "kind" to kind.wire,
                     "multiplier" to MULTIPLIER,
                     "durationMs" to DURATION_MINUTES * 60_000L
                 )
@@ -62,11 +69,11 @@ object BuffDebug {
 
             val data = result.data as? Map<*, *>
             if (data?.get("applied") == true) {
-                "Boost on: ${MULTIPLIER}x for $DURATION_MINUTES min"
+                "${kind.label} boost on: ${MULTIPLIER}x for $DURATION_MINUTES min"
             } else {
                 // resolveBuffGrant ignores a weaker grant while a stronger
                 // buff runs, and never stacks multiplicatively.
-                "A stronger boost is already running"
+                "A stronger ${kind.label} boost is already running"
             }
         } catch (e: FirebaseFunctionsException) {
             when (e.code) {

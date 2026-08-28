@@ -24,11 +24,22 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
         userData.level
     }
 
-    val activeBuff: LiveData<UserRepository.PointsBuff?> =
+    val activeBuff: LiveData<UserRepository.TimedBuff?> =
         userRepository.userData.map { userData ->
             Log.d("BUFF_DEBUG", "activeBuff = ${userData.activeBuff}")
             Log.d("BUFF_DEBUG", "isActive = ${userData.activeBuff?.isActive()}")
             userData.activeBuff
+        }
+
+    /**
+     * The XP buff, tracked apart from the Points one because the server keeps
+     * them as separate grants with separate eligibility - a user can be
+     * running either, both, or neither.
+     */
+    val activeXpBuff: LiveData<UserRepository.TimedBuff?> =
+        userRepository.userData.map { userData ->
+            Log.d("BUFF_DEBUG", "activeXpBuff = ${userData.activeXpBuff}")
+            userData.activeXpBuff
         }
 
     /**

@@ -55,6 +55,39 @@ export const MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   REDEMPTION: false, // spends, never earns
 };
 
+/**
+ * The same question for XP. Separate table rather than a flag on the one
+ * above, because the answers genuinely differ: the Points buff deliberately
+ * skips quizzes and games so play cannot be farmed for currency, while an XP
+ * buff is only interesting BECAUSE it applies to them - they are the sole
+ * sources of XP today.
+ *
+ * XP is not currency, but it is not free either: level gates redemption
+ * options through minLevel, and crossing a level pays a milestone Points
+ * bonus. So a buff here does reach real value, just indirectly.
+ *
+ * Referrals and level-up bonuses stay false: both are fixed, one-off awards
+ * whose size is the whole point of them.
+ */
+export const XP_MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
+  QUIZ: true,
+  GAME: true,
+  REFERRAL_REFEREE: false, // fixed acquisition cost
+  REFERRAL_REFERRER: false, // fixed acquisition cost
+  OFFERWALL: true,
+  SURVEY: true,
+  SPONSORED_APP: true,
+  DAILY_LOGIN: false, // frictionless; must stay small and fixed
+  STREAK: false,
+  MISSION: false,
+  ACHIEVEMENT: false,
+  LEADERBOARD: false,
+  PROMOTION: false,
+  LEVEL_UP: false, // the milestone award itself is never scaled
+  ADMIN_GRANT: false,
+  REDEMPTION: false, // spends, never earns
+};
+
 // --- Quiz -------------------------------------------------------------------
 // Quizzes are an engagement activity: XP only, no redeemable Points.
 // A wrong answer earns nothing, mirroring the old points behaviour.

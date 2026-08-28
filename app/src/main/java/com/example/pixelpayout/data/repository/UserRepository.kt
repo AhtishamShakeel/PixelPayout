@@ -91,7 +91,8 @@ class UserRepository {
                                 points = it.getLong(FIELD_POINTS)?.toInt() ?: 0,
                                 xp = it.getLong(FIELD_XP)?.toInt() ?: 0,
                                 level = it.getLong(FIELD_LEVEL)?.toInt() ?: 1,
-                                activeBuff = parseBuff(it.get(FIELD_ACTIVE_BUFF))
+                                activeBuff = parseBuff(it.get(FIELD_ACTIVE_BUFF)),
+                                activeXpBuff = parseBuff(it.get(FIELD_ACTIVE_XP_BUFF))
                             )
                         )
                     }
@@ -103,14 +104,23 @@ class UserRepository {
         val points: Int,
         val xp: Int = 0,
         val level: Int = 1,
-        val activeBuff: PointsBuff? = null
+        val activeBuff: TimedBuff? = null,
+        val activeXpBuff: TimedBuff? = null
     )
 
     /**
-     * A temporary Points multiplier. Only applies to sources the server marks
-     * multiplier-eligible - never to quiz/game XP or referrals.
+     * A temporary multiplier with an expiry. The same shape backs both the
+     * Points buff and the XP buff - which one it is comes from the field it
+     * was read out of, not from anything in here.
+     *
+     * Named for its shape rather than its effect on purpose: it was called
+     * PointsBuff while also being labelled an "XP boost" in the UI, and the
+     * two drifted apart precisely because the type claimed to know.
+     *
+     * Server-side eligibility decides what a buff actually reaches:
+     * MULTIPLIER_ELIGIBLE for Points, XP_MULTIPLIER_ELIGIBLE for XP.
      */
-    data class PointsBuff(
+    data class TimedBuff(
         val multiplier: Double,
         val expiresAtMillis: Long
     ) {
@@ -118,11 +128,11 @@ class UserRepository {
             multiplier > 1.0 && expiresAtMillis > nowMillis
     }
 
-    private fun parseBuff(raw: Any?): PointsBuff? {
+    private fun parseBuff(raw: Any?): TimedBuff? {
         val map = raw as? Map<*, *> ?: return null
         val multiplier = (map["multiplier"] as? Number)?.toDouble() ?: return null
         val expiresAt = (map["expiresAt"] as? Number)?.toLong() ?: return null
-        return PointsBuff(multiplier, expiresAt)
+        return TimedBuff(multiplier, expiresAt)
     }
 
     data class RewardClaimResult(
@@ -303,5 +313,6 @@ class UserRepository {
         private const val FIELD_THRESHOLDS = "thresholds"
         private const val FIELD_MAX_LEVEL = "maxLevel"
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
+        private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"
     }
 }

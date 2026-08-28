@@ -144,6 +144,7 @@ class HomeFragment : Fragment() {
         // The badge only appears while a buff is running; the countdown is
         // driven by the existing per-second timer below.
         mainViewModel.activeBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
+        mainViewModel.activeXpBuff.observe(viewLifecycleOwner) { updateBuffBadge() }
 
         // Observe quiz attempts
         quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
@@ -156,38 +157,64 @@ class HomeFragment : Fragment() {
         }
     }
     
+    /**
+     * The boost card, driven by both buffs at once.
+     *
+     * The Points buff and the XP buff are separate grants server-side and
+     * either can run alone, so the card names every one that is live rather
+     * than picking a winner and quietly hiding the other.
+     *
+     * The clock shows the SOONEST expiry. One clock cannot honestly stand for
+     * two deadlines, and the nearer one is the next thing about this card
+     * that changes.
+     */
     private fun updateBuffBadge() {
         val binding = _binding ?: return
-        val buff = mainViewModel.activeBuff.value
+        val now = System.currentTimeMillis()
 
-        if (buff == null || !buff.isActive()) {
+        val pointsBuff = mainViewModel.activeBuff.value?.takeIf { it.isActive(now) }
+        val xpBuff = mainViewModel.activeXpBuff.value?.takeIf { it.isActive(now) }
+
+        if (pointsBuff == null && xpBuff == null) {
             binding.buffCard.visibility = View.GONE
             return
         }
 
-        // HH:MM:SS rather than the previous single largest unit. The card is
-        // now built around the clock, and "1h" sitting at 24sp reads as a
-        // static label rather than something counting down.
-        val remainingMs = (buff.expiresAtMillis - System.currentTimeMillis()).coerceAtLeast(0)
-        val remaining = String.format(
-            Locale.US,
-            "%02d:%02d:%02d",
-            TimeUnit.MILLISECONDS.toHours(remainingMs),
-            TimeUnit.MILLISECONDS.toMinutes(remainingMs) % 60,
-            TimeUnit.MILLISECONDS.toSeconds(remainingMs) % 60
-        )
-
-        // Multipliers are whole-ish; drop a trailing .0 so it reads "2x".
-        val multiplier = if (buff.multiplier % 1.0 == 0.0) {
-            buff.multiplier.toInt().toString()
-        } else {
-            buff.multiplier.toString()
+        val labels = mutableListOf<String>()
+        xpBuff?.let {
+            labels += getString(R.string.buff_label_xp, formatMultiplier(it.multiplier))
+        }
+        pointsBuff?.let {
+            labels += getString(R.string.buff_label, formatMultiplier(it.multiplier))
         }
 
-        binding.buffText.text = getString(R.string.buff_label, multiplier)
-        binding.buffTimer.text = remaining
+        binding.buffText.text = labels.joinToString(" · ")
+        // The XP note is the more useful of the two when both are running:
+        // levelling is the effect a player can actually watch happen.
+        binding.buffNote.setText(
+            if (xpBuff != null) R.string.buff_xp_note else R.string.buff_rate_note
+        )
+
+        val soonestExpiry = listOfNotNull(pointsBuff, xpBuff).minOf { it.expiresAtMillis }
+        binding.buffTimer.text = formatCountdown(soonestExpiry - now)
         binding.buffCard.visibility = View.VISIBLE
     }
+
+    /** HH:MM:SS. Monospace in the layout keeps the digits from jumping. */
+    private fun formatCountdown(remainingMs: Long): String {
+        val ms = remainingMs.coerceAtLeast(0)
+        return String.format(
+            Locale.US,
+            "%02d:%02d:%02d",
+            TimeUnit.MILLISECONDS.toHours(ms),
+            TimeUnit.MILLISECONDS.toMinutes(ms) % 60,
+            TimeUnit.MILLISECONDS.toSeconds(ms) % 60
+        )
+    }
+
+    /** Multipliers are whole-ish; drop a trailing .0 so it reads "2x". */
+    private fun formatMultiplier(multiplier: Double): String =
+        if (multiplier % 1.0 == 0.0) multiplier.toInt().toString() else multiplier.toString()
 
     /**
      * The quiz tile's subtitle, refreshed once a second.
@@ -299,17 +326,28 @@ class HomeFragment : Fragment() {
     private fun setupDebugControls() {
         if (!BuildConfig.DEBUG) return
 
-        binding.debugBoostButton.visibility = View.VISIBLE
-        binding.debugBoostButton.setOnClickListener {
-            viewLifecycleOwner.lifecycleScope.launch {
-                binding.debugBoostButton.isEnabled = false
-                val message = BuffDebug.grantSelfBuff()
-                if (isAdded) {
-                    Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
-                }
-                _binding?.debugBoostButton?.isEnabled = true
+        binding.debugControls.visibility = View.VISIBLE
+        binding.debugBoostButton.setOnClickListener { grantDebugBuff(BuffDebug.Kind.POINTS) }
+        binding.debugXpBoostButton.setOnClickListener { grantDebugBuff(BuffDebug.Kind.XP) }
+    }
+
+    private fun grantDebugBuff(kind: BuffDebug.Kind) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            // Disabling the container would not reach the buttons: isEnabled
+            // does not propagate to children.
+            setDebugControlsEnabled(false)
+            val message = BuffDebug.grantSelfBuff(kind)
+            if (isAdded) {
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
             }
+            setDebugControlsEnabled(true)
         }
+    }
+
+    private fun setDebugControlsEnabled(enabled: Boolean) {
+        val binding = _binding ?: return
+        binding.debugBoostButton.isEnabled = enabled
+        binding.debugXpBoostButton.isEnabled = enabled
     }
 
     private fun navigateToRewards() {

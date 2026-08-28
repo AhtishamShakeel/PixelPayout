@@ -13,7 +13,11 @@
  */
 import {FieldValue} from "firebase-admin/firestore";
 import {applyXpGain, LevelRecomputeResult} from "./levelCurve";
-import {MULTIPLIER_ELIGIBLE, RewardSource} from "./rewardConfig";
+import {
+  MULTIPLIER_ELIGIBLE,
+  RewardSource,
+  XP_MULTIPLIER_ELIGIBLE,
+} from "./rewardConfig";
 
 export interface RewardEventDoc {
   source: RewardSource;
@@ -21,6 +25,11 @@ export interface RewardEventDoc {
   multiplierEligible: boolean;
   multiplierApplied: number;
   finalPoints: number;
+  /** XP before any buff, so the ledger shows what was scaled, and by how
+   *  much. */
+  baseXp: number;
+  xpMultiplierEligible: boolean;
+  xpMultiplierApplied: number;
   xpAwarded: number;
   /** The user's level BEFORE this event - see the note on multipliers below. */
   levelAtEvent: number;
@@ -44,11 +53,17 @@ export interface AwardInput {
    */
   storedLevel?: number;
   /**
-   * The user's active points buff, if any. Not implemented yet (always 1),
-   * but threaded through so the buff system is a value change, not a
-   * restructure. Only ever applied to multiplier-eligible sources.
+   * The user's active Points buff, if any. Only ever applied to sources
+   * MULTIPLIER_ELIGIBLE allows.
    */
   activeMultiplier?: number;
+  /**
+   * The user's active XP buff, if any. Tracked separately from the Points
+   * buff all the way down: they are different grants with different
+   * eligibility, and collapsing them into one number here would make it
+   * impossible for a source to be eligible for one and not the other.
+   */
+  activeXpMultiplier?: number;
 }
 
 export interface AwardResult {
@@ -72,6 +87,9 @@ export function buildMilestoneEvent(level: number, points: number): RewardEventD
     multiplierEligible: MULTIPLIER_ELIGIBLE.LEVEL_UP,
     multiplierApplied: 1,
     finalPoints: points,
+    baseXp: 0,
+    xpMultiplierEligible: XP_MULTIPLIER_ELIGIBLE.LEVEL_UP,
+    xpMultiplierApplied: 1,
     xpAwarded: 0,
     levelAtEvent: level,
     levelAfterEvent: level,
@@ -87,11 +105,15 @@ export function buildAward(
   input: AwardInput
 ): AwardResult {
   const multiplierEligible = MULTIPLIER_ELIGIBLE[input.source];
+  const xpMultiplierEligible = XP_MULTIPLIER_ELIGIBLE[input.source];
 
   // A multiplier is applied only when the SOURCE allows it. Eligibility is
   // never passed in by the caller, so no path can accidentally buff a
   // referral or a login reward.
   const multiplierApplied = multiplierEligible ? (input.activeMultiplier ?? 1) : 1;
+  const xpMultiplierApplied = xpMultiplierEligible ?
+    (input.activeXpMultiplier ?? 1) :
+    1;
 
   const basePoints = Math.trunc(input.basePoints) || 0;
   const baseXp = Math.max(Math.trunc(input.baseXp) || 0, 0);
@@ -100,15 +122,19 @@ export function buildAward(
   const finalPoints = basePoints < 0
     ? basePoints
     : Math.round(basePoints * multiplierApplied);
+  const finalXp = Math.round(baseXp * xpMultiplierApplied);
 
-  const level = applyXpGain(currentXp, baseXp);
+  // Levels are recomputed from the BUFFED xp, which is what makes an XP buff
+  // worth having - it reaches the level curve, and through it the minLevel
+  // gates on redemption options and the level-up milestone bonuses.
+  const level = applyXpGain(currentXp, finalXp);
 
   const userUpdate: Record<string, FieldValue | number> = {};
   if (finalPoints !== 0) {
     userUpdate.points = FieldValue.increment(finalPoints);
   }
-  if (baseXp !== 0) {
-    userUpdate.xp = FieldValue.increment(baseXp);
+  if (finalXp !== 0) {
+    userUpdate.xp = FieldValue.increment(finalXp);
   }
   // Written when the XP gain crosses a threshold, and also whenever the
   // stored level disagrees with what the XP says - otherwise a stale cached
@@ -124,7 +150,7 @@ export function buildAward(
   return {
     userUpdate,
     pointsAwarded: finalPoints,
-    xpAwarded: baseXp,
+    xpAwarded: finalXp,
     level,
     ledgerDoc: {
       source: input.source,
@@ -132,7 +158,10 @@ export function buildAward(
       multiplierEligible,
       multiplierApplied,
       finalPoints,
-      xpAwarded: baseXp,
+      baseXp,
+      xpMultiplierEligible,
+      xpMultiplierApplied,
+      xpAwarded: finalXp,
       levelAtEvent: level.previousLevel,
       levelAfterEvent: level.level,
       createdAt: FieldValue.serverTimestamp(),

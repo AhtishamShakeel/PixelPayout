@@ -59,6 +59,9 @@ const FIELD_POINTS = "points";
 const FIELD_XP = "xp";
 const FIELD_LEVEL = "level";
 const FIELD_ACTIVE_BUFF = "activeBuff";
+// Held apart from the Points buff rather than as one field with a kind, so a
+// user can run both at once and neither grant can clobber the other.
+const FIELD_ACTIVE_XP_BUFF = "activeXpBuff";
 const FIELD_QUIZ_ATTEMPTS = "quiz_attempts";
 const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
 const FIELD_REFERRED_BY = "referredBy";
@@ -558,9 +561,17 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
   const targetUid = String(request.data.uid || "").trim();
   const multiplier = Number(request.data.multiplier);
   const durationMs = Number(request.data.durationMs);
+  // Defaults to points so existing callers keep their meaning.
+  const kind = String(request.data.kind || "points");
 
   if (!targetUid) {
     throw new functions.https.HttpsError("invalid-argument", "Target uid is required");
+  }
+  if (kind !== "points" && kind !== "xp") {
+    throw new functions.https.HttpsError(
+      "invalid-argument",
+      "kind must be points or xp"
+    );
   }
   if (!Number.isFinite(multiplier) || multiplier <= 1 || multiplier > MAX_BUFF_MULTIPLIER) {
     throw new functions.https.HttpsError("invalid-argument", "Invalid buff multiplier");
@@ -579,8 +590,9 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
     }
 
     const now = Date.now();
+    const field = kind === "xp" ? FIELD_ACTIVE_XP_BUFF : FIELD_ACTIVE_BUFF;
     const granted = resolveBuffGrant(
-      userDoc.get(FIELD_ACTIVE_BUFF) as PointsBuff | undefined,
+      userDoc.get(field) as PointsBuff | undefined,
       {multiplier, durationMs, source: "ADMIN_GRANT"},
       now
     );
@@ -590,17 +602,19 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
       return {applied: false as const};
     }
 
-    transaction.update(userRef, {[FIELD_ACTIVE_BUFF]: granted});
+    transaction.update(userRef, {[field]: granted});
 
     // Recorded in the ledger for the audit trail. It moves no balance itself -
     // its effect shows up as multiplierApplied on later eligible awards.
     transaction.set(
-      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`buff:${now}`),
+      userRef.collection(REWARD_EVENTS_SUBCOLLECTION)
+        .doc(`buff:${kind}:${now}`),
       buildAward(0, 0, {
         source: "ADMIN_GRANT",
         basePoints: 0,
         baseXp: 0,
         metadata: {
+          buffKind: kind,
           buffMultiplier: granted.multiplier,
           buffExpiresAt: granted.expiresAt,
           grantedBy: request.auth?.uid,
@@ -611,7 +625,7 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
     return {applied: true as const, buff: granted};
   });
 
-  return {success: true, ...result};
+  return {success: true, kind, ...result};
 });
 
 /**
@@ -741,6 +755,10 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       userDoc.get(FIELD_ACTIVE_BUFF) as PointsBuff | undefined,
       Date.now()
     );
+    const xpBuffMultiplier = activeMultiplier(
+      userDoc.get(FIELD_ACTIVE_XP_BUFF) as PointsBuff | undefined,
+      Date.now()
+    );
 
     if (incrementQuizAttempt && currentAttempts >= MAX_DAILY_QUIZ_ATTEMPTS) {
       throw new functions.https.HttpsError("failed-precondition", "Daily quiz limit reached");
@@ -795,6 +813,7 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       baseXp: xpAward,
       metadata: eventMetadata,
       activeMultiplier: buffMultiplier,
+      activeXpMultiplier: xpBuffMultiplier,
       storedLevel: currentLevel,
     });
 

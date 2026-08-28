@@ -181,5 +181,10 @@
     <string name="quiz_resetting">Resetting…</string>
     <string name="quiz_reset_unknown">Available again soon</string>
     <!-- Debug only; never visible in a release build. -->
-    <string name="debug_grant_boost" translatable="false">Debug: grant 2x boost</string>
+    <string name="debug_grant_boost" translatable="false">Debug: 2x stars</string>
+    <string name="debug_grant_xp_boost" translatable="false">Debug: 2x XP</string>
+    <!-- XP buff. Applies to quizzes and games - the only XP sources - so
+         unlike the Points buff it is visible from ordinary play. -->
+    <string name="buff_label_xp">%1$sx XP on quizzes &amp; games</string>
+    <string name="buff_xp_note">Levels come faster</string>
 </resources>

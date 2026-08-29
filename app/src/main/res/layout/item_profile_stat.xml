@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One stat tile. Used for the three profile stats and again for the three
+    referral funnel counts - same shape, same weight, so the two rows line up
+    down the screen.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_summary_card"
+    android:orientation="vertical"
+    android:padding="11dp">
+
+    <ImageView
+        android:id="@+id/statIcon"
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_star"
+        app:tint="@color/brand_violet" />
+
+    <TextView
+        android:id="@+id/statValue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_extrabold"
+        android:letterSpacing="-0.02"
+        android:maxLines="1"
+        android:textColor="@color/text_strong"
+        android:textSize="18sp"
+        tools:text="18,420" />
+
+    <TextView
+        android:id="@+id/statLabel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:fontFamily="@font/jakarta_medium"
+        android:lineSpacingMultiplier="1.3"
+        android:textColor="@color/text_ghost"
+        android:textSize="10.5sp"
+        tools:text="Stars" />
+
+</LinearLayout>

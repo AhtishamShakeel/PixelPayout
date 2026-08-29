@@ -444,4 +444,47 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="activity_delta_minus">-%1$s</string>
     <string name="activity_today">Today</string>
     <string name="activity_yesterday">Yesterday</string>
+
+    <!-- ==================================================================
+         Profile (Profile.dc.html handoff).
+
+         No "level name", no lifetime quiz/game counters and no phone
+         verification row: none of those exist in this system, and the
+         layout comment explains why rather than inventing them.
+         ================================================================== -->
+    <string name="profile_member_since">Member since %1$s</string>
+    <string name="profile_level">Level %1$d</string>
+    <string name="profile_level_note">%1$s / %2$s XP to Level %3$d</string>
+    <string name="profile_level_note_max">Max level reached</string>
+    <string name="profile_stat_stars">Stars</string>
+    <string name="profile_stat_xp">Lifetime XP</string>
+    <string name="profile_stat_streak">Day streak</string>
+    <string name="profile_invite_title">Invite friends</string>
+    <string name="profile_your_code">Your code</string>
+    <string name="profile_earned">%1$s pts earned</string>
+    <string name="profile_referral_rule">Your friend enters this code at signup. You get %1$d points once they earn %2$d XP, which keeps rewards tied to real players.</string>
+    <string name="profile_referral_progress">Referral progress</string>
+    <string name="profile_invited_count">%1$d invited</string>
+    <string name="profile_funnel_invited">Invited</string>
+    <string name="profile_funnel_qualified">Qualified</string>
+    <string name="profile_funnel_paid">Rewards paid</string>
+    <string name="profile_no_invites">No one has used your code yet</string>
+    <string name="profile_no_invites_sub">Share it and track their progress here</string>
+    <string name="profile_invitee_joined">Joined %1$s</string>
+    <string name="profile_invitee_progress">%1$s / %2$s XP</string>
+    <string name="profile_invitee_status_paid">Paid</string>
+    <string name="profile_invitee_status_qualified">Qualified</string>
+    <string name="profile_invitee_status_progress">In progress</string>
+    <string name="profile_invitee_note_paid">Reward credited</string>
+    <string name="profile_invitee_note_qualified">Reward releasing shortly</string>
+    <string name="profile_invitee_note_progress">Needs %1$s more XP</string>
+    <string name="profile_invitee_reward">%1$d pts</string>
+    <string name="profile_claim_sub">Get %1$d points for a valid referral</string>
+    <string name="profile_account">Account</string>
+    <string name="profile_terms">Terms and conditions</string>
+    <string name="profile_privacy">Privacy policy</string>
+    <string name="profile_support">Help and support</string>
+    <string name="profile_sign_out">Sign out</string>
+    <string name="profile_sign_out_confirm">Sign out of PixelPayout?</string>
+    <string name="profile_version">PixelPayout v%1$s</string>
 </resources>

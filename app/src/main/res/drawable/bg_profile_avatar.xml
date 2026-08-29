@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The initials disc. A violet bloom off-centre rather than a flat fill,
+     matching the handoff's radial highlight. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient android:type="radial" android:gradientRadius="42dp" android:centerX="0.3" android:centerY="0.25" android:startColor="@color/violet_tint_30" android:endColor="@color/surface_card" />
+    <stroke android:width="1dp" android:color="@color/violet_tint_35" />
+</shape>

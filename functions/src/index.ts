@@ -135,6 +135,7 @@ const FIELD_ACTIVE_BUFF = "activeBuff";
 const FIELD_ACTIVE_XP_BUFF = "activeXpBuff";
 const FIELD_QUIZ_ATTEMPTS = "quiz_attempts";
 const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
+const REFERRAL_LIST_LIMIT = 50;
 const FIELD_REFERRED_BY = "referredBy";
 const FIELD_REFERRAL_CODE = "referralCode";
 const FIELD_REFERRAL_REWARD_CLAIMED = "referralRewardClaimed";
@@ -1792,6 +1793,69 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
 
   console.log("Redemption resolved", {redemptionId, status, ...result});
   return {success: true, status, ...result};
+});
+
+/**
+ * The referral progress list behind the Profile screen.
+ *
+ * Goes through a callable rather than a client query for the same reason
+ * listRedemptions does: firestore.rules never grants a client read across
+ * users, so the only way to learn anything about a referee is to ask the
+ * server, which can decide exactly how much to say.
+ *
+ * What it says is deliberately narrow. A referrer sees a MASKED name, when
+ * the account joined, how far it is toward the unlock threshold, and whether
+ * the reward has been paid. Never an email, never a uid, never a balance -
+ * inviting somebody does not entitle you to watch their account.
+ *
+ * Progress is XP against REFERRAL_UNLOCK_XP, not level. That is the condition
+ * the payout actually tests (see readReferrerForUnlock), and a bar measuring
+ * anything else would fill at a different rate than the reward arrives.
+ */
+export const getReferralStats = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+
+  // Equality on one field - served by the automatic single-field index, so
+  // no composite index has to be deployed for this.
+  const snapshot = await firestore
+    .collection(USERS_COLLECTION)
+    .where(FIELD_REFERRED_BY, "==", userId)
+    .limit(REFERRAL_LIST_LIMIT)
+    .get();
+
+  const invitees = snapshot.docs.map((doc) => {
+    const xp = Number(doc.get(FIELD_XP) || 0);
+    const qualified = xp >= REFERRAL_UNLOCK_XP;
+    // `referralRewardClaimed` is set on the REFEREE when the referrer is
+    // paid, so it is the honest answer to "did this actually pay out".
+    const paid = doc.get(FIELD_REFERRAL_REWARD_CLAIMED) === true;
+
+    return {
+      name: maskDisplayName(doc.get("displayName") as string | undefined),
+      joinedAtMillis: (doc.createTime?.toMillis?.() ?? null),
+      xp: Math.min(xp, REFERRAL_UNLOCK_XP),
+      xpTarget: REFERRAL_UNLOCK_XP,
+      qualified,
+      paid,
+    };
+  }).sort((a, b) => (b.joinedAtMillis ?? 0) - (a.joinedAtMillis ?? 0));
+
+  return {
+    invitees,
+    invited: invitees.length,
+    qualified: invitees.filter((i) => i.qualified).length,
+    paid: invitees.filter((i) => i.paid).length,
+    // The rule, from the server that enforces it - so the Profile screen can
+    // state the terms without hardcoding numbers that could drift.
+    unlockXp: REFERRAL_UNLOCK_XP,
+    referrerReward: REFERRER_REWARD_POINTS,
+    refereeReward: REFERRED_USER_REWARD_POINTS,
+  };
 });
 
 export const submitReferral = functions.https.onCall(async (request: CallableRequest) => {

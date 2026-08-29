@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One person who used this account's referral code.
+
+    The name arrives already masked from the server and there is no uid,
+    email or balance in the payload at all - inviting somebody does not
+    entitle you to watch their account. The bar measures XP against the
+    unlock threshold, which is the condition the payout actually tests.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/inviteeCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/bg_pack_row"
+    android:orientation="vertical"
+    android:paddingStart="14dp"
+    android:paddingTop="11dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="11dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/inviteeInitials"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/bg_invitee_avatar"
+            android:fontFamily="@font/jakarta_semibold"
+            android:gravity="center"
+            android:textColor="@color/text_faint"
+            android:textSize="12.5sp"
+            tools:text="BA" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="11dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/inviteeName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/jakarta_semibold"
+                android:maxLines="1"
+                android:textColor="@color/text_strong"
+                android:textSize="13.5sp"
+                tools:text="Bil***ed" />
+
+            <TextView
+                android:id="@+id/inviteeJoined"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:textColor="@color/text_ghost"
+                android:textSize="11sp"
+                tools:text="Joined 26 Aug" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/inviteeStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_status_rejected"
+            android:fontFamily="@font/jakarta_semibold"
+            android:letterSpacing="0.06"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:textAllCaps="true"
+            android:textColor="@color/text_faint"
+            android:textSize="10sp"
+            tools:text="In progress" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="11dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ProgressBar
+            android:id="@+id/inviteeProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="0dp"
+            android:layout_height="5dp"
+            android:layout_weight="1"
+            android:max="100"
+            android:progressDrawable="@drawable/progress_violet"
+            tools:progress="60" />
+
+        <TextView
+            android:id="@+id/inviteeProgressLabel"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:fontFamily="@font/mono_medium"
+            android:textColor="@color/text_faint"
+            android:textSize="11sp"
+            tools:text="60 / 100 XP" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/inviteeNote"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="@font/jakarta_medium"
+            android:maxLines="1"
+            android:textColor="@color/text_ghost"
+            android:textSize="11sp"
+            tools:text="Needs 40 more XP" />
+
+        <ImageView
+            android:id="@+id/inviteeRewardIcon"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_lock"
+            app:tint="@color/text_ghost" />
+
+        <TextView
+            android:id="@+id/inviteeReward"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textColor="@color/text_ghost"
+            android:textSize="11.5sp"
+            tools:text="100 pts" />
+
+    </LinearLayout>
+
+</LinearLayout>

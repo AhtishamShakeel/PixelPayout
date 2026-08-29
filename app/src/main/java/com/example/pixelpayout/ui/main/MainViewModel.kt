@@ -137,6 +137,22 @@ class MainViewModel(
     /** Whether the "have a code?" input on Profile still has a job to do. */
     val hasUsedReferral: LiveData<Boolean> = userRepository.userData.map { it.hasUsedReferral }
 
+    private val _referralStats = MutableLiveData<UserRepository.ReferralStats?>(null)
+
+    /**
+     * Referral progress for Profile.
+     *
+     * Refreshed rather than observed - it aggregates across other people's
+     * documents, so there is no single snapshot to listen to.
+     */
+    val referralStats: LiveData<UserRepository.ReferralStats?> = _referralStats
+
+    fun refreshReferralStats() {
+        viewModelScope.launch {
+            userRepository.getReferralStats()?.let { _referralStats.value = it }
+        }
+    }
+
     /** Whether the once-per-account first-redeem discount is already spent. */
     val hasUsedFirstRedeem: LiveData<Boolean> =
         userRepository.userData.map { it.hasUsedFirstRedeem }

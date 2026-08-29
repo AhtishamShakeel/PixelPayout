@@ -292,13 +292,20 @@
         // A legacy cash payout, from before redemption moved to game packs.
         if (r.payoutNumber) rows_.push(["Payout number", r.payoutNumber, true]);
 
-        const fulfil = rows_.map(([k, v, copyable]) => `
+        // An order with no player id at all means listRedemptions is still
+        // the old build - it simply does not return these fields yet. Saying
+        // so beats rendering an empty box and letting it look like the order
+        // was placed without any delivery details.
+        const fulfil = rows_.length
+          ? rows_.map(([k, v, copyable]) => `
           <div>
             <span class="k">${escapeHtml(k)}</span>
             <span class="v${copyable ? " copy" : ""}"
                   ${copyable ? `data-copy="${escapeHtml(v)}" title="Click to copy"` : ""}
             >${escapeHtml(v)}</span>
-          </div>`).join("");
+          </div>`).join("")
+          : `<div><span class="k">Fulfilment details unavailable</span>
+             <span class="v">deploy listRedemptions</span></div>`;
 
         card.innerHTML = `
           <div class="row">

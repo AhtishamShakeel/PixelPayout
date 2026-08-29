@@ -20,6 +20,17 @@ import kotlinx.coroutines.launch
  */
 private const val LEADERBOARD_REFRESH_MS = 3 * 60 * 1000L
 
+/**
+ * How long today's goals are considered fresh.
+ *
+ * Short on purpose - see refreshDailyGoals. This only exists to absorb rapid
+ * tab switching, not to serve a stale tracker; anything that actually moves a
+ * counter invalidates it outright.
+ */
+private const val GOALS_REFRESH_MS = 60 * 1000L
+
+private const val MILLIS_PER_DAY = 86_400_000L
+
 class MainViewModel(
     private val userRepository: UserRepository,
     private val userPreferences: UserPreferences
@@ -30,6 +41,23 @@ class MainViewModel(
 
     val xp: LiveData<Int> = userRepository.userData.map { userData ->
         userData.xp
+    }
+
+    /**
+     * Goal counters advance in the same transaction that awards XP, so a
+     * change here means the stored goals are behind. Observed forever rather
+     * than per-screen: the view model outlives every fragment, and the point
+     * is to know about a quiz finished while Home was not on screen.
+     */
+    private val goalsInvalidator = androidx.lifecycle.Observer<Int> { invalidateDailyGoals() }
+
+    init {
+        xp.observeForever(goalsInvalidator)
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        xp.removeObserver(goalsInvalidator)
     }
 
     val level: LiveData<Int> = userRepository.userData.map { userData ->
@@ -125,10 +153,12 @@ class MainViewModel(
     }
 
     init {
-        // Kick the catalogue listener off at app start rather than waiting
-        // for the Wallet tab, so the balance bar has a target on the first
-        // screen the user sees. A failure just leaves the bar hidden.
-        userRepository.observeRedemptionGames()
+        // Seeded from disk rather than listened to. Home's balance bar needs
+        // a target, not a live feed - and paying fifteen document reads on
+        // every launch to keep a progress bar's label current is the wrong
+        // trade for a screen that is not the catalogue. Wallet opens the live
+        // listener when it appears.
+        userRepository.seedRedemptionGames()
     }
 
     /** The code this user hands out, for the invite card on Profile. */
@@ -183,15 +213,63 @@ class MainViewModel(
      */
     val dailyGoals: LiveData<UserRepository.DailyGoals?> = _dailyGoals
 
-    fun refreshDailyGoals() {
+    private var goalsFetchedAt = 0L
+    private var goalsFetchedDayUtc = -1L
+
+    /**
+     * Re-reads today's goals, but not on every single return to Home.
+     *
+     * This was the one unthrottled per-resume callable left, and it was worse
+     * than it looked: HomeFragment called it from onViewCreated AND onResume,
+     * and onResume always follows onViewCreated, so a first visit cost two
+     * invocations rather than one.
+     *
+     * The throttle is deliberately SHORT, and deliberately not the three
+     * minutes the leaderboard uses. Standings tolerate being a few minutes
+     * stale; a goal tracker does not. The user returns to Home from a quiz
+     * specifically to watch the bar move, and "played a quiz, came back,
+     * nothing changed" reads as a broken feature rather than as a cache.
+     *
+     * Two things bypass it, so that case cannot happen:
+     *
+     *   * [invalidateDailyGoals], called whenever XP moves - which is exactly
+     *     when a quiz or a game has paid out and a counter has advanced.
+     *   * The UTC day rolling over, because goals reset there and the stored
+     *     copy stops describing today at all.
+     */
+    fun refreshDailyGoals(force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        val today = System.currentTimeMillis() / MILLIS_PER_DAY
+
+        val fresh = !force &&
+            _dailyGoals.value != null &&
+            today == goalsFetchedDayUtc &&
+            now - goalsFetchedAt < GOALS_REFRESH_MS
+        if (fresh) return
+
+        goalsFetchedAt = now
+        goalsFetchedDayUtc = today
+
         viewModelScope.launch {
             userRepository.getDailyGoals()?.let { _dailyGoals.value = it }
         }
     }
 
+    /**
+     * Marks the stored goals as stale without fetching anything.
+     *
+     * Called when XP moves, which is the signal that a quiz or game just paid
+     * out - the same transaction that awards it advances the goal counters.
+     * The next time Home appears it will actually re-read, so the throttle
+     * never hides progress the user just earned.
+     */
+    private fun invalidateDailyGoals() {
+        goalsFetchedAt = 0L
+    }
+
     suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult {
         val result = userRepository.claimDailyGoalBonus(adWatched)
-        refreshDailyGoals()
+        refreshDailyGoals(force = true)
         return result
     }
 

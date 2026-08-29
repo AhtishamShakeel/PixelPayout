@@ -40,7 +40,11 @@ class UserRepository {
                 fetchLevelCurve()
                 listenToRedemptions(userId)
                 listenToPayoutFeed()
-                RedemptionOptionsStore.start()
+                // Seed only. The live listener costs a read per document
+                // every time a fresh process attaches it, and most sessions
+                // never open Wallet - so it waits until something actually
+                // shows the catalogue.
+                RedemptionOptionsStore.seedFromCache()
             }
         }
     }
@@ -288,8 +292,15 @@ class UserRepository {
      */
     val redemptionGames: LiveData<List<RedemptionGame>> = RedemptionOptionsStore.games
 
-    /** Registers the catalogue listener if it is not already running. */
+    /**
+     * Opens the LIVE catalogue listener. Called by the screens that show the
+     * catalogue, so a console edit lands where somebody is looking at it.
+     * App start uses [RedemptionOptionsStore.seedFromCache] instead.
+     */
     fun observeRedemptionGames() = RedemptionOptionsStore.start()
+
+    /** Fills the catalogue from disk without opening a listener. */
+    fun seedRedemptionGames() = RedemptionOptionsStore.seedFromCache()
 
     /**
      * Spends points on one pack of one game.

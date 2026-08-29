@@ -115,8 +115,9 @@ class HomeFragment : Fragment() {
         // Warmed here so the claim button does not sit through a cold load.
         AdManager.getInstance().loadRewardedAd(requireContext())
         mainViewModel.loadStreakCycle()
-        mainViewModel.refreshDailyGoals()
-        mainViewModel.refreshLeaderboard()
+        // Goals and standings are NOT refreshed here: onResume always follows
+        // onViewCreated, and both refreshes are idempotent, so asking twice
+        // bought nothing but a second round trip on every first visit.
         observeViewModel()
 
     }

@@ -9,28 +9,33 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Source
 
 /**
- * The redemption catalogue, read once per process and kept fresh after that.
+ * The redemption catalogue.
  *
  * Why a process-level object rather than a method on UserRepository: the
  * repository is constructed per view model (MainViewModel, ReferralViewModel
  * and the referral dialog each construct their own), so a member cache would
  * be a cache per screen - which is exactly the repeated loading this replaces.
  *
- * How the caching works, and why nothing is written to DataStore here:
+ * TWO WAYS IN, and the difference is what it costs:
  *
- *   * Firestore keeps its own on-disk copy of every document it has seen.
- *     A snapshot listener fires from that copy FIRST, so on the second and
- *     every later visit to Wallet the grid is painted before any network call
- *     resolves.
- *   * The same listener then delivers whatever the server has. Editing a
- *     document in the Firebase console - a price, a name, `enabled` - pushes
- *     through to the open screen without a restart, and only the documents
- *     that actually changed are billed as reads.
+ *   * [seedFromCache] runs at app start. It reads Firestore's on-disk copy,
+ *     which is free, and only touches the network when that copy is empty.
+ *   * [start] opens a live snapshot listener, and runs when a screen actually
+ *     shows the catalogue. Attaching bills a read per document, so this is
+ *     deliberately NOT done on every launch - most sessions never open
+ *     Wallet, and paying fifteen reads each time to keep a progress bar's
+ *     label current is the wrong trade.
  *
- * A hand-rolled JSON cache in DataStore would duplicate the first half and
- * lose the second, so there isn't one.
+ * What the listener buys, where it is worth paying for: an edit in the
+ * Firebase console - a price, a name, `enabled` - lands on the open screen
+ * without a restart, and only the documents that actually changed are billed.
+ *
+ * Nothing is written to DataStore. Firestore's own disk cache already
+ * survives restarts, so a hand-rolled JSON copy would duplicate the cheap
+ * half and lose the live half.
  */
 object RedemptionOptionsStore {
 
@@ -46,14 +51,75 @@ object RedemptionOptionsStore {
 
     private var registration: ListenerRegistration? = null
 
+    /** True once a seed or a listener has put something in [_games]. */
+    private var seeded = false
+
+    /**
+     * Fills the catalogue from whatever Firestore already has on disk,
+     * WITHOUT opening a listener.
+     *
+     * This is what runs at app start. A snapshot listener bills a read per
+     * document every time a fresh process attaches it with an expired resume
+     * token - fifteen documents on every launch, for every user, including
+     * the majority who never open Wallet in that session. A cache-first get
+     * costs nothing when the disk copy is there, which after the first launch
+     * it always is.
+     *
+     * It falls through to the server only when the cache is genuinely empty
+     * (first ever launch, or cleared data), so the catalogue is never missing
+     * - it is just paid for once instead of every launch.
+     *
+     * The staleness this accepts is narrow and deliberate: a user who never
+     * opens Wallet may see a slightly old price in Home's "next redemption"
+     * bar. Anyone who actually opens Wallet gets [start] and a live listener,
+     * which is where a console edit needs to show up.
+     */
+    fun seedFromCache() {
+        if (registration != null || seeded) return
+        if (FirebaseAuth.getInstance().currentUser == null) return
+
+        val collection = FirebaseFirestore.getInstance().collection(COLLECTION)
+
+        collection.get(Source.CACHE)
+            .addOnSuccessListener { snapshot ->
+                if (!snapshot.isEmpty) {
+                    publish(snapshot)
+                    return@addOnSuccessListener
+                }
+                // Nothing on disk yet - this is the one launch that pays.
+                collection.get(Source.SERVER)
+                    .addOnSuccessListener(::publish)
+                    .addOnFailureListener { _isLoading.postValue(false) }
+            }
+            .addOnFailureListener {
+                collection.get(Source.SERVER)
+                    .addOnSuccessListener(::publish)
+                    .addOnFailureListener { _isLoading.postValue(false) }
+            }
+    }
+
+    private fun publish(snapshot: com.google.firebase.firestore.QuerySnapshot) {
+        seeded = true
+        _games.postValue(
+            snapshot.documents
+                .mapNotNull(::parseGame)
+                .sortedWith(compareBy({ it.sortOrder }, { it.name }))
+        )
+        _isLoading.postValue(snapshot.metadata.isFromCache && snapshot.isEmpty)
+    }
+
     /**
      * Starts listening, at most once.
      *
-     * Safe to call from every screen that shows the catalogue and on every
-     * onViewCreated; the second call onwards is a no-op. Listing the
-     * collection requires an authenticated user (see firestore.rules), so a
-     * call made before sign-in does nothing and the auth listener in
-     * [UserRepository] picks it up instead.
+     * Called when the catalogue is actually on screen, not at app start -
+     * see [seedFromCache] for why. Safe to call from every screen that shows
+     * it and on every onViewCreated; the second call onwards is a no-op.
+     * Listing the collection requires an authenticated user (see
+     * firestore.rules), so a call made before sign-in does nothing.
+     *
+     * Once started it is never stopped for the life of the process: the reads
+     * are paid on attach, so detaching when Wallet closes and reattaching
+     * when it reopens would cost MORE than staying connected.
      */
     fun start() {
         if (registration != null) return
@@ -70,19 +136,13 @@ object RedemptionOptionsStore {
                     return@addSnapshotListener
                 }
 
-                val games = snapshot.documents
-                    .mapNotNull(::parseGame)
-                    .sortedWith(compareBy({ it.sortOrder }, { it.name }))
-
-                _games.postValue(games)
-
                 // An empty snapshot off a COLD disk cache means "not asked
                 // yet", not "nothing on offer" - Firestore delivers that
                 // before it has spoken to the server at all. Staying in the
                 // loading state until the server answers is what stops the
                 // first launch flashing an empty catalogue at a user whose
                 // games are about to arrive.
-                _isLoading.postValue(snapshot.metadata.isFromCache && snapshot.isEmpty)
+                publish(snapshot)
             }
     }
 
@@ -96,6 +156,7 @@ object RedemptionOptionsStore {
         registration = null
         _games.value = emptyList()
         _isLoading.value = true
+        seeded = false
     }
 
     private fun parseGame(doc: DocumentSnapshot): RedemptionGame? {

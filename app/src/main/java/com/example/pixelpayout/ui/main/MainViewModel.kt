@@ -8,7 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.map  // Add this import
 import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
-import com.example.pixelpayout.data.model.RedemptionOption
+import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.UserPreferences
 import kotlinx.coroutines.flow.firstOrNull
@@ -75,20 +75,33 @@ class MainViewModel(
         val percent: Int
     )
 
-    private val redemptionOptions = MutableLiveData<List<RedemptionOption>>(emptyList())
+    /**
+     * The same catalogue the Wallet grid draws, from the same shared store -
+     * so opening Wallet does not re-read what this already has, and a price
+     * edited in Firestore moves the bar here as well as the card there.
+     */
+    private val redemptionGames: LiveData<List<RedemptionGame>> =
+        userRepository.redemptionGames
 
     val nextRedemption: LiveData<NextRedemption?> = MediatorLiveData<NextRedemption?>().apply {
         fun recompute() {
             val user = userRepository.userData.value
-            val options = redemptionOptions.value.orEmpty()
-            if (user == null || options.isEmpty()) {
+            val games = redemptionGames.value.orEmpty()
+            if (user == null || games.isEmpty()) {
                 value = null
                 return
             }
 
-            val target = options
-                .filter { it.minLevel <= user.level && it.pointsCost > user.points }
-                .minByOrNull { it.pointsCost }
+            // Flattened across games: the bar fills toward the cheapest thing
+            // the user cannot buy yet ANYWHERE in the catalogue, which is the
+            // next thing that will actually become available to them - not
+            // the cheapest pack of some arbitrary game.
+            val target = games
+                .filter { it.minLevel <= user.level }
+                .flatMap { game -> game.packs.map { game to it } }
+                .filter { (_, pack) -> pack.pointsCost > user.points }
+                .minByOrNull { (_, pack) -> pack.pointsCost }
+                ?.let { (game, pack) -> Triple(game.name, pack.amount, pack.pointsCost) }
 
             // Nothing left to reach means everything on offer is already
             // affordable - the bar has no meaning, so hide it rather than
@@ -98,26 +111,35 @@ class MainViewModel(
                 return
             }
 
+            val (_, amount, cost) = target
             value = NextRedemption(
-                title = target.title,
-                pointsCost = target.pointsCost,
-                pointsShort = (target.pointsCost - user.points).coerceAtLeast(0),
-                percent = (user.points * 100 / target.pointsCost).coerceIn(0, 100)
+                title = amount,
+                pointsCost = cost,
+                pointsShort = (cost - user.points).coerceAtLeast(0),
+                percent = (user.points * 100 / cost).coerceIn(0, 100)
             )
         }
 
         addSource(userRepository.userData) { recompute() }
-        addSource(redemptionOptions) { recompute() }
+        addSource(redemptionGames) { recompute() }
     }
 
     init {
-        // Options are server-managed and change rarely, so one read at start
-        // is enough; a failure just leaves the bar hidden.
-        viewModelScope.launch {
-            redemptionOptions.value = runCatching { userRepository.getRedemptionOptions() }
-                .getOrDefault(emptyList())
-        }
+        // Kick the catalogue listener off at app start rather than waiting
+        // for the Wallet tab, so the balance bar has a target on the first
+        // screen the user sees. A failure just leaves the bar hidden.
+        userRepository.observeRedemptionGames()
     }
+
+    /** The code this user hands out, for the invite card on Profile. */
+    val referralCode: LiveData<String> = userRepository.userData.map { it.referralCode }
+
+    /** Whether the "have a code?" input on Profile still has a job to do. */
+    val hasUsedReferral: LiveData<Boolean> = userRepository.userData.map { it.hasUsedReferral }
+
+    /** Whether the once-per-account first-redeem discount is already spent. */
+    val hasUsedFirstRedeem: LiveData<Boolean> =
+        userRepository.userData.map { it.hasUsedFirstRedeem }
 
     val streak: LiveData<UserRepository.Streak> = userRepository.userData.map { it.streak }
 

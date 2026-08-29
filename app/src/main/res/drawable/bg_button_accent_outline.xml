@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The primary action.
+
+    OUTLINED, not filled. That is the handoff design system's defining rule
+    (buttons are a 1px accent border on transparent, not a solid fill) and it
+    is why the accent can appear on every step of the sheet without the screen
+    turning violet.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="1dp" android:color="@color/violet_tint_25" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/violet_tint_28" />
+            <stroke android:width="1dp" android:color="@color/brand_violet" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/violet_tint_14" />
+            <stroke android:width="1dp" android:color="@color/brand_violet" />
+            <corners android:radius="8dp" />
+        </shape>
+    </item>
+</selector>

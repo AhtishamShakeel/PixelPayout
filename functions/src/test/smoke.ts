@@ -383,31 +383,37 @@ async function run() {
 
   // --- redemption: spending points ---
   {
-    await db.collection("redemptionOptions").doc("cash100").set({
-      title: "Rs 100 Easypaisa",
-      pointsCost: 1000,
-      type: "EASYPAISA",
+    await db.collection("redemptionOptions").doc("pubg").set({
+      name: "PUBG Mobile",
+      code: "UC",
       enabled: true,
+      servers: ["Global", "Korea"],
+      packs: {
+        uc_1000: {amount: "1000 UC", pointsCost: 1000},
+        uc_small: {amount: "60 UC", pointsCost: 100, firstRedeemCost: 50},
+      },
     });
     await db.collection("redemptionOptions").doc("locked").set({
-      title: "High tier reward",
-      pointsCost: 100,
-      type: "GAME_CURRENCY",
+      name: "High tier game",
+      code: "HT",
       enabled: true,
       minLevel: 10,
+      packs: {p: {amount: "100 Coins", pointsCost: 100}},
     });
     await db.collection("redemptionOptions").doc("disabled").set({
-      title: "Retired reward",
-      pointsCost: 100,
-      type: "GAME_CURRENCY",
+      name: "Retired game",
+      code: "RT",
       enabled: false,
+      packs: {p: {amount: "100 Coins", pointsCost: 100}},
     });
 
     const user = await makeUser("redeem");
     await seedUserDoc(user.uid, "REDEEMER", {points: 1500, xp: 300, level: 5});
     const redeem = httpsCallable(clientFunctions, "redeemReward");
 
-    const res = await redeem({optionId: "cash100", payoutNumber: "03001234567"});
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "5218840977", server: "Global",
+    });
     const data = res.data as {pointsSpent: number; remainingPoints: number; redemptionId: string};
     assertEq("redemption spends the option's cost", data.pointsSpent, 1000);
     assertEq("remaining balance reported", data.remainingPoints, 500);
@@ -423,8 +429,13 @@ async function run() {
     assertEq("a redemption record was created", redemptionSnap.exists, true);
     assertEq("the redemption records its owner", redemptionSnap.get("uid"), user.uid);
     assertEq("redemption starts pending", redemptionSnap.get("status"), "pending");
-    assertEq("redemption stores the payout number", redemptionSnap.get("payoutNumber"), "03001234567");
+    assertEq("redemption stores the player id", redemptionSnap.get("playerId"), "5218840977");
+    assertEq("redemption stores the pack", redemptionSnap.get("packId"), "uc_1000");
     assertEq("redemption records the cost charged", redemptionSnap.get("pointsCost"), 1000);
+
+    // The anti-farming claim, written in the same transaction as the debit.
+    const linkSnap = await db.collection("playerLinks").doc("pubg__5218840977").get();
+    assertEq("the player id was linked to the account", linkSnap.get("uid"), user.uid);
 
     const events = await getLedgerEvents(user.uid);
     const spendEvent = events.find((e) => e.source === "REDEMPTION");
@@ -434,22 +445,29 @@ async function run() {
 
     await assertThrows(
       "redeeming more than the balance is rejected",
-      () => redeem({optionId: "cash100", payoutNumber: "03001234567"}),
+      () => redeem({
+        optionId: "pubg", packId: "uc_1000", playerId: "5218840977", server: "Global",
+      }),
       "failed-precondition"
     );
     await assertThrows(
-      "an option above the user's level is rejected",
-      () => redeem({optionId: "locked"}),
+      "a game above the user's level is rejected",
+      () => redeem({optionId: "locked", packId: "p", playerId: "5218840977"}),
       "failed-precondition"
     );
     await assertThrows(
-      "a disabled option is rejected",
-      () => redeem({optionId: "disabled"}),
+      "a disabled game is rejected",
+      () => redeem({optionId: "disabled", packId: "p", playerId: "5218840977"}),
       "failed-precondition"
     );
     await assertThrows(
-      "an unknown option is rejected",
-      () => redeem({optionId: "does-not-exist"}),
+      "an unknown game is rejected",
+      () => redeem({optionId: "does-not-exist", packId: "p", playerId: "5218840977"}),
+      "invalid-argument"
+    );
+    await assertThrows(
+      "an unknown pack is rejected",
+      () => redeem({optionId: "pubg", packId: "nope", playerId: "5218840977", server: "Global"}),
       "invalid-argument"
     );
 
@@ -457,19 +475,140 @@ async function run() {
     assertEq("no rejected redemption changed the balance", afterSnap.get("points"), 500);
   }
 
-  // --- redemption: a cash payout needs somewhere to send it ---
+  // --- redemption: a delivery needs somewhere to go ---
   {
-    const user = await makeUser("redeemnonum");
-    await seedUserDoc(user.uid, "NONUMBER", {points: 5000});
+    const user = await makeUser("redeemnoid");
+    await seedUserDoc(user.uid, "NOID", {points: 5000});
     const redeem = httpsCallable(clientFunctions, "redeemReward");
 
     await assertThrows(
-      "cash redemption without a payout number is rejected",
-      () => redeem({optionId: "cash100"}),
+      "redemption without a player id is rejected",
+      () => redeem({optionId: "pubg", packId: "uc_1000", server: "Global"}),
+      "invalid-argument"
+    );
+    await assertThrows(
+      "redemption without a server is rejected when the game has servers",
+      () => redeem({optionId: "pubg", packId: "uc_1000", playerId: "5218840977"}),
       "invalid-argument"
     );
     const snap = await db.collection("users").doc(user.uid).get();
-    assertEq("balance untouched when payout details are missing", snap.get("points"), 5000);
+    assertEq("balance untouched when delivery details are missing", snap.get("points"), 5000);
+  }
+
+  // --- redemption: one game UID belongs to one account, forever ---
+  {
+    const intruder = await makeUser("uidthief");
+    await seedUserDoc(intruder.uid, "THIEF", {points: 99999, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    // 5218840977 was claimed by the "redeem" user above.
+    await assertThrows(
+      "a player id already linked to another account is refused",
+      () => redeem({
+        optionId: "pubg", packId: "uc_1000", playerId: "5218840977", server: "Global",
+      }),
+      "failed-precondition"
+    );
+    const snap = await db.collection("users").doc(intruder.uid).get();
+    assertEq("a refused link never debits the balance", snap.get("points"), 99999);
+
+    // Their own, unclaimed id goes through - the rule is one ID per account,
+    // not one account per game.
+    const ok = await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "7000000001", server: "Global",
+    });
+    assertEq(
+      "an unclaimed id is accepted",
+      (ok.data as {pointsSpent: number}).pointsSpent,
+      1000
+    );
+  }
+
+  // --- redemption: the discounted first redeem, once per account ---
+  {
+    const user = await makeUser("firstredeem");
+    await seedUserDoc(user.uid, "FIRST", {points: 5000, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_small", playerId: "8000000001",
+      server: "Global", useFirstRedeem: true,
+    });
+    assertEq(
+      "the first redeem charges the discounted price",
+      (res.data as {pointsSpent: number}).pointsSpent,
+      50
+    );
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("the discount is marked spent", snap.get("hasUsedFirstRedeem"), true);
+
+    await assertThrows(
+      "the discount cannot be used twice",
+      () => redeem({
+        optionId: "pubg", packId: "uc_small", playerId: "8000000001",
+        server: "Global", useFirstRedeem: true,
+      }),
+      "failed-precondition"
+    );
+
+    // Below the level gate it is refused outright.
+    const junior = await makeUser("firstjunior");
+    await seedUserDoc(junior.uid, "JUNIOR", {points: 5000, level: 1});
+    const juniorRedeem = httpsCallable(clientFunctions, "redeemReward");
+    await assertThrows(
+      "the discount is gated on level",
+      () => juniorRedeem({
+        optionId: "pubg", packId: "uc_small", playerId: "9000000001",
+        server: "Global", useFirstRedeem: true,
+      }),
+      "failed-precondition"
+    );
+  }
+
+  // --- redemption: rejecting a FIRST REDEEM returns the discount too ------
+  // Goes through the real resolveRedemption callable rather than simulating
+  // the refund with the Admin SDK. The refund block above does simulate it,
+  // which is why it never noticed that the once-per-account discount stayed
+  // burned after a rejection - the user got their stars back and silently
+  // lost the offer they had spent them on.
+  {
+    const user = await makeUser("firstreject");
+    await seedUserDoc(user.uid, "FIRSTREJ", {points: 5000, xp: 0, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_small", playerId: "5400000001",
+      server: "Global", useFirstRedeem: true,
+    });
+    const redemptionId = (res.data as {redemptionId: string}).redemptionId;
+
+    const userRef = db.collection("users").doc(user.uid);
+    const spent = await userRef.get();
+    assertEq("the discount is burned when the order is placed",
+      spent.get("hasUsedFirstRedeem"), true);
+    assertEq("the discounted price was charged", spent.get("points"), 4950);
+
+    // Become an admin the way the emulator allows: set the claim directly,
+    // then force the client to pick up a fresh token.
+    await admin.auth().setCustomUserClaims(user.uid, {admin: true});
+    await clientAuth.currentUser?.getIdToken(true);
+
+    await httpsCallable(clientFunctions, "resolveRedemption")({
+      redemptionId, status: "rejected", reason: "wrong id",
+    });
+
+    const after = await userRef.get();
+    assertEq("a rejected redemption returns the stars", after.get("points"), 5000);
+    assertEq("a rejected FIRST redeem also returns the discount",
+      after.get("hasUsedFirstRedeem"), false);
+
+    // The claim on the player id is deliberately kept: a rejection says the
+    // order was not fulfilled, not that the account never used that id.
+    const link = await db.collection("playerLinks").doc("pubg__5400000001").get();
+    assertEq("the player id stays linked after a rejection", link.exists, true);
+
+    await admin.auth().setCustomUserClaims(user.uid, {admin: false});
   }
 
   // --- redemption: concurrent requests must not overdraw ---
@@ -480,8 +619,12 @@ async function run() {
     const redeem = httpsCallable(clientFunctions, "redeemReward");
 
     const results = await Promise.allSettled([
-      redeem({optionId: "cash100", payoutNumber: "03001234567"}),
-      redeem({optionId: "cash100", payoutNumber: "03001234567"}),
+      redeem({
+        optionId: "pubg", packId: "uc_1000", playerId: "6100000001", server: "Global",
+      }),
+      redeem({
+        optionId: "pubg", packId: "uc_1000", playerId: "6100000001", server: "Global",
+      }),
     ]);
     const succeeded = results.filter((r) => r.status === "fulfilled");
     assertEq("exactly one of two concurrent redemptions succeeds", succeeded.length, 1);
@@ -503,7 +646,9 @@ async function run() {
     await seedUserDoc(user.uid, "REFUNDEE", {points: 1200, xp: 300, level: 5});
     const redeem = httpsCallable(clientFunctions, "redeemReward");
 
-    const res = await redeem({optionId: "cash100", payoutNumber: "03001234567"});
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "6600000001", server: "Global",
+    });
     const redemptionId = (res.data as {redemptionId: string}).redemptionId;
 
     const beforeSnap = await db.collection("users").doc(user.uid).get();

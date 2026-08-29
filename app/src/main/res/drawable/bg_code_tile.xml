@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The dashed well holding a game's short code.
+
+    The handoff fills this with a 135-degree repeating stripe, which a shape
+    drawable cannot express; a flat fill under the same dashed border carries
+    the same "placeholder until real art arrives" reading. When the game
+    document has an imageUrl, the artwork covers this entirely.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/surface_field" />
+    <stroke android:width="1dp" android:color="@color/stroke_strong" android:dashWidth="4dp" android:dashGap="3dp" />
+    <corners android:radius="6dp" />
+</shape>

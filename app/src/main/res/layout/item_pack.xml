@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One denomination in the redeem sheet.
+
+    An unaffordable pack is shown, dimmed, with the shortfall in place of its
+    note - hiding it would make the ladder above the user's balance invisible,
+    which is the thing that tells them what earning more is worth.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/packRow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/bg_pack_row"
+    android:baselineAligned="false"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="14dp"
+    android:paddingTop="11dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="11dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/packAmount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/jakarta_semibold"
+            android:maxLines="1"
+            android:textColor="@color/text_strong"
+            android:textSize="15sp"
+            tools:text="325 UC" />
+
+        <TextView
+            android:id="@+id/packNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:fontFamily="@font/jakarta_medium"
+            android:maxLines="1"
+            android:textColor="@color/text_ghost"
+            android:textSize="11.5sp"
+            tools:text="Best value per point" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/packTag"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_chip_violet"
+        android:fontFamily="@font/jakarta_semibold"
+        android:letterSpacing="0.06"
+        android:paddingStart="7dp"
+        android:paddingTop="3dp"
+        android:paddingEnd="7dp"
+        android:paddingBottom="3dp"
+        android:textAllCaps="true"
+        android:textColor="@color/brand_violet_light"
+        android:textSize="10sp"
+        android:visibility="gone"
+        tools:text="Popular"
+        tools:visibility="visible" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/packStar"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:tint="@color/gold" />
+
+        <TextView
+            android:id="@+id/packCost"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/mono_bold"
+            android:textColor="@color/gold"
+            android:textSize="13sp"
+            tools:text="5,800" />
+
+    </LinearLayout>
+
+</LinearLayout>

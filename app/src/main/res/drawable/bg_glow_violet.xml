@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The radial bloom behind the balance card's top-right corner. Its own
+     view so it can overhang the card and be clipped by it. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient android:type="radial" android:gradientRadius="95dp" android:startColor="@color/violet_tint_35" android:endColor="#007C5CFF" />
+</shape>

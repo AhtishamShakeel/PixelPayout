@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One choice in the first-redeem picker.
+
+    Deliberately NOT item_pack: this grid spans games, so each cell has to say
+    which game it belongs to, and it is chosen from rather than bought
+    directly - the price is the same on all of them, so showing it on every
+    cell would be noise.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/giftCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_pack_row"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="11dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/giftCode"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/bg_code_tile"
+            android:fontFamily="@font/mono_bold"
+            android:gravity="center"
+            android:textColor="@color/brand_violet"
+            android:textSize="11sp"
+            tools:text="UC" />
+
+        <TextView
+            android:id="@+id/giftAmount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:fontFamily="@font/jakarta_semibold"
+            android:maxLines="1"
+            android:textColor="@color/text_strong"
+            android:textSize="14sp"
+            tools:text="30 UC" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/giftGame"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_medium"
+        android:maxLines="1"
+        android:textColor="@color/text_ghost"
+        android:textSize="11.5sp"
+        tools:text="PUBG Mobile" />
+
+    <!--
+        The discounted price, on every cell.
+
+        It used to be stated once above the grid on the assumption that every
+        offer costs the same. firstRedeemCost is per-pack, so that was only
+        true of the current seed - and a user who could not afford the one
+        they picked found out three steps later, at the server.
+    -->
+    <LinearLayout
+        android:id="@+id/giftCostRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/giftStar"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:tint="@color/gold" />
+
+        <TextView
+            android:id="@+id/giftCost"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/mono_bold"
+            android:textColor="@color/gold"
+            android:textSize="12.5sp"
+            tools:text="150" />
+
+    </LinearLayout>
+
+    <!-- Replaces nothing; sits under the price when it cannot be paid. -->
+    <TextView
+        android:id="@+id/giftShort"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_medium"
+        android:maxLines="1"
+        android:textColor="@color/text_ghost"
+        android:textSize="10.5sp"
+        android:visibility="gone"
+        tools:text="Need 50 more"
+        tools:visibility="visible" />
+
+</LinearLayout>

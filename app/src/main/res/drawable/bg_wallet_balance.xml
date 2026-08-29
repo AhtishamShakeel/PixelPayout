@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The balance card.
+
+    The handoff paints this as a DARK surface with the accent present only as
+    a radial glow behind the top-right corner - not as the violet flood Home
+    uses. Kept that way on purpose: Nocturne's own guidance is that the accent
+    is a line and a glow rather than a flood, and it also stops Wallet from
+    reading as a second copy of Home. The glow is a separate view in the
+    layout, because a shape drawable cannot hold two gradients.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="315" android:startColor="#191922" android:centerColor="#131320" android:endColor="#17131F" android:type="linear" />
+    <stroke android:width="1dp" android:color="@color/stroke_strong" />
+    <corners android:radius="14dp" />
+</shape>

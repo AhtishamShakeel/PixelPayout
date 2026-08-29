@@ -1,75 +1,85 @@
 package com.example.pixelpayout.ui.redemption
 
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.pixelpayout.data.model.RedemptionOption
+import coil.load
+import com.example.pixelpayout.data.model.RedemptionGame
 import com.pixelpayout.R
-import com.pixelpayout.databinding.ItemRedemptionOptionBinding
+import com.pixelpayout.databinding.ItemRedemptionGameBinding
 
 /**
- * Shows what the user can spend their stars on. Affordability and level gates
- * are reflected here only to set expectations - the server re-checks both when
- * the redemption is actually attempted, so a stale list can't be exploited.
+ * The Wallet grid: one tile per game.
+ *
+ * The tile deliberately says nothing about whether the user can afford
+ * anything - a game is a doorway, not a purchase, and the packs behind it
+ * span a wide enough range that "you cannot afford this" would be wrong about
+ * most of them. Affordability is answered in the sheet, per pack.
+ *
+ * The one thing a tile does gate on is level: a game the account cannot reach
+ * yet is dimmed, because opening it would only lead to a sheet that refuses
+ * every pack for the same reason.
  */
 class RedemptionAdapter(
-    private val onRedeem: (RedemptionOption) -> Unit
-) : ListAdapter<RedemptionOption, RedemptionAdapter.ViewHolder>(DIFF) {
+    private val onOpen: (RedemptionGame) -> Unit
+) : ListAdapter<RedemptionGame, RedemptionAdapter.ViewHolder>(DIFF) {
 
-    private var currentPoints: Int = 0
     private var currentLevel: Int = 1
 
-    fun updateUserState(points: Int, level: Int) {
-        currentPoints = points
+    fun updateLevel(level: Int) {
+        if (level == currentLevel) return
         currentLevel = level
-        notifyDataSetChanged()
+        notifyItemRangeChanged(0, itemCount)
     }
 
     inner class ViewHolder(
-        private val binding: ItemRedemptionOptionBinding
+        private val binding: ItemRedemptionGameBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(option: RedemptionOption) {
-            binding.titleText.text = option.title
-            binding.descriptionText.text = option.description
-            binding.pointsCostText.text = binding.root.context.getString(
-                R.string.points_cost,
-                option.pointsCost
-            )
+        fun bind(game: RedemptionGame) {
+            val context = binding.root.context
 
-            val levelLocked = currentLevel < option.minLevel
-            val affordable = currentPoints >= option.pointsCost
+            binding.gameName.text = game.name
+            binding.gameCode.text = game.code
 
-            binding.redeemButton.isEnabled = !levelLocked && affordable
-            binding.redeemButton.text = when {
-                levelLocked -> binding.root.context.getString(R.string.locked_until_level, option.minLevel)
-                else -> binding.root.context.getString(R.string.redeem)
+            val from = game.fromPointsCost
+            binding.gameFrom.text = if (from != null) {
+                context.getString(R.string.wallet_game_from, WalletFormat.number(from))
+            } else {
+                ""
             }
 
-            binding.redeemButton.setOnClickListener { onRedeem(option) }
+            // The dashed code well stays behind the artwork rather than being
+            // replaced by it: if the image fails to load there is still a
+            // labelled tile instead of a hole.
+            binding.gameImage.isVisible = !game.imageUrl.isNullOrBlank()
+            if (!game.imageUrl.isNullOrBlank()) {
+                binding.gameImage.load(game.imageUrl) { crossfade(true) }
+            }
+
+            val locked = currentLevel < game.minLevel
+            binding.gameCard.alpha = if (locked) 0.55f else 1f
+            binding.gameCard.isClickable = !locked
+            binding.gameCard.setOnClickListener(
+                if (locked) null else View.OnClickListener { onOpen(game) }
+            )
         }
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        return ViewHolder(
-            ItemRedemptionOptionBinding.inflate(
-                LayoutInflater.from(parent.context),
-                parent,
-                false
-            )
-        )
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = ViewHolder(
+        ItemRedemptionGameBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+    )
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
-    }
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) = holder.bind(getItem(position))
 
     companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<RedemptionOption>() {
-            override fun areItemsTheSame(a: RedemptionOption, b: RedemptionOption) = a.id == b.id
-            override fun areContentsTheSame(a: RedemptionOption, b: RedemptionOption) = a == b
+        private val DIFF = object : DiffUtil.ItemCallback<RedemptionGame>() {
+            override fun areItemsTheSame(a: RedemptionGame, b: RedemptionGame) = a.id == b.id
+            override fun areContentsTheSame(a: RedemptionGame, b: RedemptionGame) = a == b
         }
     }
 }

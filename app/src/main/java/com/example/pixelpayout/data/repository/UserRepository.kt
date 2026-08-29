@@ -10,8 +10,8 @@ import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
-import com.example.pixelpayout.data.model.RedemptionOption
-import com.example.pixelpayout.data.model.RedemptionType
+import com.example.pixelpayout.data.model.RedemptionGame
+import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.ui.redemption.RedemptionResult
 import com.example.pixelpayout.ui.redemption.ReferralResult
 import com.example.pixelpayout.utils.ServerClock
@@ -40,6 +40,7 @@ class UserRepository {
                 fetchLevelCurve()
                 listenToRedemptions(userId)
                 listenToPayoutFeed()
+                RedemptionOptionsStore.start()
             }
         }
     }
@@ -103,7 +104,12 @@ class UserRepository {
                                     lastClaimedDayUtc = it.getLong(FIELD_LAST_STREAK_DAY),
                                     lastRewardedDayUtc =
                                         it.getLong(FIELD_LAST_STREAK_REWARD_DAY)
-                                )
+                                ),
+                                referralCode = it.getString(FIELD_REFERRAL_CODE).orEmpty(),
+                                hasUsedReferral =
+                                    it.getBoolean(FIELD_HAS_USED_REFERRAL) ?: false,
+                                hasUsedFirstRedeem =
+                                    it.getBoolean(FIELD_HAS_USED_FIRST_REDEEM) ?: false
                             )
                         )
                     }
@@ -117,7 +123,21 @@ class UserRepository {
         val level: Int = 1,
         val activeBuff: TimedBuff? = null,
         val activeXpBuff: TimedBuff? = null,
-        val streak: Streak = Streak()
+        val streak: Streak = Streak(),
+        /** The code this user hands out. Written once at signup. */
+        val referralCode: String = "",
+        /**
+         * Whether this user has already redeemed someone else's code. It is
+         * a one-time thing, so the input on Profile is retired once it is
+         * true rather than left there to be rejected.
+         */
+        val hasUsedReferral: Boolean = false,
+        /**
+         * Whether the once-per-account discounted first redeem is spent.
+         * Set by redeemReward inside the same transaction as the debit, so a
+         * retry cannot spend it twice.
+         */
+        val hasUsedFirstRedeem: Boolean = false
     )
 
     /**
@@ -257,37 +277,45 @@ class UserRepository {
         )
     }
 
-    /** Redemption options are server-managed; the client only reads them. */
-    suspend fun getRedemptionOptions(): List<RedemptionOption> {
-        val snapshot = firestore.collection(COLLECTION_REDEMPTION_OPTIONS).get().await()
-        return snapshot.documents.mapNotNull { doc ->
-            val title = doc.getString("title") ?: return@mapNotNull null
-            val cost = doc.getLong("pointsCost")?.toInt() ?: return@mapNotNull null
-            if (doc.getBoolean("enabled") != true) return@mapNotNull null
+    /**
+     * The redemption catalogue. Server-managed; the client only reads it.
+     *
+     * Delegated to [RedemptionOptionsStore] rather than fetched here: this
+     * repository is constructed once per view model, so a per-instance fetch
+     * meant the same documents were read again for every screen and every
+     * return to a tab. The store reads them once per process and then follows
+     * the collection live. See its comment for the caching rules.
+     */
+    val redemptionGames: LiveData<List<RedemptionGame>> = RedemptionOptionsStore.games
 
-            RedemptionOption(
-                id = doc.id,
-                title = title,
-                description = doc.getString("description").orEmpty(),
-                pointsCost = cost,
-                type = when (doc.getString("type")) {
-                    "EASYPAISA" -> RedemptionType.EASYPAISA
-                    else -> RedemptionType.GAME_CURRENCY
-                },
-                imageUrl = doc.getString("imageUrl"),
-                minLevel = doc.getLong("minLevel")?.toInt() ?: 1
-            )
-        }.sortedBy { it.pointsCost }
-    }
+    /** Registers the catalogue listener if it is not already running. */
+    fun observeRedemptionGames() = RedemptionOptionsStore.start()
 
     /**
-     * Spends points on an option. The cost is decided server-side from the
-     * option document - nothing about the price is sent from here.
+     * Spends points on one pack of one game.
+     *
+     * Nothing about the price is sent from here - the server reads the game
+     * document, resolves `packs[packId]` and charges what it finds. The same
+     * call is used for a discounted first redeem, with [useFirstRedeem] set;
+     * the server decides whether the caller is actually entitled to it.
      */
-    suspend fun redeem(optionId: String, payoutNumber: String?): RedemptionResult {
+    suspend fun redeem(
+        game: RedemptionGame,
+        pack: RedemptionPack,
+        playerId: String,
+        username: String,
+        server: String,
+        useFirstRedeem: Boolean = false
+    ): RedemptionResult {
         return try {
-            val payload = mutableMapOf<String, Any>("optionId" to optionId)
-            payoutNumber?.let { payload["payoutNumber"] = it }
+            val payload = mutableMapOf<String, Any>(
+                "optionId" to game.id,
+                "packId" to pack.id,
+                "playerId" to playerId,
+                "username" to username,
+                "server" to server
+            )
+            if (useFirstRedeem) payload["useFirstRedeem"] = true
 
             val result = functions.getHttpsCallable("redeemReward").call(payload).await()
             val data = result.data as? Map<*, *>
@@ -295,7 +323,8 @@ class UserRepository {
 
             RedemptionResult.Success(
                 pointsSpent = (data["pointsSpent"] as? Number)?.toInt() ?: 0,
-                remainingPoints = (data["remainingPoints"] as? Number)?.toInt() ?: 0
+                remainingPoints = (data["remainingPoints"] as? Number)?.toInt() ?: 0,
+                redemptionId = (data["redemptionId"] as? String).orEmpty()
             )
         } catch (e: FirebaseFunctionsException) {
             RedemptionResult.Error(redemptionErrorMessage(e.message))
@@ -304,12 +333,81 @@ class UserRepository {
         }
     }
 
+    /**
+     * What this user last entered for a game, so the form can prefill.
+     *
+     * Their own copy under their own document - deliberately NOT the
+     * playerLinks collection, which answers "who owns this ID" and is closed
+     * to every client. Returning null just means an empty form.
+     */
+    suspend fun getGameProfile(gameId: String): GameProfile? {
+        val userId = auth.currentUser?.uid ?: return null
+        return try {
+            val doc = firestore.collection(COLLECTION_USERS).document(userId)
+                .collection(COLLECTION_GAME_PROFILES).document(gameId)
+                .get().await()
+            if (!doc.exists()) return null
+
+            GameProfile(
+                playerId = doc.getString("playerId").orEmpty(),
+                username = doc.getString("username").orEmpty(),
+                server = doc.getString("server").orEmpty()
+            )
+        } catch (e: Exception) {
+            Log.e("Redemption", "Game profile read failed: ${e.message}")
+            null
+        }
+    }
+
+    data class GameProfile(
+        val playerId: String,
+        val username: String,
+        val server: String
+    )
+
+    /**
+     * The level at which the discounted first redeem unlocks.
+     *
+     * Read from config rather than hardcoded so the number can be retuned
+     * without an app release - the server reads the same field when it
+     * validates the claim, so the two cannot disagree for long. A failed read
+     * falls back to the same default the server uses.
+     */
+    suspend fun getFirstRedeemMinLevel(): Int {
+        return try {
+            val doc = firestore.collection(COLLECTION_CONFIG)
+                .document(DOC_REDEMPTION).get().await()
+            doc.getLong("firstRedeemMinLevel")?.toInt() ?: DEFAULT_FIRST_REDEEM_MIN_LEVEL
+        } catch (e: Exception) {
+            DEFAULT_FIRST_REDEEM_MIN_LEVEL
+        }
+    }
+
+    /**
+     * Turns a server rejection code into something a player can act on.
+     *
+     * The codes are the server's vocabulary and are deliberately not shown
+     * raw. The linked-ID message is the one that has to be unambiguous: it is
+     * the anti-farming rule speaking, and a vague "something went wrong"
+     * there would read as a bug rather than as a warning.
+     */
     private fun redemptionErrorMessage(raw: String?): String = when (raw) {
         "insufficient_points" -> "You don't have enough stars yet."
-        "level_too_low" -> "Reach a higher level to unlock this reward."
-        "option_disabled" -> "This reward is no longer available."
-        "payout_details_required" -> "Enter a valid phone number."
-        "unknown_option" -> "This reward could not be found."
+        "level_too_low" -> "Reach a higher level to unlock this game."
+        "option_disabled" -> "This game is no longer available."
+        "pack_disabled" -> "This pack is no longer available."
+        "unknown_option" -> "This game could not be found."
+        "unknown_pack" -> "This pack could not be found."
+        "invalid_option" -> "This pack is misconfigured. Try another one."
+        "player_id_required" -> "Enter a valid player ID."
+        "username_required" -> "Enter your in-game username."
+        "server_required" -> "Choose your server."
+        "uid_linked_to_another_account" ->
+            "This UID is linked with another account. If we notice spam we " +
+                "will ban the user and that UID forever."
+        "first_redeem_used" -> "You have already used your first-redeem discount."
+        "first_redeem_level_too_low" -> "Reach the required level to unlock this offer."
+        "first_redeem_unavailable" -> "This pack is not part of the first-redeem offer."
         else -> raw ?: "Redemption failed"
     }
 
@@ -487,6 +585,43 @@ class UserRepository {
     private val _resolvedRedemptions = MutableLiveData<List<ResolvedRedemption>>(emptyList())
     val resolvedRedemptions: LiveData<List<ResolvedRedemption>> = _resolvedRedemptions
 
+    /**
+     * One row on the Orders tab.
+     *
+     * Built from the same `redemptions` snapshot the pending row already
+     * listens to, rather than a second query: the documents are identical,
+     * and one listener means the two views can never disagree about what is
+     * outstanding.
+     */
+    data class Order(
+        val id: String,
+        val gameName: String,
+        val code: String,
+        val packAmount: String,
+        val playerId: String,
+        val username: String,
+        val server: String,
+        val pointsCost: Int,
+        val status: OrderStatus,
+        val createdAtMillis: Long?,
+        val rejectionReason: String?
+    )
+
+    /**
+     * The three states the tracker draws, mapped from the two the server
+     * actually stores.
+     *
+     * The design shows Placed -> Processing -> Delivered. `pending` covers
+     * the first two: a request that has been recorded but not yet actioned is
+     * genuinely at step one, and there is no separate "an operator picked
+     * this up" state to read. Rather than invent one, PENDING renders at the
+     * Processing dot - the honest reading of "we have it, it is not done".
+     */
+    enum class OrderStatus { PENDING, DELIVERED, REJECTED }
+
+    private val _orders = MutableLiveData<List<Order>>(emptyList())
+    val orders: LiveData<List<Order>> = _orders
+
     /** One entry in the public payout feed. The name arrives already masked. */
     data class PayoutFeedEntry(val name: String, val optionTitle: String, val atMillis: Long)
 
@@ -548,8 +683,138 @@ class UserRepository {
                         )
                     }.sortedByDescending { it.resolvedAtMillis }
                 )
+
+                _orders.postValue(
+                    snapshot.documents.map { doc ->
+                        Order(
+                            id = doc.id,
+                            gameName = doc.getString(FIELD_OPTION_TITLE).orEmpty(),
+                            code = doc.getString(FIELD_OPTION_TYPE).orEmpty(),
+                            packAmount = doc.getString(FIELD_PACK_AMOUNT).orEmpty(),
+                            playerId = doc.getString(FIELD_PLAYER_ID).orEmpty(),
+                            username = doc.getString(FIELD_USERNAME).orEmpty(),
+                            server = doc.getString(FIELD_SERVER).orEmpty(),
+                            pointsCost = doc.getLong(FIELD_POINTS_COST)?.toInt() ?: 0,
+                            status = when (doc.getString(FIELD_STATUS)) {
+                                STATUS_APPROVED -> OrderStatus.DELIVERED
+                                STATUS_PENDING -> OrderStatus.PENDING
+                                else -> OrderStatus.REJECTED
+                            },
+                            createdAtMillis =
+                                doc.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time,
+                            rejectionReason = doc.getString(FIELD_REJECTION_REASON)
+                        )
+                    }.sortedByDescending { it.createdAtMillis ?: 0L }
+                )
             }
     }
+
+    /**
+     * The earning history behind the Activity list.
+     *
+     * Read from the ledger the economy already writes - every points movement
+     * has been landing in users/{uid}/rewardEvents since the award path was
+     * built, and firestore.rules has always allowed the owner to read it. So
+     * there is no new collection and no new callable here; this is the screen
+     * that ledger was written for.
+     *
+     * Spending shows up in the same list as earning (a REDEMPTION entry
+     * carries negative finalPoints), and a declined payout writes a refund
+     * entry while marking the original reversed - so one query tells the
+     * whole truth rather than a flattering half of it.
+     *
+     * ONLY entries that moved stars are returned. Quizzes and games award XP
+     * and no points at all (see rewardConfig.ts - levelling is their payoff),
+     * and they are also by far the most frequent thing in the ledger, so a
+     * list that included them would bury the handful of lines that actually
+     * explain the balance above it.
+     *
+     * The filter is part of the QUERY, not a pass over the results: the
+     * server stamps `affectsPoints` on every ledger entry, so this reads
+     * exactly as many documents as it displays. It used to read a wide window
+     * and discard most of it, which cost a read per XP event nobody was going
+     * to see.
+     *
+     * Needs the (affectsPoints, createdAt) composite index in
+     * firestore.indexes.json - an equality plus an order-by on a different
+     * field is the one shape Firestore will not serve automatically.
+     *
+     * FALLBACK: `affectsPoints` is written by the server, so a project whose
+     * functions have not been redeployed yet has entries without it - and a
+     * Firestore equality filter does not match a missing field, so the fast
+     * query silently returns nothing. That looked exactly like a broken
+     * screen. When the fast path yields nothing, this re-reads a plain window
+     * and filters here instead, which works on old and new entries alike.
+     *
+     * The fallback costs a wider read, so it is not the normal path - it is
+     * what keeps the screen honest between deploying the app and deploying
+     * the backend, and it stops paying for itself the moment the flag and the
+     * index are live.
+     */
+    suspend fun getEarningHistory(limit: Long = HISTORY_LIMIT): List<LedgerEntry> {
+        val userId = auth.currentUser?.uid ?: return emptyList()
+        val events = firestore.collection(COLLECTION_USERS).document(userId)
+            .collection(COLLECTION_REWARD_EVENTS)
+
+        val indexed = runCatching {
+            events
+                .whereEqualTo(FIELD_AFFECTS_POINTS, true)
+                .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
+                .limit(limit)
+                .get().await()
+                .documents.mapNotNull(::toLedgerEntry)
+        }.onFailure {
+            // Almost always the composite index not being deployed yet.
+            Log.w("History", "Indexed ledger read failed, falling back: ${it.message}")
+        }.getOrNull()
+
+        if (!indexed.isNullOrEmpty()) return indexed
+
+        return runCatching {
+            events
+                .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
+                .limit(LEGACY_STAR_WINDOW)
+                .get().await()
+                .documents.mapNotNull(::toLedgerEntry)
+                .filter { it.points != 0 }
+                .take(limit.toInt())
+        }.onFailure {
+            Log.e("History", "Ledger read failed: ${it.message}")
+        }.getOrDefault(emptyList())
+    }
+
+    private fun toLedgerEntry(doc: com.google.firebase.firestore.DocumentSnapshot): LedgerEntry? {
+        return LedgerEntry(
+            id = doc.id,
+            source = doc.getString(FIELD_SOURCE).orEmpty(),
+            points = doc.getLong(FIELD_FINAL_POINTS)?.toInt() ?: 0,
+            xp = doc.getLong(FIELD_XP_AWARDED)?.toInt() ?: 0,
+            atMillis = doc.getTimestamp(FIELD_CREATED_AT)?.toDate()?.time ?: return null,
+            reversed = doc.getString(FIELD_LEDGER_STATUS) == LEDGER_REVERSED,
+            // Free-form per source. The only key read is the one that names
+            // what a redemption was for; everything else is described by
+            // `source` alone.
+            detail = (doc.get(FIELD_METADATA) as? Map<*, *>)?.get("packAmount") as? String
+        )
+    }
+
+    /**
+     * One line of the ledger.
+     *
+     * No display string is stored - the ledger records what happened, not how
+     * to word it - so the label is built on the client from [source] and
+     * [detail]. That is deliberate: a stored label would be frozen in
+     * whatever language and wording it had when it was written.
+     */
+    data class LedgerEntry(
+        val id: String,
+        val source: String,
+        val points: Int,
+        val xp: Int,
+        val atMillis: Long,
+        val reversed: Boolean,
+        val detail: String?
+    )
 
     /**
      * The public payout feed - other people's approved redemptions, names
@@ -743,7 +1008,6 @@ class UserRepository {
     companion object {
         private const val COLLECTION_USERS = "users"
         private const val COLLECTION_CONFIG = "config"
-        private const val COLLECTION_REDEMPTION_OPTIONS = "redemptionOptions"
         private const val DOC_LEVEL_CURVE = "levelCurve"
         private const val FIELD_POINTS = "points"
         private const val FIELD_XP = "xp"
@@ -755,6 +1019,13 @@ class UserRepository {
         private const val FIELD_STREAK_COUNT = "streakCount"
         private const val FIELD_LAST_STREAK_DAY = "lastStreakDayUtc"
         private const val FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc"
+        private const val FIELD_REFERRAL_CODE = "referralCode"
+        private const val FIELD_HAS_USED_REFERRAL = "hasUsedReferral"
+        private const val FIELD_HAS_USED_FIRST_REDEEM = "hasUsedFirstRedeem"
+        private const val COLLECTION_GAME_PROFILES = "gameProfiles"
+        private const val DOC_REDEMPTION = "redemption"
+        /** Matches DEFAULT_FIRST_REDEEM_MIN_LEVEL in the functions package. */
+        private const val DEFAULT_FIRST_REDEEM_MIN_LEVEL = 10
 
         private const val COLLECTION_REDEMPTIONS = "redemptions"
         private const val COLLECTION_PAYOUT_FEED = "payoutFeed"
@@ -769,5 +1040,40 @@ class UserRepository {
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_APPROVED_AT = "approvedAt"
         private const val PAYOUT_FEED_LIMIT = 20L
+
+        private const val FIELD_OPTION_TYPE = "optionType"
+        private const val FIELD_PACK_AMOUNT = "packAmount"
+        private const val FIELD_PLAYER_ID = "playerId"
+        private const val FIELD_USERNAME = "username"
+        private const val FIELD_SERVER = "server"
+        private const val FIELD_POINTS_COST = "pointsCost"
+
+        private const val COLLECTION_REWARD_EVENTS = "rewardEvents"
+        private const val FIELD_SOURCE = "source"
+        private const val FIELD_FINAL_POINTS = "finalPoints"
+        private const val FIELD_XP_AWARDED = "xpAwarded"
+        private const val FIELD_METADATA = "metadata"
+        private const val FIELD_LEDGER_STATUS = "status"
+        private const val LEDGER_REVERSED = "reversed"
+        private const val FIELD_AFFECTS_POINTS = "affectsPoints"
+
+        /**
+         * How many star movements to read.
+         *
+         * Sized against what the wallet actually draws (see ACTIVITY_PREVIEW
+         * in RedemptionFragment) plus a little headroom, because the query
+         * now filters server-side - every document paid for is a document
+         * that could be shown. Raise this when there is a full history screen
+         * to fill; until then a bigger number is just a bigger bill.
+         */
+        private const val HISTORY_LIMIT = 15L
+
+        /**
+         * The fallback window, used only until `affectsPoints` and its index
+         * are deployed. Sized against the daily streak and daily-goals
+         * bonuses, which land once each per day, so it holds several star
+         * movements even for a heavy quiz player.
+         */
+        private const val LEGACY_STAR_WINDOW = 80L
     }
 }

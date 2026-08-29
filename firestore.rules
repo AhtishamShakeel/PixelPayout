@@ -31,6 +31,14 @@ service cloud.firestore {
         // Server-issued and server-consumed; the client only ever holds the id.
         allow read, write: if false;
       }
+
+      match /gameProfiles/{gameId} {
+        // The player ID / username this user last redeemed into, so the
+        // redeem form can prefill. Owner-readable because it is theirs and
+        // says nothing about anyone else; written only by redeemReward.
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
     }
 
     // No client needs to list/enumerate the users collection - referral
@@ -76,6 +84,15 @@ service cloud.firestore {
     match /redemptionOptions/{optionId} {
       allow read: if request.auth != null;
       allow write: if false;
+    }
+
+    // The claim on a game player ID. NO client access of any kind, not even
+    // read: this collection answers "is this player ID taken", and a client
+    // able to ask that could map which IDs belong to accounts on the way to
+    // working around the one-account-per-ID rule it exists to enforce.
+    // redeemReward reads and writes it through the Admin SDK.
+    match /playerLinks/{linkId} {
+      allow read, write: if false;
     }
 
     // Deny everything else by default.

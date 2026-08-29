@@ -1,88 +1,649 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<?xml version="1.0" encoding="utf-8"?><!--
+    Wallet, rebuilt on the gaming-wallet handoff.
+
+    Two views live in this one file, switched by the segmented control:
+
+      * WALLET - balance, anything already on its way, the first-redeem
+        offer, the game grid, and recent activity.
+      * ORDERS - every redemption this account has placed, with a tracker.
+
+    They are one fragment rather than two because the handoff makes them one
+    screen with a toggle, and because both are driven entirely by the same
+    `redemptions` snapshot - splitting them would mean two listeners that can
+    disagree about what is outstanding.
+
+    The referral card that used to open this screen is on Profile now.
+
+    The bottom nav in the handoff is NOT rebuilt here: this app already has
+    PixelBottomNav in the activity, and the design's bar is the same five
+    tabs. Drawing a second one inside the fragment would put two nav bars on
+    screen at once.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/background_dark">
 
+    <!-- ================= Header ================= -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/walletHeader"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="17dp"
+        android:paddingTop="11dp"
+        android:paddingEnd="17dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Referral Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="8dp"
-            app:cardElevation="4dp">
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="0.14"
+                android:text="@string/app_name"
+                android:textAllCaps="true"
+                android:textColor="@color/text_ghost"
+                android:textSize="11sp" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/enter_referral_code"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+            <TextView
+                android:id="@+id/walletHeaderTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="-0.01"
+                android:text="@string/nav_wallet"
+                android:textColor="@color/text_strong"
+                android:textSize="22sp" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/referral_reward_description"
-                    android:textColor="?android:textColorSecondary" />
+        </LinearLayout>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/referralInputLayout"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp">
+        <ImageView
+            android:id="@+id/walletOrdersButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/wallet_orders"
+            android:padding="10dp"
+            android:src="@drawable/ic_history"
+            app:tint="@color/text_dim" />
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/referralCodeInput"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="@string/enter_referral_code"
-                        android:inputType="textCapCharacters"
-                        android:maxLength="6" />
-
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/submitReferralButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/submit_referral" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Progress Indicator -->
-        <com.google.android.material.progressindicator.CircularProgressIndicator
-            android:id="@+id/progressIndicator"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginVertical="16dp"
-            android:indeterminate="true"
-            android:visibility="gone" />
-
-        <!-- Existing redemption options list -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/redemptionRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clipToPadding="false" />
+        <ImageView
+            android:id="@+id/walletHelpButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_icon_button"
+            android:contentDescription="@string/wallet_help"
+            android:padding="10dp"
+            android:src="@drawable/ic_help"
+            app:tint="@color/text_dim" />
 
     </LinearLayout>
 
-</androidx.core.widget.NestedScrollView>
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/walletScroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/walletHeader">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="17dp"
+            android:paddingEnd="17dp"
+            android:paddingBottom="24dp">
+
+            <!-- ================= Wallet / Orders switch ================= -->
+            <!--
+                Present in both views. The handoff only shows it on Orders,
+                reaching it from the header clock - but a control that appears
+                only after you have already navigated cannot be found by
+                anyone who has not navigated, so it stays put.
+            -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@drawable/bg_segment_track"
+                android:orientation="horizontal"
+                android:padding="3dp">
+
+                <TextView
+                    android:id="@+id/segmentWallet"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_segment_on"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:gravity="center"
+                    android:text="@string/nav_wallet"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="12.5sp" />
+
+                <TextView
+                    android:id="@+id/segmentOrders"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:text="@string/wallet_orders"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12.5sp" />
+
+            </LinearLayout>
+
+            <!-- ============================================================
+                 WALLET VIEW
+                 ============================================================ -->
+            <LinearLayout
+                android:id="@+id/walletView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- ================= Balance ================= -->
+                <!--
+                    A dark surface with the accent as a glow, not the violet
+                    flood Home uses. Both the handoff and its design system
+                    are explicit that the accent is a line and a glow rather
+                    than a fill, and it keeps Wallet from reading as a second
+                    copy of Home.
+                -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:background="@drawable/bg_wallet_balance"
+                    android:clipToOutline="true">
+
+                    <View
+                        android:layout_width="190dp"
+                        android:layout_height="190dp"
+                        android:layout_gravity="top|end"
+                        android:layout_marginTop="-70dp"
+                        android:layout_marginEnd="-50dp"
+                        android:background="@drawable/bg_glow_violet" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="17dp">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <ImageView
+                                android:layout_width="13dp"
+                                android:layout_height="13dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_star"
+                                app:tint="@color/gold" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:letterSpacing="0.14"
+                                android:text="@string/wallet_balance_label"
+                                android:textAllCaps="true"
+                                android:textColor="@color/text_faint"
+                                android:textSize="11sp" />
+
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:baselineAligned="false"
+                            android:gravity="bottom"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/walletBalance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/jakarta_extrabold"
+                                android:includeFontPadding="false"
+                                android:letterSpacing="-0.035"
+                                android:textColor="@color/text_strong"
+                                android:textSize="42sp"
+                                tools:text="14,820" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:layout_marginBottom="4dp"
+                                android:fontFamily="@font/jakarta_medium"
+                                android:includeFontPadding="false"
+                                android:text="@string/wallet_points_unit"
+                                android:textColor="@color/text_faint"
+                                android:textSize="14sp" />
+
+                        </LinearLayout>
+
+                        <!--
+                            The handoff prints "= N UC in game currency" from
+                            a hardcoded 17.85 points-per-UC rate. There is no
+                            such rate in this system - packs carry a points
+                            price and a free-text amount, and no machine
+                            readable conversion between them - so this says
+                            what the balance can actually reach instead. An
+                            invented rate would be wrong the first time
+                            somebody repriced a pack.
+                        -->
+                        <TextView
+                            android:id="@+id/walletReachLine"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:textColor="@color/text_faint"
+                            android:textSize="12.5sp"
+                            tools:text="Enough for 325 UC in PUBG Mobile" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="17dp"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:id="@+id/walletEarnMore"
+                                android:layout_width="0dp"
+                                android:layout_height="38dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_button_accent_outline"
+                                android:drawablePadding="6dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:gravity="center"
+                                android:text="@string/wallet_earn_more"
+                                android:textColor="@color/brand_violet_light"
+                                android:textSize="13sp"
+                                app:drawableStartCompat="@drawable/ic_bolt"
+                                app:drawableTint="@color/brand_violet_light" />
+
+                            <TextView
+                                android:id="@+id/walletOrdersShortcut"
+                                android:layout_width="0dp"
+                                android:layout_height="38dp"
+                                android:layout_marginStart="8dp"
+                                android:layout_weight="1"
+                                android:background="@drawable/bg_button_neutral_outline"
+                                android:drawablePadding="6dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:gravity="center"
+                                android:text="@string/wallet_orders"
+                                android:textColor="@color/text_dim"
+                                android:textSize="13sp"
+                                app:drawableStartCompat="@drawable/ic_receipt"
+                                app:drawableTint="@color/text_dim" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </FrameLayout>
+
+                <!-- ================= Pending ================= -->
+                <LinearLayout
+                    android:id="@+id/walletPendingRow"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:background="@drawable/bg_pending_banner"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="11dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <ImageView
+                        android:layout_width="19dp"
+                        android:layout_height="19dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_loader"
+                        app:tint="@color/brand_violet_light" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="11dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/walletPendingTitle"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:textColor="@color/text_strong"
+                            android:textSize="13sp"
+                            tools:text="1 order processing" />
+
+                        <TextView
+                            android:id="@+id/walletPendingMeta"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="3dp"
+                            android:ellipsize="end"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:maxLines="1"
+                            android:textColor="@color/text_faint"
+                            android:textSize="11.5sp"
+                            tools:text="325 UC" />
+
+                    </LinearLayout>
+
+                    <ImageView
+                        android:layout_width="15dp"
+                        android:layout_height="15dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_caret_right"
+                        app:tint="@color/text_ghost" />
+
+                </LinearLayout>
+
+                <!-- ================= First-redeem offer ================= -->
+                <!--
+                    Shown only while the discount is unspent AND the account
+                    has reached the unlock level. Below that level the card is
+                    hidden rather than shown locked: it is an offer, and an
+                    offer you cannot take is just an advert for waiting.
+                -->
+                <LinearLayout
+                    android:id="@+id/firstRedeemCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:background="@drawable/bg_first_redeem_card"
+                    android:orientation="vertical"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_gift"
+                            app:tint="@color/brand_violet_light" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.14"
+                            android:text="@string/first_redeem_kicker"
+                            android:textAllCaps="true"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_chip_violet"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.06"
+                            android:paddingStart="7dp"
+                            android:paddingTop="3dp"
+                            android:paddingEnd="7dp"
+                            android:paddingBottom="3dp"
+                            android:text="@string/first_redeem_once"
+                            android:textAllCaps="true"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="10sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="-0.01"
+                        android:text="@string/first_redeem_title"
+                        android:textColor="@color/text_strong"
+                        android:textSize="17sp" />
+
+                    <TextView
+                        android:id="@+id/firstRedeemBody"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.35"
+                        android:textColor="@color/text_faint"
+                        android:textSize="12.5sp"
+                        tools:text="Your first pack costs a fraction of the usual stars." />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="11dp"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_shield_check"
+                            app:tint="@color/brand_violet" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:text="@string/first_redeem_uid_note"
+                            android:textColor="@color/text_ghost"
+                            android:textSize="11.5sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/firstRedeemButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp"
+                        android:layout_marginTop="14dp"
+                        android:background="@drawable/bg_button_accent_outline"
+                        android:drawablePadding="6dp"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:gravity="center"
+                        android:text="@string/first_redeem_cta"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="13.5sp"
+                        app:drawableStartCompat="@drawable/ic_gift"
+                        app:drawableTint="@color/brand_violet_light" />
+
+                </LinearLayout>
+
+                <!-- ================= Redeem ================= -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:layout_marginBottom="11dp"
+                    android:baselineAligned="false"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:text="@string/wallet_redeem_title"
+                        android:textColor="@color/text_strong"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/walletGamesCount"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="11.5sp"
+                        tools:text="4 games" />
+
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/gamesRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:clipToPadding="false"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="4"
+                    tools:listitem="@layout/item_redemption_game" />
+
+                <TextView
+                    android:id="@+id/walletEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:text="@string/wallet_no_rewards"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12.5sp"
+                    android:visibility="gone"
+                    tools:visibility="gone" />
+
+                <!-- ================= Activity ================= -->
+                <LinearLayout
+                    android:id="@+id/activityHeader"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:layout_marginBottom="4dp"
+                    android:baselineAligned="false"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:text="@string/wallet_activity_title"
+                        android:textColor="@color/text_strong"
+                        android:textSize="15sp" />
+
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/activityRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="4"
+                    tools:listitem="@layout/item_activity" />
+
+                <TextView
+                    android:id="@+id/activityEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:text="@string/wallet_no_activity"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12.5sp"
+                    android:visibility="gone"
+                    tools:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- ============================================================
+                 ORDERS VIEW
+                 ============================================================ -->
+            <LinearLayout
+                android:id="@+id/ordersView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="gone">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/ordersRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:nestedScrollingEnabled="false"
+                    tools:itemCount="3"
+                    tools:listitem="@layout/item_order" />
+
+                <TextView
+                    android:id="@+id/ordersEmpty"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="40dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:text="@string/wallet_no_orders"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12.5sp"
+                    android:visibility="gone"
+                    tools:visibility="visible" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.progressindicator.CircularProgressIndicator
+        android:id="@+id/progressIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:visibility="gone"
+        app:indicatorColor="@color/brand_violet"
+        app:indicatorSize="30dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:trackThickness="3dp" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

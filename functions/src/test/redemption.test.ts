@@ -3,9 +3,11 @@
  * Run via: npm run test:unit
  */
 import {
+  RedemptionGame,
+  firstRedeemPacks,
+  isPlausiblePlayerId,
+  playerLinkId,
   validateRedemption,
-  isPlausiblePayoutNumber,
-  RedemptionOption,
 } from "../economy/redemption";
 import {buildAward} from "../economy/awardReward";
 
@@ -32,144 +34,315 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 
 console.log("=== Redemption unit tests ===\n");
 
-const cashOption: RedemptionOption = {
-  title: "Rs 100 Easypaisa",
-  pointsCost: 1000,
-  type: "EASYPAISA",
+const pubg: RedemptionGame = {
+  name: "PUBG Mobile",
+  code: "UC",
   enabled: true,
+  requiresUsername: false,
+  servers: ["Global", "Korea"],
+  packs: {
+    uc_60: {amount: "60 UC", pointsCost: 1200, firstRedeemCost: 300},
+    uc_325: {amount: "325 UC", pointsCost: 5800, tag: "Popular"},
+    uc_off: {amount: "660 UC", pointsCost: 11000, enabled: false},
+  },
 };
 
-const gameOption: RedemptionOption = {
-  title: "Game currency",
-  pointsCost: 200,
-  type: "GAME_CURRENCY",
+/** A game with no server concept and a required in-game name. */
+const mlbb: RedemptionGame = {
+  name: "Mobile Legends",
+  code: "ML",
   enabled: true,
+  requiresUsername: true,
+  packs: {d_86: {amount: "86 Diamonds", pointsCost: 1300}},
+};
+
+const base = {
+  packId: "uc_325",
+  userPoints: 99999,
+  userLevel: 50,
+  playerId: "5218840977",
+  server: "Global",
+  callerUid: "user-a",
 };
 
 // --- happy paths ---
 assertEq(
-  "affordable cash redemption with a number is allowed",
-  validateRedemption({option: cashOption, userPoints: 1000, userLevel: 1, payoutNumber: "03001234567"}),
-  {ok: true, pointsCost: 1000}
+  "an affordable pack with a valid id is allowed",
+  validateRedemption({...base, game: pubg}),
+  {ok: true, pointsCost: 5800, packAmount: "325 UC", server: "Global", usedFirstRedeem: false}
 );
 assertEq(
   "exact balance is enough (boundary)",
-  validateRedemption({option: cashOption, userPoints: 1000, userLevel: 1, payoutNumber: "03001234567"}).ok,
+  validateRedemption({...base, game: pubg, userPoints: 5800}).ok,
   true
 );
 assertEq(
-  "non-cash options need no payout number",
-  validateRedemption({option: gameOption, userPoints: 500, userLevel: 1}).ok,
-  true
+  "a game with no servers needs no server",
+  validateRedemption({
+    ...base, game: mlbb, packId: "d_86", server: "", username: "AhmedX",
+  }),
+  {ok: true, pointsCost: 1300, packAmount: "86 Diamonds", server: "", usedFirstRedeem: false}
 );
 
 // --- the money-losing cases ---
 assertEq(
   "one point short is rejected",
-  validateRedemption({option: cashOption, userPoints: 999, userLevel: 1, payoutNumber: "03001234567"}).rejection,
+  validateRedemption({...base, game: pubg, userPoints: 5799}).rejection,
   "insufficient_points"
 );
 assertEq(
   "zero balance is rejected",
-  validateRedemption({option: cashOption, userPoints: 0, userLevel: 1, payoutNumber: "03001234567"}).rejection,
+  validateRedemption({...base, game: pubg, userPoints: 0}).rejection,
   "insufficient_points"
 );
 assertEq(
   "a negative balance can never redeem",
-  validateRedemption({option: cashOption, userPoints: -500, userLevel: 1, payoutNumber: "03001234567"}).rejection,
+  validateRedemption({...base, game: pubg, userPoints: -500}).rejection,
   "insufficient_points"
 );
 
-// --- option integrity ---
+// --- catalogue integrity ---
 assertEq(
-  "an unknown option is rejected",
-  validateRedemption({option: null, userPoints: 99999, userLevel: 99}).rejection,
+  "an unknown game is rejected",
+  validateRedemption({...base, game: null}).rejection,
   "unknown_option"
 );
 assertEq(
-  "a disabled option is rejected",
-  validateRedemption({option: {...cashOption, enabled: false}, userPoints: 99999, userLevel: 9, payoutNumber: "03001234567"}).rejection,
+  "a disabled game is rejected",
+  validateRedemption({...base, game: {...pubg, enabled: false}}).rejection,
   "option_disabled"
 );
 assertEq(
-  "an option missing enabled is treated as disabled",
-  validateRedemption({option: {...cashOption, enabled: undefined as never}, userPoints: 99999, userLevel: 9, payoutNumber: "03001234567"}).rejection,
+  "a game missing enabled is treated as disabled",
+  validateRedemption({...base, game: {...pubg, enabled: undefined as never}}).rejection,
   "option_disabled"
 );
 assertEq(
-  "a zero-cost option is rejected (would be a free payout)",
-  validateRedemption({option: {...gameOption, pointsCost: 0}, userPoints: 10, userLevel: 1}).rejection,
+  "an unknown pack is rejected",
+  validateRedemption({...base, game: pubg, packId: "uc_9999"}).rejection,
+  "unknown_pack"
+);
+assertEq(
+  "a game with no packs at all is rejected",
+  validateRedemption({...base, game: {...pubg, packs: undefined}}).rejection,
+  "unknown_pack"
+);
+assertEq(
+  "an explicitly disabled pack is rejected",
+  validateRedemption({...base, game: pubg, packId: "uc_off"}).rejection,
+  "pack_disabled"
+);
+assertEq(
+  "a pack without enabled is live (opposite default to the game)",
+  validateRedemption({...base, game: pubg, packId: "uc_325"}).ok,
+  true
+);
+assertEq(
+  "a zero-cost pack is rejected (would be a free payout)",
+  validateRedemption({
+    ...base, game: {...pubg, packs: {p: {amount: "x", pointsCost: 0}}}, packId: "p",
+  }).rejection,
   "invalid_option"
 );
 assertEq(
-  "a negative-cost option is rejected (would ADD points)",
-  validateRedemption({option: {...gameOption, pointsCost: -500}, userPoints: 10, userLevel: 1}).rejection,
+  "a negative-cost pack is rejected (would ADD points)",
+  validateRedemption({
+    ...base, game: {...pubg, packs: {p: {amount: "x", pointsCost: -500}}}, packId: "p",
+  }).rejection,
   "invalid_option"
 );
 assertEq(
   "a fractional cost is rejected",
-  validateRedemption({option: {...gameOption, pointsCost: 10.5}, userPoints: 999, userLevel: 1}).rejection,
+  validateRedemption({
+    ...base, game: {...pubg, packs: {p: {amount: "x", pointsCost: 10.5}}}, packId: "p",
+  }).rejection,
   "invalid_option"
 );
 assertEq(
   "a numeric string cost is coerced rather than rejected",
-  validateRedemption({option: {...gameOption, pointsCost: "100" as never}, userPoints: 999, userLevel: 1}),
-  {ok: true, pointsCost: 100}
+  validateRedemption({
+    ...base, game: {...pubg, packs: {p: {amount: "x", pointsCost: "100" as never}}}, packId: "p",
+  }).pointsCost,
+  100
 );
 assertEq(
   "a genuinely non-numeric cost is rejected",
-  validateRedemption({option: {...gameOption, pointsCost: "free" as never}, userPoints: 999, userLevel: 1}).rejection,
-  "invalid_option"
-);
-assertEq(
-  "a missing cost is rejected",
-  validateRedemption({option: {...gameOption, pointsCost: undefined as never}, userPoints: 999, userLevel: 1}).rejection,
+  validateRedemption({
+    ...base, game: {...pubg, packs: {p: {amount: "x", pointsCost: "free" as never}}}, packId: "p",
+  }).rejection,
   "invalid_option"
 );
 
 // --- level gating ---
 assertEq(
-  "an option above the user's level is rejected",
-  validateRedemption({option: {...gameOption, minLevel: 10}, userPoints: 9999, userLevel: 9}).rejection,
+  "a game above the user's level is rejected",
+  validateRedemption({...base, game: {...pubg, minLevel: 10}, userLevel: 9}).rejection,
   "level_too_low"
 );
 assertEq(
   "exactly meeting minLevel is allowed (boundary)",
-  validateRedemption({option: {...gameOption, minLevel: 10}, userPoints: 9999, userLevel: 10}).ok,
+  validateRedemption({...base, game: {...pubg, minLevel: 10}, userLevel: 10}).ok,
   true
 );
 assertEq(
   "no minLevel means no gate",
-  validateRedemption({option: gameOption, userPoints: 9999, userLevel: 1}).ok,
+  validateRedemption({...base, game: pubg, userLevel: 1}).ok,
   true
 );
 
-// --- payout details ---
+// --- player id / username / server ---
 assertEq(
-  "cash redemption without a number is rejected",
-  validateRedemption({option: cashOption, userPoints: 9999, userLevel: 1}).rejection,
-  "payout_details_required"
+  "a missing player id is rejected",
+  validateRedemption({...base, game: pubg, playerId: ""}).rejection,
+  "player_id_required"
 );
 assertEq(
-  "cash redemption with a blank number is rejected",
-  validateRedemption({option: cashOption, userPoints: 9999, userLevel: 1, payoutNumber: "   "}).rejection,
-  "payout_details_required"
+  "a whitespace player id is rejected",
+  validateRedemption({...base, game: pubg, playerId: "   "}).rejection,
+  "player_id_required"
 );
 assertEq(
-  "cash redemption with a too-short number is rejected",
-  validateRedemption({option: cashOption, userPoints: 9999, userLevel: 1, payoutNumber: "12345"}).rejection,
-  "payout_details_required"
+  "a too-short player id is rejected",
+  validateRedemption({...base, game: pubg, playerId: "12"}).rejection,
+  "player_id_required"
 );
-assertEq("a local-format number is plausible", isPlausiblePayoutNumber("03001234567"), true);
-assertEq("an international-format number is plausible", isPlausiblePayoutNumber("+92 300 1234567"), true);
-assertEq("letters are not a number", isPlausiblePayoutNumber("not-a-number"), false);
-assertEq("an over-long number is rejected", isPlausiblePayoutNumber("1234567890123456789"), false);
+assertEq(
+  "a per-game idMinLength is honoured",
+  validateRedemption({...base, game: {...pubg, idMinLength: 9}, playerId: "12345678"}).rejection,
+  "player_id_required"
+);
+assertEq(
+  "a username is required only when the game asks for one",
+  validateRedemption({...base, game: mlbb, packId: "d_86", username: ""}).rejection,
+  "username_required"
+);
+assertEq(
+  "a one-character username is rejected",
+  validateRedemption({...base, game: mlbb, packId: "d_86", username: "A"}).rejection,
+  "username_required"
+);
+assertEq(
+  "a server is required when the game has servers",
+  validateRedemption({...base, game: pubg, server: ""}).rejection,
+  "server_required"
+);
+assertEq(
+  "an unrecognised server is rejected rather than silently corrected",
+  validateRedemption({...base, game: pubg, server: "Atlantis"}).rejection,
+  "server_required"
+);
+assertEq("a numeric id is plausible", isPlausiblePlayerId("5218840977", 4), true);
+assertEq("an alphanumeric id is plausible", isPlausiblePlayerId("Abc123", 4), true);
+assertEq("an id with a space is not plausible", isPlausiblePlayerId("521 884", 4), false);
+assertEq("an over-long id is rejected", isPlausiblePlayerId("1".repeat(33), 4), false);
 
-// --- ordering: a rejection must be reported before the balance is considered ---
+// --- the anti-farming rule ---
 assertEq(
-  "a disabled option is rejected even when affordable",
-  validateRedemption({option: {...cashOption, enabled: false}, userPoints: 5, userLevel: 1}).rejection,
+  "a player id linked to another account is refused",
+  validateRedemption({...base, game: pubg, linkedUid: "user-b"}).rejection,
+  "uid_linked_to_another_account"
+);
+assertEq(
+  "the owner may redeem into their own linked id again",
+  validateRedemption({...base, game: pubg, linkedUid: "user-a"}).ok,
+  true
+);
+assertEq(
+  "an unclaimed id is allowed",
+  validateRedemption({...base, game: pubg, linkedUid: null}).ok,
+  true
+);
+assertEq(
+  "a linked id is refused even when the caller could afford it many times over",
+  validateRedemption({...base, game: pubg, linkedUid: "user-b", userPoints: 9999999}).rejection,
+  "uid_linked_to_another_account"
+);
+assertEq(
+  "the link id is case-insensitive so one game account is one identity",
+  playerLinkId("pubg", "AbC123"),
+  playerLinkId("pubg", "abc123")
+);
+assertEq("the link id namespaces by game", playerLinkId("pubg", "1"), "pubg__1");
+
+// --- the discounted first redeem ---
+const firstBase = {...base, packId: "uc_60", useFirstRedeem: true, userLevel: 10};
+assertEq(
+  "the first redeem charges the discounted price",
+  validateRedemption({...firstBase, game: pubg, userPoints: 300}),
+  {ok: true, pointsCost: 300, packAmount: "60 UC", server: "Global", usedFirstRedeem: true}
+);
+assertEq(
+  "level 10 exactly is allowed (boundary)",
+  validateRedemption({...firstBase, game: pubg, userLevel: 10}).ok,
+  true
+);
+assertEq(
+  "below level 10 the discount is refused",
+  validateRedemption({...firstBase, game: pubg, userLevel: 9}).rejection,
+  "first_redeem_level_too_low"
+);
+assertEq(
+  "the level gate is configurable",
+  validateRedemption({
+    ...firstBase, game: pubg, userLevel: 14, firstRedeemMinLevel: 15,
+  }).rejection,
+  "first_redeem_level_too_low"
+);
+assertEq(
+  "a second discounted redeem is refused",
+  validateRedemption({...firstBase, game: pubg, hasUsedFirstRedeem: true}).rejection,
+  "first_redeem_used"
+);
+assertEq(
+  "a pack outside the offer cannot be discounted",
+  validateRedemption({...firstBase, game: pubg, packId: "uc_325"}).rejection,
+  "first_redeem_unavailable"
+);
+assertEq(
+  "the discount can only lower the price, never raise it",
+  validateRedemption({
+    ...firstBase,
+    game: {...pubg, packs: {p: {amount: "x", pointsCost: 500, firstRedeemCost: 900}}},
+    packId: "p",
+    userPoints: 600,
+  }).pointsCost,
+  500
+);
+assertEq(
+  "the discounted price is still charged, not waived",
+  validateRedemption({...firstBase, game: pubg, userPoints: 299}).rejection,
+  "insufficient_points"
+);
+assertEq(
+  "not asking for the discount pays list price",
+  validateRedemption({...base, game: pubg, packId: "uc_60"}).pointsCost,
+  1200
+);
+assertEq(
+  "the offer lists only packs carrying a discount, from enabled games",
+  firstRedeemPacks([
+    {id: "pubg", game: pubg},
+    {id: "off", game: {...pubg, enabled: false}},
+    {id: "mlbb", game: mlbb},
+  ]).map((p) => `${p.gameId}/${p.packId}`),
+  ["pubg/uc_60"]
+);
+
+// --- ordering: config and identity problems are reported before the balance ---
+assertEq(
+  "a disabled game is rejected even when affordable",
+  validateRedemption({...base, game: {...pubg, enabled: false}, userPoints: 5}).rejection,
   "option_disabled"
+);
+assertEq(
+  "a bad player id is reported before an insufficient balance",
+  validateRedemption({...base, game: pubg, playerId: "1", userPoints: 0}).rejection,
+  "player_id_required"
+);
+assertEq(
+  "a linked id is reported before an insufficient balance",
+  validateRedemption({...base, game: pubg, linkedUid: "user-b", userPoints: 0}).rejection,
+  "uid_linked_to_another_account"
 );
 
 // --- spending must never touch progression ---

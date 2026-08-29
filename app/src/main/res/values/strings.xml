@@ -169,7 +169,6 @@
     <string name="offer_subcopy">Browse the offer wall in Earn</string>
     <string name="offer_cta">Open</string>
     <!-- Profile -->
-    <string name="profile_placeholder">Nothing here yet.</string>
     <!-- Quiz tile subtitle -->
     <plurals name="quizzes_left">
         <item quantity="one">%1$d quiz left</item>
@@ -325,4 +324,124 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_to_next_band">%1$s XP to the next prize band</string>
     <string name="leaderboard_top_of_board">Top of the board</string>
     <string name="leaderboard_zone_target">top %1$d</string>
+
+
+    <!-- ==================================================================
+         Referrals, now on Profile rather than Wallet.
+         ================================================================== -->
+    <string name="referral_section_label">Referrals</string>
+    <string name="referral_invite_title">Invite a friend</string>
+    <string name="referral_claim_title">Have a code?</string>
+    <string name="referral_copy">Copy code</string>
+    <string name="referral_share">Share code</string>
+    <string name="referral_copied">Code copied</string>
+    <string name="referral_share_subject">Join me on PixelPayout</string>
+    <string name="referral_share_text">Use my code %1$s when you join PixelPayout and we both get bonus stars.</string>
+    <string name="referral_already_claimed">Referral code already applied.</string>
+    <string name="profile_meta">Level %1$d · %2$s stars</string>
+
+    <!-- ==================================================================
+         Wallet (gaming-wallet handoff).
+
+         Every reward label on the screen - game names, pack amounts, notes,
+         tags - comes from Firestore. The strings here are only the furniture
+         around them, which is why there is no game or currency named below.
+         ================================================================== -->
+    <string name="wallet_balance_label">Point balance</string>
+    <string name="wallet_points_unit">pts</string>
+    <string name="wallet_earn_more">Earn more</string>
+    <string name="wallet_orders">Orders</string>
+    <string name="wallet_help">Help</string>
+    <string name="wallet_redeem_title">Redeem</string>
+    <string name="wallet_activity_title">Activity</string>
+    <string name="wallet_games_count">%1$d games</string>
+    <string name="wallet_games_count_one">1 game</string>
+    <string name="wallet_no_rewards">No games available right now. Check back soon.</string>
+    <string name="wallet_no_activity">Nothing yet. Play a quiz or a game to start earning.</string>
+    <string name="wallet_no_orders">No orders yet. Redeem something and it will show up here.</string>
+    <string name="wallet_game_from">from %1$s pts</string>
+    <!-- The balance card's second line. Names a real pack the balance can
+         already buy, rather than converting points at an invented rate. -->
+    <string name="wallet_reach_enough">Enough for %1$s in %2$s</string>
+    <string name="wallet_reach_short">%1$s more for %2$s</string>
+    <string name="wallet_reach_none">Start earning to unlock your first pack</string>
+    <string name="wallet_pending_one">1 order processing</string>
+    <string name="wallet_pending_many">%1$d orders processing</string>
+
+    <!-- The discounted first redeem. The exact price lives on the pack in
+         Firestore, so no number appears here. -->
+    <string name="first_redeem_kicker">First redeem</string>
+    <string name="first_redeem_once">One time only</string>
+    <string name="first_redeem_title">Your first pack costs less</string>
+    <string name="first_redeem_body">Pick one small pack at a reduced price and see the payout work before you spend a full balance.</string>
+    <string name="first_redeem_uid_note">One game UID per account</string>
+    <string name="first_redeem_cta">Use my discount</string>
+    <string name="first_redeem_locked">Unlocks at level %1$d</string>
+    <string name="first_redeem_kicker_numbered">First redeem \u00b7 1 of 1</string>
+    <string name="first_redeem_sheet_title">Pick your discounted pack</string>
+    <string name="sheet_continue">Continue</string>
+    <string name="first_redeem_sheet_sub">One discounted pack, once per account. The offer disappears after it is delivered.</string>
+
+    <!-- The redeem sheet. -->
+    <string name="sheet_choose_pack">Choose a pack</string>
+    <string name="sheet_back">Back</string>
+    <string name="sheet_where_title">Where should it go?</string>
+    <string name="sheet_player_id_hint">e.g. 5218840977</string>
+    <string name="sheet_username_hint">Your name in the game</string>
+    <string name="sheet_server">Server</string>
+    <string name="sheet_id_warning">Double-check the ID. Credits sent to a wrong ID cannot be reversed.</string>
+    <string name="sheet_review_order">Review order</string>
+    <string name="sheet_confirm_title">Confirm redemption</string>
+    <string name="sheet_balance_after">Balance after</string>
+    <string name="sheet_redeem_now">Redeem now</string>
+    <string name="sheet_delivery_note">Requests are reviewed before payout</string>
+    <string name="sheet_order_placed">Order placed</string>
+    <string name="sheet_success_line">%1$s is on the way to ID %2$s.</string>
+    <string name="sheet_done">Done</string>
+    <string name="sheet_track_order">Track order</string>
+    <string name="sheet_order_copied">Order ID copied</string>
+    <string name="sheet_pack_short">Need %1$s more</string>
+    <string name="sheet_summary_item">Item</string>
+    <string name="sheet_summary_game">Game</string>
+    <string name="sheet_summary_player_id">Player ID</string>
+    <string name="sheet_summary_username">Username</string>
+    <string name="sheet_summary_server">Server</string>
+    <string name="sheet_summary_cost">Cost</string>
+    <string name="sheet_summary_cost_value">-%1$s pts</string>
+    <string name="sheet_balance_after_value">%1$s pts</string>
+    <string name="sheet_discount_applied">First-redeem price</string>
+
+    <!-- Orders. -->
+    <string name="order_eta">Delivery within %1$s</string>
+    <string name="order_eta_overdue">Past the 48h target \u00b7 in review</string>
+    <string name="order_id_label">Order %1$s</string>
+    <string name="order_step_placed">Placed</string>
+    <string name="order_step_processing">Processing</string>
+    <string name="order_step_delivered">Delivered</string>
+    <string name="order_status_processing">Processing</string>
+    <string name="order_status_delivered">Delivered</string>
+    <string name="order_status_declined">Declined</string>
+    <string name="order_meta">%1$s \u00b7 ID %2$s</string>
+    <string name="order_meta_dated">%1$s \u00b7 ID %2$s \u00b7 %3$s</string>
+    <string name="order_refunded">%1$s Your stars were returned.</string>
+    <string name="order_refunded_plain">Declined. Your stars were returned.</string>
+
+    <!-- Activity. Labels are built from the ledger's `source`, which is an
+         identifier and not display text - see UserRepository.LedgerEntry. -->
+    <string name="activity_source_quiz">Quiz reward</string>
+    <string name="activity_source_game">Game reward</string>
+    <string name="activity_source_streak">Daily streak</string>
+    <string name="activity_source_referral">Referral bonus</string>
+    <string name="activity_source_level_up">Level up bonus</string>
+    <string name="activity_source_goals">Daily goals bonus</string>
+    <string name="activity_source_offerwall">Offer reward</string>
+    <string name="activity_source_admin">Adjustment</string>
+    <string name="activity_source_other">Reward</string>
+    <string name="activity_redeemed">Redeemed %1$s</string>
+    <string name="activity_redeemed_generic">Redemption</string>
+    <string name="activity_refunded">Refund</string>
+    <string name="activity_delta_plus">+%1$s</string>
+    <string name="activity_delta_minus">-%1$s</string>
+    <string name="activity_today">Today</string>
+    <string name="activity_yesterday">Yesterday</string>
 </resources>

@@ -38,6 +38,25 @@ export interface RewardEventDoc {
   metadata: Record<string, unknown>;
   /** "reversed" marks an entry undone by a later refund, for the audit trail. */
   status: "applied" | "reversed";
+  /**
+   * Whether this entry moved Points, as opposed to XP alone.
+   *
+   * Denormalised from `finalPoints !== 0` purely so the Star activity list can
+   * be a single indexed query. Firestore cannot filter on `finalPoints != 0`
+   * while ordering by `createdAt` - an inequality forces the ordering onto its
+   * own field - so the question is asked as an equality instead.
+   *
+   * It exists because the two currencies have very different frequencies:
+   * quizzes and games award XP and no Points, and they are most of this
+   * collection. Without this flag the wallet had to read a wide window of
+   * recent entries and throw most of them away.
+   *
+   * Kept as one collection rather than splitting XP events into their own:
+   * streak and referral awards grant BOTH currencies, so a split by currency
+   * would put some XP history in each collection and leave neither able to
+   * answer "how did this account reach level 20" on its own.
+   */
+  affectsPoints: boolean;
 }
 
 export interface AwardInput {
@@ -96,6 +115,7 @@ export function buildMilestoneEvent(level: number, points: number): RewardEventD
     createdAt: FieldValue.serverTimestamp(),
     metadata: {milestoneLevel: level},
     status: "applied",
+    affectsPoints: points !== 0,
   };
 }
 
@@ -167,6 +187,7 @@ export function buildAward(
       createdAt: FieldValue.serverTimestamp(),
       metadata: input.metadata,
       status: "applied",
+      affectsPoints: finalPoints !== 0,
     },
   };
 }

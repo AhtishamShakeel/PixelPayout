@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One line of the ledger.
+
+    The amount is signed and coloured by direction, which is the only thing
+    that has to be readable at a glance: violet earned, muted spent.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="11dp"
+    android:paddingBottom="11dp">
+
+    <ImageView
+        android:id="@+id/activityIcon"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@drawable/bg_activity_icon"
+        android:contentDescription="@null"
+        android:padding="8dp"
+        android:src="@drawable/ic_star"
+        app:tint="@color/text_faint" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/activityTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:fontFamily="@font/jakarta_medium"
+            android:maxLines="1"
+            android:textColor="@color/text_strong"
+            android:textSize="13sp"
+            tools:text="Quiz reward" />
+
+        <TextView
+            android:id="@+id/activityMeta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:textColor="@color/text_ghost"
+            android:textSize="11sp"
+            tools:text="Today" />
+
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/activityDelta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:fontFamily="@font/mono_bold"
+        android:textColor="@color/brand_violet_light"
+        android:textSize="13sp"
+        tools:text="+240" />
+
+</LinearLayout>

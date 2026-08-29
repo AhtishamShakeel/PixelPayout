@@ -46,6 +46,52 @@
         <item name="colorOnSurface">@android:color/white</item>
     </style>
 
+    <!-- Game artwork in the Wallet grid. 6dp to match bg_code_tile, which is
+         the well the art covers - a different radius would show the dashed
+         placeholder peeking out at the corners. -->
+    <style name="ShapeAppearance.PixelPayout.GameArt" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">6dp</item>
+    </style>
+
+    <!-- The redeem sheet. Transparent so bg_sheet_surface draws the rounded
+         top itself; the default sheet background would square it off. -->
+    <style name="Theme.PixelPayout.BottomSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.PixelPayout.BottomSheet</item>
+        <item name="android:navigationBarColor">@color/surface_sheet</item>
+    </style>
+
+    <style name="Widget.PixelPayout.BottomSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
+        <item name="android:background">@android:color/transparent</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+    </style>
+
+    <!--
+        Server choice chips inside the sheet.
+
+        Every colour here is a ColorStateList, not a flat colour. A Chip draws
+        its checked state purely from these lists, so handing it a plain
+        colour produces a chip that checks correctly and looks identical
+        either way - which is indistinguishable from a chip that does not
+        respond at all.
+    -->
+    <style name="Widget.PixelPayout.ServerChip" parent="Widget.MaterialComponents.Chip.Choice">
+        <item name="android:textColor">@color/server_chip_text</item>
+        <item name="android:fontFamily">@font/jakarta_medium</item>
+        <item name="android:textSize">12.5sp</item>
+        <item name="chipBackgroundColor">@color/server_chip_bg</item>
+        <item name="chipStrokeColor">@color/server_chip_stroke</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="chipCornerRadius">8dp</item>
+        <item name="chipMinHeight">36dp</item>
+        <!-- The tick would push the label around as selection moves; the
+             fill and border already carry the state. -->
+        <item name="checkedIconVisible">false</item>
+        <item name="chipIconVisible">false</item>
+        <item name="closeIconVisible">false</item>
+        <item name="rippleColor">@color/violet_tint_20</item>
+    </style>
+
     <!-- Fully round shape for ShapeableImageView avatars. -->
     <style name="ShapeAppearance.PixelPayout.Circle" parent="">
         <item name="cornerFamily">rounded</item>

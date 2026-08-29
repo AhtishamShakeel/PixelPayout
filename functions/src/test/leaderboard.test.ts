@@ -102,7 +102,7 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 
 // --- the prize table ---------------------------------------------------------
 {
-  assertEq("first place wins the top band", prizeForRank(1), 500);
+  assertEq("first place wins the top band", prizeForRank(1), 350);
   assertEq("second and third share a band",
     prizeForRank(2), prizeForRank(3));
   assertEq("the last ranked place still wins something",
@@ -142,7 +142,7 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   // The number that has to be budgeted: a fixed weekly outgoing that does not
   // scale with how many people play.
   assertEq("the weekly pool totals up", totalWeeklyPrizePool(),
-    500 + 2 * 250 + 7 * 100 + 20 * 50);
+    350 + 2 * 200 + 7 * 100 + 20 * 50);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

@@ -165,4 +165,39 @@
     <color name="text_wisp">#59FFFFFF</color>
     <color name="text_trace">#47FFFFFF</color>
     <color name="stroke_avatar">#1AFFFFFF</color>
+
+    <!-- ==================================================================
+         Wallet (gaming-wallet handoff).
+
+         The handoff ships its own "Nocturne" palette - a blue-grey ground
+         (#161826) with a #9184d9 blurple accent. It is NOT used: the brief
+         was to take the design's STRUCTURE and paint it in the palette this
+         app already has, so every value below resolves to an existing token.
+         The mapping, for anyone comparing the two side by side:
+
+           Nocturne #161826 ground     -> background_dark
+           Nocturne #232532 card       -> surface_card
+           Nocturne #3f424d border     -> stroke_card / stroke_strong
+           Nocturne #9184d9 accent     -> brand_violet
+           Nocturne #b5abfc accent-400 -> brand_violet_light
+           Nocturne #9397ab neutral    -> text_faint
+           Nocturne #75798c neutral    -> text_ghost
+
+         The one deliberate departure: the design tints its star glyph with
+         the accent, and ours stays `gold`. A star means the same thing on
+         every other screen in this app, and it is not violet on any of them.
+         ================================================================== -->
+
+    <!-- The bottom sheet floats above the page, so it is a step lighter than
+         surface_card rather than the same value - otherwise the sheet and the
+         cards showing through the scrim read as one surface. -->
+    <color name="surface_sheet">#14141E</color>
+    <!-- Input wells sit INSIDE the sheet, so they go darker, not lighter. -->
+    <color name="surface_field">#0B0B12</color>
+
+    <!-- Order tracker + status tags. Pending is gold because that is what a
+         pending payout already looks like everywhere else in this app. -->
+    <color name="status_pending_fill">#29FFD24A</color>
+    <color name="status_done_fill">#1F4ADE80</color>
+    <color name="status_done_stroke">#4D4ADE80</color>
 </resources>

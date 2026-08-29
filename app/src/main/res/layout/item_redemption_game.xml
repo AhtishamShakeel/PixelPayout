@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    One game in the Wallet grid.
+
+    The art well is 16:9 and shows the game's short code until an imageUrl is
+    set on the document, at which point the artwork covers it. A fixed ratio
+    rather than a fixed height so the two columns stay square with each other
+    whatever the artwork happens to be.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/gameCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_game_tile"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="11dp">
+
+    <!--
+        A fixed height, not a 16:9 ratio.
+
+        The handoff sizes this well by aspect ratio, which needs a
+        ConstraintLayout parent - inside this LinearLayout the ratio attribute
+        is inert and the 0dp height it depends on collapses the well to
+        nothing. 86dp is 16:9 of the tile's content width at the two-column
+        grid on a normal phone, so it matches the design where it matters and
+        stays a real box everywhere else.
+    -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="86dp"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/gameCode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_code_tile"
+            android:fontFamily="@font/mono_bold"
+            android:gravity="center"
+            android:letterSpacing="0.08"
+            android:textColor="@color/brand_violet"
+            android:textSize="16sp"
+            tools:text="UC" />
+
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/gameImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="@null"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.GameArt" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/gameName"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_semibold"
+        android:lineSpacingMultiplier="1.25"
+        android:lines="2"
+        android:textColor="@color/text_strong"
+        android:textSize="13sp"
+        tools:text="PUBG Mobile" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:tint="@color/gold" />
+
+        <TextView
+            android:id="@+id/gameFrom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:textColor="@color/text_faint"
+            android:textSize="11.5sp"
+            tools:text="from 1,200 pts" />
+
+    </LinearLayout>
+
+</LinearLayout>

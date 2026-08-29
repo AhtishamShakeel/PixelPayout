@@ -54,9 +54,14 @@ import {
   generateReferralCode,
 } from "./economy/signup";
 import {
+  DEFAULT_FIRST_REDEEM_MIN_LEVEL,
+  GAME_PROFILES_SUBCOLLECTION,
+  PLAYER_LINKS_COLLECTION,
   REDEMPTIONS_COLLECTION,
+  REDEMPTION_CONFIG_DOC,
   REDEMPTION_OPTIONS_COLLECTION,
-  RedemptionOption,
+  RedemptionGame,
+  playerLinkId,
   validateRedemption,
 } from "./economy/redemption";
 import {
@@ -1398,14 +1403,14 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     ...payload,
   };
 });
-
 /**
- * Spends Points on a redemption option.
+ * Spends Points on one pack of one game.
  *
- * The cost is read from the option document server-side - a client-supplied
- * price is never trusted. The debit, the ledger entry and the pending
- * redemption record all commit in one transaction, so a balance can never go
- * negative and a redemption can never exist without its matching debit.
+ * The cost is read from the game document server-side - a client-supplied
+ * price is never trusted. The debit, the ledger entry, the player-ID link and
+ * the pending redemption record all commit in one transaction, so a balance
+ * can never go negative, a redemption can never exist without its matching
+ * debit, and two accounts can never both claim the same player ID.
  *
  * Paying the user is a separate business process; this only records the
  * request and takes the Points.
@@ -1416,21 +1421,36 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
   }
 
   const optionId = String(request.data.optionId || "").trim();
-  const payoutNumber = String(request.data.payoutNumber || "").trim();
+  const packId = String(request.data.packId || "").trim();
+  const playerId = String(request.data.playerId || "").trim();
+  const username = String(request.data.username || "").trim();
+  const server = String(request.data.server || "").trim();
+  const useFirstRedeem = request.data.useFirstRedeem === true;
 
   if (!optionId) {
     throw new functions.https.HttpsError("invalid-argument", "Redemption option is required");
+  }
+  if (!packId) {
+    throw new functions.https.HttpsError("invalid-argument", "Redemption pack is required");
   }
 
   const userId = request.auth.uid;
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
   const optionRef = firestore.collection(REDEMPTION_OPTIONS_COLLECTION).doc(optionId);
+  const linkRef = firestore
+    .collection(PLAYER_LINKS_COLLECTION)
+    .doc(playerLinkId(optionId, playerId || "_"));
+  const configRef = firestore.collection(CONFIG_COLLECTION).doc(REDEMPTION_CONFIG_DOC);
 
   const result = await firestore.runTransaction(async (transaction) => {
-    const [userDoc, optionDoc] = await Promise.all([
+    // Every read first: Firestore transactions refuse a read issued after a
+    // write, and the link claim below is a write.
+    const [userDoc, optionDoc, linkDoc, configDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(optionRef),
+      transaction.get(linkRef),
+      transaction.get(configRef),
     ]);
 
     if (!userDoc.exists) {
@@ -1441,12 +1461,22 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
     const currentXp = Number(userDoc.get(FIELD_XP) || 0);
     const currentLevel = Number(userDoc.get(FIELD_LEVEL) || 1);
 
-    const option = optionDoc.exists ? (optionDoc.data() as RedemptionOption) : null;
+    const game = optionDoc.exists ? (optionDoc.data() as RedemptionGame) : null;
     const validation = validateRedemption({
-      option,
+      game,
+      packId,
       userPoints: currentPoints,
       userLevel: currentLevel,
-      payoutNumber,
+      playerId,
+      username,
+      server,
+      useFirstRedeem,
+      hasUsedFirstRedeem: userDoc.get("hasUsedFirstRedeem") === true,
+      firstRedeemMinLevel: Number(
+        configDoc.get("firstRedeemMinLevel") ?? DEFAULT_FIRST_REDEEM_MIN_LEVEL
+      ),
+      linkedUid: linkDoc.exists ? String(linkDoc.get("uid") || "") : null,
+      callerUid: userId,
     });
 
     if (!validation.ok) {
@@ -1467,13 +1497,44 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       baseXp: 0,
       metadata: {
         optionId,
-        optionTitle: option?.title,
+        optionTitle: game?.name,
+        packId,
+        packAmount: validation.packAmount,
         redemptionId: redemptionRef.id,
+        firstRedeem: validation.usedFirstRedeem === true,
       },
       storedLevel: currentLevel,
     });
 
     writeAward(transaction, userRef, ledgerRef, award);
+
+    // Claim the player ID for this account. Written unconditionally rather
+    // than only when absent: re-writing our own claim is harmless, and the
+    // validation above has already refused anyone else's.
+    transaction.set(linkRef, {
+      uid: userId,
+      gameId: optionId,
+      playerId,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, {merge: true});
+
+    // The user's own copy, for prefilling the form next time.
+    transaction.set(
+      userRef.collection(GAME_PROFILES_SUBCOLLECTION).doc(optionId),
+      {
+        playerId,
+        username,
+        server: validation.server ?? "",
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      {merge: true}
+    );
+
+    // Burning the once-per-account discount is part of the same transaction
+    // as the debit, so a retry cannot spend it twice.
+    if (validation.usedFirstRedeem === true) {
+      transaction.set(userRef, {hasUsedFirstRedeem: true}, {merge: true});
+    }
 
     transaction.set(redemptionRef, {
       // Ownership is carried by this field now that the document no longer
@@ -1483,11 +1544,16 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       userDisplayName: userDoc.get("displayName") ?? "",
       userEmail: userDoc.get("email") ?? "",
       optionId,
-      optionTitle: option?.title ?? "",
-      optionType: option?.type ?? "",
+      optionTitle: game?.name ?? "",
+      optionType: game?.code ?? "",
+      packId,
+      packAmount: validation.packAmount ?? "",
+      playerId,
+      username,
+      server: validation.server ?? "",
+      firstRedeem: validation.usedFirstRedeem === true,
       pointsCost,
       status: "pending",
-      payoutNumber: option?.type === "EASYPAISA" ? payoutNumber : null,
       ledgerEventId: ledgerRef.id,
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -1501,12 +1567,23 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
   });
 
   if (!result.ok) {
-    const code = result.rejection === "insufficient_points" ||
+    // failed-precondition means "your account is not in a state to do this";
+    // invalid-argument means "what you sent is wrong". The client maps both
+    // to a message, but the distinction is what tells it whether retrying
+    // with different input could ever work.
+    const precondition =
+      result.rejection === "insufficient_points" ||
       result.rejection === "level_too_low" ||
-      result.rejection === "option_disabled" ?
-      "failed-precondition" :
-      "invalid-argument";
-    throw new functions.https.HttpsError(code, String(result.rejection));
+      result.rejection === "option_disabled" ||
+      result.rejection === "pack_disabled" ||
+      result.rejection === "uid_linked_to_another_account" ||
+      result.rejection === "first_redeem_used" ||
+      result.rejection === "first_redeem_level_too_low" ||
+      result.rejection === "first_redeem_unavailable";
+    throw new functions.https.HttpsError(
+      precondition ? "failed-precondition" : "invalid-argument",
+      String(result.rejection)
+    );
   }
 
   console.log("Redemption created", {userId, ...result});
@@ -1553,6 +1630,12 @@ export const listRedemptions = functions.https.onCall(async (request: CallableRe
         userEmail: data.userEmail ?? "",
         optionTitle: data.optionTitle ?? data.optionId ?? "",
         optionType: data.optionType ?? "",
+        packAmount: data.packAmount ?? "",
+        // What the operator actually needs to fulfil the order by hand.
+        playerId: data.playerId ?? "",
+        username: data.username ?? "",
+        server: data.server ?? "",
+        firstRedeem: data.firstRedeem === true,
         pointsCost: Number(data.pointsCost || 0),
         payoutNumber: data.payoutNumber ?? null,
         status: data.status ?? "",
@@ -1671,11 +1754,24 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
       storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
     });
 
+    // A rejected first redeem gives the DISCOUNT back too, not just the
+    // stars. The offer is once-per-account and was burned when the order was
+    // placed; leaving it burned after refusing to deliver would cost the user
+    // the one thing the refund is supposed to make them whole for.
+    //
+    // The playerLinks claim is deliberately NOT released here. A rejection
+    // says the order was not fulfilled, not that the account never used that
+    // player ID - and releasing it on rejection would turn "get rejected"
+    // into a way to free a UID somebody else could then claim. Freeing a
+    // genuinely mistyped ID stays a deliberate admin action.
+    const restoreFirstRedeem = redemptionDoc.get("firstRedeem") === true;
+
     writeAward(
       transaction,
       userRef,
       userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`refund:${redemptionId}`),
-      refund
+      refund,
+      restoreFirstRedeem ? {hasUsedFirstRedeem: false} : {}
     );
 
     const originalLedgerId = redemptionDoc.get("ledgerEventId") as string | undefined;
@@ -1691,7 +1787,7 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
       {...resolution, refundedPoints: pointsCost} as
         FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>
     );
-    return {refunded: pointsCost, targetUid};
+    return {refunded: pointsCost, targetUid, firstRedeemRestored: restoreFirstRedeem};
   });
 
   console.log("Redemption resolved", {redemptionId, status, ...result});

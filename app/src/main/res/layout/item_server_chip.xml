@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One server choice in the redeem sheet.
+
+    Inflated rather than constructed in code: Chip's three-argument
+    constructor takes a defStyleAttr, not a style resource, so
+    `Chip(context, null, R.style.Widget_PixelPayout_ServerChip)` silently
+    drops the styling and renders a stock Material chip on a dark sheet.
+    Inflating from a layout is the supported way to give a Chip a style.
+
+    Deliberately has NO android:id. Every server chip comes from this one
+    layout, so a fixed id would give them all the same one - and ChipGroup
+    tracks its single selection by view id, so it could not then tell them
+    apart. RedeemSheetFragment assigns a generated id to each.
+-->
+<com.google.android.material.chip.Chip xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.PixelPayout.ServerChip"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:checkable="true"
+    tools:text="Global" />

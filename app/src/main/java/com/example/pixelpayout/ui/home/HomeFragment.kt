@@ -18,6 +18,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.debug.BuffDebug
 import com.pixelpayout.BuildConfig
+import com.example.pixelpayout.ui.redemption.RedemptionFragment
+import com.example.pixelpayout.ui.redemption.WalletFormat
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
@@ -45,7 +47,12 @@ private const val MILLIS_PER_DAY = 86_400_000L
  * to show, not a rule the server applies - resolveRedemption has no deadline
  * and never will, because a person has to approve each one.
  */
-private const val REDEEM_TARGET_MILLIS = 48 * 60 * 60 * 1000L
+/**
+ * The 48 hour payout target now lives in WalletFormat, so this screen and the
+ * Wallet Orders tab cannot promise different things. Kept as an alias rather
+ * than inlined at the call site so the name still reads here.
+ */
+private val REDEEM_TARGET_MILLIS = WalletFormat.PAYOUT_TARGET_MILLIS
 
 /** Matches STREAK_CYCLE_DAYS server-side; the strip draws one cycle. */
 private const val STREAK_CYCLE_DAYS = 7
@@ -1026,6 +1033,10 @@ class HomeFragment : Fragment() {
         }
         binding.pendingRedeemRow.visibility = View.VISIBLE
 
+        // Tapping through goes to the Orders tab, which is the only place the
+        // full picture lives - this row can only ever describe the oldest one.
+        binding.pendingRedeemRow.setOnClickListener { openWalletOrders() }
+
         // One request names itself; several would not fit, so they are counted.
         val subject = if (pending.count == 1 && pending.title.isNotBlank()) {
             pending.title
@@ -1043,18 +1054,26 @@ class HomeFragment : Fragment() {
         }
     }
 
-    /** Hours until the last one, then minutes - "41h", "35m". */
-    private fun remainingLabel(remainingMs: Long): String {
-        val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
-        return if (hours >= 1) {
-            getString(R.string.pending_redeem_hours, hours)
-        } else {
-            getString(
-                R.string.pending_redeem_minutes,
-                TimeUnit.MILLISECONDS.toMinutes(remainingMs).coerceAtLeast(1)
-            )
-        }
+    /**
+     * Switches to the Wallet tab and asks it to open on Orders.
+     *
+     * The result is set BEFORE the tab switch: RedemptionFragment does not
+     * exist yet, and a FragmentManager holds a result until a listener
+     * appears, so setting it first is what guarantees it is seen.
+     */
+    private fun openWalletOrders() {
+        parentFragmentManager.setFragmentResult(
+            RedemptionFragment.RESULT_SHOW_ORDERS,
+            Bundle.EMPTY
+        )
+        requireActivity()
+            .findViewById<View>(R.id.navigation_redemption)
+            ?.performClick()
     }
+
+    /** Hours until the last one, then minutes - "41h", "35m". */
+    private fun remainingLabel(remainingMs: Long): String =
+        WalletFormat.remainingLabel(requireContext(), remainingMs)
 
     /**
      * The payout feed, as one line: the most recent approved payout, tappable

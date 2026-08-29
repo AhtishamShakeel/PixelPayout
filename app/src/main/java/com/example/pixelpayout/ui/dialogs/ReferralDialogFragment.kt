@@ -80,6 +80,9 @@ class ReferralDialogFragment : DialogFragment() {
 
     private fun observeViewModel() {
         referralViewModel.referralResult.observe(viewLifecycleOwner) { result ->
+            // Null is the cleared state, not a result - see ReferralViewModel.
+            if (result == null) return@observe
+
             when (result) {
                 is ReferralResult.Success -> {
                     showSuccessMessage()
@@ -96,6 +99,7 @@ class ReferralDialogFragment : DialogFragment() {
                 }
             }
             binding.btnSubmitReferral.isEnabled = true // Re-enable button after result
+            referralViewModel.clearReferralResult()
         }
     }
 

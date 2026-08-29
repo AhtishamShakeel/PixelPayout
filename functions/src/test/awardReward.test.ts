@@ -225,5 +225,37 @@ assertEq(
   assertEq("milestone event does not imply a further level change", event.levelAtEvent, event.levelAfterEvent);
 }
 
+// --- affectsPoints: what the wallet's Star activity list is indexed on ------
+// This flag decides whether an entry is visible in the wallet at all, so it
+// is asserted rather than trusted to stay in step with finalPoints.
+{
+  const xpOnly = buildAward(100, 50, {
+    source: "QUIZ", basePoints: 0, baseXp: 12, metadata: {},
+  });
+  assertEq("an xp-only award is not a star movement", xpOnly.ledgerDoc.affectsPoints, false);
+  assertEq("...and really did award no points", xpOnly.ledgerDoc.finalPoints, 0);
+
+  const earned = buildAward(100, 50, {
+    source: "STREAK", basePoints: 25, baseXp: 10, metadata: {},
+  });
+  assertEq("an award granting both currencies is a star movement",
+    earned.ledgerDoc.affectsPoints, true);
+
+  const spent = buildAward(1000, 50, {
+    source: "REDEMPTION", basePoints: -300, baseXp: 0, metadata: {},
+  });
+  assertEq("spending is a star movement", spent.ledgerDoc.affectsPoints, true);
+
+  const refund = buildAward(0, 50, {
+    source: "REDEMPTION", basePoints: 300, baseXp: 0, metadata: {},
+  });
+  assertEq("a refund is a star movement", refund.ledgerDoc.affectsPoints, true);
+
+  assertEq("a milestone bonus is a star movement",
+    buildMilestoneEvent(10, 50).affectsPoints, true);
+  assertEq("a zero-point milestone is not",
+    buildMilestoneEvent(11, 0).affectsPoints, false);
+}
+
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);
 process.exit(failed > 0 ? 1 : 0);

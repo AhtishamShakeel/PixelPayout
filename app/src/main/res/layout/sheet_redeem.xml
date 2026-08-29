@@ -1,0 +1,634 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The redeem flow, as one sheet with four steps.
+
+    amount -> details -> confirm -> success
+
+    All four live in this layout with only one visible at a time, rather than
+    four fragments in a container. The steps share a header, a scrim and a
+    dismiss, they are always entered in order, and the whole flow is thrown
+    away on dismiss - so there is no state worth the fragment transactions.
+
+    The first-redeem offer reuses these same steps: it opens at `amount` with
+    the packs filtered to the discounted ones, and the confirm step prices
+    them at the discount. It is the same purchase with a different price, so
+    it is deliberately not a second flow.
+-->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_sheet_surface"
+    android:clipToPadding="false"
+    android:paddingStart="17dp"
+    android:paddingTop="11dp"
+    android:paddingEnd="17dp"
+    android:paddingBottom="22dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <View
+            android:layout_width="38dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="17dp"
+            android:background="@drawable/bg_sheet_grabber" />
+
+        <!-- ================= Step 0: the first-redeem picker ================= -->
+        <!--
+            Only shown for the first-redeem offer, and shown INSTEAD of the
+            per-game pack list.
+
+            The offer is one choice across the whole catalogue - 30 UC, or 20
+            diamonds, or 20 coins - so it cannot be reached through a game
+            that has already been picked. Every cell here costs the same
+            discounted amount, which is why the price is stated once above the
+            grid rather than on each cell.
+        -->
+        <LinearLayout
+            android:id="@+id/stepGift"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_gift"
+                            app:tint="@color/brand_violet_light" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="6dp"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.14"
+                            android:text="@string/first_redeem_kicker_numbered"
+                            android:textAllCaps="true"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="11sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:text="@string/first_redeem_sheet_title"
+                        android:textColor="@color/text_strong"
+                        android:textSize="19sp" />
+
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/giftClose"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_icon_button"
+                    android:contentDescription="@android:string/cancel"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_close"
+                    app:tint="@color/text_faint" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/giftSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:lineSpacingMultiplier="1.35"
+                android:textColor="@color/text_faint"
+                android:textSize="12.5sp"
+                tools:text="One pack, 150 stars instead of the usual price." />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/giftRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:nestedScrollingEnabled="false"
+                tools:itemCount="4"
+                tools:listitem="@layout/item_gift_pack" />
+
+            <TextView
+                android:id="@+id/giftContinue"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="17dp"
+                android:background="@drawable/bg_button_accent_outline"
+                android:fontFamily="@font/jakarta_semibold"
+                android:gravity="center"
+                android:text="@string/sheet_continue"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- ================= Step 1: pick a pack ================= -->
+        <LinearLayout
+            android:id="@+id/stepAmount"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/sheetGameCode"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_code_tile"
+                    android:fontFamily="@font/mono_bold"
+                    android:gravity="center"
+                    android:textColor="@color/brand_violet"
+                    android:textSize="13sp"
+                    tools:text="UC" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="11dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/sheetGameName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:textColor="@color/text_strong"
+                        android:textSize="16sp"
+                        tools:text="PUBG Mobile" />
+
+                    <TextView
+                        android:id="@+id/sheetGameSub"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:maxLines="1"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="11.5sp"
+                        tools:text="Unknown Cash for PUBG Mobile" />
+
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/sheetClose"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="@drawable/bg_icon_button"
+                    android:contentDescription="@android:string/cancel"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_close"
+                    app:tint="@color/text_faint" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/packsLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:layout_marginBottom="8dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="0.12"
+                android:text="@string/sheet_choose_pack"
+                android:textAllCaps="true"
+                android:textColor="@color/text_ghost"
+                android:textSize="12sp" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/packsRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                tools:itemCount="4"
+                tools:listitem="@layout/item_pack" />
+
+        </LinearLayout>
+
+        <!-- ================= Step 2: where should it go ================= -->
+        <LinearLayout
+            android:id="@+id/stepDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="gone">
+
+            <TextView
+                android:id="@+id/detailsBack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:drawablePadding="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center_vertical"
+                android:text="@string/sheet_back"
+                android:textColor="@color/text_faint"
+                android:textSize="12.5sp"
+                app:drawableStartCompat="@drawable/ic_chevron_left"
+                app:drawableTint="@color/text_faint" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/jakarta_semibold"
+                android:text="@string/sheet_where_title"
+                android:textColor="@color/text_strong"
+                android:textSize="19sp" />
+
+            <TextView
+                android:id="@+id/detailsHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:textColor="@color/text_faint"
+                android:textSize="12.5sp"
+                tools:text="Enter your PUBG Mobile numeric player ID." />
+
+            <!-- Player ID -->
+            <TextView
+                android:id="@+id/playerIdLabel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:layout_marginBottom="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:textColor="@color/text_faint"
+                android:textSize="11.5sp"
+                tools:text="Player ID" />
+
+            <EditText
+                android:id="@+id/playerIdInput"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_field_well"
+                android:fontFamily="@font/mono_medium"
+                android:hint="@string/sheet_player_id_hint"
+                android:importantForAutofill="no"
+                android:inputType="text"
+                android:letterSpacing="0.06"
+                android:maxLength="32"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:singleLine="true"
+                android:textColor="@color/text_strong"
+                android:textColorHint="@color/text_trace"
+                android:textSize="15sp" />
+
+            <!-- Username. Present only when the game document asks for it. -->
+            <LinearLayout
+                android:id="@+id/usernameGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:id="@+id/usernameLabel"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:layout_marginBottom="6dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11.5sp"
+                    tools:text="In-game username" />
+
+                <EditText
+                    android:id="@+id/usernameInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:background="@drawable/bg_field_well"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:hint="@string/sheet_username_hint"
+                    android:importantForAutofill="no"
+                    android:inputType="text"
+                    android:maxLength="60"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:singleLine="true"
+                    android:textColor="@color/text_strong"
+                    android:textColorHint="@color/text_trace"
+                    android:textSize="15sp" />
+
+            </LinearLayout>
+
+            <!-- Server. Present only when the game has regions. -->
+            <LinearLayout
+                android:id="@+id/serverGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="11dp"
+                    android:layout_marginBottom="6dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:text="@string/sheet_server"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11.5sp" />
+
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/serverChips"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:chipSpacingHorizontal="8dp"
+                    app:chipSpacingVertical="8dp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_info_note"
+                android:orientation="horizontal"
+                android:padding="11dp">
+
+                <ImageView
+                    android:layout_width="15dp"
+                    android:layout_height="15dp"
+                    android:layout_marginTop="1dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_info"
+                    app:tint="@color/brand_violet_light" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:lineSpacingMultiplier="1.4"
+                    android:text="@string/sheet_id_warning"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11.5sp" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/detailsContinue"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginTop="17dp"
+                android:background="@drawable/bg_button_accent_outline"
+                android:fontFamily="@font/jakarta_semibold"
+                android:gravity="center"
+                android:text="@string/sheet_review_order"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="14sp" />
+
+        </LinearLayout>
+
+        <!-- ================= Step 3: confirm ================= -->
+        <LinearLayout
+            android:id="@+id/stepConfirm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="gone">
+
+            <TextView
+                android:id="@+id/confirmBack"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                android:drawablePadding="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center_vertical"
+                android:text="@string/sheet_back"
+                android:textColor="@color/text_faint"
+                android:textSize="12.5sp"
+                app:drawableStartCompat="@drawable/ic_chevron_left"
+                app:drawableTint="@color/text_faint" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/jakarta_semibold"
+                android:text="@string/sheet_confirm_title"
+                android:textColor="@color/text_strong"
+                android:textSize="19sp" />
+
+            <LinearLayout
+                android:id="@+id/summaryContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:background="@drawable/bg_summary_card"
+                android:divider="@drawable/divider_goal_row"
+                android:orientation="vertical"
+                android:showDividers="middle" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:text="@string/sheet_balance_after"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12.5sp" />
+
+                <TextView
+                    android:id="@+id/balanceAfter"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/mono_bold"
+                    android:textColor="@color/text_strong"
+                    android:textSize="15sp"
+                    tools:text="9,020 pts" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/placeOrderButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="17dp"
+                android:background="@drawable/bg_button_accent_outline"
+                android:drawablePadding="8dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:gravity="center"
+                android:text="@string/sheet_redeem_now"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="14.5sp"
+                app:drawableStartCompat="@drawable/ic_lock"
+                app:drawableTint="@color/brand_violet_light" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center"
+                android:text="@string/sheet_delivery_note"
+                android:textColor="@color/text_wisp"
+                android:textSize="11sp" />
+
+            <com.google.android.material.progressindicator.CircularProgressIndicator
+                android:id="@+id/confirmProgress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="12dp"
+                android:indeterminate="true"
+                android:visibility="gone"
+                app:indicatorColor="@color/brand_violet"
+                app:indicatorSize="24dp"
+                app:trackThickness="3dp" />
+
+        </LinearLayout>
+
+        <!-- ================= Step 4: placed ================= -->
+        <LinearLayout
+            android:id="@+id/stepSuccess"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:visibility="gone"
+            tools:visibility="gone">
+
+            <ImageView
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="@drawable/bg_success_ring"
+                android:contentDescription="@null"
+                android:padding="17dp"
+                android:src="@drawable/ic_check"
+                app:tint="@color/brand_violet_light" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:text="@string/sheet_order_placed"
+                android:textColor="@color/text_strong"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/successLine"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.4"
+                android:textColor="@color/text_faint"
+                android:textSize="13sp"
+                tools:text="325 UC is on the way to ID 5218840977." />
+
+            <TextView
+                android:id="@+id/orderIdChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="17dp"
+                android:background="@drawable/bg_summary_card"
+                android:drawablePadding="8dp"
+                android:fontFamily="@font/mono_medium"
+                android:gravity="center_vertical"
+                android:paddingStart="14dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="8dp"
+                android:textColor="@color/text_dim"
+                android:textSize="12.5sp"
+                app:drawableEndCompat="@drawable/ic_copy"
+                app:drawableTint="@color/text_ghost"
+                tools:text="PP-8241-KQ" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/successDone"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_button_neutral_outline"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:text="@string/sheet_done"
+                    android:textColor="@color/text_dim"
+                    android:textSize="13.5sp" />
+
+                <TextView
+                    android:id="@+id/successTrack"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_button_accent_outline"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:gravity="center"
+                    android:text="@string/sheet_track_order"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="13.5sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

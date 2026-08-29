@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The mirror of ic_arrow_right, for the back control on the leaderboard. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M15.41,16.59L10.83,12 15.41,7.41 14,6l-6,6 6,6 1.41,-1.41z"/>
+</vector>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The dashed rule flanking the "prize zone ends at #N" label.
+
+    Dashes are drawn by the stroke, which hardware acceleration ignores on a
+    line shape - the views using this set layerType="software" for that
+    reason. Do not drop that attribute or the rule renders solid.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="line">
+    <stroke
+        android:width="1dp"
+        android:color="@color/gold_dash"
+        android:dashWidth="6dp"
+        android:dashGap="6dp" />
+</shape>

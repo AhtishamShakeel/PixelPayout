@@ -27,6 +27,17 @@ class UserPreferences(private val context: Context) {
          * older one arrives after a newer one has been acknowledged.
          */
         private val LAST_SEEN_REDEMPTION = longPreferencesKey("lastSeenRedemptionResolvedAt")
+
+        /**
+         * The streak reward table, as "points:xp" pairs.
+         *
+         * Cached because it comes from a callable, and callables have no
+         * offline cache the way Firestore does - so every return to Home
+         * refetched it over the network and drew a card full of blank cells
+         * until it landed. The table only changes when the server is
+         * redeployed, so showing yesterday's copy for a second is harmless.
+         */
+        private val STREAK_CYCLE = stringPreferencesKey("streakCycle")
     }
 
     val hasSeenReferralPopup: Flow<Boolean> = context.dataStore.data
@@ -43,6 +54,15 @@ class UserPreferences(private val context: Context) {
     suspend fun setLastSeenRedemptionResolvedAt(value: Long) {
         context.dataStore.edit { preferences ->
             preferences[LAST_SEEN_REDEMPTION] = value
+        }
+    }
+
+    val streakCycle: Flow<String?> = context.dataStore.data
+        .map { preferences -> preferences[STREAK_CYCLE] }
+
+    suspend fun setStreakCycle(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[STREAK_CYCLE] = value
         }
     }
 

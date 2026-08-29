@@ -33,6 +33,11 @@
         android:label="Rewards" />
 
     <fragment
+        android:id="@+id/leaderboardFragment"
+        android:name="com.example.pixelpayout.ui.leaderboard.LeaderboardFragment"
+        android:label="Leaderboard" />
+
+    <fragment
         android:id="@+id/navigation_profile"
         android:name="com.example.pixelpayout.ui.profile.ProfileFragment"
         android:label="Profile" />

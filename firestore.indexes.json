@@ -15,6 +15,14 @@
         {"fieldPath": "uid", "order": "ASCENDING"},
         {"fieldPath": "createdAt", "order": "DESCENDING"}
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "weekKey", "order": "ASCENDING"},
+        {"fieldPath": "weeklyXp", "order": "DESCENDING"}
+      ]
     }
   ],
   "fieldOverrides": []

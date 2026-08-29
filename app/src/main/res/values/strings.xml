@@ -222,6 +222,7 @@
 
     <!-- Public payout feed -->
     <string name="recent_payouts">Recent payouts</string>
+    <string name="recent_payouts_subtitle">Payouts we have approved lately.</string>
     <string name="payout_feed_row">%1$s got %2$s</string>
     <string name="time_just_now">just now</string>
     <string name="time_minutes_ago">%1$dm ago</string>
@@ -235,4 +236,93 @@
     <string name="redemption_declined_refund">+%1$d ★ returned</string>
     <string name="redemption_declined_message">Your stars have been returned to your balance.</string>
     <string name="redemption_declined_message_reason">%1$s Your stars have been returned to your balance.</string>
+    <!-- Daily goals.
+         The kind decides the wording, so the server can stay the authority on
+         what is being asked without also owning how it reads. -->
+    <string name="goals_title">Today\'s goal</string>
+    <string name="goals_done_count">%1$d/%2$d done</string>
+    <string name="goals_subtitle">Complete your daily set</string>
+    <string name="goals_bonus">+%1$d ★</string>
+    <string name="goals_claim">Claim</string>
+    <string name="goals_claimed">Claimed</string>
+    <string name="goals_progress">%1$d/%2$d</string>
+    <plurals name="goal_play_games">
+        <item quantity="one">Play a game</item>
+        <item quantity="other">Play %1$d games</item>
+    </plurals>
+    <plurals name="goal_complete_quizzes">
+        <item quantity="one">Complete a quiz</item>
+        <item quantity="other">Complete %1$d quizzes</item>
+    </plurals>
+    <plurals name="goal_correct_answers">
+        <item quantity="one">Answer 1 correctly</item>
+        <item quantity="other">Answer %1$d correctly</item>
+    </plurals>
+    <string name="goals_claimed_toast">Daily set complete: +%1$d ★</string>
+    <string name="goals_not_complete">Finish all three first</string>
+    <string name="goals_dialog_title">Daily set complete</string>
+    <string name="goals_no_reward">Ad not completed - bonus still waiting</string>
+    <!-- Weekly leaderboard -->
+    <string name="leaderboard_title">Weekly leaderboard</string>
+    <string name="leaderboard_subtitle">Top %1$d share %2$s ★</string>
+    <string name="leaderboard_sheet_subtitle">Top %1$d share %2$s ★. Resets Monday.</string>
+    <string name="leaderboard_rank">#%1$s</string>
+    <string name="leaderboard_unranked">Unranked</string>
+    <string name="leaderboard_play_to_enter">Play to enter</string>
+    <string name="leaderboard_you">You</string>
+    <string name="leaderboard_xp">%1$s XP</string>
+    <string name="leaderboard_prize">%1$d ★</string>
+    <string name="leaderboard_empty">Nobody has played yet this week. Be first.</string>
+    <!-- Leaderboard screen -->
+    <string name="leaderboard_pool">%1$s ★ prize pool</string>
+    <string name="leaderboard_resets_in">Resets in %1$s</string>
+    <string name="leaderboard_resets_now">Resetting…</string>
+    <string name="leaderboard_your_standing">Your standing</string>
+    <string name="leaderboard_your_prize">Winning %1$d ★</string>
+    <string name="leaderboard_no_prize">Reach the top %1$d to win</string>
+    <string name="leaderboard_rules_title">How it works</string>
+    <string name="leaderboard_rules_body">XP from quizzes and games counts toward your weekly score. Streak and referral XP still level you up, but do not place you here.
+
+The board resets every Monday. Prizes are paid in stars.</string>
+    <string name="leaderboard_prizes_title">Prizes</string>
+    <string name="leaderboard_band_single">#%1$d</string>
+    <string name="leaderboard_band_range">#%1$d – #%2$d</string>
+    <string name="leaderboard_standings_title">Standings</string>
+    <string name="leaderboard_load_failed">Could not load the board. Pull to try again.</string>
+    <!-- The reset countdown. Minutes are zero-padded so the string does not
+         change width as it counts down, which would jitter the card. -->
+    <string name="leaderboard_days_hours">%1$dd %2$dh %3$02dm</string>
+    <string name="leaderboard_hours_minutes">%1$dh %2$02dm</string>
+    <string name="leaderboard_minutes">%1$dm</string>
+
+    <!-- Redesigned leaderboard screen -->
+    <string name="leaderboard_pool_label">Prize pool</string>
+    <string name="leaderboard_pool_value">%1$s</string>
+    <string name="leaderboard_pool_split">Split by the top %1$d players</string>
+    <string name="leaderboard_resets_label">Resets in</string>
+    <string name="leaderboard_resets_at">%1$s</string>
+    <string name="leaderboard_star">★</string>
+    <string name="leaderboard_back">Back</string>
+    <string name="leaderboard_prize_star">%1$s ★</string>
+    <string name="leaderboard_no_prize_dash">—</string>
+    <string name="leaderboard_meta_standings">top %1$d</string>
+    <!-- Column headings over the standings table. -->
+    <string name="leaderboard_col_rank">Rank</string>
+    <string name="leaderboard_col_user">User</string>
+    <string name="leaderboard_col_xp">XP</string>
+    <string name="leaderboard_col_prize">Prize</string>
+    <string name="leaderboard_meta_prizes">%1$s ★ a week</string>
+    <string name="leaderboard_prize_zone_ends">Prize zone ends at #%1$d</string>
+    <string name="leaderboard_band_one_winner">1 winner</string>
+    <string name="leaderboard_band_each">%1$d each</string>
+    <string name="leaderboard_you_label">You</string>
+    <string name="leaderboard_unranked_label">Unranked</string>
+    <string name="leaderboard_xp_this_week">%1$s XP this week</string>
+    <string name="leaderboard_gap_behind">%1$s XP behind #%2$s</string>
+    <string name="leaderboard_climb">Climb</string>
+    <string name="leaderboard_play">Play</string>
+    <string name="leaderboard_to_prize_zone">%1$s XP to the prize zone</string>
+    <string name="leaderboard_to_next_band">%1$s XP to the next prize band</string>
+    <string name="leaderboard_top_of_board">Top of the board</string>
+    <string name="leaderboard_zone_target">top %1$d</string>
 </resources>

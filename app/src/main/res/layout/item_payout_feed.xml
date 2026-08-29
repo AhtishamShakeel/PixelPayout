@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One row of the payout feed sheet. Inflated into sheet_payout_feed's
+    container; see that file for why there is no adapter.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingTop="13dp"
+    android:paddingBottom="13dp">
+
+    <View
+        android:layout_width="6dp"
+        android:layout_height="6dp"
+        android:background="@drawable/bg_dot_success" />
+
+    <TextView
+        android:id="@+id/payoutItemText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_medium"
+        android:maxLines="1"
+        android:textColor="@color/text_dim"
+        android:textSize="13sp"
+        tools:text="Joh********23 got 100 UC" />
+
+    <TextView
+        android:id="@+id/payoutItemTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:fontFamily="@font/mono_medium"
+        android:textColor="@color/text_ghost"
+        android:textSize="11sp"
+        tools:text="10m ago" />
+
+</LinearLayout>

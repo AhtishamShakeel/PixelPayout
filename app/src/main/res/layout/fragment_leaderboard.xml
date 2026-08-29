@@ -1,0 +1,795 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The weekly leaderboard, rebuilt on the handoff design.
+
+    Shape of the screen, top to bottom: what is at stake and when it resets,
+    the podium, then ONE list that switches between the standings and the
+    prize bands - and, pinned above the tab bar, the caller's own place, which
+    is the thing they came to read and so is the thing that never scrolls
+    away.
+
+    Two departures from the handoff, both because of what the server actually
+    sends:
+
+      * The "Around you" segment is not here. getLeaderboard returns the top
+        LEADERBOARD_SIZE places and the caller's own rank - there is no window
+        query around an arbitrary rank, so a third segment could only be
+        filled with invented neighbours. The handoff sanctions dropping it.
+      * The list meta reads "top 30", not "24,247 players". Nothing counts
+        players week to week, and a number nobody computed is a number that
+        will one day be wrong on screen.
+
+    Every figure here is bound from Leaderboard; nothing on this screen is a
+    constant dressed up as data.
+-->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark">
+
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/leaderboardScroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:clipToPadding="false"
+        app:layout_constraintBottom_toTopOf="@id/leaderboardFooter"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="12dp">
+
+            <!-- ================= Screen title ================= -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="18dp"
+                android:paddingTop="12dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="4dp">
+
+                <ImageView
+                    android:id="@+id/leaderboardBack"
+                    android:layout_width="34dp"
+                    android:layout_height="34dp"
+                    android:background="@drawable/bg_back_button"
+                    android:contentDescription="@string/leaderboard_back"
+                    android:padding="5dp"
+                    android:src="@drawable/ic_chevron_left"
+                    app:tint="@color/text_dim" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:letterSpacing="-0.013"
+                    android:text="@string/leaderboard_title"
+                    android:textColor="@color/white"
+                    android:textSize="16sp" />
+
+            </LinearLayout>
+
+            <!-- ================= Prize pool + reset ================= -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="14dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_offer_card"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="18dp"
+                android:paddingTop="16dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="16dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="0.13"
+                        android:text="@string/leaderboard_pool_label"
+                        android:textAllCaps="true"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="10sp" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:gravity="bottom"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/leaderboardPool"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_extrabold"
+                            android:includeFontPadding="false"
+                            android:letterSpacing="-0.043"
+                            android:textColor="@color/gold"
+                            android:textSize="28sp"
+                            tools:text="2,450" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="7dp"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:includeFontPadding="false"
+                            android:text="@string/leaderboard_star"
+                            android:textColor="@color/gold_label"
+                            android:textSize="13sp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/leaderboardPoolSplit"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="5dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:textColor="@color/text_faint"
+                        android:textSize="11.5sp"
+                        tools:text="Split by the top 30 players" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:gravity="end"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="0.12"
+                        android:text="@string/leaderboard_resets_label"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/leaderboardResets"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/mono_bold"
+                        android:textColor="@color/white"
+                        android:textSize="17sp"
+                        tools:text="2d 14h 18m" />
+
+                    <TextView
+                        android:id="@+id/leaderboardResetsAt"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:textColor="@color/text_wisp"
+                        android:textSize="11sp"
+                        tools:text="Monday 05:00" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ================= Podium =================
+                 Three fixed columns rather than an inflated row: each place
+                 has its own avatar size and its own lift off the baseline,
+                 which is the whole point of a podium. -->
+            <LinearLayout
+                android:id="@+id/leaderboardPodium"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="26dp"
+                android:baselineAligned="false"
+                android:gravity="bottom|center_horizontal"
+                android:orientation="horizontal"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp">
+
+                <!-- 2nd place -->
+                <LinearLayout
+                    android:id="@+id/podium2"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="10dp"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingBottom="16dp">
+
+                    <TextView
+                        android:id="@+id/podium2Avatar"
+                        android:layout_width="60dp"
+                        android:layout_height="60dp"
+                        android:background="@drawable/bg_podium_ring_silver"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/silver"
+                        android:textSize="15sp"
+                        tools:text="S" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="-9dp"
+                        android:background="@drawable/bg_podium_badge_silver"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
+                        android:text="2"
+                        android:textColor="@color/on_podium_badge"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/podium2Name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        tools:text="sab****91" />
+
+                    <TextView
+                        android:id="@+id/podium2Xp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10.5sp"
+                        tools:text="1,910 XP" />
+
+                    <TextView
+                        android:id="@+id/podium2Prize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:background="@drawable/bg_pill_gold"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp"
+                        android:textColor="@color/gold"
+                        android:textSize="11sp"
+                        tools:text="200 ★" />
+
+                </LinearLayout>
+
+                <!-- 1st place -->
+                <LinearLayout
+                    android:id="@+id/podium1"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingBottom="40dp">
+
+                    <TextView
+                        android:id="@+id/podium1Avatar"
+                        android:layout_width="74dp"
+                        android:layout_height="74dp"
+                        android:background="@drawable/bg_podium_ring_gold"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/gold"
+                        android:textSize="15sp"
+                        tools:text="M" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="-9dp"
+                        android:background="@drawable/bg_podium_badge_gold"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
+                        android:text="1"
+                        android:textColor="@color/on_podium_badge"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/podium1Name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        tools:text="Mir****K" />
+
+                    <TextView
+                        android:id="@+id/podium1Xp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10.5sp"
+                        tools:text="2,480 XP" />
+
+                    <TextView
+                        android:id="@+id/podium1Prize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:background="@drawable/bg_pill_gold"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp"
+                        android:textColor="@color/gold"
+                        android:textSize="11sp"
+                        tools:text="350 ★" />
+
+                </LinearLayout>
+
+                <!-- 3rd place -->
+                <LinearLayout
+                    android:id="@+id/podium3"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/podium3Avatar"
+                        android:layout_width="56dp"
+                        android:layout_height="56dp"
+                        android:background="@drawable/bg_podium_ring_bronze"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:textColor="@color/bronze"
+                        android:textSize="15sp"
+                        tools:text="D" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="-9dp"
+                        android:background="@drawable/bg_podium_badge_bronze"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="8dp"
+                        android:paddingTop="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="2dp"
+                        android:text="3"
+                        android:textColor="@color/on_podium_badge"
+                        android:textSize="10sp" />
+
+                    <TextView
+                        android:id="@+id/podium3Name"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:gravity="center"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12sp"
+                        tools:text="dun****3" />
+
+                    <TextView
+                        android:id="@+id/podium3Xp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10.5sp"
+                        tools:text="1,520 XP" />
+
+                    <TextView
+                        android:id="@+id/podium3Prize"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:background="@drawable/bg_pill_gold"
+                        android:fontFamily="@font/mono_bold"
+                        android:paddingStart="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingEnd="10dp"
+                        android:paddingBottom="4dp"
+                        android:textColor="@color/gold"
+                        android:textSize="11sp"
+                        tools:text="200 ★" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- ================= Segments ================= -->
+            <LinearLayout
+                android:id="@+id/leaderboardSegments"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="24dp"
+                android:layout_marginEnd="16dp"
+                android:background="@drawable/bg_segment_bar"
+                android:orientation="horizontal"
+                android:padding="4dp">
+
+                <TextView
+                    android:id="@+id/segmentStandings"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_segment_selected"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:paddingTop="9dp"
+                    android:paddingBottom="9dp"
+                    android:text="@string/leaderboard_standings_title"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/segmentPrizes"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="6dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:paddingTop="9dp"
+                    android:paddingBottom="9dp"
+                    android:text="@string/leaderboard_prizes_title"
+                    android:textColor="@color/text_half"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+            <!-- ================= List header ================= -->
+            <LinearLayout
+                android:id="@+id/leaderboardListHeader"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="20dp"
+                android:layout_marginTop="20dp"
+                android:layout_marginEnd="20dp"
+                android:layout_marginBottom="10dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/leaderboardListTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:textColor="@color/primary_text"
+                    android:textSize="14sp"
+                    tools:text="Standings" />
+
+                <TextView
+                    android:id="@+id/leaderboardListMeta"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:fontFamily="@font/mono_medium"
+                    android:textColor="@color/text_wisp"
+                    android:textSize="11sp"
+                    tools:text="top 30" />
+
+            </LinearLayout>
+
+            <!-- ================= Column header =================
+                 Over the standings only; the prize bands are a different
+                 table with different columns. The widths and margins here
+                 match item_leaderboard exactly - 16dp of list margin plus
+                 12dp of row padding puts the first column at 28dp - so the
+                 labels sit over their columns rather than near them. -->
+            <LinearLayout
+                android:id="@+id/leaderboardColumns"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="28dp"
+                android:layout_marginEnd="28dp"
+                android:layout_marginBottom="8dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:letterSpacing="0.1"
+                    android:text="@string/leaderboard_col_rank"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_wisp"
+                    android:textSize="9.5sp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:letterSpacing="0.1"
+                    android:text="@string/leaderboard_col_user"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_wisp"
+                    android:textSize="9.5sp" />
+
+                <TextView
+                    android:layout_width="56dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:gravity="end"
+                    android:letterSpacing="0.1"
+                    android:text="@string/leaderboard_col_xp"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_wisp"
+                    android:textSize="9.5sp" />
+
+                <TextView
+                    android:layout_width="56dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:gravity="end"
+                    android:letterSpacing="0.1"
+                    android:text="@string/leaderboard_col_prize"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_wisp"
+                    android:textSize="9.5sp" />
+
+            </LinearLayout>
+
+            <!-- The one list. Rows, bands and the prize-zone rule are all
+                 inflated into this container - there is no adapter because
+                 the board is thirty places at most and arrives in one shot,
+                 so a RecyclerView would only add lifecycle. -->
+            <LinearLayout
+                android:id="@+id/leaderboardBody"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginEnd="16dp"
+                android:orientation="vertical" />
+
+            <!-- Shown under the bands: the old standalone "How it works"
+                 section, which is really a footnote to the prize table. -->
+            <TextView
+                android:id="@+id/leaderboardRules"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="18dp"
+                android:layout_marginTop="14dp"
+                android:layout_marginEnd="18dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:lineSpacingMultiplier="1.6"
+                android:text="@string/leaderboard_rules_body"
+                android:textColor="@color/text_ghost"
+                android:textSize="11.5sp"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+            <TextView
+                android:id="@+id/leaderboardEmpty"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="24dp"
+                android:layout_marginTop="18dp"
+                android:layout_marginEnd="24dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center"
+                android:text="@string/leaderboard_empty"
+                android:textColor="@color/text_faint"
+                android:textSize="13sp"
+                android:visibility="gone"
+                tools:visibility="visible" />
+
+        </LinearLayout>
+
+    </androidx.core.widget.NestedScrollView>
+
+    <!-- ================= Pinned: your own place =================
+         Outside the scroll on purpose. It is what the screen is for, and a
+         reader who has scrolled to rank 30 has not stopped caring where they
+         themselves stand. -->
+    <LinearLayout
+        android:id="@+id/leaderboardFooter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/background_dark"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/stroke_subtle" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_rank_card"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="52dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/leaderboardMyRank"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/mono_bold"
+                        android:includeFontPadding="false"
+                        android:letterSpacing="-0.03"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="15sp"
+                        tools:text="#24" />
+
+                    <TextView
+                        android:id="@+id/leaderboardMyRankLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="0.08"
+                        android:text="@string/leaderboard_you_label"
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_wisp"
+                        android:textSize="9sp" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="12dp"
+                    android:background="@color/stroke_strong" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/leaderboardMyXp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        tools:text="340 XP this week" />
+
+                    <TextView
+                        android:id="@+id/leaderboardMyGap"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:maxLines="1"
+                        android:textColor="@color/text_faint"
+                        android:textSize="11sp"
+                        tools:text="44 XP behind #23" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/leaderboardClimb"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:background="@drawable/bg_climb_button"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:paddingStart="16dp"
+                    android:paddingTop="11dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="11dp"
+                    android:text="@string/leaderboard_climb"
+                    android:textColor="@color/white"
+                    android:textSize="12.5sp" />
+
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/leaderboardClimbBar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:layout_marginTop="13dp"
+                android:max="100"
+                android:progressDrawable="@drawable/progress_violet"
+                tools:progress="18" />
+
+            <LinearLayout
+                android:id="@+id/leaderboardClimbCaption"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/leaderboardToPrize"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/mono_medium"
+                    android:maxLines="1"
+                    android:textColor="@color/text_ghost"
+                    android:textSize="10.5sp"
+                    tools:text="1,140 XP to the prize zone" />
+
+                <TextView
+                    android:id="@+id/leaderboardZoneTarget"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:fontFamily="@font/mono_medium"
+                    android:textColor="@color/text_ghost"
+                    android:textSize="10.5sp"
+                    tools:text="top 30" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,6 +1,7 @@
 package com.example.pixelpayout.ui.home
 
 import android.app.Dialog
+import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -26,12 +27,14 @@ import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.example.pixelpayout.utils.UserPreferences
 import com.example.pixelpayout.utils.ServerClock
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -60,6 +63,7 @@ class HomeFragment : Fragment() {
 
     /** Guards against a second dialog stacking on the one already showing. */
     private var announcingRedemption = false
+    private var goalClaimInFlight = false
 
     /** What the next claim would pay, and which day, for the dialog. */
     private var pendingRewardLabel: String? = null
@@ -103,7 +107,9 @@ class HomeFragment : Fragment() {
         setupDebugControls()
         // Warmed here so the claim button does not sit through a cold load.
         AdManager.getInstance().loadRewardedAd(requireContext())
-        loadStreakConfig()
+        mainViewModel.loadStreakCycle()
+        mainViewModel.refreshDailyGoals()
+        mainViewModel.refreshLeaderboard()
         observeViewModel()
 
     }
@@ -112,6 +118,11 @@ class HomeFragment : Fragment() {
         super.onResume()
         // Start the timer to update the quiz status if needed
         timerHandler.post(timerRunnable)
+        // Goal progress and the standings both live in server state rather than
+        // a snapshot, so coming back from a game or a quiz is the moment to
+        // re-read them.
+        mainViewModel.refreshDailyGoals()
+        mainViewModel.refreshLeaderboard()
     }
     
     override fun onPause() {
@@ -196,9 +207,20 @@ class HomeFragment : Fragment() {
 
         mainViewModel.streak.observe(viewLifecycleOwner) { renderStreak(it) }
 
+        // Served from the view model's cache, so returning to this tab does
+        // not blank the streak cells while a callable is re-fetched.
+        mainViewModel.streakCycle.observe(viewLifecycleOwner) { cycle ->
+            cycleRewards = cycle
+            mainViewModel.streak.value?.let { renderStreak(it) }
+        }
+
         mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { renderPending(it) }
 
         mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
+
+        mainViewModel.dailyGoals.observe(viewLifecycleOwner) { renderGoals(it) }
+
+        mainViewModel.leaderboard.observe(viewLifecycleOwner) { renderLeaderboard(it) }
 
         mainViewModel.resolvedRedemptions.observe(viewLifecycleOwner) {
             announceResolvedRedemptions(it)
@@ -338,6 +360,7 @@ class HomeFragment : Fragment() {
             referAction.setOnClickListener { showReferralDialog() }
 
             streakClaimButton.setOnClickListener { confirmStreakClaim() }
+            goalsClaimButton.setOnClickListener { confirmGoalClaim() }
 
             btnPayout.setOnClickListener { navigateToRedemption()}
         }
@@ -521,32 +544,50 @@ class HomeFragment : Fragment() {
      */
     private fun confirmStreakClaim() {
         if (streakClaimInFlight) return
+        showAdClaimDialog(
+            title = getString(R.string.streak_dialog_title, pendingClaimDay),
+            reward = pendingRewardLabel,
+            dotRes = R.drawable.bg_dot_streak,
+            onWatch = { playAdThenClaim() }
+        )
+    }
 
-        val view = layoutInflater.inflate(R.layout.dialog_streak_claim, null)
+    /**
+     * The confirmation shown before any rewarded ad.
+     *
+     * Shared by the streak and the daily goals rather than duplicated: two
+     * dialogs asking the same question in the same words would drift apart the
+     * first time one of them was touched.
+     */
+    private fun showAdClaimDialog(
+        title: String,
+        reward: String?,
+        dotRes: Int,
+        onWatch: () -> Unit
+    ) {
+        val view = layoutInflater.inflate(R.layout.dialog_ad_claim, null)
         val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
             setContentView(view)
         }
 
-        view.findViewById<TextView>(R.id.streakDialogTitle).text =
-            getString(R.string.streak_dialog_title, pendingClaimDay)
+        view.findViewById<TextView>(R.id.adClaimTitle).text = title
+        view.findViewById<View>(R.id.adClaimDot).setBackgroundResource(dotRes)
 
-        val reward = pendingRewardLabel
-        val rewardView = view.findViewById<TextView>(R.id.streakDialogReward)
+        val rewardView = view.findViewById<TextView>(R.id.adClaimReward)
         if (reward != null) {
             rewardView.text = getString(R.string.streak_dialog_reward, reward)
         } else {
-            // The table has not arrived; better to say nothing than a figure
-            // the claim might not pay.
+            // Better to say nothing than a figure the claim might not pay.
             rewardView.visibility = View.GONE
         }
-        view.findViewById<TextView>(R.id.streakDialogMessage)
+        view.findViewById<TextView>(R.id.adClaimMessage)
             .setText(R.string.streak_dialog_message_short)
 
-        view.findViewById<View>(R.id.streakDialogWatch).setOnClickListener {
+        view.findViewById<View>(R.id.adClaimWatch).setOnClickListener {
             dialog.dismiss()
-            playAdThenClaim()
+            onWatch()
         }
-        view.findViewById<View>(R.id.streakDialogCancel).setOnClickListener {
+        view.findViewById<View>(R.id.adClaimCancel).setOnClickListener {
             dialog.dismiss()
         }
 
@@ -643,19 +684,6 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * The reward table, fetched once per screen. Without it the strip has no
-     * figures to show, so the cells render empty rather than guessing.
-     */
-    private fun loadStreakConfig() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val cycle = mainViewModel.getStreakConfig()
-            if (cycle.isEmpty()) return@launch
-            cycleRewards = cycle
-            mainViewModel.streak.value?.let { renderStreak(it) }
-        }
-    }
-
-    /**
      * Tells the user, once, that a payout was settled.
      *
      * Approval happens on our side, usually while the app is closed, so
@@ -742,6 +770,243 @@ class HomeFragment : Fragment() {
     }
 
     /**
+     * The weekly leaderboard row.
+     *
+     * Rank zero means no play this week rather than last place, so it reads as
+     * an invitation instead of a position - telling someone they are "#0" or
+     * dead last for not having started is worse than saying nothing.
+     */
+    private fun renderLeaderboard(board: UserRepository.Leaderboard?) {
+        val binding = _binding ?: return
+
+        if (board == null) {
+            binding.leaderboardRow.visibility = View.GONE
+            return
+        }
+        binding.leaderboardRow.visibility = View.VISIBLE
+
+        binding.leaderboardSubtitle.text = getString(
+            R.string.leaderboard_subtitle,
+            board.size,
+            formatCount(board.prizePool)
+        )
+
+        binding.leaderboardRank.text = if (board.isRanked) {
+            getString(R.string.leaderboard_rank, formatCount(board.myRank))
+        } else {
+            getString(R.string.leaderboard_play_to_enter)
+        }
+
+        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
+    }
+
+    /** Thousands separators - a rank of 24247 is unreadable without them. */
+    private fun formatCount(value: Int): String =
+        NumberFormat.getIntegerInstance(Locale.US).format(value)
+
+    /**
+     * Opens the leaderboard screen.
+     *
+     * Guarded on the current destination rather than a boolean: navigating is
+     * asynchronous, so a fast thumb could fire this several times before the
+     * first one arrived, and every tap would push another copy of the screen
+     * onto the stack. Asking where we are is the check that cannot race.
+     */
+    private fun openLeaderboard() {
+        val controller = findNavController()
+        if (controller.currentDestination?.id != R.id.navigation_home) return
+
+        controller.navigate(R.id.leaderboardFragment, null, defaultNavOptions())
+    }
+
+    /**
+     * Today's goals.
+     *
+     * Every figure here comes from the server, including whether a goal is
+     * done. The card cannot decide that for itself - a goal the client can
+     * mark complete is a button that prints Points - so this only draws what
+     * it was told.
+     */
+    private fun renderGoals(goals: UserRepository.DailyGoals?) {
+        val binding = _binding ?: return
+
+        if (goals == null || goals.goals.isEmpty()) {
+            binding.goalsCard.visibility = View.GONE
+            binding.goalsDoneCount.text = ""
+            return
+        }
+        binding.goalsCard.visibility = View.VISIBLE
+
+        binding.goalsDoneCount.text =
+            getString(R.string.goals_done_count, goals.doneCount, goals.goals.size)
+        binding.goalsBonus.text = getString(R.string.goals_bonus, goals.bonusPoints)
+        binding.goalsProgressBar.progress =
+            goals.doneCount * 100 / goals.goals.size
+
+        // Green once the set is finished, so the reward reads as earned rather
+        // than as another grey number on the card.
+        binding.goalsBonus.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (goals.allDone) R.color.success else R.color.text_ghost
+            )
+        )
+
+        binding.goalsClaimButton.visibility =
+            if (goals.allDone && !goals.bonusClaimed) View.VISIBLE else View.GONE
+        binding.goalsClaimButton.isEnabled = !goalClaimInFlight
+
+        val rows = listOf(
+            Triple(binding.goalRow1, binding.goalMark1, binding.goalLabel1),
+            Triple(binding.goalRow2, binding.goalMark2, binding.goalLabel2),
+            Triple(binding.goalRow3, binding.goalMark3, binding.goalLabel3)
+        )
+        val progressViews = listOf(
+            binding.goalProgress1, binding.goalProgress2, binding.goalProgress3
+        )
+        val rings = listOf(binding.goalRing1, binding.goalRing2, binding.goalRing3)
+
+        rows.forEachIndexed { index, (row, mark, label) ->
+            val goal = goals.goals.getOrNull(index)
+            if (goal == null) {
+                row.visibility = View.GONE
+                return@forEachIndexed
+            }
+            row.visibility = View.VISIBLE
+
+            mark.text = if (goal.done) "✓" else (index + 1).toString()
+            mark.setBackgroundResource(
+                if (goal.done) R.drawable.bg_goal_mark_done
+                else android.R.color.transparent
+            )
+            mark.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (goal.done) R.color.surface_card else R.color.text_faint
+                )
+            )
+
+            // The ring carries partial progress; a finished goal is the filled
+            // disc instead, so the two never fight over the same 24dp.
+            val ring = rings[index]
+            ring.setIndicatorColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (goal.done) R.color.success else R.color.brand_violet_light
+                )
+            )
+            ring.setProgressCompat(
+                if (goal.target <= 0) 0
+                else (goal.progress * 100 / goal.target).coerceIn(0, 100),
+                true
+            )
+
+            label.text = goalLabel(goal)
+            label.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (goal.done) R.color.text_faint else R.color.white
+                )
+            )
+
+            progressViews[index].text =
+                getString(R.string.goals_progress, goal.progress, goal.target)
+        }
+    }
+
+    /**
+     * The wording for a goal. The server sends a kind and a target; how that
+     * reads is a client concern, which is what keeps it translatable.
+     */
+    private fun goalLabel(goal: UserRepository.DailyGoal): String {
+        val plural = when (goal.kind) {
+            "PLAY_GAMES" -> R.plurals.goal_play_games
+            "COMPLETE_QUIZZES" -> R.plurals.goal_complete_quizzes
+            else -> R.plurals.goal_correct_answers
+        }
+        return resources.getQuantityString(plural, goal.target, goal.target)
+    }
+
+    private fun confirmGoalClaim() {
+        if (goalClaimInFlight) return
+        val goals = mainViewModel.dailyGoals.value ?: return
+        showAdClaimDialog(
+            title = getString(R.string.goals_dialog_title),
+            reward = getString(R.string.streak_reward_points, goals.bonusPoints),
+            dotRes = R.drawable.bg_dot_success,
+            onWatch = { playAdThenClaimGoals() }
+        )
+    }
+
+    /**
+     * As with the streak, a missing ad is not the user's fault - but here
+     * there is no run to protect, so nothing is claimed and nothing is spent.
+     * The set stays finished and the button stays available.
+     */
+    private fun playAdThenClaimGoals() {
+        goalClaimInFlight = true
+        binding.goalsClaimButton.isEnabled = false
+
+        var earned = false
+        AdManager.getInstance().showRewardedAd(
+            activity = requireActivity(),
+            onRewarded = { earned = true },
+            onAdClosed = { claimGoalBonus(adWatched = earned) },
+            onAdFailedToShow = {
+                if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.streak_ad_unavailable,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                goalClaimInFlight = false
+                _binding?.goalsClaimButton?.isEnabled = true
+            }
+        )
+    }
+
+    private fun claimGoalBonus(adWatched: Boolean) {
+        viewLifecycleOwner.lifecycleScope.launch {
+            when (val result = mainViewModel.claimDailyGoalBonus(adWatched)) {
+                is UserRepository.GoalBonusResult.Claimed -> {
+                    if (isAdded) {
+                        Toast.makeText(
+                            requireContext(),
+                            getString(R.string.goals_claimed_toast, result.pointsAwarded),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+
+                is UserRepository.GoalBonusResult.NotClaimed -> {
+                    // "Already claimed" needs no comment; the card will have
+                    // hidden the button by the time the user looks again.
+                    val message = when (result.reason) {
+                        "not_complete" -> R.string.goals_not_complete
+                        "no_ad" -> R.string.goals_no_reward
+                        else -> null
+                    }
+                    if (isAdded && message != null) {
+                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                is UserRepository.GoalBonusResult.Error -> {
+                    if (isAdded) {
+                        Toast.makeText(
+                            requireContext(), result.message, Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+
+            goalClaimInFlight = false
+            _binding?.goalsClaimButton?.isEnabled = true
+        }
+    }
+
+    /**
      * The pending redemption row, and its countdown toward the 48 hour
      * service target.
      *
@@ -792,31 +1057,53 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * The three most recent approved payouts. Names arrive already masked -
-     * the raw ones are never in this collection, so there is nothing here to
-     * get wrong client-side.
+     * The payout feed, as one line: the most recent approved payout, tappable
+     * for the rest.
+     *
+     * Names arrive already masked - the raw ones are never in this collection,
+     * so there is nothing here to get wrong client side.
      */
     private fun renderPayoutFeed(entries: List<UserRepository.PayoutFeedEntry>) {
         val binding = _binding ?: return
 
-        binding.payoutFeedCard.visibility =
-            if (entries.isEmpty()) View.GONE else View.VISIBLE
+        val latest = entries.firstOrNull()
+        if (latest == null) {
+            binding.payoutFeedRow.visibility = View.GONE
+            return
+        }
 
-        val rows = listOf(
-            Triple(binding.payoutRow1, binding.payoutRow1Text, binding.payoutRow1Time),
-            Triple(binding.payoutRow2, binding.payoutRow2Text, binding.payoutRow2Time),
-            Triple(binding.payoutRow3, binding.payoutRow3Text, binding.payoutRow3Time)
-        )
+        binding.payoutFeedRow.visibility = View.VISIBLE
+        binding.payoutFeedText.text =
+            getString(R.string.payout_feed_row, latest.name, latest.optionTitle)
+        binding.payoutFeedTime.text = relativeTime(latest.atMillis)
+        binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet(entries) }
+    }
 
-        rows.forEachIndexed { index, (row, text, time) ->
-            val entry = entries.getOrNull(index)
-            if (entry == null) {
-                row.visibility = View.GONE
-                return@forEachIndexed
-            }
-            row.visibility = View.VISIBLE
-            text.text = getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
-            time.text = relativeTime(entry.atMillis)
+    /**
+     * The whole feed, in a sheet. Rows are inflated rather than adapted: the
+     * server caps the list at twenty, and a RecyclerView plus its adapter
+     * would be more machinery than that justifies.
+     */
+    private fun showPayoutFeedSheet(entries: List<UserRepository.PayoutFeedEntry>) {
+        val view = layoutInflater.inflate(R.layout.sheet_payout_feed, null)
+        val rows = view.findViewById<ViewGroup>(R.id.payoutSheetRows)
+
+        entries.forEach { entry ->
+            val row = layoutInflater.inflate(R.layout.item_payout_feed, rows, false)
+            row.findViewById<TextView>(R.id.payoutItemText).text =
+                getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
+            row.findViewById<TextView>(R.id.payoutItemTime).text =
+                relativeTime(entry.atMillis)
+            rows.addView(row)
+        }
+
+        BottomSheetDialog(requireContext()).apply {
+            setContentView(view)
+            // The sheet paints its own rounded background; the default white
+            // one would show as a band behind the corners.
+            findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+                ?.setBackgroundColor(Color.TRANSPARENT)
+            show()
         }
     }
 

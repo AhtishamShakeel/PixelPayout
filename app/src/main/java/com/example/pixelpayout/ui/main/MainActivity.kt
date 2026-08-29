@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
 
     private val viewModel: MainViewModel by viewModels {
-        MainViewModelFactory(UserRepository())
+        MainViewModelFactory(UserRepository(), UserPreferences(applicationContext))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

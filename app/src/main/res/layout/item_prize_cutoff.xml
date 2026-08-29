@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The line where the prizes stop, drawn into the standings at the place it
+    actually falls. It answers "how far down does this pay?" without the
+    reader counting rows.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="4dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginBottom="10dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+
+    <!-- software layer: hardware acceleration drops the dashes on a line
+         shape and would draw a solid rule instead. -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:background="@drawable/divider_prize_zone"
+        android:layerType="software" />
+
+    <TextView
+        android:id="@+id/leaderboardCutoffLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="10dp"
+        android:fontFamily="@font/mono_bold"
+        android:letterSpacing="0.1"
+        android:textAllCaps="true"
+        android:textColor="@color/gold_label"
+        android:textSize="10sp"
+        tools:text="Prize zone ends at #30" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:background="@drawable/divider_prize_zone"
+        android:layerType="software" />
+
+</LinearLayout>

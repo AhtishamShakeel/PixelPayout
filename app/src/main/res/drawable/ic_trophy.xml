@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The leaderboard mark. Tinted at the call site, so it carries gold on the
+     home row and inherits whatever the page wants elsewhere. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@color/gold">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M18,2h2.5C21.33,2 22,2.67 22,3.5v1C22,6.99 20.09,9.03 17.65,9.26C16.96,10.87 15.6,12.11 13.92,12.63L14.5,17H16c0.55,0 1,0.45 1,1v0.5h1.5c0.55,0 1,0.45 1,1V21c0,0.55 -0.45,1 -1,1H5.5c-0.55,0 -1,-0.45 -1,-1v-1.5c0,-0.55 0.45,-1 1,-1H7V18c0,-0.55 0.45,-1 1,-1h1.5l0.58,-4.37C8.4,12.11 7.04,10.87 6.35,9.26C3.91,9.03 2,6.99 2,4.5v-1C2,2.67 2.67,2 3.5,2H6V1.5C6,0.95 6.45,0.5 7,0.5h10c0.55,0 1,0.45 1,1V2zM4,4.5C4,5.71 4.72,6.75 5.75,7.22C5.75,7.15 6,5 6,4H4V4.5zM18,4c0,1 0.25,3.15 0.25,3.22C19.28,6.75 20,5.71 20,4.5V4H18z" />
+</vector>

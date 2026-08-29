@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The selected segment. 11dp inside the bar's 14dp, so the two radii stay
+     concentric once the 4dp of padding is taken off. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/brand_violet" />
+    <corners android:radius="11dp" />
+</shape>

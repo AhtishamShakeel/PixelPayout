@@ -21,6 +21,26 @@ import {
   PAYOUT_FEED_COLLECTION,
 } from "./economy/payoutFeed";
 import {
+  nextWeeklyXp,
+  prizeForRank,
+  totalWeeklyPrizePool,
+  utcWeekFor,
+  weekEndMillis,
+  LEADERBOARD_PREVIEW_SIZE,
+  LEADERBOARD_SIZE,
+} from "./economy/leaderboard";
+import {
+  goalProgress,
+  isGoalDone,
+  resolveBonusPoints,
+  resolveGoalBonus,
+  selectDailyGoals,
+  statsForDay,
+  DAILY_GOALS_CONFIG_DOC,
+  DAILY_GOAL_COUNT,
+  DailyStats,
+} from "./economy/dailyGoals";
+import {
   resolveStreakClaim,
   resolveStreakReward,
   streakRewardForDay,
@@ -65,7 +85,24 @@ admin.initializeApp();
 
 const USERS_COLLECTION = "users";
 const REWARD_EVENTS_SUBCOLLECTION = "rewardEvents";
-const LEVEL_CURVE_COLLECTION = "config";
+/**
+ * Caps how far any one function may scale out.
+ *
+ * Every 2nd-gen function is its own Cloud Run service holding a full vCPU, and
+ * the regional quota is the sum of cpu x max-instances across all of them.
+ * With nothing set here each of the eighteen functions reserved the platform
+ * default, which took the project past that ceiling and failed every deploy
+ * with "Container Healthcheck failed. Quota exceeded for total allowable CPU"
+ * - a message that reads like a broken container and is nothing of the kind.
+ *
+ * It is worth having regardless of the quota: an unbounded fan-out is also an
+ * unbounded bill, and a runaway loop against Firestore is much cheaper to stop
+ * at ten instances than at a thousand. Anything that genuinely needs more can
+ * override it per function.
+ */
+functions.setGlobalOptions({maxInstances: 10});
+
+const CONFIG_COLLECTION = "config";
 const LEVEL_CURVE_DOC = "levelCurve";
 const FIELD_POINTS = "points";
 const FIELD_XP = "xp";
@@ -78,6 +115,15 @@ const FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc";
 // How often a claim moved the streak on without an ad. The number that decides
 // whether AdMob server-side verification is worth building.
 const FIELD_ADLESS_STREAK_CLAIMS = "adlessStreakClaims";
+// Per-day activity counters behind the daily goals. One map field rather than
+// a subcollection: claimReward already reads and writes this document, so
+// tracking costs no extra read.
+const FIELD_DAILY_STATS = "dailyStats";
+const FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc";
+// The weekly leaderboard. Reset lazily by comparing weekKey rather than by a
+// job that rewrites every user document at the boundary.
+const FIELD_WEEKLY_XP = "weeklyXp";
+const FIELD_WEEK_KEY = "weekKey";
 const FIELD_ACTIVE_BUFF = "activeBuff";
 // Held apart from the Points buff rather than as one field with a kind, so a
 // user can run both at once and neither grant can clobber the other.
@@ -126,7 +172,7 @@ async function syncAnswerKey(): Promise<QuizAnswerKey> {
  * the only writer.
  */
 async function publishLevelCurve(): Promise<void> {
-  await getFirestore().collection(LEVEL_CURVE_COLLECTION).doc(LEVEL_CURVE_DOC).set({
+  await getFirestore().collection(CONFIG_COLLECTION).doc(LEVEL_CURVE_DOC).set({
     maxLevel: MAX_LEVEL,
     thresholds: XP_THRESHOLDS,
     updatedAt: FieldValue.serverTimestamp(),
@@ -779,6 +825,7 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
   console.log("Daily streak", {userId, adWatched, ...result});
   return {
     success: true,
+    serverTime: Date.now(),
     cycleDays: STREAK_CYCLE_DAYS,
     cycle: STREAK_REWARDS,
     ...result,
@@ -798,7 +845,303 @@ export const getStreakConfig = functions.https.onCall(async (request: CallableRe
   if (!request.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
   }
-  return {cycleDays: STREAK_CYCLE_DAYS, cycle: STREAK_REWARDS};
+  return {
+    serverTime: Date.now(),
+    cycleDays: STREAK_CYCLE_DAYS,
+    cycle: STREAK_REWARDS,
+  };
+});
+
+/**
+ * The daily goal bonus, as configured.
+ *
+ * Cached in the instance for a minute. getDailyGoals runs on every return to
+ * Home, and a Firestore read per resume per user is a real bill for a number
+ * that changes about once a month. A minute of staleness after a console edit
+ * is the trade.
+ */
+let goalConfigCache: {points: number; readAt: number} | null = null;
+const GOAL_CONFIG_TTL_MS = 60_000;
+
+async function configuredGoalBonus(): Promise<number> {
+  const now = Date.now();
+  if (goalConfigCache && now - goalConfigCache.readAt < GOAL_CONFIG_TTL_MS) {
+    return goalConfigCache.points;
+  }
+
+  let points: number;
+  try {
+    const snapshot = await getFirestore()
+      .collection(CONFIG_COLLECTION)
+      .doc(DAILY_GOALS_CONFIG_DOC)
+      .get();
+    points = resolveBonusPoints(snapshot.get("bonusPoints"));
+  } catch (error) {
+    // A config read that fails must not stop the goals paying out.
+    console.error("Daily goal config unreadable", error);
+    points = resolveBonusPoints(undefined);
+  }
+
+  goalConfigCache = {points, readAt: now};
+  return points;
+}
+
+/**
+ * Today's three goals, with progress.
+ *
+ * The selection is derived from the uid and the day rather than stored, so it
+ * is the same on every read without a write, stable for the whole day, and
+ * different from the next user's. Progress is computed from the same counters
+ * the client already receives on its user document, so the card stays live
+ * without calling back here.
+ */
+export const getDailyGoals = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const userDoc = await getFirestore()
+    .collection(USERS_COLLECTION)
+    .doc(userId)
+    .get();
+
+  const todayUtc = utcDayFor(Date.now());
+  const goals = selectDailyGoals(userId, todayUtc);
+  const stats = statsForDay(
+    userDoc.get(FIELD_DAILY_STATS) as Partial<DailyStats> | undefined,
+    todayUtc
+  );
+
+  const bonusPoints = await configuredGoalBonus();
+
+  // serverTime rides along on every response so ServerClock can sync from
+  // whichever call happens to land first, rather than depending on the quiz
+  // reset having been fetched. Nothing here trusts a client clock - this is
+  // only so the UI counts down against the same time the server enforces.
+  return {
+    serverTime: Date.now(),
+    dayUtc: todayUtc,
+    bonusPoints,
+    goalCount: DAILY_GOAL_COUNT,
+    bonusClaimed: userDoc.get(FIELD_LAST_GOAL_BONUS_DAY) === todayUtc,
+    goals: goals.map((goal) => ({
+      id: goal.id,
+      kind: goal.kind,
+      target: goal.target,
+      progress: goalProgress(goal, stats),
+      done: isGoalDone(goal, stats),
+    })),
+  };
+});
+
+/**
+ * Pays the bonus for finishing all three of today's goals.
+ *
+ * Every condition is re-derived here from the counters and the day. The client
+ * is told what it may do, never trusted about what it has done.
+ */
+export const claimDailyGoalBonus = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const adWatched = request.data?.adWatched === true;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  // Read outside the transaction: it is not part of what has to stay
+  // consistent with the user document, and pulling it in would widen the read
+  // set for no reason.
+  const bonusPoints = await configuredGoalBonus();
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    const todayUtc = utcDayFor(Date.now());
+    const goals = selectDailyGoals(userId, todayUtc);
+    const stats = statsForDay(
+      userDoc.get(FIELD_DAILY_STATS) as Partial<DailyStats> | undefined,
+      todayUtc
+    );
+
+    const decision = resolveGoalBonus(
+      (userDoc.get(FIELD_LAST_GOAL_BONUS_DAY) as number | undefined) ?? null,
+      todayUtc,
+      goals,
+      stats,
+      adWatched
+    );
+
+    if (!decision.pay) {
+      return {claimed: false as const, reason: decision.reason, pointsAwarded: 0};
+    }
+
+    const award = buildAward(
+      Number(userDoc.get(FIELD_POINTS) || 0),
+      Number(userDoc.get(FIELD_XP) || 0),
+      {
+        source: "MISSION",
+        basePoints: bonusPoints,
+        baseXp: 0,
+        metadata: {goals: goals.map((goal) => goal.id), dayUtc: todayUtc},
+        storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
+      }
+    );
+
+    // Keyed by the day, so a retry writes the same document rather than
+    // paying twice.
+    writeAward(
+      transaction,
+      userRef,
+      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`goals:${todayUtc}`),
+      award,
+      {[FIELD_LAST_GOAL_BONUS_DAY]: todayUtc}
+    );
+
+    return {
+      claimed: true as const,
+      pointsAwarded: award.pointsAwarded,
+    };
+  });
+
+  console.log("Daily goal bonus", {userId, adWatched, ...result});
+  return {success: true, serverTime: Date.now(), ...result};
+});
+
+/**
+ * The top of the board, cached in the instance.
+ *
+ * This is the expensive read in the whole app - a hundred documents - and it
+ * was being run on every return to Home by every user. The standings barely
+ * move minute to minute, so it is fetched once a minute per instance and
+ * shared by everyone who asks in between. Without this the leaderboard alone
+ * exhausts the daily free read quota at roughly fifty daily users.
+ */
+interface CachedBoard {
+  weekKey: number;
+  readAt: number;
+  entries: Array<{uid: string; name: string; xp: number}>;
+}
+
+let boardCache: CachedBoard | null = null;
+const BOARD_CACHE_TTL_MS = 60_000;
+
+async function cachedTopBoard(weekKey: number): Promise<CachedBoard["entries"]> {
+  const now = Date.now();
+  if (
+    boardCache &&
+    boardCache.weekKey === weekKey &&
+    now - boardCache.readAt < BOARD_CACHE_TTL_MS
+  ) {
+    return boardCache.entries;
+  }
+
+  // Needs the (weekKey ASC, weeklyXp DESC) composite index in
+  // firestore.indexes.json. The rank count below is deliberately ordered the
+  // same way so both queries share it.
+  const snapshot = await getFirestore()
+    .collection(USERS_COLLECTION)
+    .where(FIELD_WEEK_KEY, "==", weekKey)
+    .orderBy(FIELD_WEEKLY_XP, "desc")
+    .limit(LEADERBOARD_SIZE)
+    .get();
+
+  const entries = snapshot.docs.map((doc) => ({
+    uid: doc.id,
+    name: maskDisplayName(doc.get("displayName") as string | undefined),
+    xp: Number(doc.get(FIELD_WEEKLY_XP) || 0),
+  }));
+
+  boardCache = {weekKey, readAt: now, entries};
+  return entries;
+}
+
+/**
+ * The weekly leaderboard: the top places, and where the caller sits.
+ *
+ * `full` decides how many places come back. Home asks for the podium, the
+ * sheet asks for everything - the board is cached either way, so this is
+ * payload rather than reads, but there is no reason to send a hundred rows to
+ * draw three.
+ *
+ * Rank is a count query rather than a scan: "how many people are ahead of me"
+ * costs the same whether the caller is twelfth or twenty-thousandth. Reading
+ * the collection to find a position would not survive the first thousand
+ * users.
+ *
+ * Both queries filter on weekKey. Without it, last week's figures would still
+ * be sitting on the documents of everyone who has not played since, and they
+ * would rank.
+ */
+export const getLeaderboard = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const full = request.data?.full === true;
+  const firestore = getFirestore();
+  const weekKey = utcWeekFor(Date.now());
+
+  const [board, userDoc] = await Promise.all([
+    cachedTopBoard(weekKey),
+    firestore.collection(USERS_COLLECTION).doc(userId).get(),
+  ]);
+
+  // A stale week means the caller has not played this week, whatever figure
+  // is still sitting on the document.
+  const myXp = userDoc.get(FIELD_WEEK_KEY) === weekKey ?
+    Number(userDoc.get(FIELD_WEEKLY_XP) || 0) :
+    0;
+
+  let myRank = 0;
+  if (myXp > 0) {
+    // One aggregation, billed per thousand index entries scanned rather than
+    // per document ahead.
+    const ahead = await firestore
+      .collection(USERS_COLLECTION)
+      .where(FIELD_WEEK_KEY, "==", weekKey)
+      .where(FIELD_WEEKLY_XP, ">", myXp)
+      // Ordering does not change what a count returns, but it does decide
+      // which index serves the query. Descending reuses the index the board
+      // itself needs; without it Firestore wants a second, ascending one -
+      // and every extra composite index is write amplification on a document
+      // that is written on every reward claim.
+      .orderBy(FIELD_WEEKLY_XP, "desc")
+      .count()
+      .get();
+    myRank = ahead.data().count + 1;
+  }
+
+  const visible = full ? board : board.slice(0, LEADERBOARD_PREVIEW_SIZE);
+
+  return {
+    serverTime: Date.now(),
+    weekKey,
+    // When the standings reset. Sent rather than derived on the client so the
+    // countdown on the board agrees with the boundary the server enforces.
+    weekEndsAt: weekEndMillis(weekKey),
+    size: LEADERBOARD_SIZE,
+    prizePool: totalWeeklyPrizePool(),
+    myXp,
+    // Zero means unranked - no play this week - which the client shows as a
+    // prompt rather than as a position.
+    myRank,
+    myPrize: prizeForRank(myRank),
+    full,
+    entries: visible.map((entry, index) => ({
+      rank: index + 1,
+      name: entry.name,
+      xp: entry.xp,
+      prize: prizeForRank(index + 1),
+      isMe: entry.uid === userId,
+    })),
+  };
 });
 
 /**
@@ -990,7 +1333,36 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       storedLevel: currentLevel,
     });
 
-    const extraUpdates: Record<string, FieldValue | number> = {};
+    const extraUpdates: Record<string, FieldValue | number | DailyStats> = {};
+    // Daily goal counters. Written from inside the transaction that awards
+    // the activity, so a goal can only advance when something was really
+    // played or answered - never because a client said so.
+    const todayUtc = utcDayFor(Date.now());
+    const stats = statsForDay(
+      userDoc.get(FIELD_DAILY_STATS) as Partial<DailyStats> | undefined,
+      todayUtc
+    );
+    // Weekly leaderboard. Written here rather than in writeAward so it counts
+    // play alone: streak and referral XP go through the same award path, and
+    // counting those would let someone place by signing up friends.
+    const weekKey = utcWeekFor(Date.now());
+    extraUpdates[FIELD_WEEKLY_XP] = nextWeeklyXp(
+      userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+      userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+      weekKey,
+      xpAward
+    );
+    extraUpdates[FIELD_WEEK_KEY] = weekKey;
+
+    if (rewardSource === "GAME") stats.games += 1;
+    if (rewardSource === "QUIZ") {
+      stats.quizzes += 1;
+      if (wasCorrect) stats.correct += 1;
+    }
+    // Set rather than increment: the whole map is replaced, which is also how
+    // it resets when the day rolls over.
+    extraUpdates[FIELD_DAILY_STATS] = stats;
+
     if (incrementQuizAttempt) {
       extraUpdates[FIELD_QUIZ_ATTEMPTS] = FieldValue.increment(1);
     }

@@ -6,12 +6,24 @@ import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.map  // Add this import
+import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.example.pixelpayout.data.model.RedemptionOption
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.utils.UserPreferences
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 
-class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
+/**
+ * How long the leaderboard is considered fresh. Measured against
+ * elapsedRealtime so a device clock change cannot make it refetch forever.
+ */
+private const val LEADERBOARD_REFRESH_MS = 3 * 60 * 1000L
+
+class MainViewModel(
+    private val userRepository: UserRepository,
+    private val userPreferences: UserPreferences
+) : ViewModel() {
     val points: LiveData<Int> = userRepository.userData.map { userData ->
         userData.points
     }
@@ -122,8 +134,115 @@ class MainViewModel(private val userRepository: UserRepository) : ViewModel() {
     suspend fun claimDailyStreak(adWatched: Boolean): UserRepository.StreakClaimResult =
         userRepository.claimDailyStreak(adWatched)
 
-    suspend fun getStreakConfig(): List<UserRepository.StreakDayReward> =
-        userRepository.getStreakConfig()
+    private val _dailyGoals = MutableLiveData<UserRepository.DailyGoals?>(null)
+
+    /**
+     * Today's goals.
+     *
+     * Refreshed rather than observed: progress lives in counters the server
+     * owns, and there is no snapshot to listen to. It is re-read whenever the
+     * screen appears and after anything that could have moved a counter.
+     */
+    val dailyGoals: LiveData<UserRepository.DailyGoals?> = _dailyGoals
+
+    fun refreshDailyGoals() {
+        viewModelScope.launch {
+            userRepository.getDailyGoals()?.let { _dailyGoals.value = it }
+        }
+    }
+
+    suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult {
+        val result = userRepository.claimDailyGoalBonus(adWatched)
+        refreshDailyGoals()
+        return result
+    }
+
+    private val _leaderboard = MutableLiveData<UserRepository.Leaderboard?>(null)
+
+    /**
+     * The weekly board.
+     *
+     * Refreshed rather than observed - the standings live across every user's
+     * documents, so there is no single snapshot to listen to. Re-read whenever
+     * the screen appears, which is also when play could have moved it.
+     */
+    val leaderboard: LiveData<UserRepository.Leaderboard?> = _leaderboard
+
+    private var leaderboardFetchedAt = 0L
+
+    /**
+     * Re-reads the board, but not more than once every few minutes.
+     *
+     * This runs on every return to Home, and standings do not move fast
+     * enough to justify a round trip each time. The throttle is what keeps a
+     * screen the user flicks in and out of from being the most expensive
+     * thing in the app.
+     */
+    fun refreshLeaderboard(force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - leaderboardFetchedAt < LEADERBOARD_REFRESH_MS) return
+        leaderboardFetchedAt = now
+
+        viewModelScope.launch {
+            userRepository.getLeaderboard()?.let { _leaderboard.value = it }
+        }
+    }
+
+    /** The full hundred, fetched only when the sheet is actually opened. */
+    suspend fun getFullLeaderboard(): UserRepository.Leaderboard? =
+        userRepository.getLeaderboard(full = true)
+
+    private val _streakCycle = MutableLiveData<List<UserRepository.StreakDayReward>>(emptyList())
+
+    /**
+     * The streak reward table.
+     *
+     * Held here rather than fetched by the screen, for two reasons. It comes
+     * from a callable, which unlike Firestore has no offline cache, so every
+     * return to Home was a fresh network round trip that left the streak
+     * cells blank until it landed. And this view model is activity scoped, so
+     * one fetch now covers every visit to the tab.
+     *
+     * The disk copy makes a cold start immediate too. The table only changes
+     * when the server is redeployed, so serving a stale copy for the second
+     * it takes to refresh costs nothing.
+     */
+    val streakCycle: LiveData<List<UserRepository.StreakDayReward>> = _streakCycle
+
+    private var streakCycleLoaded = false
+
+    fun loadStreakCycle() {
+        if (streakCycleLoaded) return
+        streakCycleLoaded = true
+
+        viewModelScope.launch {
+            // Draw from disk first, so the card is never empty while the
+            // network is asked.
+            decodeCycle(userPreferences.streakCycle.firstOrNull())
+                .takeIf { it.isNotEmpty() }
+                ?.let { _streakCycle.value = it }
+
+            val fresh = userRepository.getStreakConfig()
+            if (fresh.isEmpty()) return@launch
+
+            _streakCycle.value = fresh
+            userPreferences.setStreakCycle(encodeCycle(fresh))
+        }
+    }
+
+    /** "points:xp" pairs - small, human readable in a prefs dump, no parser. */
+    private fun encodeCycle(cycle: List<UserRepository.StreakDayReward>): String =
+        cycle.joinToString(",") { "${it.points}:${it.xp}" }
+
+    private fun decodeCycle(raw: String?): List<UserRepository.StreakDayReward> {
+        if (raw.isNullOrBlank()) return emptyList()
+        return raw.split(",").mapNotNull { entry ->
+            val parts = entry.split(":")
+            val points = parts.getOrNull(0)?.toIntOrNull() ?: return@mapNotNull null
+            val xp = parts.getOrNull(1)?.toIntOrNull() ?: return@mapNotNull null
+            UserRepository.StreakDayReward(points, xp)
+        }
+    }
 
     /** Points and level together, for screens that gate on both. */
     data class UserState(val points: Int, val level: Int)

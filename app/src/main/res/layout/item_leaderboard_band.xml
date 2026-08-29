@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One prize band: which places it covers, what each of them wins, and what
+    the band costs in total. Same card treatment as a standings row, so the
+    two lists read as the same list seen two ways.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    android:background="@drawable/bg_row_card"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="15dp"
+    android:paddingTop="13dp"
+    android:paddingEnd="15dp"
+    android:paddingBottom="13dp">
+
+    <TextView
+        android:id="@+id/leaderboardBandRange"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:fontFamily="@font/mono_bold"
+        android:textColor="@color/text_soft"
+        android:textSize="13sp"
+        tools:text="#4 – #10" />
+
+    <TextView
+        android:id="@+id/leaderboardBandEach"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/jakarta_medium"
+        android:textColor="@color/text_ghost"
+        android:textSize="11sp"
+        tools:text="100 each" />
+
+    <TextView
+        android:id="@+id/leaderboardBandTotal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:fontFamily="@font/mono_bold"
+        android:textColor="@color/gold"
+        android:textSize="13sp"
+        tools:text="700 ★" />
+
+</LinearLayout>

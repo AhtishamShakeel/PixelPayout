@@ -126,4 +126,43 @@
          one for bars on a dark card. -->
     <color name="track_on_light">#38FFFFFF</color>
     <color name="track_on_dark">#14FFFFFF</color>
+    <!-- ==================================================================
+         Weekly leaderboard (handoff: leaderboard redesign).
+
+         Additive, like the home palette above. The place colours are the only
+         hues on the screen that are not violet or gold - they are the medal
+         metals, and they carry the podium without a single image.
+         ================================================================== -->
+    <color name="silver">#C6CBD8</color>
+    <color name="bronze">#E0965A</color>
+    <!-- The podium avatar well: a shade lighter than surface_card so the ring
+         reads as a ring rather than as the edge of the page. -->
+    <color name="surface_podium">#15151F</color>
+    <!-- Text sitting ON a gold/silver/bronze badge. -->
+    <color name="on_podium_badge">#0D0D12</color>
+    <!-- The pinned "your rank" card. Deeper than offer_grad_* so the card
+         holds its own against the page it floats over. -->
+    <color name="rank_card_start">#241C52</color>
+    <color name="rank_card_end">#151033</color>
+
+    <!-- Violet tints the home palette did not need. -->
+    <color name="violet_tint_16">#297C5CFF</color>
+    <color name="violet_tint_30">#4D7C5CFF</color>
+    <color name="violet_tint_35">#597C5CFF</color>
+    <color name="violet_tint_50">#807C5CFF</color>
+    <color name="violet_light_60">#99A48CFF</color>
+    <color name="brand_violet_pressed">#8E72FF</color>
+
+    <!-- Gold at the two weights the prize-zone rule uses. -->
+    <color name="gold_dash">#73FFD24A</color>
+    <color name="gold_label">#B3FFD24A</color>
+
+    <!-- The rest of the white ramp. text_dim (.75), text_faint (.45) and
+         text_ghost (.40) already cover the middle; these are the ends. -->
+    <color name="text_strong">#E6FFFFFF</color>
+    <color name="text_soft">#D9FFFFFF</color>
+    <color name="text_half">#80FFFFFF</color>
+    <color name="text_wisp">#59FFFFFF</color>
+    <color name="text_trace">#47FFFFFF</color>
+    <color name="stroke_avatar">#1AFFFFFF</color>
 </resources>

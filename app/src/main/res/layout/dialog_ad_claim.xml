@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    The streak claim confirmation.
+    The confirmation shown before a rewarded ad, shared by every claim that is
+    gated on one - the daily streak and the daily goal set today.
 
     A hand-built layout rather than MaterialAlertDialogBuilder's default: that
     one paints itself from colorSurface (#1E1E1E, the old palette) with the
@@ -32,10 +33,11 @@
         <View
             android:layout_width="7dp"
             android:layout_height="7dp"
+            android:id="@+id/adClaimDot"
             android:background="@drawable/bg_dot_streak" />
 
         <TextView
-            android:id="@+id/streakDialogTitle"
+            android:id="@+id/adClaimTitle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -52,7 +54,7 @@
         it rather than a number buried in a sentence.
     -->
     <TextView
-        android:id="@+id/streakDialogReward"
+        android:id="@+id/adClaimReward"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="14dp"
@@ -64,7 +66,7 @@
         tools:text="+10 ★" />
 
     <TextView
-        android:id="@+id/streakDialogMessage"
+        android:id="@+id/adClaimMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
@@ -82,7 +84,7 @@
         android:orientation="horizontal">
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/streakDialogCancel"
+            android:id="@+id/adClaimCancel"
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -100,7 +102,7 @@
             android:textSize="13sp" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/streakDialogWatch"
+            android:id="@+id/adClaimWatch"
             style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

@@ -313,6 +313,54 @@ class UserRepository {
         else -> raw ?: "Redemption failed"
     }
 
+    /**
+     * One of today's goals.
+     *
+     * [kind] is an identifier, not a label: the wording lives in strings.xml
+     * so it can be translated, while the server stays the authority on what
+     * is being asked and how far along it is.
+     */
+    data class DailyGoal(
+        val id: String,
+        val kind: String,
+        val target: Int,
+        val progress: Int,
+        val done: Boolean
+    )
+
+    data class DailyGoals(
+        val goals: List<DailyGoal>,
+        val bonusPoints: Int,
+        val bonusClaimed: Boolean,
+        val dayUtc: Long
+    ) {
+        val doneCount: Int get() = goals.count { it.done }
+        val allDone: Boolean get() = goals.isNotEmpty() && doneCount == goals.size
+    }
+
+    /** One place on the weekly board. The name arrives already masked. */
+    data class LeaderboardEntry(
+        val rank: Int,
+        val name: String,
+        val xp: Int,
+        val prize: Int,
+        val isMe: Boolean
+    )
+
+    data class Leaderboard(
+        val entries: List<LeaderboardEntry>,
+        val myRank: Int,
+        val myXp: Int,
+        val myPrize: Int,
+        val prizePool: Int,
+        val size: Int,
+        /** When the standings reset, as the server reckons it. */
+        val weekEndsAtMillis: Long
+    ) {
+        /** Zero rank means no play this week, not last place. */
+        val isRanked: Boolean get() = myRank > 0
+    }
+
     /** One day of the streak cycle, as the server describes it. */
     data class StreakDayReward(val points: Int, val xp: Int)
 
@@ -355,6 +403,7 @@ class UserRepository {
                 .await()
             val data = result.data as? Map<*, *>
                 ?: return StreakClaimResult.Error("Unexpected response")
+            syncClock(data)
 
             val day = (data["day"] as? Number)?.toInt() ?: 0
 
@@ -380,11 +429,23 @@ class UserRepository {
     suspend fun getStreakConfig(): List<StreakDayReward> {
         return try {
             val result = functions.getHttpsCallable("getStreakConfig").call().await()
-            parseCycle((result.data as? Map<*, *>)?.get("cycle"))
+            val data = result.data as? Map<*, *>
+            syncClock(data)
+            parseCycle(data?.get("cycle"))
         } catch (e: Exception) {
             Log.e("Streak", "Could not load streak config: ${e.message}")
             emptyList()
         }
+    }
+
+    /**
+     * Every callable returns the server's clock, so whichever one lands first
+     * sets it. Before this the offset came only from the quiz reset, which
+     * left every other countdown drawing against device time until that one
+     * call happened to return.
+     */
+    private fun syncClock(data: Map<*, *>?) {
+        (data?.get("serverTime") as? Number)?.toLong()?.let { ServerClock.sync(it) }
     }
 
     private fun parseCycle(raw: Any?): List<StreakDayReward> {
@@ -517,6 +578,112 @@ class UserRepository {
                     }
                 )
             }
+    }
+
+    /**
+     * Today's goals and their progress.
+     *
+     * Progress is recomputed server-side from counters it increments itself,
+     * so this is a read of the truth rather than a report from the client.
+     */
+    suspend fun getDailyGoals(): DailyGoals? {
+        return try {
+            val result = functions.getHttpsCallable("getDailyGoals").call().await()
+            val data = result.data as? Map<*, *> ?: return null
+            syncClock(data)
+
+            val goals = (data["goals"] as? List<*>).orEmpty().mapNotNull { entry ->
+                val map = entry as? Map<*, *> ?: return@mapNotNull null
+                DailyGoal(
+                    id = map["id"] as? String ?: return@mapNotNull null,
+                    kind = map["kind"] as? String ?: return@mapNotNull null,
+                    target = (map["target"] as? Number)?.toInt() ?: 0,
+                    progress = (map["progress"] as? Number)?.toInt() ?: 0,
+                    done = map["done"] == true
+                )
+            }
+
+            DailyGoals(
+                goals = goals,
+                bonusPoints = (data["bonusPoints"] as? Number)?.toInt() ?: 0,
+                bonusClaimed = data["bonusClaimed"] == true,
+                dayUtc = (data["dayUtc"] as? Number)?.toLong() ?: 0L
+            )
+        } catch (e: Exception) {
+            Log.e("DailyGoals", "Could not load goals: ${e.message}")
+            null
+        }
+    }
+
+    sealed class GoalBonusResult {
+        data class Claimed(val pointsAwarded: Int) : GoalBonusResult()
+        data class NotClaimed(val reason: String?) : GoalBonusResult()
+        data class Error(val message: String) : GoalBonusResult()
+    }
+
+    suspend fun claimDailyGoalBonus(adWatched: Boolean): GoalBonusResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("claimDailyGoalBonus")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call(mapOf("adWatched" to adWatched))
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return GoalBonusResult.Error("Unexpected response")
+            syncClock(data)
+
+            if (data["claimed"] == true) {
+                GoalBonusResult.Claimed((data["pointsAwarded"] as? Number)?.toInt() ?: 0)
+            } else {
+                GoalBonusResult.NotClaimed(data["reason"] as? String)
+            }
+        } catch (e: Exception) {
+            GoalBonusResult.Error(e.message ?: "Could not claim your bonus")
+        }
+    }
+
+    /**
+     * The weekly board and the caller's place on it.
+     *
+     * [full] asks for every place rather than the podium. Home wants the
+     * caller's rank and the top few; only the sheet needs a hundred rows.
+     *
+     * Rank is computed server-side with a count query, so it costs the same
+     * whether the caller is twelfth or twenty-thousandth.
+     */
+    suspend fun getLeaderboard(full: Boolean = false): Leaderboard? {
+        return try {
+            val result = functions
+                .getHttpsCallable("getLeaderboard")
+                .call(mapOf("full" to full))
+                .await()
+            val data = result.data as? Map<*, *> ?: return null
+            syncClock(data)
+
+            val entries = (data["entries"] as? List<*>).orEmpty().mapNotNull { raw ->
+                val map = raw as? Map<*, *> ?: return@mapNotNull null
+                LeaderboardEntry(
+                    rank = (map["rank"] as? Number)?.toInt() ?: return@mapNotNull null,
+                    name = map["name"] as? String ?: "",
+                    xp = (map["xp"] as? Number)?.toInt() ?: 0,
+                    prize = (map["prize"] as? Number)?.toInt() ?: 0,
+                    isMe = map["isMe"] == true
+                )
+            }
+
+            Leaderboard(
+                entries = entries,
+                myRank = (data["myRank"] as? Number)?.toInt() ?: 0,
+                myXp = (data["myXp"] as? Number)?.toInt() ?: 0,
+                myPrize = (data["myPrize"] as? Number)?.toInt() ?: 0,
+                prizePool = (data["prizePool"] as? Number)?.toInt() ?: 0,
+                size = (data["size"] as? Number)?.toInt() ?: 0,
+                weekEndsAtMillis = (data["weekEndsAt"] as? Number)?.toLong() ?: 0L
+            )
+        } catch (e: Exception) {
+            Log.e("Leaderboard", "Could not load the board: ${e.message}")
+            null
+        }
     }
 
     suspend fun submitReferral(referralCode: String): ReferralResult {

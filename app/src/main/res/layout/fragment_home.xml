@@ -249,6 +249,71 @@
 
         </LinearLayout>
 
+        <!-- ================= Recent payouts ================= -->
+        <!--
+            One line, tappable, opening the full list in a sheet. The card this
+            replaces showed three rows and cost most of a screen to say what
+            fits here in a sentence.
+
+            Hidden until there is something to show, so a new install does not
+            present an empty box as its first impression.
+        -->
+        <LinearLayout
+            android:id="@+id/payoutFeedRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_pending_row"
+            android:baselineAligned="false"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="12dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="6dp"
+                android:background="@drawable/bg_dot_success" />
+
+            <TextView
+                android:id="@+id/payoutFeedText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="11dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="@font/jakarta_medium"
+                android:maxLines="1"
+                android:textColor="@color/text_dim"
+                android:textSize="12.5sp"
+                tools:text="Joh********23 got 100 UC" />
+
+            <TextView
+                android:id="@+id/payoutFeedTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="@font/mono_medium"
+                android:textColor="@color/text_ghost"
+                android:textSize="11sp"
+                tools:text="10m ago" />
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="6dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_arrow_right"
+                app:tint="@color/text_ghost" />
+
+        </LinearLayout>
+
         <!-- ================= Level + boost ================= -->
         <!--
             Boost rides beside the level card rather than beside the streak.
@@ -436,6 +501,103 @@
                     android:textSize="11sp" />
 
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ================= Weekly leaderboard ================= -->
+        <!--
+            Gold hairline rather than the usual one: this is the competitive
+            card, and it is the only place on the screen where what a user gets
+            depends on what everybody else did.
+
+            Hidden until the board has been read, so a slow network shows
+            nothing rather than an empty rank.
+        -->
+        <LinearLayout
+            android:id="@+id/leaderboardRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_leaderboard_row"
+            android:baselineAligned="false"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="14dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <!--
+                A trophy rather than the rank in a chip. The number was already
+                on the right of the row, so the badge repeated it and read as a
+                flat grey square; the mark is what makes the row look like a
+                competition rather than another statistic.
+            -->
+            <FrameLayout
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:background="@drawable/bg_chip_gold">
+
+                <ImageView
+                    android:layout_width="19dp"
+                    android:layout_height="19dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_trophy"
+                    app:tint="@color/gold" />
+
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="11dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:text="@string/leaderboard_title"
+                    android:textColor="@color/white"
+                    android:textSize="13sp" />
+
+                <TextView
+                    android:id="@+id/leaderboardSubtitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:maxLines="1"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11sp"
+                    tools:text="Top 100 share 5,000 ★" />
+
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/leaderboardRank"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:textColor="@color/gold"
+                android:textSize="12sp"
+                tools:text="#24,247" />
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="4dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_arrow_right"
+                app:tint="@color/gold" />
 
         </LinearLayout>
 
@@ -641,6 +803,355 @@
 
         </LinearLayout>
 
+        <!-- ================= Daily goals ================= -->
+        <!--
+            The handoff has these complete when tapped. They cannot: a goal the
+            client can mark done is a button that prints Points. Every row here
+            is filled from counters the server increments inside the same
+            transaction that awards a game or a quiz, so the card is a readout,
+            not a control - the only thing tappable is the claim.
+        -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="26dp"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:layout_weight="1"
+                android:fontFamily="@font/jakarta_bold"
+                android:letterSpacing="-0.013"
+                android:text="@string/goals_title"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+
+            <TextView
+                android:id="@+id/goalsDoneCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/mono_medium"
+                android:textColor="@color/text_ghost"
+                android:textSize="12sp"
+                tools:text="2/3 done" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/goalsCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_goal_card"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:minHeight="34dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:text="@string/goals_subtitle"
+                    android:textColor="@color/white"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/goalsBonus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/mono_bold"
+                    android:textColor="@color/text_ghost"
+                    android:textSize="12sp"
+                    tools:text="+30 ★" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/goalsClaimButton"
+                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:minHeight="0dp"
+                    android:paddingStart="16dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="8dp"
+                    android:text="@string/goals_claim"
+                    android:textAllCaps="false"
+                    android:textColor="@color/white"
+                    android:textSize="12sp"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/success"
+                    app:cornerRadius="10dp"
+                    tools:visibility="visible" />
+
+            </LinearLayout>
+
+            <ProgressBar
+                android:id="@+id/goalsProgressBar"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:layout_marginTop="12dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/progress_violet"
+                tools:progress="66" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="vertical"
+                android:divider="@drawable/divider_goal_row"
+                android:showDividers="beginning|middle">
+
+                <LinearLayout
+                    android:id="@+id/goalRow1"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="9dp"
+                    android:paddingBottom="9dp"
+                    tools:visibility="visible">
+
+                    <!--
+                        The ring reads partial progress, which the number alone
+                        cannot: two games out of three is visibly most of the
+                        way there rather than simply "not done".
+                    -->
+                    <FrameLayout
+                        android:layout_width="24dp"
+                        android:layout_height="24dp">
+
+                        <com.google.android.material.progressindicator.CircularProgressIndicator
+                            android:id="@+id/goalRing1"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:indeterminate="false"
+                            android:max="100"
+                            android:progress="0"
+                            app:indicatorColor="@color/brand_violet_light"
+                            app:indicatorSize="24dp"
+                            app:trackColor="@color/track_on_dark"
+                            app:trackCornerRadius="2dp"
+                            app:trackThickness="2dp"
+                            tools:progress="66" />
+
+                        <TextView
+                            android:id="@+id/goalMark1"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:fontFamily="@font/mono_bold"
+                            android:gravity="center"
+                            android:includeFontPadding="false"
+                            android:textColor="@color/text_faint"
+                            android:textSize="10sp"
+                            tools:text="1" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/goalLabel1"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="11dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp"
+                        tools:text="Play 3 games" />
+
+                    <TextView
+                        android:id="@+id/goalProgress1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="11sp"
+                        tools:text="2/3" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/goalRow2"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="9dp"
+                    android:paddingBottom="9dp"
+                    android:layout_marginTop="1dp"
+                    tools:visibility="visible">
+
+                    <!--
+                        The ring reads partial progress, which the number alone
+                        cannot: two games out of three is visibly most of the
+                        way there rather than simply "not done".
+                    -->
+                    <FrameLayout
+                        android:layout_width="24dp"
+                        android:layout_height="24dp">
+
+                        <com.google.android.material.progressindicator.CircularProgressIndicator
+                            android:id="@+id/goalRing2"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:indeterminate="false"
+                            android:max="100"
+                            android:progress="0"
+                            app:indicatorColor="@color/brand_violet_light"
+                            app:indicatorSize="24dp"
+                            app:trackColor="@color/track_on_dark"
+                            app:trackCornerRadius="2dp"
+                            app:trackThickness="2dp"
+                            tools:progress="66" />
+
+                        <TextView
+                            android:id="@+id/goalMark2"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:fontFamily="@font/mono_bold"
+                            android:gravity="center"
+                            android:includeFontPadding="false"
+                            android:textColor="@color/text_faint"
+                            android:textSize="10sp"
+                            tools:text="1" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/goalLabel2"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="11dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp"
+                        tools:text="Play 3 games" />
+
+                    <TextView
+                        android:id="@+id/goalProgress2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="11sp"
+                        tools:text="2/3" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/goalRow3"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingTop="9dp"
+                    android:paddingBottom="9dp"
+                    android:layout_marginTop="1dp"
+                    tools:visibility="visible">
+
+                    <!--
+                        The ring reads partial progress, which the number alone
+                        cannot: two games out of three is visibly most of the
+                        way there rather than simply "not done".
+                    -->
+                    <FrameLayout
+                        android:layout_width="24dp"
+                        android:layout_height="24dp">
+
+                        <com.google.android.material.progressindicator.CircularProgressIndicator
+                            android:id="@+id/goalRing3"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:indeterminate="false"
+                            android:max="100"
+                            android:progress="0"
+                            app:indicatorColor="@color/brand_violet_light"
+                            app:indicatorSize="24dp"
+                            app:trackColor="@color/track_on_dark"
+                            app:trackCornerRadius="2dp"
+                            app:trackThickness="2dp"
+                            tools:progress="66" />
+
+                        <TextView
+                            android:id="@+id/goalMark3"
+                            android:layout_width="18dp"
+                            android:layout_height="18dp"
+                            android:layout_gravity="center"
+                            android:fontFamily="@font/mono_bold"
+                            android:gravity="center"
+                            android:includeFontPadding="false"
+                            android:textColor="@color/text_faint"
+                            android:textSize="10sp"
+                            tools:text="1" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/goalLabel3"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="11dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp"
+                        tools:text="Play 3 games" />
+
+                    <TextView
+                        android:id="@+id/goalProgress3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="11sp"
+                        tools:text="2/3" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
         <!-- ================= Featured offer ================= -->
         <!--
             A fixed entry point into the Earn tab, not a real campaign: there is
@@ -718,152 +1229,6 @@
                 android:textSize="13sp"
                 app:backgroundTint="@color/brand_violet"
                 app:cornerRadius="14dp" />
-
-        </LinearLayout>
-
-        <!-- ================= Recent payouts ================= -->
-        <!--
-            Social proof: real approved redemptions, names masked server-side.
-            Hidden entirely until there is something to show, so a new install
-            does not present an empty box as its first impression.
-
-            Three rows in fixed views rather than a RecyclerView - the list is
-            capped at three and never scrolls, and a nested scrolling container
-            inside a NestedScrollView costs more than it buys here.
-        -->
-        <LinearLayout
-            android:id="@+id/payoutFeedCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:background="@drawable/bg_goal_card"
-            android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="16dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="16dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_bold"
-                android:text="@string/recent_payouts"
-                android:textColor="@color/white"
-                android:textSize="14sp" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:id="@+id/payoutRow1"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-
-                    <TextView
-                        android:id="@+id/payoutRow1Text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_medium"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12.5sp"
-                        tools:text="Joh********23 got 100 UC" />
-
-                    <TextView
-                        android:id="@+id/payoutRow1Time"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="11sp"
-                        tools:text="10m ago" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/payoutRow2"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="10dp"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-
-                    <TextView
-                        android:id="@+id/payoutRow2Text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_medium"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12.5sp"
-                        tools:text="Joh********23 got 100 UC" />
-
-                    <TextView
-                        android:id="@+id/payoutRow2Time"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="11sp"
-                        tools:text="10m ago" />
-
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/payoutRow3"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:layout_marginTop="10dp"
-                    android:visibility="gone"
-                    tools:visibility="visible">
-
-                    <TextView
-                        android:id="@+id/payoutRow3Text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_medium"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dim"
-                        android:textSize="12.5sp"
-                        tools:text="Joh********23 got 100 UC" />
-
-                    <TextView
-                        android:id="@+id/payoutRow3Time"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="11sp"
-                        tools:text="10m ago" />
-
-                </LinearLayout>
-
-            </LinearLayout>
 
         </LinearLayout>
 

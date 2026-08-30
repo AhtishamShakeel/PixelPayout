@@ -106,6 +106,7 @@
     <color name="boost_blue">#4A9EFF</color>
     <color name="boost_blue_light">#6CB2FF</color>
     <color name="boost_stroke">#384A9EFF</color>
+    <color name="boost_tint_16">#294A9EFF</color>
 
     <!-- Completed states -->
     <color name="success">#4ADE80</color>

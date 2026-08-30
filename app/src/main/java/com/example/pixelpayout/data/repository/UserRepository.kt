@@ -1217,11 +1217,14 @@ class UserRepository {
         /**
          * How many feed entries the LIVE listener holds.
          *
-         * One, because Home renders exactly one row from this feed. A
-         * snapshot listener bills a read per document in its result set every
-         * time a fresh process attaches it, so a window of twenty cost twenty
-         * reads on every launch to draw a single line - for every user,
-         * whether or not they ever opened the full list.
+         * Three, because Home's payout row draws three overlapping initials
+         * beside its one line of text. A snapshot listener bills a read per
+         * document in its result set every time a fresh process attaches it,
+         * so a window of twenty cost twenty reads on every launch to draw a
+         * single line - for every user, whether or not they ever opened the
+         * full list. Three is the smallest window the row can be drawn from;
+         * the two reads over the text line's own needs buy the cluster, and
+         * nothing wider is read until somebody opens the sheet.
          *
          * Note what this does NOT change: the fan-out. Each approved payout
          * puts one new document into the window, so every connected listener
@@ -1230,7 +1233,7 @@ class UserRepository {
          * digest document fixes the per-payout one, and that is not worth
          * building until the numbers ask for it.
          */
-        private const val PAYOUT_FEED_ROW_LIMIT = 1L
+        private const val PAYOUT_FEED_ROW_LIMIT = 3L
 
         /**
          * How many the sheet fetches on demand, when somebody opens it.

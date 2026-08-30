@@ -1,14 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    Home.
+    Home, rebuilt to the placement in the redesign reference.
 
     A vertical LinearLayout rather than a ConstraintLayout: these are stacked
     full-width sections, so constraints bought nothing and made reordering
     painful. When sections start appearing conditionally per user state, this
     should become a RecyclerView with view types - not before.
 
-    Level and XP no longer live here. They are the ring around the toolbar
-    avatar, which frees this screen of a second progress bar sitting a few
-    dozen pixels from the balance one.
+    The order is now the order a new user needs it in: what you have (stars
+    and level), what is in flight (pending redeem), what to do today (streak,
+    goals), how to earn more, where you stand, and what other people got.
+
+    What changed from the previous version, and why:
+
+      * The full-width violet balance card is gone, split into two half-width
+        cards. It was the tallest thing on the screen and said one number.
+        Stars is violet and XP is gold, at TINT weight rather than the old
+        saturated fill - two loud cards side by side would fight, and the old
+        one was already drowning everything under it.
+      * Level and boost no longer share a row. Level moved into the XP card;
+        boost is its own full-width row, visible only while one is running.
+      * The featured-offer card became the third tile in Quick ways to earn.
+        It was a whole section promising nothing specific.
+      * The leaderboard row became a card that shows where you actually
+        stand, rather than a single line ending in a rank.
+
+    Two views were REMOVED rather than hidden, because both were saying
+    something already on screen twice:
+
+      * `balanceRatio` ("50 / 100") - the bar shows the same fraction and
+        `nextTierText` says it in words.
+      * `levelChip` - the level number, which `levelTitle` now carries in the
+        XP card, and which the toolbar avatar ring already shows ambiently.
 -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -23,175 +45,380 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <!-- ================= Balance ================= -->
+        <!-- ================= Stars + XP ================= -->
         <!--
-            The one card on this screen that is not a dark surface. The violet
-            gradient is what makes the balance read as the subject of the
-            screen rather than the first of several equal cards.
-
-            Payout sits top-right rather than full-width along the bottom:
-            full-width made it the loudest element on the card, louder than
-            the number it acts on.
+            Both children are match_parent so the horizontal LinearLayout
+            stretches the shorter one to the taller one's height; each has a
+            weighted spacer above its button, which is what keeps the two
+            buttons on the same line when the cards carry different amounts
+            of text (the stars card hides its progress group entirely when
+            there is no target to fill toward).
         -->
         <LinearLayout
-            android:id="@+id/balanceLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_balance_card"
-            android:orientation="vertical"
-            android:paddingStart="18dp"
-            android:paddingTop="18dp"
-            android:paddingEnd="18dp"
-            android:paddingBottom="16dp">
+            android:baselineAligned="false"
+            android:orientation="horizontal">
 
             <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:baselineAligned="false"
-                android:orientation="horizontal">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/jakarta_semibold"
-                        android:letterSpacing="0.114"
-                        android:text="@string/balance_label"
-                        android:textAllCaps="true"
-                        android:textColor="@color/text_muted"
-                        android:textSize="10.5sp" />
-
-                    <!--
-                        Number and unit share a bottom edge rather than a text
-                        baseline: at 36sp against 12sp the baselines sit so far
-                        apart that "stars" floats level with the digits' waist.
-                    -->
-                    <LinearLayout
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:baselineAligned="false"
-                        android:gravity="bottom"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/totalPoints"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/jakarta_extrabold"
-                            android:includeFontPadding="false"
-                            android:letterSpacing="-0.042"
-                            android:textColor="@color/white"
-                            android:textSize="36sp"
-                            tools:text="450" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:layout_marginBottom="4dp"
-                            android:fontFamily="@font/jakarta_semibold"
-                            android:includeFontPadding="false"
-                            android:text="@string/balance_unit"
-                            android:textColor="@color/text_muted"
-                            android:textSize="12sp" />
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnPayout"
-                    style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="0dp"
-                    android:minHeight="0dp"
-                    android:paddingStart="18dp"
-                    android:paddingTop="11dp"
-                    android:paddingEnd="18dp"
-                    android:paddingBottom="11dp"
-                    android:text="@string/payout"
-                    android:textAllCaps="false"
-                    android:textColor="@color/balance_grad_end"
-                    android:textSize="13sp"
-                    app:backgroundTint="@color/white"
-                    app:cornerRadius="12dp" />
-
-            </LinearLayout>
-
-            <!--
-                Fills toward the cheapest redemption not yet affordable. Hidden
-                outright when there is no such target, rather than showing a
-                permanently full bar that means nothing.
-            -->
-            <LinearLayout
-                android:id="@+id/nextTierGroup"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:id="@+id/starsCard"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="@drawable/bg_stat_card_stars"
                 android:orientation="vertical"
-                tools:visibility="visible">
+                android:padding="14dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/balanceTarget"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_semibold"
-                        android:maxLines="1"
-                        android:textColor="@color/text_dim"
-                        android:textSize="11sp"
-                        tools:text="Next reward at 100 star" />
+                    <FrameLayout
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@drawable/bg_icon_violet">
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_star"
+                            app:tint="@color/brand_violet_light" />
+
+                    </FrameLayout>
 
                     <TextView
-                        android:id="@+id/balanceRatio"
-                        android:layout_width="wrap_content"
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
-                        android:fontFamily="@font/mono_bold"
-                        android:textColor="@color/white"
-                        android:textSize="11sp"
-                        tools:text="50 / 100" />
+                        android:layout_weight="1"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="0.1"
+                        android:text="@string/stars_eyebrow"
+                        android:textAllCaps="true"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="10sp" />
 
                 </LinearLayout>
 
+                <!--
+                    Number and unit share a bottom edge rather than a text
+                    baseline: at 28sp against 11sp the baselines sit far
+                    enough apart that "stars" floats level with the digits'
+                    waist.
+                -->
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:baselineAligned="false"
+                    android:gravity="bottom"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/totalPoints"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_extrabold"
+                        android:includeFontPadding="false"
+                        android:letterSpacing="-0.04"
+                        android:textColor="@color/white"
+                        android:textSize="28sp"
+                        tools:text="450" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_marginBottom="3dp"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:includeFontPadding="false"
+                        android:text="@string/balance_unit"
+                        android:textColor="@color/text_faint"
+                        android:textSize="11sp" />
+
+                </LinearLayout>
+
+                <!--
+                    Fills toward the cheapest redemption not yet affordable.
+                    Hidden outright when there is no such target, rather than
+                    showing a permanently full bar that means nothing.
+                -->
+                <LinearLayout
+                    android:id="@+id/nextTierGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="vertical"
+                    tools:visibility="visible">
+
+                    <TextView
+                        android:id="@+id/balanceTarget"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:lineSpacingMultiplier="1.2"
+                        android:maxLines="2"
+                        android:textColor="@color/text_dim"
+                        android:textSize="10.5sp"
+                        tools:text="Next reward at 600 ★" />
+
+                    <ProgressBar
+                        android:id="@+id/redemptionProgress"
+                        style="@android:style/Widget.ProgressBar.Horizontal"
+                        android:layout_width="match_parent"
+                        android:layout_height="6dp"
+                        android:layout_marginTop="8dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressDrawable="@drawable/progress_violet"
+                        tools:progress="50" />
+
+                    <TextView
+                        android:id="@+id/nextTierText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="7dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="10.5sp"
+                        tools:text="565 more stars to unlock 30 UC" />
+
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:minHeight="12dp" />
+
+                <TextView
+                    android:id="@+id/btnPayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_violet_solid"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:paddingStart="8dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="10dp"
+                    android:text="@string/stars_redeem_cta"
+                    android:textColor="@color/white"
+                    android:textSize="12sp" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/xpCard"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_stat_card_xp"
+                android:orientation="vertical"
+                android:padding="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <FrameLayout
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:background="@drawable/bg_icon_gold">
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_bolt"
+                            app:tint="@color/gold" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:letterSpacing="0.1"
+                        android:text="@string/xp_eyebrow"
+                        android:textAllCaps="true"
+                        android:textColor="@color/gold"
+                        android:textSize="10sp" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/levelTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_extrabold"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.03"
+                    android:maxLines="1"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    tools:text="Level 6" />
+
+                <TextView
+                    android:id="@+id/levelXpRatio"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:fontFamily="@font/mono_medium"
+                    android:textColor="@color/text_dim"
+                    android:textSize="10.5sp"
+                    tools:text="12 / 114 XP" />
+
                 <ProgressBar
-                    android:id="@+id/redemptionProgress"
+                    android:id="@+id/levelProgressBar"
                     style="@android:style/Widget.ProgressBar.Horizontal"
                     android:layout_width="match_parent"
                     android:layout_height="6dp"
                     android:layout_marginTop="8dp"
                     android:max="100"
                     android:progress="0"
-                    android:progressDrawable="@drawable/progress_balance"
-                    tools:progress="50" />
+                    android:progressDrawable="@drawable/progress_gold"
+                    tools:progress="35" />
 
                 <TextView
-                    android:id="@+id/nextTierText"
+                    android:id="@+id/levelFooter"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="7dp"
                     android:fontFamily="@font/jakarta_medium"
-                    android:textColor="@color/text_muted"
-                    android:textSize="11sp"
-                    tools:text="50 more stars to unlock 100 UC" />
+                    android:lineSpacingMultiplier="1.2"
+                    android:textColor="@color/text_faint"
+                    android:textSize="10.5sp"
+                    tools:text="102 XP to Level 7" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:minHeight="12dp" />
+
+                <!--
+                    The way into the ladder. The card above says how far the
+                    next level is; it never said what reaching it is worth,
+                    which is the question the number invites.
+                -->
+                <TextView
+                    android:id="@+id/levelRewardsButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_gold_outline"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:paddingStart="8dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="10dp"
+                    android:text="@string/level_rewards_button"
+                    android:textColor="@color/gold"
+                    android:textSize="12sp" />
 
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ================= Boost ================= -->
+        <!--
+            Only visible while a buff is running. Full width now that the two
+            stat cards own the row above it.
+
+            The copy deliberately does NOT follow the handoff, which labels
+            this "2x boost on / Double stars, everything". In this app the
+            buff multiplies whichever of Points or XP was granted, and
+            MULTIPLIER_ELIGIBLE marks quiz and game false for Points, so
+            "double stars, everything" would be a promise the server does not
+            keep.
+        -->
+        <LinearLayout
+            android:id="@+id/buffCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_boost_card"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="14dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_dot_boost" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/buffText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:maxLines="1"
+                    android:textColor="@color/boost_blue_light"
+                    android:textSize="12.5sp"
+                    tools:text="2x XP boost" />
+
+                <TextView
+                    android:id="@+id/buffNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:text="@string/buff_rate_note"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11sp" />
+
+            </LinearLayout>
+
+            <!--
+                Monospace is load-bearing: the clock reruns every second, and
+                a proportional face makes the digits jump sideways on each
+                tick.
+            -->
+            <TextView
+                android:id="@+id/buffTimer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:fontFamily="@font/mono_bold"
+                android:includeFontPadding="false"
+                android:letterSpacing="-0.03"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                tools:text="01:42:18" />
 
         </LinearLayout>
 
@@ -246,384 +473,6 @@
                 android:textColor="@color/white"
                 android:textSize="13sp"
                 tools:text="150 ★ · in review" />
-
-        </LinearLayout>
-
-        <!-- ================= Recent payouts ================= -->
-        <!--
-            One line, tappable, opening the full list in a sheet. The card this
-            replaces showed three rows and cost most of a screen to say what
-            fits here in a sentence.
-
-            Hidden until there is something to show, so a new install does not
-            present an empty box as its first impression.
-        -->
-        <LinearLayout
-            android:id="@+id/payoutFeedRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_pending_row"
-            android:baselineAligned="false"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingTop="12dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="12dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <View
-                android:layout_width="6dp"
-                android:layout_height="6dp"
-                android:background="@drawable/bg_dot_success" />
-
-            <TextView
-                android:id="@+id/payoutFeedText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="11dp"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:fontFamily="@font/jakarta_medium"
-                android:maxLines="1"
-                android:textColor="@color/text_dim"
-                android:textSize="12.5sp"
-                tools:text="Joh********23 received 1000 UC" />
-
-            <TextView
-                android:id="@+id/payoutFeedTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:fontFamily="@font/mono_medium"
-                android:textColor="@color/text_ghost"
-                android:textSize="11sp"
-                tools:text="10m ago" />
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginStart="6dp"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_arrow_right"
-                app:tint="@color/text_ghost" />
-
-        </LinearLayout>
-
-        <!-- ================= Level + boost ================= -->
-        <!--
-            Boost rides beside the level card rather than beside the streak.
-            It is a narrow readout - a label and a clock - and pairing it with
-            the tallest card in the screen left the streak sitting in a
-            lopsided row. Level is the shorter card and takes the extra width
-            comfortably.
-
-            Both are weighted, so when no buff is running - which is most of
-            the time - the level card simply takes the whole row.
-        -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <!--
-                Level is shown twice on purpose: as the ring around the toolbar
-                avatar, and here. The ring is ambient - it is on every screen
-                and carries no numbers - while this card is the only place the
-                XP figures are legible. Both read MainViewModel.levelProgress,
-                so there is one source and they cannot drift apart.
-
-                Progress is through the CURRENT level, not lifetime XP, so the
-                bar visibly resets on each level up.
-            -->
-            <LinearLayout
-                android:id="@+id/levelCard"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1.5"
-                android:background="@drawable/bg_level_card"
-                android:orientation="vertical"
-                android:paddingStart="16dp"
-                android:paddingTop="16dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="16dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/levelChip"
-                        android:layout_width="26dp"
-                        android:layout_height="26dp"
-                        android:background="@drawable/bg_chip_violet"
-                        android:fontFamily="@font/mono_bold"
-                        android:gravity="center"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/brand_violet_light"
-                        android:textSize="12sp"
-                        tools:text="3" />
-
-                    <TextView
-                        android:id="@+id/levelTitle"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="10dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:maxLines="1"
-                        android:textColor="@color/white"
-                        android:textSize="14sp"
-                        tools:text="Level 3" />
-
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/levelXpRatio"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:fontFamily="@font/mono_medium"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="12sp"
-                    tools:text="1 / 70 XP" />
-
-                <ProgressBar
-                    android:id="@+id/levelProgressBar"
-                    style="@android:style/Widget.ProgressBar.Horizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:layout_marginTop="8dp"
-                    android:max="100"
-                    android:progress="0"
-                    android:progressDrawable="@drawable/progress_violet"
-                    tools:progress="35" />
-
-                <TextView
-                    android:id="@+id/levelFooter"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:textColor="@color/text_faint"
-                    android:textSize="12sp"
-                    tools:text="69 XP to Level 4" />
-
-                <!--
-                    The way into the ladder. The card above says how far the
-                    next level is; it has never said what reaching it is
-                    worth, which is the question the number invites.
-                -->
-                <TextView
-                    android:id="@+id/levelRewardsButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_button_accent_outline"
-                    android:clickable="true"
-                    android:drawableStart="@drawable/ic_gift"
-                    android:drawablePadding="7dp"
-                    android:drawableTint="@color/brand_violet_light"
-                    android:focusable="true"
-                    android:fontFamily="@font/jakarta_semibold"
-                    android:gravity="center"
-                    android:paddingStart="10dp"
-                    android:paddingTop="9dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="9dp"
-                    android:text="@string/level_rewards_button"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="12sp" />
-
-            </LinearLayout>
-
-            <!--
-                Only visible while a buff is running.
-
-                The copy deliberately does NOT follow the handoff, which labels
-                this "2x boost on / Double stars, everything". In this app the
-                buff multiplies whichever of Points or XP was granted, and
-                MULTIPLIER_ELIGIBLE marks quiz and game false for Points, so
-                "double stars, everything" would be a promise the server does
-                not keep.
-            -->
-            <LinearLayout
-                android:id="@+id/buffCard"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="10dp"
-                android:background="@drawable/bg_boost_card"
-                android:orientation="vertical"
-                android:paddingStart="14dp"
-                android:paddingTop="16dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="16dp"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <View
-                        android:layout_width="7dp"
-                        android:layout_height="7dp"
-                        android:background="@drawable/bg_dot_boost" />
-
-                    <TextView
-                        android:id="@+id/buffText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="7dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:maxLines="2"
-                        android:textColor="@color/boost_blue_light"
-                        android:textSize="12sp"
-                        tools:text="2x XP boost" />
-
-                </LinearLayout>
-
-                <!--
-                    Monospace is load-bearing: the clock reruns every second,
-                    and a proportional face makes the digits jump sideways on
-                    each tick. 18sp rather than the handoff's 24sp because this
-                    column is now the narrow one.
-                -->
-                <TextView
-                    android:id="@+id/buffTimer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:fontFamily="@font/mono_bold"
-                    android:includeFontPadding="false"
-                    android:letterSpacing="-0.03"
-                    android:textColor="@color/white"
-                    android:textSize="18sp"
-                    tools:text="01:42:18" />
-
-                <TextView
-                    android:id="@+id/buffNote"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:text="@string/buff_rate_note"
-                    android:textColor="@color/text_faint"
-                    android:textSize="11sp" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- ================= Weekly leaderboard ================= -->
-        <!--
-            Gold hairline rather than the usual one: this is the competitive
-            card, and it is the only place on the screen where what a user gets
-            depends on what everybody else did.
-
-            Hidden until the board has been read, so a slow network shows
-            nothing rather than an empty rank.
-        -->
-        <LinearLayout
-            android:id="@+id/leaderboardRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_leaderboard_row"
-            android:baselineAligned="false"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
-            android:paddingTop="14dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="14dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <!--
-                A trophy rather than the rank in a chip. The number was already
-                on the right of the row, so the badge repeated it and read as a
-                flat grey square; the mark is what makes the row look like a
-                competition rather than another statistic.
-            -->
-            <FrameLayout
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:background="@drawable/bg_chip_gold">
-
-                <ImageView
-                    android:layout_width="19dp"
-                    android:layout_height="19dp"
-                    android:layout_gravity="center"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_trophy"
-                    app:tint="@color/gold" />
-
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="11dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:text="@string/leaderboard_title"
-                    android:textColor="@color/white"
-                    android:textSize="13sp" />
-
-                <TextView
-                    android:id="@+id/leaderboardSubtitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:maxLines="1"
-                    android:textColor="@color/text_faint"
-                    android:textSize="11sp"
-                    tools:text="Top 100 share 5,000 ★" />
-
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/leaderboardRank"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:fontFamily="@font/jakarta_semibold"
-                android:textColor="@color/gold"
-                android:textSize="12sp"
-                tools:text="#24,247" />
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginStart="4dp"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_arrow_right"
-                app:tint="@color/gold" />
 
         </LinearLayout>
 
@@ -1185,237 +1034,40 @@
 
         </LinearLayout>
 
-        <!-- ================= Featured offer ================= -->
+        <!-- ================= Quick ways to earn ================= -->
         <!--
-            A fixed entry point into the Earn tab, not a real campaign: there is
-            no offer collection behind it yet. When sponsor offers land server
-            side this card reads from them and the copy becomes specific.
+            One bordered section rather than four loose cards. Play, quiz and
+            offers are the three things a new user can actually do, so they
+            sit together at equal weight instead of a giant featured-offer
+            card above two tiles above two slim rows.
 
-            Deliberately promises no amount. See the note on the strings.
+            The offer tile is what is left of that featured card. It kept its
+            id (`offerCard`) and its destination; what it lost is a headline
+            promising "earn more" with no figure behind it - there is no offer
+            collection server side yet.
+
+            Invite sits below the three rather than beside them: it pays on
+            somebody else's activity, not on anything you can do in the next
+            minute, which is what the three tiles are for.
         -->
         <LinearLayout
-            android:id="@+id/offerCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:background="@drawable/bg_offer_card"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="18dp">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/jakarta_semibold"
-                    android:letterSpacing="0.13"
-                    android:text="@string/offer_eyebrow"
-                    android:textAllCaps="true"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="10sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:lineSpacingMultiplier="1.3"
-                    android:text="@string/offer_headline"
-                    android:textColor="@color/white"
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:text="@string/offer_subcopy"
-                    android:textColor="@color/text_faint"
-                    android:textSize="12sp" />
-
-            </LinearLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnOffer"
-                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:fontFamily="@font/jakarta_bold"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:minWidth="0dp"
-                android:minHeight="0dp"
-                android:paddingStart="18dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="18dp"
-                android:paddingBottom="12dp"
-                android:text="@string/offer_cta"
-                android:textAllCaps="false"
-                android:textColor="@color/white"
-                android:textSize="13sp"
-                app:backgroundTint="@color/brand_violet"
-                app:cornerRadius="14dp" />
-
-        </LinearLayout>
-
-        <!-- ================= Quick actions ================= -->
-        <!--
-            Section titles sit 4dp further in than the cards do. That is not a
-            slip: the design insets headings to 20dp against the cards' 16dp,
-            so a title lines up with the card's text rather than its edge.
-
-            The two big tiles replace the game/quiz slim rows. Same
-            destinations, same navigation code - they are only louder, because
-            playing and quizzing are what the screen is for.
-        -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
             android:layout_marginTop="26dp"
-            android:fontFamily="@font/jakarta_bold"
-            android:letterSpacing="-0.013"
-            android:text="@string/quick_actions"
-            android:textColor="@color/white"
-            android:textSize="15sp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
+            android:background="@drawable/bg_action_row"
+            android:orientation="vertical"
+            android:padding="14dp">
 
             <LinearLayout
-                android:id="@+id/playTile"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_tile_play"
-                android:clickable="true"
-                android:focusable="true"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <FrameLayout
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_tile_icon_light">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center"
-                        android:importantForAccessibility="no"
-                        android:src="@drawable/ic_game"
-                        app:tint="@color/white" />
-
-                </FrameLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:text="@string/tile_play_games"
-                    android:textColor="@color/white"
-                    android:textSize="14.5sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:text="@string/game_reward_rate"
-                    android:textColor="@color/text_muted"
-                    android:textSize="11.5sp" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/quizTile"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="9dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_tile_quiz"
-                android:clickable="true"
-                android:focusable="true"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <FrameLayout
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:background="@drawable/bg_tile_icon_dark">
-
-                    <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
-                        android:layout_gravity="center"
-                        android:importantForAccessibility="no"
-                        android:src="@drawable/ic_quiz"
-                        app:tint="@color/on_gold_icon" />
-
-                </FrameLayout>
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:text="@string/quiz_title"
-                    android:textColor="@color/on_gold"
-                    android:textSize="14.5sp" />
-
-                <!--
-                    Filled per second from the quiz attempt count and the reset
-                    countdown - see HomeFragment.updateQuizStatusText.
-                -->
-                <TextView
-                    android:id="@+id/quizTileSubtitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:textColor="@color/on_gold_muted"
-                    android:textSize="11.5sp"
-                    tools:text="3 quizzes left" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="9dp"
-            android:layout_marginBottom="10dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:id="@+id/earnAction"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/bg_action_row"
-                android:clickable="true"
-                android:focusable="true"
+                android:baselineAligned="false"
                 android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="14dp">
+                android:orientation="horizontal">
 
                 <FrameLayout
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:background="@drawable/bg_icon_violet">
 
                     <ImageView
@@ -1423,7 +1075,7 @@
                         android:layout_height="15dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
-                        android:src="@drawable/ic_rewards"
+                        android:src="@drawable/ic_bolt"
                         app:tint="@color/brand_violet_light" />
 
                 </FrameLayout>
@@ -1431,33 +1083,292 @@
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="11dp"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:ellipsize="end"
-                    android:fontFamily="@font/jakarta_semibold"
+                    android:fontFamily="@font/jakarta_bold"
                     android:maxLines="1"
-                    android:text="@string/action_earn_stars"
+                    android:text="@string/quick_earn_title"
                     android:textColor="@color/white"
-                    android:textSize="12.5sp" />
+                    android:textSize="13.5sp" />
+
+                <!--
+                    The old "Earn stars" action row, now the section's link.
+                    Same destination, and it reads as what it is.
+                -->
+                <LinearLayout
+                    android:id="@+id/earnAction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="6dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="2dp"
+                    android:paddingBottom="4dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:text="@string/quick_earn_view_all"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="11.5sp" />
+
+                    <ImageView
+                        android:layout_width="14dp"
+                        android:layout_height="14dp"
+                        android:layout_marginStart="3dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_arrow_right"
+                        app:tint="@color/brand_violet_light" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/playTile"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_tile_earn_violet"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/bg_icon_violet">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_game"
+                                app:tint="@color/brand_violet_light" />
+
+                        </FrameLayout>
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_arrow_right"
+                            app:tint="@color/text_ghost" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/tile_play_games"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.2"
+                        android:text="@string/quick_earn_play_subtitle"
+                        android:textColor="@color/text_faint"
+                        android:textSize="10.5sp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/quizTile"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_tile_earn_blue"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/bg_icon_blue">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_quiz"
+                                app:tint="@color/boost_blue_light" />
+
+                        </FrameLayout>
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_arrow_right"
+                            app:tint="@color/text_ghost" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/quiz_title"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <!--
+                        Filled per second from the quiz attempt count and the
+                        reset countdown - see HomeFragment.updateQuizStatusText.
+                    -->
+                    <TextView
+                        android:id="@+id/quizTileSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.2"
+                        android:textColor="@color/text_faint"
+                        android:textSize="10.5sp"
+                        tools:text="3 quizzes left" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/offerCard"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_tile_earn_gold"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <FrameLayout
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:background="@drawable/bg_icon_gold">
+
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_gravity="center"
+                                android:importantForAccessibility="no"
+                                android:src="@drawable/ic_gift"
+                                app:tint="@color/gold" />
+
+                        </FrameLayout>
+
+                        <View
+                            android:layout_width="0dp"
+                            android:layout_height="1dp"
+                            android:layout_weight="1" />
+
+                        <ImageView
+                            android:layout_width="13dp"
+                            android:layout_height="13dp"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_arrow_right"
+                            app:tint="@color/text_ghost" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/quick_earn_offer_title"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="3dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.2"
+                        android:text="@string/quick_earn_offer_subtitle"
+                        android:textColor="@color/text_faint"
+                        android:textSize="10.5sp" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/referAction"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="9dp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_action_row"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/bg_summary_card"
+                android:baselineAligned="false"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="14dp">
+                android:padding="12dp">
 
                 <FrameLayout
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
                     android:background="@drawable/bg_icon_gold">
 
                     <ImageView
@@ -1465,7 +1376,7 @@
                         android:layout_height="15dp"
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
-                        android:src="@drawable/ic_user_avatar"
+                        android:src="@drawable/ic_users"
                         app:tint="@color/gold" />
 
                 </FrameLayout>
@@ -1473,7 +1384,7 @@
                 <TextView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="11dp"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
                     android:ellipsize="end"
                     android:fontFamily="@font/jakarta_semibold"
@@ -1482,7 +1393,390 @@
                     android:textColor="@color/white"
                     android:textSize="12.5sp" />
 
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/text_ghost" />
+
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ================= Weekly leaderboard ================= -->
+        <!--
+            Gold hairline rather than the usual one: this is the competitive
+            card, and it is the only place on the screen where what a user
+            gets depends on what everybody else did.
+
+            The whole card is the tap target, not just the link in its header
+            - the link says where it goes, the card is what a thumb hits.
+
+            Hidden until the board has been read, so a slow network shows
+            nothing rather than an empty rank.
+        -->
+        <LinearLayout
+            android:id="@+id/leaderboardRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_leaderboard_row"
+            android:clickable="true"
+            android:focusable="true"
+            android:orientation="vertical"
+            android:padding="14dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <FrameLayout
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="@drawable/bg_chip_gold">
+
+                    <ImageView
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_gravity="center"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_trophy"
+                        app:tint="@color/gold" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:maxLines="1"
+                    android:text="@string/leaderboard_title"
+                    android:textColor="@color/white"
+                    android:textSize="13.5sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:text="@string/leaderboard_view"
+                    android:textColor="@color/gold"
+                    android:textSize="11.5sp" />
+
+                <ImageView
+                    android:layout_width="14dp"
+                    android:layout_height="14dp"
+                    android:layout_marginStart="3dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_arrow_right"
+                    app:tint="@color/gold" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <!--
+                    Your own standing, in the same shape the leaderboard
+                    screen uses for the "me" row - so arriving there from this
+                    card lands on something already recognisable.
+                -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1.7"
+                    android:background="@drawable/bg_row_card_me"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="11dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="11dp"
+                    android:paddingBottom="10dp">
+
+                    <TextView
+                        android:id="@+id/leaderboardRank"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/mono_bold"
+                        android:textColor="@color/gold"
+                        android:textSize="11.5sp"
+                        tools:text="#24" />
+
+                    <FrameLayout
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:layout_marginStart="9dp"
+                        android:background="@drawable/bg_row_avatar_me">
+
+                        <ImageView
+                            android:layout_width="15dp"
+                            android:layout_height="15dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_user_avatar"
+                            app:tint="@color/brand_violet_light" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="9dp"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="1"
+                        android:text="@string/leaderboard_you"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <TextView
+                        android:id="@+id/leaderboardMyXp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:fontFamily="@font/mono_bold"
+                        android:textColor="@color/gold"
+                        android:textSize="11.5sp"
+                        tools:text="1,240 XP" />
+
+                </LinearLayout>
+
+                <!--
+                    The prize rule. It is what makes the rank beside it worth
+                    reading - a position with no stake attached is trivia.
+                -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="8dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_summary_card"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="10dp"
+                    android:paddingTop="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="10dp">
+
+                    <FrameLayout
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:background="@drawable/bg_icon_gold">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:layout_gravity="center"
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/ic_users"
+                            app:tint="@color/gold" />
+
+                    </FrameLayout>
+
+                    <TextView
+                        android:id="@+id/leaderboardSubtitle"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:lineSpacingMultiplier="1.2"
+                        android:maxLines="2"
+                        android:textColor="@color/text_dim"
+                        android:textSize="10.5sp"
+                        tools:text="Top 30 share 2,450 ★" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ================= Recent payouts ================= -->
+        <!--
+            Last on the screen, and that is the right place for it: it is
+            social proof, not something the user has to act on.
+
+            One line, tappable, opening the full list in a sheet. The card
+            this replaced showed three rows and cost most of a screen to say
+            what fits here in a sentence.
+
+            The avatar cluster is drawn from the feed's own masked names, one
+            initial each - not stock faces. Three circles is why the live
+            listener holds three entries rather than the one the text line
+            needs; see PAYOUT_FEED_ROW_LIMIT for what that costs.
+
+            Hidden until there is something to show, so a new install does not
+            present an empty box as its first impression.
+        -->
+        <LinearLayout
+            android:id="@+id/payoutFeedRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_action_row"
+            android:baselineAligned="false"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_icon_violet">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_nav_wallet"
+                    app:tint="@color/brand_violet_light" />
+
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="11dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="1"
+                        android:text="@string/recent_payouts"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <TextView
+                        android:id="@+id/payoutFeedTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10.5sp"
+                        tools:text="10m ago" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/payoutFeedText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:maxLines="1"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11sp"
+                    tools:text="Joh********23 received 1000 UC" />
+
+            </LinearLayout>
+
+            <!--
+                Negative start margins overlap the circles; each carries a 2dp
+                stroke in the card colour, which is what keeps them legible
+                where they cross. Cells with no entry behind them are hidden,
+                so a feed one payout long shows one circle rather than two
+                empty ones.
+            -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/payoutAvatar3"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="A"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/payoutAvatar2"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="-9dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="M"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/payoutAvatar1"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="-9dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="J"
+                    tools:visibility="visible" />
+
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="8dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_arrow_right"
+                app:tint="@color/text_ghost" />
 
         </LinearLayout>
 

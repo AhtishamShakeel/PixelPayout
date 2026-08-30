@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The gold twin of bg_button_accent_outline, for the action inside the XP
+    card. Outlined for the same reason: a solid gold fill would be the
+    loudest thing on Home, above the numbers it acts on.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/gold_tint_16" />
+            <stroke android:width="1dp" android:color="@color/gold" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <!--
+                Transparent, not a gold tint. A 16% gold fill over the card's
+                warm brown ground mixes to olive, which reads as a disabled
+                button rather than a gold one - the stroke and the label carry
+                it on their own.
+            -->
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="1dp" android:color="@color/gold_stroke" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</selector>

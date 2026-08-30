@@ -154,21 +154,12 @@ class HomeFragment : Fragment() {
                 binding.redemptionProgress.progress = next.percent
                 binding.balanceTarget.text =
                     getString(R.string.balance_target, next.pointsCost)
-                // Derived rather than read from points separately: taking both
-                // halves of the ratio from the same snapshot stops the bar and
-                // the numbers under it disagreeing mid-update.
-                binding.balanceRatio.text = getString(
-                    R.string.balance_ratio,
-                    next.pointsCost - next.pointsShort,
-                    next.pointsCost
-                )
                 binding.nextTierText.text =
                     getString(R.string.next_tier, next.pointsShort, next.title)
             }
         }
 
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
-            binding.levelChip.text = progress.level.toString()
             binding.levelTitle.text = getString(R.string.level_card_title, progress.level)
 
             when {
@@ -360,11 +351,12 @@ class HomeFragment : Fragment() {
             playTile.setOnClickListener { navigateToGame() }
             quizTile.setOnClickListener { navigateToQuizzes() }
 
+            // The section's "View all" link and its offer tile both land on
+            // Earn. The tile lost its separate button in the redesign - at a
+            // third of the row's width there is no room for one, and the
+            // whole tile was already the larger target.
             earnAction.setOnClickListener { navigateToRewards() }
-            // Both the card and its button land on Earn; tapping the card body
-            // is what most people try first.
             offerCard.setOnClickListener { navigateToRewards() }
-            btnOffer.setOnClickListener { navigateToRewards() }
             referAction.setOnClickListener { showReferralDialog() }
 
             streakClaimButton.setOnClickListener { confirmStreakClaim() }
@@ -794,11 +786,15 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * The weekly leaderboard row.
+     * The weekly leaderboard card.
      *
      * Rank zero means no play this week rather than last place, so it reads as
      * an invitation instead of a position - telling someone they are "#0" or
      * dead last for not having started is worse than saying nothing.
+     *
+     * The figure beside the rank is WEEKLY XP, which is what the board is
+     * actually sorted on. Showing stars there would be a scoreboard whose
+     * number had nothing to do with its order.
      */
     private fun renderLeaderboard(board: UserRepository.Leaderboard?) {
         val binding = _binding ?: return
@@ -819,6 +815,15 @@ class HomeFragment : Fragment() {
             getString(R.string.leaderboard_rank, formatCount(board.myRank))
         } else {
             getString(R.string.leaderboard_play_to_enter)
+        }
+
+        // An unranked user has no weekly XP worth printing - a hard zero
+        // beside "Play to enter" reads like a score they lost rather than
+        // one they have not started.
+        binding.leaderboardMyXp.text = if (board.isRanked) {
+            getString(R.string.leaderboard_my_xp, formatCount(board.myXp))
+        } else {
+            getString(R.string.leaderboard_unranked_xp)
         }
 
         binding.leaderboardRow.setOnClickListener { openLeaderboard() }
@@ -1136,6 +1141,22 @@ class HomeFragment : Fragment() {
             getString(R.string.payout_feed_row, latest.name, latest.label)
         binding.payoutFeedTime.text = relativeTime(latest.atMillis)
         binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet() }
+
+        // The overlapping circles, one initial per recent payout. Drawn from
+        // the feed's own masked names rather than stock faces, so three
+        // circles means three real payouts - a cell with nothing behind it is
+        // hidden instead of filled with a placeholder.
+        listOf(
+            binding.payoutAvatar1, binding.payoutAvatar2, binding.payoutAvatar3
+        ).forEachIndexed { index, avatar ->
+            val initial = entries.getOrNull(index)?.name.orEmpty().firstOrNull()
+            if (initial == null) {
+                avatar.visibility = View.GONE
+            } else {
+                avatar.visibility = View.VISIBLE
+                avatar.text = initial.toString()
+            }
+        }
     }
 
     /**
@@ -1143,12 +1164,12 @@ class HomeFragment : Fragment() {
      * fetch is capped at ten, and a RecyclerView plus its adapter would be
      * more machinery than that justifies.
      *
-     * The rows are FETCHED here rather than handed in. The live listener now
-     * holds only the single entry Home draws, because a listener is billed a
-     * read per document in its window every time a fresh process attaches it
-     * - ten reads on every launch, for every user, to render one line. The
-     * other nine are worth reading when somebody asks to see them, and worth
-     * nothing on the launches where nobody does.
+     * The rows are FETCHED here rather than handed in. The live listener
+     * holds only the three entries Home's row draws, because a listener is
+     * billed a read per document in its window every time a fresh process
+     * attaches it - ten reads on every launch, for every user, to render one
+     * line. The other seven are worth reading when somebody asks to see them,
+     * and worth nothing on the launches where nobody does.
      */
     private fun showPayoutFeedSheet() {
         val view = layoutInflater.inflate(R.layout.sheet_payout_feed, null)

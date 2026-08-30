@@ -185,6 +185,30 @@
     <string name="level_perk_game">%1$s unlocks in Cashout</string>
     <!-- Quick actions -->
     <string name="quick_actions">Quick actions</string>
+
+    <!-- Home redesign: the two stat cards at the top, replacing the single
+         full-width balance card. -->
+    <string name="stars_eyebrow">Stars</string>
+    <string name="stars_redeem_cta">Redeem rewards</string>
+    <string name="xp_eyebrow">XP &amp; level</string>
+
+    <!-- Quick ways to earn. The subtitles say XP where XP is what is
+         actually awarded: quizzes and games pay no stars at all (see
+         rewardConfig.ts), and the old "5-10 stars per minute" line on the
+         game tile was promising something the server never paid. -->
+    <string name="quick_earn_title">Quick ways to earn</string>
+    <string name="quick_earn_view_all">View all</string>
+    <string name="quick_earn_play_subtitle">Earn XP, level up</string>
+    <string name="quick_earn_offer_title">Offers</string>
+    <string name="quick_earn_offer_subtitle">Earn stars</string>
+
+    <!-- Weekly leaderboard card -->
+    <string name="leaderboard_view">View leaderboard</string>
+    <!-- leaderboard_you already exists further down, for the standings
+         screen's own "me" row; the card reuses it rather than adding a
+         second copy of the same word. -->
+    <string name="leaderboard_my_xp">%1$s XP</string>
+    <string name="leaderboard_unranked_xp">--</string>
     <string name="tile_play_games">Play Games</string>
     <string name="action_earn_stars">Earn stars</string>
     <string name="action_refer">Refer &amp; earn</string>

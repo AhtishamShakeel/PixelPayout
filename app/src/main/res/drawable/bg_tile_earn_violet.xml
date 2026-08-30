@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One of the three Quick-ways-to-earn tiles.
+
+    The trio is deliberately QUIET: tinted surfaces with a coloured icon
+    chip, not the saturated violet/gold fills the play and quiz tiles used to
+    carry. Three loud tiles in a row read as three competing adverts, and the
+    hue is doing the same job at a fraction of the volume - which is also
+    what keeps them from fighting the two stat cards at the top.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/violet_tint_14" />
+    <stroke android:width="1dp" android:color="@color/violet_tint_30" />
+    <corners android:radius="14dp" />
+</shape>

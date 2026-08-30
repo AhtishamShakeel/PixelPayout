@@ -899,6 +899,26 @@ class UserRepository {
     )
 
     /**
+     * The rest of the feed, fetched only when the sheet is actually opened.
+     *
+     * Deliberately a one-shot rather than widening the live listener: the
+     * other nineteen rows are worth a read when somebody asks to see them,
+     * and worth nothing on a launch where nobody does.
+     */
+    suspend fun getPayoutFeed(limit: Long = PAYOUT_FEED_SHEET_LIMIT): List<PayoutFeedEntry> {
+        return try {
+            firestore.collection(COLLECTION_PAYOUT_FEED)
+                .orderBy(FIELD_APPROVED_AT, Query.Direction.DESCENDING)
+                .limit(limit)
+                .get().await()
+                .documents.mapNotNull(::parsePayoutFeedEntry)
+        } catch (e: Exception) {
+            Log.e("PayoutFeed", "Feed read failed: ${e.message}")
+            emptyList()
+        }
+    }
+
+    /**
      * The public payout feed - other people's approved redemptions, names
      * already masked server-side. Nothing identifying is in this collection;
      * see economy/payoutFeed.ts for why it is separate from `redemptions`.
@@ -906,25 +926,27 @@ class UserRepository {
     private fun listenToPayoutFeed() {
         firestore.collection(COLLECTION_PAYOUT_FEED)
             .orderBy(FIELD_APPROVED_AT, Query.Direction.DESCENDING)
-            .limit(PAYOUT_FEED_LIMIT)
+            .limit(PAYOUT_FEED_ROW_LIMIT)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {
                     Log.e("PayoutFeed", "Feed listener failed: ${error?.message}")
                     return@addSnapshotListener
                 }
 
-                _payoutFeed.postValue(
-                    snapshot.documents.mapNotNull { doc ->
-                        val at = doc.getTimestamp(FIELD_APPROVED_AT)?.toDate()?.time
-                            ?: return@mapNotNull null
-                        PayoutFeedEntry(
-                            name = doc.getString("name").orEmpty(),
-                            optionTitle = doc.getString("optionTitle").orEmpty(),
-                            atMillis = at
-                        )
-                    }
-                )
+                _payoutFeed.postValue(snapshot.documents.mapNotNull(::parsePayoutFeedEntry))
             }
+    }
+
+    /** Shared by the live row listener and the on-demand sheet fetch. */
+    private fun parsePayoutFeedEntry(
+        doc: com.google.firebase.firestore.DocumentSnapshot
+    ): PayoutFeedEntry? {
+        val at = doc.getTimestamp(FIELD_APPROVED_AT)?.toDate()?.time ?: return null
+        return PayoutFeedEntry(
+            name = doc.getString("name").orEmpty(),
+            optionTitle = doc.getString("optionTitle").orEmpty(),
+            atMillis = at
+        )
     }
 
     /**
@@ -1121,7 +1143,26 @@ class UserRepository {
         private const val FIELD_OPTION_TITLE = "optionTitle"
         private const val FIELD_CREATED_AT = "createdAt"
         private const val FIELD_APPROVED_AT = "approvedAt"
-        private const val PAYOUT_FEED_LIMIT = 20L
+        /**
+         * How many feed entries the LIVE listener holds.
+         *
+         * One, because Home renders exactly one row from this feed. A
+         * snapshot listener bills a read per document in its result set every
+         * time a fresh process attaches it, so a window of twenty cost twenty
+         * reads on every launch to draw a single line - for every user,
+         * whether or not they ever opened the full list.
+         *
+         * Note what this does NOT change: the fan-out. Each approved payout
+         * puts one new document into the window, so every connected listener
+         * is billed one read per payout whether the window holds one entry or
+         * twenty. Shrinking the window fixes the per-launch cost; only a
+         * digest document fixes the per-payout one, and that is not worth
+         * building until the numbers ask for it.
+         */
+        private const val PAYOUT_FEED_ROW_LIMIT = 1L
+
+        /** How many the sheet fetches on demand, when somebody opens it. */
+        const val PAYOUT_FEED_SHEET_LIMIT = 20L
 
         private const val FIELD_OPTION_TYPE = "optionType"
         private const val FIELD_PACK_AMOUNT = "packAmount"

@@ -1096,34 +1096,50 @@ class HomeFragment : Fragment() {
         binding.payoutFeedText.text =
             getString(R.string.payout_feed_row, latest.name, latest.optionTitle)
         binding.payoutFeedTime.text = relativeTime(latest.atMillis)
-        binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet(entries) }
+        binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet() }
     }
 
     /**
      * The whole feed, in a sheet. Rows are inflated rather than adapted: the
      * server caps the list at twenty, and a RecyclerView plus its adapter
      * would be more machinery than that justifies.
+     *
+     * The rows are FETCHED here rather than handed in. The live listener now
+     * holds only the single entry Home draws, because a listener is billed a
+     * read per document in its window every time a fresh process attaches it
+     * - twenty reads on every launch, for every user, to render one line. The
+     * other nineteen are worth reading when somebody asks to see them, and
+     * worth nothing on the launches where nobody does.
      */
-    private fun showPayoutFeedSheet(entries: List<UserRepository.PayoutFeedEntry>) {
+    private fun showPayoutFeedSheet() {
         val view = layoutInflater.inflate(R.layout.sheet_payout_feed, null)
         val rows = view.findViewById<ViewGroup>(R.id.payoutSheetRows)
 
-        entries.forEach { entry ->
-            val row = layoutInflater.inflate(R.layout.item_payout_feed, rows, false)
-            row.findViewById<TextView>(R.id.payoutItemText).text =
-                getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
-            row.findViewById<TextView>(R.id.payoutItemTime).text =
-                relativeTime(entry.atMillis)
-            rows.addView(row)
-        }
-
-        BottomSheetDialog(requireContext()).apply {
+        // The sheet opens straight away and fills in - the alternative is a
+        // tap that appears to do nothing while the fetch is in flight.
+        val dialog = BottomSheetDialog(requireContext()).apply {
             setContentView(view)
             // The sheet paints its own rounded background; the default white
             // one would show as a band behind the corners.
             findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
                 ?.setBackgroundColor(Color.TRANSPARENT)
             show()
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val entries = mainViewModel.fullPayoutFeed()
+                .ifEmpty { mainViewModel.payoutFeed.value.orEmpty() }
+            if (!dialog.isShowing) return@launch
+
+            rows.removeAllViews()
+            entries.forEach { entry ->
+                val row = layoutInflater.inflate(R.layout.item_payout_feed, rows, false)
+                row.findViewById<TextView>(R.id.payoutItemText).text =
+                    getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
+                row.findViewById<TextView>(R.id.payoutItemTime).text =
+                    relativeTime(entry.atMillis)
+                rows.addView(row)
+            }
         }
     }
 

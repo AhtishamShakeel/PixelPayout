@@ -192,8 +192,16 @@ class MainViewModel(
     val pendingRedemptions: LiveData<UserRepository.PendingRedemptions> =
         userRepository.pendingRedemptions
 
+    /**
+     * The live feed, holding only what Home's single row draws. The rest is
+     * fetched by [fullPayoutFeed] when somebody opens the sheet.
+     */
     val payoutFeed: LiveData<List<UserRepository.PayoutFeedEntry>> =
         userRepository.payoutFeed
+
+    /** The whole feed, read once, for the sheet. */
+    suspend fun fullPayoutFeed(): List<UserRepository.PayoutFeedEntry> =
+        userRepository.getPayoutFeed()
 
     val resolvedRedemptions: LiveData<List<UserRepository.ResolvedRedemption>> =
         userRepository.resolvedRedemptions

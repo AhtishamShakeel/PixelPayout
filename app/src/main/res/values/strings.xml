@@ -39,8 +39,27 @@
     <string name="home">Home</string>
     <string name="game">Game</string>
     <string name="welcome_message">Welcome</string>
-    <string name="game_info">Play our exciting game to earn points!</string>
-    <string name="play_game">Play Game</string>
+    <string name="game_info">Play a game to earn XP and level up!</string>
+
+    <!-- Play &gt; Games -->
+    <string name="games_section_title">Games</string>
+    <string name="games_available">%1$d available</string>
+    <string name="games_plays_left">%1$d of %2$d plays left today</string>
+    <string name="games_plays_spent">Back tomorrow — quizzes still pay today</string>
+    <string name="games_more_coming">More games coming</string>
+    <string name="games_limit_toast">No plays left today — they reset at 00:00 UTC.</string>
+    <string name="games_xp_footnote">Plays are shared across both games and reset at 00:00 UTC. XP depends on your score, up to %1$d a game.</string>
+    <string name="game_xp_chip">Up to %1$d XP</string>
+    <string name="game_flappy_name">Neon Flap</string>
+    <string name="game_flappy_desc">Tap to fly. One point for every pipe you clear.</string>
+    <string name="game_tower_name">Tower Building</string>
+    <string name="game_tower_desc">Stack the blocks. Perfect drops are worth more.</string>
+    <!-- Play &gt; Quizzes. Mirrors the games_* copy: same allowance card,
+         same shape of sentence. -->
+    <string name="quizzes_attempts_left">%1$d of %2$d quizzes left today</string>
+    <string name="quizzes_attempts_spent">Back tomorrow — games still pay today</string>
+    <string name="quizzes_limit_toast">No quizzes left today — they reset at 00:00 UTC.</string>
+
     <string name="daily_limit_reached">Daily Quiz Limit Reached!</string>
     <string name="next_quiz_time">Next quizzes available in %1$d hours %2$d minutes</string>
     <string name="remaining_quizzes">Remaining quizzes today: %d</string>
@@ -64,11 +83,11 @@
         Rules:\n
         • A higher score earns more XP\n
         • XP raises your level and unlocks rewards\n
-        • No daily limit on game plays\n
+        • You can play up to 10 games per day\n
         • Practice to improve your score and earn more!
     </string>
     <string name="quiz_rewards_summary">Rewards:\n• 10 XP per correct answer\n• Up to 10 quizzes per day</string>
-    <string name="game_rewards_summary">Rewards:\n• XP based on your score\n• Up to 30 XP per game</string>
+    <string name="game_rewards_summary">Rewards:\n• XP based on your score\n• Up to 30 XP per game\n• Up to 10 games per day</string>
     <string name="points_cost">%d stars</string>
     <string name="locked_until_level">Level %d</string>
     <string name="confirm_redemption">This will use %d stars. Continue?</string>
@@ -176,7 +195,7 @@
     <string name="level_rewards_tag_next">Next up</string>
     <string name="level_rewards_tag_locked">Locked</string>
     <string name="level_rewards_loading">Level rewards are still loading.</string>
-    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Milestone stars are paid the moment you reach the level - there is nothing to claim. Levels not listed here are progression only.</string>
+    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Every level pays stars the moment you reach it - there is nothing to claim. Level 1 is where you start, so it is not on the ladder.</string>
     <string name="level_perk_stars">+%1$d ★, paid the moment you reach it</string>
     <!-- %1$d is the XP threshold the server actually tests, not the level:
          the level is reached slightly before it. -->

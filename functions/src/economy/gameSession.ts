@@ -12,8 +12,9 @@
  *      key, which they previously lacked).
  *   3. The score must be plausible for the elapsed wall-clock time.
  *
- * Deliberately NOT: score checkpointing, replay simulation, or anything
- * requiring changes to the external games. The exposure here is XP-only.
+ * Deliberately NOT: score checkpointing or replay simulation. We host the
+ * games ourselves now, so that is no longer out of reach - but the client
+ * still runs the code either way, and the exposure here is XP-only.
  */
 
 export const GAME_SESSIONS_SUBCOLLECTION = "gameSessions";
@@ -26,8 +27,12 @@ export interface GameRules {
 }
 
 export const GAME_RULES: Record<string, GameRules> = {
+  // One point per pipe, and a pipe takes well over half a second to reach.
   floppy_bird: {maxScorePerSecond: 2, maxScore: 100_000},
-  game_2048: {maxScorePerSecond: 200, maxScore: 1_000_000},
+  // Tower Building pays 25 a block plus 25 per block of an unbroken "perfect"
+  // streak, so a long flawless run accelerates: sixty perfect blocks over two
+  // minutes averages out near 380/s. 500 clears that without inviting nonsense.
+  tower_game: {maxScorePerSecond: 500, maxScore: 200_000},
 };
 
 /** A session shorter than this didn't involve real play. */

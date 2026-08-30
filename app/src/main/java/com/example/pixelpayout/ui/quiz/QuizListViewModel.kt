@@ -45,9 +45,42 @@ class QuizListViewModel : ViewModel() {
     // Cache control variables
     private var lastCheckTimestamp: Long = 0
     private val CHECK_INTERVAL = 5 * 60 * 1000 // 5 minutes in milliseconds
-    
+
     // App state tracking
     private var hasCompletedInitialLoad = false
+
+    /**
+     * Whether a request is already out.
+     *
+     * [fetchDailyAttempts] is called from a once-per-second countdown as well
+     * as from screen events, and `forceRefresh` skips every staleness check -
+     * so without this, one slow round trip at the reset boundary produced a
+     * fresh call every second while it was in flight.
+     */
+    private var requestInFlight = false
+
+    /**
+     * Earliest a retry may go out after a FAILED call, as server time.
+     *
+     * Only set on failure. A successful refresh clears it, so finishing two
+     * quizzes in quick succession still updates promptly - this exists purely
+     * so an endpoint that is down is not asked once a second forever.
+     */
+    private var failureCooldownUntil = 0L
+    private val FAILURE_COOLDOWN_MS = 30 * 1000L
+
+    /**
+     * The [_nextResetTime] value the countdown has already fired a refresh
+     * for, so a boundary is requested once rather than once per tick.
+     *
+     * Needed on top of [requestInFlight] because of clock skew. If the device
+     * believes the UTC day has rolled over and the server does not, the
+     * response comes back with the SAME lastResetTime, the countdown stays at
+     * zero, and the loop would run again the moment the call returns - faster
+     * than the one-per-second version it replaced. Keying on the boundary
+     * value means an unmoved boundary is never asked about twice.
+     */
+    private var resetRefreshedForBoundary = 0L
 
     private val defaultCategories = listOf(
         QuizCategory("Animals", R.raw.animal_quiz_animation, ""),
@@ -74,8 +107,27 @@ class QuizListViewModel : ViewModel() {
         FirebaseFirestore.getInstance().firestoreSettings = settings
     }
 
+    /**
+     * Called by the countdown when it reaches the reset boundary.
+     *
+     * Deliberately NOT a forced refresh: this fires from a per-second timer,
+     * and the whole point is that one boundary produces at most one request.
+     */
+    fun onResetBoundaryReached() {
+        val boundary = _nextResetTime.value ?: return
+        if (boundary == resetRefreshedForBoundary) return
+        resetRefreshedForBoundary = boundary
+        fetchDailyAttempts(forceRefresh = true)
+    }
+
     fun fetchDailyAttempts(forceRefresh: Boolean = false) {
         val now = System.currentTimeMillis()
+
+        // Both guards apply even to a forced refresh. "Force" means "ignore
+        // staleness", not "ignore that a request is already out" - and the
+        // caller that most needs forcing is the one on a one-second timer.
+        if (requestInFlight) return
+        if (ServerClock.now() < failureCooldownUntil) return
 
         if (!forceRefresh &&
             hasCompletedInitialLoad &&
@@ -92,6 +144,7 @@ class QuizListViewModel : ViewModel() {
         }
 
         lastCheckTimestamp = now  // Ensure timestamp updates on every attempt
+        requestInFlight = true
 
         _showLoadingDialog.postValue(true) // Show loading dialog before starting
         _errorState.postValue(null) // Reset error state before retrying
@@ -100,6 +153,7 @@ class QuizListViewModel : ViewModel() {
             .getHttpsCallable("checkAndResetQuizAttempts")
             .call()
             .addOnCompleteListener { task ->
+                requestInFlight = false
                 if (task.isSuccessful) {
                     try {
                         val data = task.result?.data as? Map<*, *>
@@ -118,6 +172,7 @@ class QuizListViewModel : ViewModel() {
                             _lastResetTime.postValue(lastResetTime)
                             _nextResetTime.postValue(nextResetTime)
                             hasCompletedInitialLoad = true
+                            failureCooldownUntil = 0L
                             Log.d("QuizDebug", "Fetched daily attempts")
 
                             _showLoadingDialog.postValue(false) // Hide dialog only if successful
@@ -126,17 +181,32 @@ class QuizListViewModel : ViewModel() {
                         }
                     } catch (e: Exception) {
                         hasCompletedInitialLoad = false
+                        failureCooldownUntil = ServerClock.now() + FAILURE_COOLDOWN_MS
                         Log.e("QuizDebug", "Error processing server response: ${e.message}")
                         _showLoadingDialog.postValue(false)
                         _errorState.postValue("Error processing response")
                     }
                 } else {
                     hasCompletedInitialLoad = false
+                    failureCooldownUntil = ServerClock.now() + FAILURE_COOLDOWN_MS
                     Log.e("QuizDebug", "Error checking quiz attempts", task.exception)
                     _showLoadingDialog.postValue(false)
                     _errorState.postValue("Failed to fetch data. Please retry.") // Show retry button
                 }
             }
+    }
+
+    /**
+     * An explicit "try again" from the user, which clears the failure
+     * cooldown first.
+     *
+     * The cooldown exists to stop a timer hammering a dead endpoint; somebody
+     * tapping a retry button is the one caller whose request should always go
+     * out, and silently swallowing it would look like a broken button.
+     */
+    fun retryNow() {
+        failureCooldownUntil = 0L
+        fetchDailyAttempts(forceRefresh = true)
     }
 
     /**

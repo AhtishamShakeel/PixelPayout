@@ -38,6 +38,8 @@ import {
   statsForDay,
   DAILY_GOALS_CONFIG_DOC,
   DAILY_GOAL_COUNT,
+  DAILY_GOAL_POOL,
+  GOAL_KINDS,
   DailyStats,
 } from "./economy/dailyGoals";
 import {
@@ -74,7 +76,8 @@ import {
 import {MAX_LEVEL, XP_THRESHOLDS} from "./economy/levelCurve";
 import {
   GAME_XP_SCORE_DIVISOR,
-  LEVEL_MILESTONE_POINTS,
+  LEVEL_UP_POINTS,
+  MAX_DAILY_GAME_SESSIONS,
   MAX_DAILY_QUIZ_ATTEMPTS,
   QUIZ_CORRECT_XP,
   QUIZ_INCORRECT_XP,
@@ -85,7 +88,8 @@ import {
   REFERRER_REWARD_XP,
   RewardSource,
   gameXpForScore,
-  milestonePointsForLevels,
+  levelUpPointsForLevels,
+  parseLevelRewards,
 } from "./economy/rewardConfig";
 admin.initializeApp();
 
@@ -135,6 +139,11 @@ const FIELD_ACTIVE_BUFF = "activeBuff";
 // user can run both at once and neither grant can clobber the other.
 const FIELD_ACTIVE_XP_BUFF = "activeXpBuff";
 const FIELD_QUIZ_ATTEMPTS = "quiz_attempts";
+// Games share FIELD_LAST_RESET_TIME with quizzes rather than carrying a day
+// stamp of their own: one rollover, one re-stamp, and whichever activity the
+// user does first on a new day resets both counters.
+const FIELD_GAME_ATTEMPTS = "game_attempts";
+const FIELD_LAST_RESET_TIME = "last_reset_time";
 const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
 const REFERRAL_LIST_LIMIT = 50;
 const FIELD_REFERRED_BY = "referredBy";
@@ -178,24 +187,104 @@ async function syncAnswerKey(): Promise<QuizAnswerKey> {
  * moment the curve is retuned here). Read-only for clients; the server stays
  * the only writer.
  *
- * The milestone table and the referral threshold ride along for the same
+ * The reward table and the referral threshold ride along for the same
  * reason: the Level rewards screen lists what each level pays, and a second
  * copy of those numbers in Kotlin would go stale the first time the economy
  * is retuned - which is the exact failure the thresholds were published to
  * avoid. Neither is a secret; both are already visible in what the server
  * pays out.
+ *
+ * EDITING THIS DOCUMENT BY HAND DOES NOT CHANGE WHAT IS PAID. The server
+ * reads LEVEL_UP_POINTS from the deployed code when it awards, so this copy
+ * is what the app DISPLAYS. Retuning the economy means editing rewardConfig.ts
+ * and redeploying; a console edit here would only make the ladder lie.
+ *
+ * So does the daily goal pool, and there it is load-bearing rather than
+ * convenient. The client now derives today's three goals itself instead of
+ * calling getDailyGoals on every return to Home, and the derivation has to
+ * agree with this server EXACTLY - a client showing "play 8 games" while
+ * claimDailyGoalBonus requires nine is a bonus that never pays and no error
+ * that explains why. Publishing the pool means there is one array, here, and
+ * retuning the day stays a single edit.
  */
 async function publishLevelCurve(): Promise<void> {
-  await getFirestore().collection(CONFIG_COLLECTION).doc(LEVEL_CURVE_DOC).set({
+  const ref = getFirestore().collection(CONFIG_COLLECTION).doc(LEVEL_CURVE_DOC);
+  const existingRewards = parseLevelRewards((await ref.get()).get("levelRewards"), MAX_LEVEL);
+
+  const payload: Record<string, unknown> = {
     maxLevel: MAX_LEVEL,
     thresholds: XP_THRESHOLDS,
-    // Keys are level numbers; Firestore stores them as strings.
-    milestonePoints: LEVEL_MILESTONE_POINTS,
     referralUnlockXp: REFERRAL_UNLOCK_XP,
+    // The goal pool and the order of kinds. Order matters: selectDailyGoals
+    // hashes the kind's INDEX, so a reordering here changes which goal each
+    // user gets - and the client must hash the same index.
+    dailyGoalPool: DAILY_GOAL_POOL,
+    dailyGoalKinds: GOAL_KINDS,
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  };
+
+  // SEEDED ONCE, then never written again - the one field in this document
+  // the CONSOLE owns rather than the code.
+  //
+  // Everything else here is derived from constants and rewritten on every
+  // cold start, so editing it in the console would be undone by the next
+  // deploy. Level rewards are meant to be retuned without one, so they get
+  // the opposite treatment: written only when the document has none.
+  //
+  // Keys are level numbers; Firestore stores them as strings.
+  if (!existingRewards) payload.levelRewards = LEVEL_UP_POINTS;
+
+  await ref.set(payload, {merge: true});
   levelCurvePublishedByThisInstance = true;
-  console.log("Level curve published", {maxLevel: MAX_LEVEL, levels: XP_THRESHOLDS.length});
+  console.log("Level curve published", {
+    maxLevel: MAX_LEVEL,
+    levels: XP_THRESHOLDS.length,
+    seededRewards: !existingRewards,
+  });
+}
+
+/**
+ * The live level-reward table: what each level actually pays.
+ *
+ * Read from config/levelCurve rather than straight from LEVEL_UP_POINTS, so
+ * the numbers can be retuned in the Firebase console without a deploy - which
+ * is the whole reason publishLevelCurve seeds the field instead of
+ * republishing it. The code table is the seed and the fallback, never the
+ * last word once the document exists.
+ *
+ * Cached in-process on a short TTL because [writeAward] runs inside a
+ * transaction and cannot await anything: the callables that can actually
+ * level somebody up refresh this first, and the transaction then reads it
+ * synchronously. A warm instance pays at most one document read per TTL
+ * window however many awards pass through it.
+ *
+ * Seeded with the deployed table at module load so it is NEVER empty - a cold
+ * instance whose first refresh fails pays the deployed numbers rather than
+ * paying nothing at all.
+ */
+const LEVEL_REWARDS_TTL_MS = 5 * 60 * 1000;
+let cachedLevelRewards: {table: Record<number, number>; loadedAt: number} = {
+  table: LEVEL_UP_POINTS,
+  loadedAt: 0,
+};
+
+/** Refreshes [cachedLevelRewards] if its TTL has expired. Never throws. */
+async function ensureLevelRewardsFresh(): Promise<void> {
+  if (Date.now() - cachedLevelRewards.loadedAt < LEVEL_REWARDS_TTL_MS) return;
+
+  try {
+    const snap = await getFirestore()
+      .collection(CONFIG_COLLECTION).doc(LEVEL_CURVE_DOC).get();
+    const parsed = parseLevelRewards(snap.get("levelRewards"), MAX_LEVEL);
+    if (!parsed) {
+      console.warn("Level rewards missing or invalid - using the deployed table");
+    }
+    cachedLevelRewards = {table: parsed ?? LEVEL_UP_POINTS, loadedAt: Date.now()};
+  } catch (error) {
+    // Keep whatever is cached. Paying the deployed numbers is right; failing
+    // somebody's claim because a config read blipped is not.
+    console.error("Level rewards refresh failed", error);
+  }
 }
 
 /** Best-effort, once per instance. Never blocks or fails a reward claim. */
@@ -422,12 +511,12 @@ export const checkAndResetQuizAttempts = functions.https.onCall(async (request: 
 
 /**
  * Applies an award to the transaction: the user's points/xp/level fields, the
- * ledger entry, and any level-milestone bonuses the XP gain unlocked.
+ * ledger entry, and the level-up bonus for every level the XP gain crossed.
  *
- * Milestone bonuses are folded into the SAME points increment as the award
+ * Level-up bonuses are folded into the SAME points increment as the award
  * itself - two FieldValue.increment writes to one field in one transaction
- * would clobber each other rather than add up. Each milestone gets its own
- * ledger entry keyed by level, so a level can never pay out twice.
+ * would clobber each other rather than add up. Each level gets its own ledger
+ * entry keyed by level, so a level can never pay out twice.
  */
 function writeAward(
   transaction: FirebaseFirestore.Transaction,
@@ -436,7 +525,10 @@ function writeAward(
   award: ReturnType<typeof buildAward>,
   extraUpdates: Record<string, unknown> = {}
 ): {milestonePoints: number; milestoneLevels: number[]} {
-  const milestones = milestonePointsForLevels(award.level.levelsCrossed);
+  const milestones = levelUpPointsForLevels(
+    award.level.levelsCrossed,
+    cachedLevelRewards.table
+  );
   const milestonePoints = milestones.reduce((sum, m) => sum + m.points, 0);
 
   const updateData: Record<string, unknown> = {
@@ -462,7 +554,7 @@ function writeAward(
   }
 
   if (milestones.length > 0) {
-    console.log("Level milestones awarded", {
+    console.log("Level-up rewards awarded", {
       levels: milestones.map((m) => m.level),
       points: milestonePoints,
     });
@@ -758,6 +850,10 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
 
+  // Refreshed before the transaction, because writeAward reads the reward
+  // table synchronously from inside one. See ensureLevelRewardsFresh.
+  await ensureLevelRewardsFresh();
+
   const result = await firestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
     if (!userDoc.exists) {
@@ -990,6 +1086,10 @@ export const claimDailyGoalBonus = functions.https.onCall(async (request: Callab
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
 
+  // Refreshed before the transaction, because writeAward reads the reward
+  // table synchronously from inside one. See ensureLevelRewardsFresh.
+  await ensureLevelRewardsFresh();
+
   // Read outside the transaction: it is not part of what has to stay
   // consistent with the user document, and pulling it in would widen the read
   // set for no reason.
@@ -1198,9 +1298,21 @@ export const startGameSession = functions.https.onCall(async (request: CallableR
     throw new functions.https.HttpsError("invalid-argument", "Unknown game");
   }
 
-  const sessionRef = getFirestore()
-    .collection(USERS_COLLECTION)
-    .doc(request.auth.uid)
+  const userRef = getFirestore().collection(USERS_COLLECTION).doc(request.auth.uid);
+
+  // Checked but NOT incremented here. The counter moves when a run is actually
+  // claimed, so abandoning a game costs the player nothing; this read only
+  // stops the app opening a session it already knows can never be paid out.
+  const userDoc = await userRef.get();
+  const lastResetAt = userDoc.get(FIELD_LAST_RESET_TIME) as Timestamp | undefined;
+  const attemptsAreStale =
+    !lastResetAt || utcDayFor(lastResetAt.toMillis()) !== utcDayFor(Date.now());
+  const gamesToday = attemptsAreStale ? 0 : Number(userDoc.get(FIELD_GAME_ATTEMPTS) || 0);
+  if (gamesToday >= MAX_DAILY_GAME_SESSIONS) {
+    throw new functions.https.HttpsError("failed-precondition", "Daily game limit reached");
+  }
+
+  const sessionRef = userRef
     .collection(GAME_SESSIONS_SUBCOLLECTION)
     .doc();
 
@@ -1224,9 +1336,13 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
 
   await ensureLevelCurvePublished();
+  // Refreshed before the transaction, because writeAward reads the reward
+  // table synchronously from inside one. See ensureLevelRewardsFresh.
+  await ensureLevelRewardsFresh();
 
   let xpAward = 0;
   let incrementQuizAttempt = false;
+  let incrementGameAttempt = false;
   let rewardSource: RewardSource;
   let eventMetadata: Record<string, unknown>;
   let wasCorrect = false;
@@ -1288,6 +1404,7 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // The session is single-use, so its id is a natural idempotency key:
     // a redelivered claim lands on the same ledger doc instead of paying twice.
     ledgerRef = userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`game:${sessionId}`);
+    incrementGameAttempt = true;
   } else {
     throw new functions.https.HttpsError("invalid-argument", "Unknown reward type");
   }
@@ -1303,7 +1420,27 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
     const currentXp = Number(userDoc.get(FIELD_XP) || 0);
     const currentLevel = Number(userDoc.get(FIELD_LEVEL) || 1);
-    const currentAttempts = Number(userDoc.get(FIELD_QUIZ_ATTEMPTS) || 0);
+
+    // The daily attempt reset happens HERE, not in a callable of its own.
+    //
+    // checkAndResetQuizAttempts used to own this, which meant the client had
+    // to call it - a Firestore read - after every quiz just to keep the
+    // counter honest. This transaction already holds the user document, so
+    // the rollover costs nothing extra, and the stored counter can never be
+    // stale at the moment it actually matters: the moment it is enforced.
+    //
+    // The client applies the same rule locally for DISPLAY (see
+    // UserData.quizAttemptsToday), but display is all it decides - the cap
+    // below is what a quiz claim is actually refused by.
+    const lastResetAt = userDoc.get(FIELD_LAST_RESET_TIME) as Timestamp | undefined;
+    const attemptsAreStale =
+      !lastResetAt || utcDayFor(lastResetAt.toMillis()) !== utcDayFor(Date.now());
+    const currentAttempts = attemptsAreStale ?
+      0 :
+      Number(userDoc.get(FIELD_QUIZ_ATTEMPTS) || 0);
+    const currentGameAttempts = attemptsAreStale ?
+      0 :
+      Number(userDoc.get(FIELD_GAME_ATTEMPTS) || 0);
     // Only actually applied to multiplier-eligible sources - buildAward
     // decides that from the source, not from this value.
     const buffMultiplier = activeMultiplier(
@@ -1317,6 +1454,11 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
 
     if (incrementQuizAttempt && currentAttempts >= MAX_DAILY_QUIZ_ATTEMPTS) {
       throw new functions.https.HttpsError("failed-precondition", "Daily quiz limit reached");
+    }
+    // Thrown before the session is burned below, so a run refused for being
+    // over the cap leaves its session open rather than silently spending it.
+    if (incrementGameAttempt && currentGameAttempts >= MAX_DAILY_GAME_SESSIONS) {
+      throw new functions.https.HttpsError("failed-precondition", "Daily game limit reached");
     }
 
     // Referrer payout is evaluated here, in the same transaction that grants
@@ -1372,7 +1514,7 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       storedLevel: currentLevel,
     });
 
-    const extraUpdates: Record<string, FieldValue | number | DailyStats> = {};
+    const extraUpdates: Record<string, FieldValue | number | Timestamp | DailyStats> = {};
     // Daily goal counters. Written from inside the transaction that awards
     // the activity, so a goal can only advance when something was really
     // played or answered - never because a client said so.
@@ -1403,7 +1545,24 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     extraUpdates[FIELD_DAILY_STATS] = stats;
 
     if (incrementQuizAttempt) {
-      extraUpdates[FIELD_QUIZ_ATTEMPTS] = FieldValue.increment(1);
+      // Set rather than increment when the day has rolled over: incrementing
+      // a stale counter would carry yesterday's attempts into today.
+      extraUpdates[FIELD_QUIZ_ATTEMPTS] = attemptsAreStale ?
+        1 :
+        FieldValue.increment(1);
+    }
+    if (incrementGameAttempt) {
+      extraUpdates[FIELD_GAME_ATTEMPTS] = attemptsAreStale ?
+        1 :
+        FieldValue.increment(1);
+    }
+    // Re-stamped on any claim that finds the day has rolled over - a game
+    // counts too, so a user who plays before quizzing still gets the reset
+    // recorded rather than carrying a stale day around.
+    if (attemptsAreStale) {
+      extraUpdates[FIELD_LAST_RESET_TIME] = Timestamp.now();
+      if (!incrementQuizAttempt) extraUpdates[FIELD_QUIZ_ATTEMPTS] = 0;
+      if (!incrementGameAttempt) extraUpdates[FIELD_GAME_ATTEMPTS] = 0;
     }
 
     const {milestonePoints, milestoneLevels} =
@@ -1422,6 +1581,7 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       level: award.level.level,
       leveledUp: award.level.leveledUp,
       attempts: incrementQuizAttempt ? currentAttempts + 1 : currentAttempts,
+      gameAttempts: incrementGameAttempt ? currentGameAttempts + 1 : currentGameAttempts,
       wasCorrect,
     };
   });
@@ -1906,6 +2066,10 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
   if (!referralCode) {
     throw new functions.https.HttpsError("invalid-argument", "Referral code is required");
   }
+
+  // Refreshed before the transaction, because writeAward reads the reward
+  // table synchronously from inside one. See ensureLevelRewardsFresh.
+  await ensureLevelRewardsFresh();
 
   const currentUserId = request.auth.uid;
   const firestore = getFirestore();

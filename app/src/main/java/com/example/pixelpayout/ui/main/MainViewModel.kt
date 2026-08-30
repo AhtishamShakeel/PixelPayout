@@ -9,7 +9,9 @@ import androidx.lifecycle.map  // Add this import
 import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.example.pixelpayout.data.model.RedemptionGame
+import com.example.pixelpayout.data.repository.DailyGoalEngine
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.utils.ServerClock
 import com.example.pixelpayout.utils.UserPreferences
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
@@ -31,6 +33,15 @@ private const val GOALS_REFRESH_MS = 60 * 1000L
 
 private const val MILLIS_PER_DAY = 86_400_000L
 
+/** Mirrors the server's DAILY_GOAL_BONUS_POINTS fallback. */
+private const val DEFAULT_GOAL_BONUS_POINTS = 30
+
+/** Mirrors the server's MAX_DAILY_QUIZ_ATTEMPTS. */
+const val MAX_DAILY_QUIZ_ATTEMPTS = 10
+
+/** Mirrors the server's MAX_DAILY_GAME_SESSIONS. */
+const val MAX_DAILY_GAME_SESSIONS = 10
+
 class MainViewModel(
     private val userRepository: UserRepository,
     private val userPreferences: UserPreferences
@@ -43,21 +54,8 @@ class MainViewModel(
         userData.xp
     }
 
-    /**
-     * Goal counters advance in the same transaction that awards XP, so a
-     * change here means the stored goals are behind. Observed forever rather
-     * than per-screen: the view model outlives every fragment, and the point
-     * is to know about a quiz finished while Home was not on screen.
-     */
-    private val goalsInvalidator = androidx.lifecycle.Observer<Int> { invalidateDailyGoals() }
-
-    init {
-        xp.observeForever(goalsInvalidator)
-    }
-
     override fun onCleared() {
         super.onCleared()
-        xp.removeObserver(goalsInvalidator)
     }
 
     val level: LiveData<Int> = userRepository.userData.map { userData ->
@@ -235,76 +233,89 @@ class MainViewModel(
     suspend fun claimDailyStreak(adWatched: Boolean): UserRepository.StreakClaimResult =
         userRepository.claimDailyStreak(adWatched)
 
-    private val _dailyGoals = MutableLiveData<UserRepository.DailyGoals?>(null)
-
     /**
-     * Today's goals.
+     * Today's goals, derived rather than fetched.
      *
-     * Refreshed rather than observed: progress lives in counters the server
-     * owns, and there is no snapshot to listen to. It is re-read whenever the
-     * screen appears and after anything that could have moved a counter.
+     * This used to be a callable on every return to Home - the single most
+     * frequent read in the app, and an avoidable one. Everything it answered
+     * is already on the client:
+     *
+     *   * WHICH three goals today holds is a pure function of (uid, UTC day),
+     *     computed by [DailyGoalEngine] from the pool the server publishes on
+     *     config/levelCurve.
+     *   * HOW FAR ALONG they are comes from `dailyStats` on the user
+     *     document, which the snapshot listener already delivers - and which
+     *     the same transaction that awards a game or a quiz writes, so this
+     *     is as live as the balance is.
+     *   * WHETHER the bonus is claimed is `lastGoalBonusDayUtc`, same
+     *     document.
+     *
+     * Only the bonus FIGURE needs the network, and that is one read per
+     * sign-in rather than one per resume.
+     *
+     * The client still decides nothing. claimDailyGoalBonus re-derives every
+     * one of these values server-side inside the transaction that pays, so a
+     * device that lies about its counters is refused - this is a readout, and
+     * the day it stops being one is the day goals start printing stars.
      */
-    val dailyGoals: LiveData<UserRepository.DailyGoals?> = _dailyGoals
+    val dailyGoals: LiveData<UserRepository.DailyGoals?> =
+        MediatorLiveData<UserRepository.DailyGoals?>().apply {
+            fun recompute() {
+                val user = userRepository.userData.value ?: return
+                val pool = userRepository.goalPool.value ?: return
+                val uid = userRepository.getCurrentUserId().orEmpty()
 
-    private var goalsFetchedAt = 0L
-    private var goalsFetchedDayUtc = -1L
+                // No pool yet means config/levelCurve has not landed. Null
+                // renders as "no card" rather than as a guessed set of goals.
+                if (pool.isEmpty || uid.isEmpty()) {
+                    value = null
+                    return
+                }
 
-    /**
-     * Re-reads today's goals, but not on every single return to Home.
-     *
-     * This was the one unthrottled per-resume callable left, and it was worse
-     * than it looked: HomeFragment called it from onViewCreated AND onResume,
-     * and onResume always follows onViewCreated, so a first visit cost two
-     * invocations rather than one.
-     *
-     * The throttle is deliberately SHORT, and deliberately not the three
-     * minutes the leaderboard uses. Standings tolerate being a few minutes
-     * stale; a goal tracker does not. The user returns to Home from a quiz
-     * specifically to watch the bar move, and "played a quiz, came back,
-     * nothing changed" reads as a broken feature rather than as a cache.
-     *
-     * Two things bypass it, so that case cannot happen:
-     *
-     *   * [invalidateDailyGoals], called whenever XP moves - which is exactly
-     *     when a quiz or a game has paid out and a counter has advanced.
-     *   * The UTC day rolling over, because goals reset there and the stored
-     *     copy stops describing today at all.
-     */
-    fun refreshDailyGoals(force: Boolean = false) {
-        val now = SystemClock.elapsedRealtime()
-        val today = System.currentTimeMillis() / MILLIS_PER_DAY
+                val todayUtc = ServerClock.now() / MILLIS_PER_DAY
+                val stats = userRepository.statsForToday(user.dailyStats, todayUtc)
+                val templates = DailyGoalEngine.selectGoals(pool, uid, todayUtc)
 
-        val fresh = !force &&
-            _dailyGoals.value != null &&
-            today == goalsFetchedDayUtc &&
-            now - goalsFetchedAt < GOALS_REFRESH_MS
-        if (fresh) return
+                value = UserRepository.DailyGoals(
+                    goals = templates.map { template ->
+                        UserRepository.DailyGoal(
+                            id = template.id,
+                            kind = template.kind,
+                            target = template.target,
+                            progress = DailyGoalEngine.progressFor(template, stats),
+                            done = DailyGoalEngine.isDone(template, stats)
+                        )
+                    },
+                    bonusPoints = userRepository.goalBonusPoints.value
+                        ?: DEFAULT_GOAL_BONUS_POINTS,
+                    bonusClaimed = user.lastGoalBonusDayUtc == todayUtc,
+                    dayUtc = todayUtc
+                )
+            }
 
-        goalsFetchedAt = now
-        goalsFetchedDayUtc = today
-
-        viewModelScope.launch {
-            userRepository.getDailyGoals()?.let { _dailyGoals.value = it }
+            addSource(userRepository.userData) { recompute() }
+            addSource(userRepository.goalPool) { recompute() }
+            addSource(userRepository.goalBonusPoints) { recompute() }
         }
-    }
 
     /**
-     * Marks the stored goals as stale without fetching anything.
+     * Kept as a no-op entry point.
      *
-     * Called when XP moves, which is the signal that a quiz or game just paid
-     * out - the same transaction that awards it advances the goal counters.
-     * The next time Home appears it will actually re-read, so the throttle
-     * never hides progress the user just earned.
+     * Home calls this from onResume, and the goals are now recomputed from
+     * the user snapshot the moment anything moves - so there is nothing left
+     * to refresh. Retained rather than deleted so the screen keeps reading
+     * the same way if goals ever need a server round trip again.
      */
-    private fun invalidateDailyGoals() {
-        goalsFetchedAt = 0L
-    }
+    fun refreshDailyGoals(force: Boolean = false) = Unit
 
-    suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult {
-        val result = userRepository.claimDailyGoalBonus(adWatched)
-        refreshDailyGoals(force = true)
-        return result
-    }
+
+    /**
+     * Claims the bonus. Nothing is re-fetched afterwards: the transaction that
+     * pays stamps `lastGoalBonusDayUtc` on the user document, and the snapshot
+     * listener turns that into a redraw on its own.
+     */
+    suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult =
+        userRepository.claimDailyGoalBonus(adWatched)
 
     private val _leaderboard = MutableLiveData<UserRepository.Leaderboard?>(null)
 
@@ -392,6 +403,58 @@ class MainViewModel(
             UserRepository.StreakDayReward(points, xp)
         }
     }
+
+    /**
+     * Quiz attempts used today, straight off the user snapshot.
+     *
+     * This replaces checkAndResetQuizAttempts on every screen that only
+     * DISPLAYS the count. Both figures it needs - `quiz_attempts` and
+     * `last_reset_time` - are on the user document the listener already
+     * holds, so asking a callable was paying a Firestore read to be told
+     * something already in memory.
+     *
+     * The rollover rule is applied in [UserRepository.UserData.quizAttemptsToday]
+     * rather than trusted from the stored counter: a user who has not played
+     * since yesterday still carries yesterday's number until their next claim
+     * resets it.
+     */
+    val quizAttemptsToday: LiveData<Int> = userRepository.userData.map {
+        it.quizAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+    }
+
+    /** The same figure for callers on a timer, which cannot await LiveData. */
+    fun quizAttemptsNow(): Int =
+        userRepository.userData.value
+            ?.quizAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+            ?: 0
+
+    /**
+     * Game runs claimed today, on the same terms as [quizAttemptsToday] - the
+     * two counters share a day stamp on the user document, so they roll over
+     * together and neither needs a callable to stay honest.
+     */
+    val gameAttemptsToday: LiveData<Int> = userRepository.userData.map {
+        it.gameAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+    }
+
+    fun gameAttemptsNow(): Int =
+        userRepository.userData.value
+            ?.gameAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+            ?: 0
+
+    /**
+     * The next UTC midnight, as the server reckons it. Quizzes and games share
+     * this boundary - one day stamp on the user document resets both counters
+     * - which is why this is no longer named for quizzes alone.
+     *
+     * Derived from the clock rather than from the stored `last_reset_time`,
+     * which is what the old countdown did - and why it could stick at zero.
+     * A stale stamp put the "next reset" in the past and left the countdown
+     * permanently expired; a boundary computed from the current day is always
+     * in the future.
+     */
+    fun nextAttemptsResetMillis(): Long =
+        (ServerClock.now() / MILLIS_PER_DAY + 1) * MILLIS_PER_DAY
 
     /** Points and level together, for screens that gate on both. */
     data class UserState(val points: Int, val level: Int)

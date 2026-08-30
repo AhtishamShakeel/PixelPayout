@@ -8,4 +8,7 @@
     <dimen name="button_corner_radius_round">50dp</dimen>
     <dimen name="grid_spacing">15dp</dimen>
 
+    <!-- Gap between the daily-play pips on Play &gt; Games. -->
+    <dimen name="game_pip_gap">3dp</dimen>
+
 </resources>

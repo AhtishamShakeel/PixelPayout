@@ -13,10 +13,12 @@
         curve; there is no name table to read one from.
       * Thresholds are XP, not "lifetime points". Points are spent at
         cashout; XP is what the curve is built on.
-      * Only levels that unlock something are listed. Most of the thirty pay
-        nothing, and thirty rungs of "progression only" would bury the ten
-        that answer the question the screen was opened to answer. The note
-        under the section heading says so.
+      * Only levels that unlock something are listed. Every level from 2 up
+        pays stars, so in practice that is the whole climb; level 1 is absent
+        because accounts are CREATED there and it is never crossed, so a rung
+        for it could never pay. The note under the section heading counts what
+        is listed against the curve's top level, which is what shows when a
+        level has been emptied in the console.
 
     The bottom nav is the activity's PixelBottomNav, not redrawn here.
 -->

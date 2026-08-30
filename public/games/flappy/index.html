@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b1026">
+<title>Neon Flap</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0b1026;
+    /* The WebView passes long-presses through as text selection and shows a
+       tap highlight on every flap without these. */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+  }
+  #game {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Stops the WebView treating a fast series of flaps as a pan or a
+       double-tap zoom. */
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script src="../bridge.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

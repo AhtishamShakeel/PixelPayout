@@ -292,7 +292,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun retryFetchingData() {
         loadingDialog?.setLoadingState()
-        quizViewModel.fetchDailyAttempts(forceRefresh = true)
+        // retryNow rather than a plain force: an explicit retry has to clear
+        // the failure cooldown, or the button does nothing for 30 seconds
+        // after the failure that put the dialog on screen.
+        quizViewModel.retryNow()
     }
 
     private fun checkAndShowReferralPopup() {

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nocturne's ph-plus-circle, on the "more games coming" slot. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:fillColor="@android:color/white"
+        android:pathData="M12,3a9,9 0 1,0 0,18a9,9 0 0,0 0,-18ZM12,5a7,7 0 1,1 0,14a7,7 0 0,1 0,-14Z" />
+    <path android:fillColor="@android:color/white"
+        android:pathData="M11.15,7.8h1.7v3.35h3.35v1.7h-3.35v3.35h-1.7v-3.35h-3.35v-1.7h3.35Z" />
+</vector>

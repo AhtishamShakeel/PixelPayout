@@ -13,8 +13,9 @@ import com.pixelpayout.R
  * Nothing here is a table of its own. Every rung is derived from a number
  * some other part of the system already enforces:
  *
- *   * milestone stars come from the curve document, which the server
- *     publishes from LEVEL_MILESTONE_POINTS,
+ *   * level-up stars come from the curve document's `levelRewards`, which
+ *     the server seeds from LEVEL_UP_POINTS and then reads back when it
+ *     pays - so a console retune moves the ladder and the payout together,
  *   * the referral rung is placed from `referralUnlockXp`, the same figure
  *     readReferrerForUnlock tests,
  *   * the first-redeem rung from `config/redemption.firstRedeemMinLevel`,
@@ -25,10 +26,12 @@ import com.pixelpayout.R
  * hand would be a second set of numbers, and it would be wrong the first time
  * any of the four above was retuned - while still looking authoritative.
  *
- * LEVELS THAT UNLOCK NOTHING ARE NOT LISTED. Most of the thirty pay nothing
- * at all, and rungs saying so would bury the handful that answer the question
- * the screen was opened to ask. [Ladder.rungCount] against the curve's max
- * level is what tells the user this is a filtered view.
+ * LEVELS THAT UNLOCK NOTHING ARE NOT LISTED. In practice that is now only
+ * level 1 - every level from 2 up pays stars - so the ladder reads as the
+ * whole climb rather than as a filtered view of it. The rule stays because
+ * the reward table is console-editable: someone can empty a level, and a rung
+ * promising nothing is worse than no rung. [Ladder.rungCount] against the
+ * curve's max level is what tells the user when anything is missing.
  */
 object LevelLadder {
 
@@ -46,9 +49,9 @@ object LevelLadder {
 
     data class Ladder(
         val rungs: List<Rung>,
-        /** Milestone stars already paid, from levels at or below the user's. */
+        /** Level-up stars already paid, from levels at or below the user's. */
         val starsEarned: Int,
-        /** Milestone stars still ahead. */
+        /** Level-up stars still ahead. */
         val starsAhead: Int,
         /** The curve's top level, for "N of M levels pay out". */
         val maxLevel: Int
@@ -74,7 +77,7 @@ object LevelLadder {
             perksByLevel.getOrPut(level) { mutableListOf() }.add(perk)
         }
 
-        curve.milestonePoints.forEach { (level, points) ->
+        curve.levelRewards.forEach { (level, points) ->
             add(level, Perk(R.drawable.ic_star, res.getString(R.string.level_perk_stars, points)))
         }
 
@@ -129,8 +132,8 @@ object LevelLadder {
             )
         }
 
-        val earned = curve.milestonePoints.filterKeys { it <= currentLevel }.values.sum()
-        val ahead = curve.milestonePoints.filterKeys { it > currentLevel }.values.sum()
+        val earned = curve.levelRewards.filterKeys { it <= currentLevel }.values.sum()
+        val ahead = curve.levelRewards.filterKeys { it > currentLevel }.values.sum()
 
         return Ladder(
             rungs = rungs,

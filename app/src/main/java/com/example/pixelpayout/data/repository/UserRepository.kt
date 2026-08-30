@@ -16,6 +16,8 @@ import com.example.pixelpayout.ui.redemption.RedemptionResult
 import com.example.pixelpayout.ui.redemption.ReferralResult
 import com.example.pixelpayout.utils.ServerClock
 
+private const val MILLIS_PER_DAY = 86_400_000L
+
 class UserRepository {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
@@ -23,8 +25,35 @@ class UserRepository {
     private val _userData = MutableLiveData<UserData>()
     val userData: LiveData<UserData> = _userData
 
-    private val _levelCurve = MutableLiveData<LevelCurve?>()
-    val levelCurve: LiveData<LevelCurve?> = _levelCurve
+    /**
+     * The published curve, from the process-level store rather than a field
+     * here: this repository is constructed per view model, and re-reading one
+     * deploy-time document for each of them was costing a handful of reads a
+     * session. See [LevelCurveStore].
+     */
+    val levelCurve: LiveData<LevelCurve?> = LevelCurveStore.curve
+
+    /**
+     * The daily goal pool, published alongside the level curve.
+     *
+     * Held rather than re-fetched: the pool only changes on a deploy, and the
+     * goals card is now drawn from it plus the user snapshot, with no callable
+     * in between.
+     */
+    val goalPool: LiveData<DailyGoalEngine.GoalPool> = LevelCurveStore.goalPool
+
+    private val _goalBonusPoints = MutableLiveData(DEFAULT_GOAL_BONUS_POINTS)
+
+    /**
+     * What finishing all three pays.
+     *
+     * Read from config/dailyGoals directly rather than copied onto the curve
+     * document, and that is deliberate: the console edits this value, and a
+     * copy refreshed only on a function cold start could show one figure while
+     * claimDailyGoalBonus paid another. One read per sign-in keeps the number
+     * on screen and the number paid the same for the whole session.
+     */
+    val goalBonusPoints: LiveData<Int> = _goalBonusPoints
 
     init {
         waitForUserLogin()
@@ -37,7 +66,8 @@ class UserRepository {
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
             auth.currentUser?.uid?.let { userId ->
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
-                fetchLevelCurve()
+                LevelCurveStore.load()
+                fetchGoalBonus()
                 listenToRedemptions(userId)
                 listenToPayoutFeed()
                 // Seed only. The live listener costs a read per document
@@ -50,48 +80,20 @@ class UserRepository {
     }
 
     /**
-     * The XP thresholds are published by the server so the client never
-     * duplicates the curve (which would drift the moment it's retuned).
-     * Fetched once per session; a failure just means the UI falls back to
-     * showing lifetime XP without a progress bar.
+     * One read per sign-in for the goal bonus. Clamped the same way the
+     * server's resolveBonusPoints clamps it, so a console typo shows the same
+     * capped figure the server would actually pay.
      */
-    private fun fetchLevelCurve() {
-        if (_levelCurve.value != null) return
-
-        firestore.collection(COLLECTION_CONFIG).document(DOC_LEVEL_CURVE).get()
+    private fun fetchGoalBonus() {
+        firestore.collection(COLLECTION_CONFIG).document(DOC_DAILY_GOALS).get()
             .addOnSuccessListener { snapshot ->
-                val thresholds = (snapshot.get(FIELD_THRESHOLDS) as? List<*>)
-                    ?.mapNotNull { (it as? Number)?.toInt() }
-                val maxLevel = snapshot.getLong(FIELD_MAX_LEVEL)?.toInt()
-
-                if (!thresholds.isNullOrEmpty() && maxLevel != null) {
-                    _levelCurve.postValue(
-                        LevelCurve(
-                            maxLevel = maxLevel,
-                            thresholds = thresholds,
-                            milestonePoints = parseMilestones(snapshot.get(FIELD_MILESTONES)),
-                            referralUnlockXp =
-                                snapshot.getLong(FIELD_REFERRAL_UNLOCK_XP)?.toInt() ?: 0
-                        )
-                    )
-                }
+                val raw = snapshot.get("bonusPoints")
+                val points = (raw as? Number)?.toInt()
+                _goalBonusPoints.postValue(
+                    if (points == null || points < 0) DEFAULT_GOAL_BONUS_POINTS
+                    else minOf(points, MAX_GOAL_BONUS_POINTS)
+                )
             }
-    }
-
-    /**
-     * The milestone map, whose keys are level numbers Firestore stores as
-     * strings. Written defensively because this document is published by a
-     * deploy: a client running against a project whose functions have not
-     * been redeployed yet simply sees no milestones, rather than crashing on
-     * a field that is not there.
-     */
-    private fun parseMilestones(raw: Any?): Map<Int, Int> {
-        val map = raw as? Map<*, *> ?: return emptyMap()
-        return map.mapNotNull { (key, value) ->
-            val level = (key as? String)?.toIntOrNull() ?: (key as? Number)?.toInt()
-            val points = (value as? Number)?.toInt()
-            if (level != null && points != null && points > 0) level to points else null
-        }.toMap()
     }
 
     data class LevelCurve(
@@ -99,10 +101,14 @@ class UserRepository {
         /** Cumulative XP required to reach level (index + 2). */
         val thresholds: List<Int>,
         /**
-         * Level -> the one-time star bonus reaching it pays. Only levels that
-         * pay something appear; the rest are progression alone.
+         * Level -> the one-time star bonus reaching it pays.
+         *
+         * Every level from 2 up pays something; level 1 is where accounts are
+         * created, so it is never crossed and never appears. Empty when the
+         * curve document predates the field, which draws a ladder with no
+         * star rows rather than inventing figures.
          */
-        val milestonePoints: Map<Int, Int> = emptyMap(),
+        val levelRewards: Map<Int, Int> = emptyMap(),
         /**
          * The XP an invitee must reach before their referrer is paid. Zero
          * when the curve document predates this field being published.
@@ -166,7 +172,20 @@ class UserRepository {
                                 hasUsedReferral =
                                     it.getBoolean(FIELD_HAS_USED_REFERRAL) ?: false,
                                 hasUsedFirstRedeem =
-                                    it.getBoolean(FIELD_HAS_USED_FIRST_REDEEM) ?: false
+                                    it.getBoolean(FIELD_HAS_USED_FIRST_REDEEM) ?: false,
+                                // Both were already arriving in this snapshot
+                                // and being thrown away, which is what made
+                                // getDailyGoals a read per return to Home.
+                                dailyStats = parseDailyStats(it.get(FIELD_DAILY_STATS)),
+                                lastGoalBonusDayUtc =
+                                    it.getLong(FIELD_LAST_GOAL_BONUS_DAY),
+                                quizAttempts =
+                                    it.getLong(FIELD_QUIZ_ATTEMPTS)?.toInt() ?: 0,
+                                gameAttempts =
+                                    it.getLong(FIELD_GAME_ATTEMPTS)?.toInt() ?: 0,
+                                attemptsStampedAtMillis =
+                                    it.getTimestamp(FIELD_LAST_RESET_TIME)
+                                        ?.toDate()?.time
                             )
                         )
                     }
@@ -194,8 +213,88 @@ class UserRepository {
          * Set by redeemReward inside the same transaction as the debit, so a
          * retry cannot spend it twice.
          */
-        val hasUsedFirstRedeem: Boolean = false
+        val hasUsedFirstRedeem: Boolean = false,
+        /** Today's activity counters, as the server increments them. */
+        val dailyStats: DailyStats = DailyStats(),
+        /** The UTC day the goal bonus was last paid, or null. */
+        val lastGoalBonusDayUtc: Long? = null,
+        /**
+         * Quiz attempts used, as stored. Read [quizAttemptsToday] instead -
+         * this figure belongs to whatever day [quizAttemptsStampedAtMillis]
+         * names, which is not necessarily today.
+         */
+        val quizAttempts: Int = 0,
+        /**
+         * Game runs claimed, as stored. Read [gameAttemptsToday] instead, for
+         * the same reason as [quizAttempts].
+         */
+        val gameAttempts: Int = 0,
+        /**
+         * When the stored attempt counts were last reset, per the server.
+         * Shared by both counters: the server re-stamps it on whichever
+         * activity the user does first on a new day, and zeroes the other.
+         */
+        val attemptsStampedAtMillis: Long? = null
+    ) {
+        /**
+         * Attempts used TODAY.
+         *
+         * The stored counter is only reset when a claim actually lands (see
+         * claimReward), so a user who has not played since yesterday still
+         * carries yesterday's number. Applying the rollover here is what lets
+         * the quiz screens read the count straight off the snapshot instead
+         * of calling checkAndResetQuizAttempts to be told the same thing.
+         *
+         * This is display only. The cap is enforced inside the claim
+         * transaction, against the server's own clock.
+         */
+        fun quizAttemptsToday(todayUtc: Long): Int =
+            attemptsToday(quizAttempts, todayUtc)
+
+        /** Game runs claimed TODAY. Display only, exactly like the quiz count. */
+        fun gameAttemptsToday(todayUtc: Long): Int =
+            attemptsToday(gameAttempts, todayUtc)
+
+        private fun attemptsToday(stored: Int, todayUtc: Long): Int {
+            val stamped = attemptsStampedAtMillis ?: return 0
+            return if (stamped / MILLIS_PER_DAY == todayUtc) stored else 0
+        }
+    }
+
+    /**
+     * Per-day activity counters, mirroring the server's DailyStats.
+     *
+     * [dayUtc] is what makes these safe to read directly: the server replaces
+     * the whole map when the day rolls over, so a stored map from yesterday is
+     * spent. [statsForToday] is the only way these should be consumed.
+     */
+    data class DailyStats(
+        val dayUtc: Long = -1,
+        val games: Int = 0,
+        val quizzes: Int = 0,
+        val correct: Int = 0
     )
+
+    /**
+     * The counters to measure today against.
+     *
+     * Anything stamped with an earlier day reads as zero rather than being
+     * carried forward - the same rule as the server's statsForDay, and the
+     * reason a stale map cannot complete a goal.
+     */
+    fun statsForToday(stored: DailyStats, todayUtc: Long): DailyStats =
+        if (stored.dayUtc == todayUtc) stored else DailyStats(dayUtc = todayUtc)
+
+    private fun parseDailyStats(raw: Any?): DailyStats {
+        val map = raw as? Map<*, *> ?: return DailyStats()
+        fun int(key: String) = (map[key] as? Number)?.toInt() ?: 0
+        return DailyStats(
+            dayUtc = (map["dayUtc"] as? Number)?.toLong() ?: -1,
+            games = int("games"),
+            quizzes = int("quizzes"),
+            correct = int("correct")
+        )
+    }
 
     /**
      * The daily streak, as stored on the user document.
@@ -1181,14 +1280,18 @@ class UserRepository {
     companion object {
         private const val COLLECTION_USERS = "users"
         private const val COLLECTION_CONFIG = "config"
-        private const val DOC_LEVEL_CURVE = "levelCurve"
         private const val FIELD_POINTS = "points"
         private const val FIELD_XP = "xp"
         private const val FIELD_LEVEL = "level"
-        private const val FIELD_THRESHOLDS = "thresholds"
-        private const val FIELD_MAX_LEVEL = "maxLevel"
-        private const val FIELD_MILESTONES = "milestonePoints"
-        private const val FIELD_REFERRAL_UNLOCK_XP = "referralUnlockXp"
+        private const val FIELD_LAST_RESET_TIME = "last_reset_time"
+        private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
+        private const val FIELD_GAME_ATTEMPTS = "game_attempts"
+        private const val FIELD_DAILY_STATS = "dailyStats"
+        private const val FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc"
+        private const val DOC_DAILY_GOALS = "dailyGoals"
+        /** Mirrors DAILY_GOAL_BONUS_POINTS / MAX_DAILY_GOAL_BONUS_POINTS. */
+        private const val DEFAULT_GOAL_BONUS_POINTS = 30
+        private const val MAX_GOAL_BONUS_POINTS = 200
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
         private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"
         private const val FIELD_STREAK_COUNT = "streakCount"

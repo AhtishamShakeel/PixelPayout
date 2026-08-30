@@ -96,14 +96,19 @@ export const QUIZ_INCORRECT_XP = 0;
 export const MAX_DAILY_QUIZ_ATTEMPTS = 10;
 
 // --- Games ------------------------------------------------------------------
-// Also XP only. Raw game scores vary wildly in scale (a 2048 score can reach
-// tens of thousands while a floppy_bird score is tens), so each game divides
+// Also XP only. Raw game scores vary wildly in scale (a tower_game score runs
+// to the thousands while a floppy_bird score is tens), so each game divides
 // its score down, and every session is capped so one lucky run can't shortcut
-// the level curve.
+// the level curve. The divisors are picked so a point of XP costs roughly the
+// same effort in either game: one pipe, or one stacked block.
 export const GAME_XP_PER_SESSION_CAP = 30;
+// Games get the same daily allowance as quizzes, on the same UTC rollover and
+// the same stored day stamp (FIELD_LAST_RESET_TIME), so a day's ceiling is a
+// predictable 10 games plus 10 quizzes rather than an open-ended grind.
+export const MAX_DAILY_GAME_SESSIONS = 10;
 export const GAME_XP_SCORE_DIVISOR: Record<string, number> = {
   floppy_bird: 1,
-  game_2048: 20,
+  tower_game: 25,
 };
 
 export function gameXpForScore(gameId: string, score: number): number {
@@ -121,35 +126,116 @@ export const REFERRED_USER_REWARD_XP = 25;
 export const REFERRER_REWARD_POINTS = 100;
 export const REFERRER_REWARD_XP = 50;
 
-// --- Level milestones ---------------------------------------------------------
+// --- Level rewards ------------------------------------------------------------
 // Levelling is the payoff for quizzes and games, which award no Points of
 // their own. Rather than a permanent earning multiplier (an unbounded,
-// hard-to-model ongoing cost), each milestone level pays a fixed one-time
-// bonus - finite per user, and easy to total up in advance.
+// hard-to-model ongoing cost), each level pays a fixed one-time bonus -
+// finite per user, and easy to total up in advance.
 //
-// Lifetime cost of the full ladder below is 650 Points per user, spread over
-// the whole 30-level curve. Levels not listed here award no Points; they
-// still count as progression.
-export const LEVEL_MILESTONE_POINTS: Record<number, number> = {
-  5: 25,
-  10: 50,
-  15: 75,
-  20: 100,
-  25: 150,
-  30: 250,
+// EVERY level pays now, not just the six round-numbered ones this used to
+// list. Under the old table a player could climb four levels and be given
+// nothing at all for it, which made levelling feel like it did not pay - the
+// exact opposite of what it is for.
+//
+// The ramp is roughly geometric: 5 Points at level 2, doubling every five or
+// so levels, 150 at level 30. Early levels come fast and pay small; the late
+// ones are rare and pay enough to be worth the climb.
+//
+// LEVEL 1 IS ABSENT ON PURPOSE. Rewards are paid for levels CROSSED, and
+// nobody crosses into level 1 - every account is created there (see
+// buildNewUserProfile). An entry here would never pay out, so listing one
+// would put a number on the Level rewards screen that no code honours.
+//
+// Lifetime cost of the full ladder is 1,282 Points per user across the whole
+// 30-level curve, up from 650 under the old six-milestone table. The unit
+// test below asserts that total, so changing a value here fails the suite
+// until the figure is updated deliberately.
+export const LEVEL_UP_POINTS: Record<number, number> = {
+  2: 5,
+  3: 6,
+  4: 7,
+  5: 8,
+  6: 9,
+  7: 10,
+  8: 11,
+  9: 12,
+  10: 14,
+  11: 16,
+  12: 18,
+  13: 20,
+  14: 22,
+  15: 25,
+  16: 28,
+  17: 31,
+  18: 35,
+  19: 40,
+  20: 45,
+  21: 50,
+  22: 55,
+  23: 65,
+  24: 70,
+  25: 80,
+  26: 90,
+  27: 105,
+  28: 120,
+  29: 135,
+  30: 150,
 };
 
 /**
- * Milestones for every level crossed by a single XP gain. A large enough gain
+ * Validates a reward table read from Firestore, returning null - meaning
+ * "fall back to the deployed table" - for anything that is not a map of
+ * non-negative integer points keyed by a level in range.
+ *
+ * Strict on purpose, and ALL-OR-NOTHING: config/levelCurve.levelRewards is
+ * hand-editable in the console, and a typo in it moves real money. A table
+ * with one bad entry is rejected whole rather than partially honoured,
+ * because silently dropping the level somebody just typed is the failure they
+ * would not notice - they would see the other levels still paying and assume
+ * the edit took.
+ *
+ * @param maxLevel the curve's top level; entries above it can never be
+ *   crossed, so a table containing one is a mistake rather than a plan.
+ */
+export function parseLevelRewards(
+  raw: unknown,
+  maxLevel: number
+): Record<number, number> | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+
+  const table: Record<number, number> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    // Number("") is 0 and Number(" 3 ") is 3, so an empty or padded key would
+    // otherwise slip through as a plausible level.
+    if (key.trim() === "" || key.trim() !== key) return null;
+    const level = Number(key);
+    const points = Number(value);
+    if (!Number.isInteger(level) || level < 1 || level > maxLevel) return null;
+    if (typeof value !== "number" || !Number.isInteger(points) || points < 0) {
+      return null;
+    }
+    if (points > 0) table[level] = points;
+  }
+
+  return Object.keys(table).length > 0 ? table : null;
+}
+
+/**
+ * The reward for every level crossed by a single XP gain. A large enough gain
  * can cross several at once, and each one must pay - hence a list, not a
  * lookup of the final level only.
+ *
+ * @param table the live reward table. Defaults to the deployed one, but the
+ *   server passes the copy read from config/levelCurve so the numbers can be
+ *   retuned in the console without a deploy.
  */
-export function milestonePointsForLevels(
-  levels: number[]
+export function levelUpPointsForLevels(
+  levels: number[],
+  table: Record<number, number> = LEVEL_UP_POINTS
 ): Array<{level: number; points: number}> {
   return levels
-    .map((level) => ({level, points: LEVEL_MILESTONE_POINTS[level] ?? 0}))
-    .filter((milestone) => milestone.points > 0);
+    .map((level) => ({level, points: table[level] ?? 0}))
+    .filter((reward) => reward.points > 0);
 }
 
 /**

@@ -201,4 +201,28 @@
     <color name="status_pending_fill">#29FFD24A</color>
     <color name="status_done_fill">#1F4ADE80</color>
     <color name="status_done_stroke">#4D4ADE80</color>
+
+    <!-- ==================================================================
+         Play > Games (Games.dc.html handoff).
+
+         Same Nocturne system as the Wallet handoff above, so the same
+         mapping applies and no hex is copied out of it. Only the values
+         Nocturne uses here that had no token yet are added:
+
+           Nocturne #232532 row              -> surface_row
+           Nocturne rgba(145,132,217,.45)    -> pip_remaining
+           Nocturne #3f424d spent pip        -> pip_spent
+
+         One deliberate departure: the handoff puts a Stars balance in the
+         header and a "5-30 Stars" pill on every game row. Both are dropped.
+         Games are an XP-only source - claimReward awards no points for a
+         GAME event - so a Stars figure on this screen would be promising a
+         payout the server never makes. The XP pill stands alone.
+         ================================================================== -->
+
+    <!-- A game row sits ON the page beside the counter panel, so it is a step
+         lighter than surface_card rather than equal to it. -->
+    <color name="surface_row">#17171F</color>
+    <color name="pip_remaining">#737C5CFF</color>
+    <color name="pip_spent">#2A2A33</color>
 </resources>

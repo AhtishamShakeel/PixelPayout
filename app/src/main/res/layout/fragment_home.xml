@@ -686,13 +686,23 @@
             transaction that awards a game or a quiz, so the card is a readout,
             not a control - the only thing tappable is the claim.
         -->
+        <!--
+            Hidden WITH the card, not independently. The card is gone until
+            the goal pool lands, and a heading that cannot be hidden left
+            "Today's goal" floating over the next section with nothing under
+            it - which reads as the feature having been removed rather than as
+            it still loading.
+        -->
         <LinearLayout
+            android:id="@+id/goalsHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="26dp"
             android:baselineAligned="false"
             android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:visibility="gone"
+            tools:visibility="visible">
 
             <TextView
                 android:layout_width="0dp"

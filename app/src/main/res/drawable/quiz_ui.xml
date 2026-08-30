@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- 30% transparent primary color (adjust #4DFF0000 to match your color) -->
-    <solid android:color="#358A8AFF" />
-    <!-- Rounded corners (adjust radius as needed) -->
+<!--
+    A quiz category card.
+
+    Same shape and same translucent-violet treatment it always had - this is a
+    recolour, not a redesign. What changed is the source: the fill was a raw
+    #358A8AFF (21% of the old `primary`), and is now the palette's own violet
+    tint, with the hairline border every other card in the app carries instead
+    of the CardView shadow it used to lean on.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/violet_tint_20" />
+    <stroke android:width="1dp" android:color="@color/stroke_card" />
     <corners android:radius="16dp" />
 </shape>

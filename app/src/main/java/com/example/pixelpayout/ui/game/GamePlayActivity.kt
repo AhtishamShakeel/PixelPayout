@@ -82,7 +82,13 @@ class GamePlayActivity : AppCompatActivity() {
                     setSupportZoom(false)
                     builtInZoomControls = false
                     displayZoomControls = false
-                    cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
+                    // LOAD_DEFAULT, not LOAD_CACHE_ELSE_NETWORK: the latter
+                    // serves a cached copy however stale it is, which would
+                    // pin players to whatever build of a game they first
+                    // loaded and quietly defeat the no-cache headers on
+                    // /games/**/*.{html,js}. The games are ours to iterate on
+                    // now, so cache freshness has to be the host's call.
+                    cacheMode = WebSettings.LOAD_DEFAULT
                     
                     // Enable hardware acceleration
                     setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -105,50 +111,12 @@ class GamePlayActivity : AppCompatActivity() {
                     override fun onPageFinished(view: WebView?, url: String?) {
                         super.onPageFinished(view, url)
                         loadingIndicator.visibility = View.GONE
-                        
-                        // Different CSS for different games
-                        val cssStyle = if (gameUrl.contains("floppybird")) {
-                            """
-                                body { 
-                                    margin: 0; 
-                                    padding: 0; 
-                                    width: 100vw; 
-                                    height: 100vh; 
-                                    overflow: hidden; 
-                                } 
-                                canvas { 
-                                    width: 100% !important; 
-                                    height: 100% !important; 
-                                }
-                            """
-                        } else {
-                            """
-                                body { 
-                                    margin: 0 auto; 
-                                    padding: 0; 
-                                    width: 100vw; 
-                                    height: 100vh; 
-                                    display: flex; 
-                                    justify-content: center; 
-                                    align-items: center; 
-                                } 
-                                .container { 
-                                    width: 90vmin !important; 
-                                    height: 90vmin !important; 
-                                    max-width: 500px; 
-                                    max-height: 500px; 
-                                }
-                            """
-                        }
-                        
-                        evaluateJavascript("""
-                            javascript:(function() {
-                                var style = document.createElement('style');
-                                style.type = 'text/css';
-                                style.innerHTML = `${cssStyle}`;
-                                document.head.appendChild(style);
-                            })()
-                        """.trimIndent(), null)
+
+                        // No CSS is injected here any more. The two externally
+                        // hosted games this used to reshape are gone; the games
+                        // we host ourselves size themselves to the viewport, and
+                        // the old fallback rule (a centred 90vmin .container)
+                        // would letterbox them.
                     }
 
                     @SuppressLint("WebViewClientOnReceivedSslError")
@@ -210,18 +178,52 @@ class GamePlayActivity : AppCompatActivity() {
         return getGameId(url) != null
     }
 
+    /**
+     * The gameId a URL is allowed to claim against, or null if it is not one
+     * of our games. Both games are served from the app's own Firebase Hosting
+     * site now, so - unlike the one-project-per-game setup this replaces - the
+     * host no longer identifies the game and the slug under /games/ does.
+     */
     private fun getGameId(url: String): String? {
         val uri = Uri.parse(url)
         if (uri.scheme != "https") return null
+        if (uri.host !in ALLOWED_GAME_HOSTS) return null
 
-        return ALLOWED_GAME_HOSTS[uri.host]
+        val segments = uri.pathSegments
+        if (segments.size < 2 || segments[0] != GAMES_PATH_PREFIX) return null
+
+        return GAME_IDS_BY_SLUG[segments[1]]
     }
 
     companion object {
-        private val ALLOWED_GAME_HOSTS = mapOf(
-            "game-ccdff.web.app" to "game_2048",
-            "floppybird-bc843.web.app" to "floppy_bird"
+        /** The site the games are deployed to by `firebase deploy --only hosting`. */
+        private const val GAMES_HOST = "pixelpayout-check.web.app"
+
+        /** Firebase provisions both domains for a site; accept either. */
+        private val ALLOWED_GAME_HOSTS = setOf(
+            GAMES_HOST,
+            "pixelpayout-check.firebaseapp.com"
         )
+
+        private const val GAMES_PATH_PREFIX = "games"
+
+        const val SLUG_FLAPPY = "flappy"
+        const val SLUG_TOWER = "tower"
+
+        /**
+         * Slug -> the gameId the economy knows it by. `flappy` keeps the
+         * `floppy_bird` id its predecessor used: the score scale is the same
+         * (one point per pipe), so every existing session, XP divisor and
+         * plausibility rule carries over untouched.
+         */
+        private val GAME_IDS_BY_SLUG = mapOf(
+            SLUG_FLAPPY to "floppy_bird",
+            SLUG_TOWER to "tower_game"
+        )
+
+        /** Single place the game URLs are built, so callers can't drift. */
+        fun gameUrl(slug: String): String =
+            "https://$GAMES_HOST/$GAMES_PATH_PREFIX/$slug/"
     }
 
 } 

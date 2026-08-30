@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The 68dp art tile. Nocturne draws a 150deg gradient; 135 is the nearest
+     angle a <gradient> supports without a rotate wrapper. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="135"
+        android:startColor="@color/violet_tint_25"
+        android:endColor="@color/surface_card"
+        android:type="linear" />
+    <stroke android:width="1dp" android:color="@color/stroke_card" />
+    <corners android:radius="8dp" />
+</shape>

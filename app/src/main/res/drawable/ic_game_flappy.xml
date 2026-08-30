@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neon Flap's tile icon: the bird in profile, beak leading. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="@null">
+
+    <!-- Body -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M10,6.5C13.04,6.5 15.5,8.96 15.5,12C15.5,15.04 13.04,17.5 10,17.5C6.96,17.5 4.5,15.04 4.5,12C4.5,8.96 6.96,6.5 10,6.5Z" />
+
+    <!-- Wing, knocked back so the body still reads as one shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.35"
+        android:pathData="M7,11.2C8.6,10.4 10.4,10.4 12,11.2C10.4,12.9 8.6,12.9 7,11.2Z" />
+
+    <!-- Beak -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M15,10.7L20.5,12L15,13.3Z" />
+</vector>

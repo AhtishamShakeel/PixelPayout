@@ -82,7 +82,8 @@ assertEq("no-answer sentinel (-1, timeout) grades false", gradeAnswer(key, "Anim
 
 // --- isKnownGame ---
 assertEq("floppy_bird is known", isKnownGame("floppy_bird"), true);
-assertEq("game_2048 is known", isKnownGame("game_2048"), true);
+assertEq("tower_game is known", isKnownGame("tower_game"), true);
+assertEq("the retired 2048 game is no longer known", isKnownGame("game_2048"), false);
 assertEq("unknown game rejected", isKnownGame("doom"), false);
 assertEq("prototype pollution guard: 'constructor' is not a game", isKnownGame("constructor"), false);
 assertEq("prototype pollution guard: 'toString' is not a game", isKnownGame("toString"), false);
@@ -139,13 +140,18 @@ assertEq(
   "implausible_rate"
 );
 assertEq(
-  "2048 allows a much higher rate than floppy_bird",
-  validateGameClaim({gameId: "game_2048", score: 2_000, elapsedMs: 10_000}).valid,
+  "tower_game allows a much higher rate than floppy_bird",
+  validateGameClaim({gameId: "tower_game", score: 2_000, elapsedMs: 10_000}).valid,
+  true
+);
+assertEq(
+  "a long flawless tower run stays inside the rate ceiling",
+  validateGameClaim({gameId: "tower_game", score: 45_750, elapsedMs: 120_000}).valid,
   true
 );
 assertEq(
   "the headline attack: max score claimed instantly is rejected",
-  validateGameClaim({gameId: "game_2048", score: 1_000_000, elapsedMs: 3_000}).rejection,
+  validateGameClaim({gameId: "tower_game", score: 200_000, elapsedMs: 3_000}).rejection,
   "implausible_rate"
 );
 

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Nocturne's ph-fill ph-play, on the round action at the end of a game row. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path android:fillColor="@android:color/white"
+        android:pathData="M8.4,5.2C8.4,4.4 9.3,3.9 10,4.3l9.1,6.3a1,1 0 0,1 0,1.7L10,19.7c-0.7,0.4 -1.6,-0.1 -1.6,-0.9Z" />
+</vector>

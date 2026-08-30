@@ -8,21 +8,35 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.Toast
+import androidx.core.view.children
 import androidx.fragment.app.activityViewModels
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
+import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentQuizListBinding
 import com.example.pixelpayout.utils.SpacingItemDecoration
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.data.api.QuizCategory
 import java.util.concurrent.TimeUnit
+import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.main.MAX_DAILY_QUIZ_ATTEMPTS
+import com.example.pixelpayout.utils.ServerClock
 
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
     private val binding get() = _binding!!
     private val viewModel: QuizListViewModel by activityViewModels()
+
+    /**
+     * Attempts and the reset countdown come from the shared user snapshot
+     * rather than from QuizListViewModel's callable. QuizListViewModel still
+     * owns the quiz CONTENT (categories, cached questions), which is a
+     * different concern and costs nothing.
+     */
+    private val mainViewModel: MainViewModel by activityViewModels()
     private val timerHandler = Handler(Looper.getMainLooper())
     private val timerRunnable = object : Runnable {
         override fun run() {
@@ -35,10 +49,11 @@ class QuizListFragment : Fragment() {
     private val quizLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            // Quiz was completed, refresh the attempts
-            viewModel.fetchDailyAttempts(forceRefresh = true)
-        }
+        // Nothing to refresh: claimReward writes the attempt counter to the
+        // user document, and the snapshot listener redraws from it. This used
+        // to fire checkAndResetQuizAttempts after EVERY quiz - a Firestore
+        // read per quiz to learn a number the snapshot was about to deliver.
+        if (result.resultCode == Activity.RESULT_OK) Unit
     }
 
     private lateinit var quizAdapter: QuizAdapter
@@ -55,6 +70,7 @@ class QuizListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        buildPips()
         setupRecyclerView()
         observeViewModel()
 
@@ -102,46 +118,81 @@ class QuizListFragment : Fragment() {
             binding.recyclerView.adapter = quizAdapter
         }
 
-        viewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
-            val remaining = maxOf(viewModel.MAX_DAILY_ATTEMPTS - attempts, 0)  // Using the constant from ViewModel
-            binding.tvQuizzesLeft.text = "Quizzes Left: $remaining"
+        mainViewModel.quizAttemptsToday.observe(viewLifecycleOwner) { used ->
+            renderAllowance(used.coerceIn(0, MAX_DAILY_QUIZ_ATTEMPTS))
         }
 
         // Timer will be updated in the timerRunnable
     }
-    
+
+    /**
+     * One pip per attempt in the allowance, sized by weight so the row fills
+     * the card whatever the cap happens to be. Built here rather than in XML
+     * so a change to MAX_DAILY_QUIZ_ATTEMPTS cannot leave a stale count.
+     */
+    private fun buildPips() {
+        val row = binding.quizPips
+        val gap = resources.getDimensionPixelSize(R.dimen.game_pip_gap)
+        row.removeAllViews()
+
+        repeat(MAX_DAILY_QUIZ_ATTEMPTS) { index ->
+            val pip = View(requireContext())
+            val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
+            if (index > 0) params.marginStart = gap
+            pip.layoutParams = params
+            row.addView(pip)
+        }
+    }
+
+    private fun renderAllowance(used: Int) {
+        val remaining = MAX_DAILY_QUIZ_ATTEMPTS - used
+
+        binding.tvQuizzesLeft.text = if (remaining > 0) {
+            getString(R.string.quizzes_attempts_left, remaining, MAX_DAILY_QUIZ_ATTEMPTS)
+        } else {
+            // True as written: games are a separate counter on the same day
+            // stamp, so a spent quiz allowance leaves them untouched.
+            getString(R.string.quizzes_attempts_spent)
+        }
+
+        // Spent pips grey from the left, so the violet that remains reads as
+        // what is left rather than as what has been used.
+        binding.quizPips.children.forEachIndexed { index, pip ->
+            pip.setBackgroundResource(
+                if (index < used) R.drawable.bg_pip_spent else R.drawable.bg_pip_remaining
+            )
+        }
+    }
+
     private fun updateCountdownTimer() {
-        val nextResetTime = viewModel.nextResetTime.value ?: return
-        val currentTime = viewModel.getCurrentServerTime()
-        val timeUntilReset = nextResetTime - currentTime
-        
-        if (timeUntilReset <= 0) {
-            binding.tvResetTimer.text = "Resetting soon..."
-            // Could trigger a refresh here
-            viewModel.fetchDailyAttempts(forceRefresh = true)
-            return
-        }
-        
-        // Format the time remaining
-        val hours = TimeUnit.MILLISECONDS.toHours(timeUntilReset)
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(timeUntilReset) % 60
-        val seconds = TimeUnit.MILLISECONDS.toSeconds(timeUntilReset) % 60
-        
-        // Display different formats based on time remaining
-        val timerText = when {
-            hours > 0 -> "Resets in: ${hours}h ${minutes}m"
-            minutes > 0 -> "Resets in: ${minutes}m ${seconds}s"
-            else -> "Resets in: ${seconds}s"
-        }
-        
-        binding.tvResetTimer.text = timerText
+        if (_binding == null) return
+
+        // The boundary is computed from the server clock, so it is always in
+        // the future. The old version derived it from the stored
+        // last_reset_time, which could sit in the past - leaving the
+        // countdown permanently expired and, until it was guarded, firing a
+        // refresh request every single second it stayed that way.
+        val seconds =
+            ((mainViewModel.nextAttemptsResetMillis() - ServerClock.now()) / 1_000)
+                .coerceAtLeast(0)
+
+        // HH:MM:SS in a monospace face, matching Play > Games - a ticker whose
+        // digits do not shuffle sideways once a second.
+        binding.tvResetTimer.text = String.format(
+            "%02d:%02d:%02d",
+            TimeUnit.SECONDS.toHours(seconds),
+            TimeUnit.SECONDS.toMinutes(seconds) % 60,
+            seconds % 60
+        )
     }
 
     private fun fetchQuizzesForCategory(category: QuizCategory) {
-        // Get the current attempts value directly instead of creating a new observer
-        val attempts = viewModel.dailyAttempts.value ?: 0
-        if (attempts >= viewModel.MAX_DAILY_ATTEMPTS) {
-            Toast.makeText(requireContext(), "Daily quiz limit reached. Try again tomorrow!", Toast.LENGTH_LONG).show()
+        // Read from the shared snapshot, the same source the counter card draws.
+        // This used to read QuizListViewModel.dailyAttempts, which is seeded to
+        // MAX_DAILY_ATTEMPTS and only corrected once a callable comes back - so
+        // a tap before that landed was refused on a number nobody had checked.
+        if (mainViewModel.quizAttemptsNow() >= MAX_DAILY_QUIZ_ATTEMPTS) {
+            Toast.makeText(requireContext(), R.string.quizzes_limit_toast, Toast.LENGTH_LONG).show()
             return
         }
 

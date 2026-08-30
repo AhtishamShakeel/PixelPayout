@@ -17,6 +17,7 @@ import {
   type User,
 } from "firebase/auth";
 import {getFunctions, connectFunctionsEmulator, httpsCallable} from "firebase/functions";
+import {MAX_DAILY_GAME_SESSIONS} from "../economy/rewardConfig";
 
 const PROJECT_ID = "pixelpayout-check";
 
@@ -970,10 +971,10 @@ async function run() {
     assertEq("floppy_bird score 42 -> 30 xp (per-session cap)", (res.data as {xpAwarded: number}).xpAwarded, 30);
     assertEq("games award no points (XP-only source)", (res.data as {pointsAwarded: number}).pointsAwarded, 0);
 
-    const session2 = await openGameSession("game_2048");
+    const session2 = await openGameSession("tower_game");
     await backdateSession(user.uid, session2, 60_000);
-    const res2 = await claimReward({rewardType: "game", gameId: "game_2048", score: 555, sessionId: session2});
-    assertEq("game_2048 score 555 -> floor(555/20)=27 xp", (res2.data as {xpAwarded: number}).xpAwarded, 27);
+    const res2 = await claimReward({rewardType: "game", gameId: "tower_game", score: 675, sessionId: session2});
+    assertEq("tower_game score 675 -> floor(675/25)=27 xp", (res2.data as {xpAwarded: number}).xpAwarded, 27);
 
     await assertThrows(
       "replaying a consumed session is rejected",
@@ -1010,10 +1011,10 @@ async function run() {
     const claimReward = httpsCallable(clientFunctions, "claimReward");
 
     // The headline attack: open a session, immediately claim a huge score.
-    const instant = await openGameSession("game_2048");
+    const instant = await openGameSession("tower_game");
     await assertThrows(
       "claiming instantly (under the minimum session length) is rejected",
-      () => claimReward({rewardType: "game", gameId: "game_2048", score: 999_999, sessionId: instant}),
+      () => claimReward({rewardType: "game", gameId: "tower_game", score: 999_999, sessionId: instant}),
       "invalid-argument"
     );
 
@@ -1043,7 +1044,7 @@ async function run() {
     await backdateSession(user.uid, mismatch, 60_000);
     await assertThrows(
       "claiming a different game than the session was opened for is rejected",
-      () => claimReward({rewardType: "game", gameId: "game_2048", score: 50, sessionId: mismatch}),
+      () => claimReward({rewardType: "game", gameId: "tower_game", score: 50, sessionId: mismatch}),
       "invalid-argument"
     );
 
@@ -1056,8 +1057,51 @@ async function run() {
     const snap = await db.collection("users").doc(user.uid).get();
     assertEq("no xp awarded from any rejected game claim", snap.get("xp"), 0);
     assertEq("no points awarded from any rejected game claim", snap.get("points"), 0);
+    const rejectedEvents = await getLedgerEvents(user.uid);
+    assertEq("no ledger entries from rejected game claims", rejectedEvents.length, 0);
+  }
+
+  // --- game: the daily allowance ---
+  {
+    const user = await makeUser("gamecap");
+    await seedUserDoc(user.uid, "GAMECAP");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+
+    // Ten runs is the whole day's allowance.
+    for (let i = 0; i < MAX_DAILY_GAME_SESSIONS; i++) {
+      const session = await openGameSession("floppy_bird");
+      await backdateSession(user.uid, session, 60_000);
+      await claimReward({rewardType: "game", gameId: "floppy_bird", score: 5, sessionId: session});
+    }
+
+    await assertThrows(
+      "an eleventh game session cannot even be opened",
+      () => httpsCallable(clientFunctions, "startGameSession")({gameId: "floppy_bird"}),
+      "failed-precondition"
+    );
+
     const events = await getLedgerEvents(user.uid);
-    assertEq("no ledger entries from rejected game claims", events.length, 0);
+    assertEq(
+      "exactly the allowance was paid out",
+      events.filter((e) => e.source === "GAME").length,
+      MAX_DAILY_GAME_SESSIONS
+    );
+
+    // Quizzes are a separate allowance sharing the same day stamp, so using up
+    // the games must not have spent any quiz attempts.
+    const quizzed = await claimReward({
+      rewardType: "quiz",
+      category: "Animals",
+      quizId: "1",
+      questionIndex: 0,
+      selectedAnswer: 1,
+    });
+    assertEq(
+      "the quiz allowance is untouched by a spent game allowance",
+      (quizzed.data as {attempts: number}).attempts,
+      1
+    );
+
   }
 
   // --- game: another user's session id can't be used ---

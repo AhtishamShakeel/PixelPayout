@@ -24,9 +24,9 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.main.MAX_DAILY_QUIZ_ATTEMPTS
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
-import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
@@ -61,7 +61,6 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private val mainViewModel: MainViewModel by activityViewModels()
-    private val quizViewModel: QuizListViewModel by activityViewModels()
     
     /** The server's reward table, fetched once so the strip can show it. */
     private var cycleRewards: List<UserRepository.StreakDayReward> = emptyList()
@@ -225,13 +224,10 @@ class HomeFragment : Fragment() {
             announceResolvedRedemptions(it)
         }
 
-        // Observe quiz attempts
-        quizViewModel.dailyAttempts.observe(viewLifecycleOwner) { attempts ->
-            updateQuizStatusText()
-        }
-        
-        // Observe next reset time to update timer when needed
-        quizViewModel.nextResetTime.observe(viewLifecycleOwner) { nextResetTime ->
+        // Attempts come off the user snapshot now, not from a callable. The
+        // countdown half needs no observer at all - it is recomputed by the
+        // per-second timer from the clock.
+        mainViewModel.quizAttemptsToday.observe(viewLifecycleOwner) {
             updateQuizStatusText()
         }
     }
@@ -311,8 +307,8 @@ class HomeFragment : Fragment() {
      * play, and the countdown is what they need once they cannot.
      */
     private fun updateQuizStatusText() {
-        val attempts = quizViewModel.dailyAttempts.value ?: 0
-        val remaining = maxOf(quizViewModel.MAX_DAILY_ATTEMPTS - attempts, 0)
+        val attempts = mainViewModel.quizAttemptsNow()
+        val remaining = maxOf(MAX_DAILY_QUIZ_ATTEMPTS - attempts, 0)
 
         binding.quizTileSubtitle.text = if (remaining > 0) {
             resources.getQuantityString(R.plurals.quizzes_left, remaining, remaining)
@@ -327,10 +323,7 @@ class HomeFragment : Fragment() {
      * cannot buy extra attempts.
      */
     private fun resetCountdownText(): String {
-        val nextResetTime = quizViewModel.nextResetTime.value
-            ?: return getString(R.string.quiz_reset_unknown)
-
-        val remainingMs = nextResetTime - quizViewModel.getCurrentServerTime()
+        val remainingMs = mainViewModel.nextAttemptsResetMillis() - ServerClock.now()
         if (remainingMs <= 0) return getString(R.string.quiz_resetting)
 
         val hours = TimeUnit.MILLISECONDS.toHours(remainingMs)
@@ -867,11 +860,16 @@ class HomeFragment : Fragment() {
     private fun renderGoals(goals: UserRepository.DailyGoals?) {
         val binding = _binding ?: return
 
+        // The heading goes with the card. Goals are null until the pool
+        // published on config/levelCurve arrives, and a heading left behind
+        // on its own reads as a removed feature rather than a loading one.
         if (goals == null || goals.goals.isEmpty()) {
+            binding.goalsHeader.visibility = View.GONE
             binding.goalsCard.visibility = View.GONE
             binding.goalsDoneCount.text = ""
             return
         }
+        binding.goalsHeader.visibility = View.VISIBLE
         binding.goalsCard.visibility = View.VISIBLE
 
         binding.goalsDoneCount.text =

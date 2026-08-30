@@ -486,10 +486,32 @@ async function readReferrerForUnlock(
 
   const referredBy = userDoc.get(FIELD_REFERRED_BY) as string | undefined;
   if (!referredBy) return null;
+
+  // The ONLY thing that makes this once-per-referee. Set on the referee in
+  // the same transaction that pays the referrer, so a second attempt cannot
+  // find it false.
   if (userDoc.get(FIELD_REFERRAL_REWARD_CLAIMED) === true) return null;
 
-  // Only on the transition across the threshold, never again after.
-  if (currentXp >= REFERRAL_UNLOCK_XP) return null;
+  // At or above the threshold - NOT only on the exact crossing.
+  //
+  // This used to also return null when currentXp was already >= the
+  // threshold, on the reasoning that the crossing happens once so catching
+  // it once is enough. It is not: the crossing can happen somewhere this
+  // function never runs, and then the reward was lost for good.
+  //
+  //   * submitReferral awards the referee 25 XP itself and does not check
+  //     this, so anyone entering a code between 75 and 99 XP crossed 100 on
+  //     the referral itself and no later claim could ever pay it.
+  //   * Anyone entering a code already past 100 XP had no crossing left.
+  //   * claimDailyStreak and claimDailyGoalBonus award XP without calling
+  //     this at all, so a referee who reached 100 through streaks consumed
+  //     the crossing invisibly.
+  //
+  // In every one of those the referee kept their bonus and the referrer was
+  // never paid - which shows on Profile as an invitee stuck on "Qualified"
+  // forever. Testing the threshold rather than the crossing costs nothing:
+  // referralRewardClaimed above is what prevents a second payout, and it is
+  // written in the same transaction as the first.
   if (currentXp + xpGain < REFERRAL_UNLOCK_XP) return null;
 
   const referrerRef = getFirestore().collection(USERS_COLLECTION).doc(referredBy);

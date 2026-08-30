@@ -381,6 +381,108 @@ async function run() {
     assertEq("an expired buff records multiplierApplied 1", events[0].multiplierApplied, 1);
   }
 
+  // --- referral: the referrer is paid even when the crossing was invisible -
+  // The bug this covers: readReferrerForUnlock used to fire only on the exact
+  // transition past REFERRAL_UNLOCK_XP. submitReferral awards the referee 25
+  // XP without running that check, so a referee who entered a code between 75
+  // and 99 XP crossed the threshold there - and every later claim saw "already
+  // above" and paid nobody. The referee kept their bonus, the referrer got
+  // nothing, permanently.
+  {
+    const referrer = await makeUser("refpayee");
+    await seedUserDoc(referrer.uid, "PAYME1", {points: 0, xp: 0, level: 1});
+
+    // A referee sitting just under the threshold, so the referral's own XP
+    // carries them over it.
+    const referee = await makeUser("refcrosser");
+    await seedUserDoc(referee.uid, "CROSS1", {points: 0, xp: 90, level: 2});
+
+    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "PAYME1"});
+
+    const refereeAfterSubmit = await db.collection("users").doc(referee.uid).get();
+    assertEq("the referee is paid immediately", refereeAfterSubmit.get("points"), 50);
+    assertEq(
+      "and the referral's own xp carried them past the threshold",
+      refereeAfterSubmit.get("xp") >= 100,
+      true
+    );
+    assertEq(
+      "the referrer is not paid at submit time",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      0
+    );
+
+    // Any later XP-awarding claim should now settle it.
+    await httpsCallable(clientFunctions, "claimReward")({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+
+    const paid = await db.collection("users").doc(referrer.uid).get();
+    assertEq("the referrer is paid on the next claim", paid.get("points"), 100);
+    assertEq("and gets the referrer xp too", paid.get("xp"), 50);
+    assertEq(
+      "the referee is flagged so it cannot pay twice",
+      (await db.collection("users").doc(referee.uid).get()).get("referralRewardClaimed"),
+      true
+    );
+
+    // A second claim must not pay again.
+    await httpsCallable(clientFunctions, "claimReward")({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 2, selectedAnswer: 2,
+    });
+    assertEq(
+      "a later claim does not pay the referrer twice",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      100
+    );
+  }
+
+  // --- referral: a referee already well past the threshold still pays out ---
+  {
+    const referrer = await makeUser("reflate");
+    await seedUserDoc(referrer.uid, "LATE01", {points: 0, xp: 0, level: 1});
+
+    const referee = await makeUser("reflatecode");
+    await seedUserDoc(referee.uid, "LATE02", {points: 0, xp: 500, level: 6});
+
+    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "LATE01"});
+    await httpsCallable(clientFunctions, "claimReward")({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+
+    assertEq(
+      "entering a code long after passing the threshold still pays the referrer",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      100
+    );
+  }
+
+  // --- referral: below the threshold, nothing is owed yet ---
+  {
+    const referrer = await makeUser("refearly");
+    await seedUserDoc(referrer.uid, "EARLY1", {points: 0, xp: 0, level: 1});
+
+    const referee = await makeUser("refearlycode");
+    await seedUserDoc(referee.uid, "EARLY2", {points: 0, xp: 0, level: 1});
+
+    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "EARLY1"});
+    await httpsCallable(clientFunctions, "claimReward")({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+
+    // Referee is on 25 + 10 = 35 XP, well short of 100.
+    assertEq(
+      "a referee under the threshold pays the referrer nothing",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      0
+    );
+    assertEq(
+      "and is not flagged as settled",
+      (await db.collection("users").doc(referee.uid).get()).get("referralRewardClaimed"),
+      false
+    );
+  }
+
   // --- redemption: spending points ---
   {
     await db.collection("redemptionOptions").doc("pubg").set({

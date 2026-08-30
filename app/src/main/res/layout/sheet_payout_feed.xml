@@ -5,9 +5,9 @@
     a glance and occasionally a scroll, and it was costing a whole screenful
     of Home to say what one line says.
 
-    Rows are inflated into `payoutSheetRows` at bind time. The list is capped
-    at twenty server-side, so a RecyclerView and its adapter would be more
-    machinery than the content justifies.
+    Rows are inflated into `payoutSheetRows` at bind time. The fetch is capped
+    at ten, so a RecyclerView and its adapter would be more machinery than the
+    content justifies.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"

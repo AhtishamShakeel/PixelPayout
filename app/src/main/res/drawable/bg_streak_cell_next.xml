@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The cell for the reward the NEXT claim pays out.
+
+    Same shape as bg_streak_cell_todo, drawn at 2dp in the full gold rather
+    than the 1dp .22-alpha stroke, so the one cell that is actually in play
+    reads apart from the five that are not - without moving anything, which
+    would reflow the strip every day.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/gold_tint_16" />
+    <stroke android:width="2dp" android:color="@color/gold_deep" />
+    <corners android:radius="6dp" />
+</shape>

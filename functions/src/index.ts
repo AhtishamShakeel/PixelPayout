@@ -74,6 +74,7 @@ import {
 import {MAX_LEVEL, XP_THRESHOLDS} from "./economy/levelCurve";
 import {
   GAME_XP_SCORE_DIVISOR,
+  LEVEL_MILESTONE_POINTS,
   MAX_DAILY_QUIZ_ATTEMPTS,
   QUIZ_CORRECT_XP,
   QUIZ_INCORRECT_XP,
@@ -176,11 +177,21 @@ async function syncAnswerKey(): Promise<QuizAnswerKey> {
  * without duplicating the thresholds in Kotlin (which would silently drift the
  * moment the curve is retuned here). Read-only for clients; the server stays
  * the only writer.
+ *
+ * The milestone table and the referral threshold ride along for the same
+ * reason: the Level rewards screen lists what each level pays, and a second
+ * copy of those numbers in Kotlin would go stale the first time the economy
+ * is retuned - which is the exact failure the thresholds were published to
+ * avoid. Neither is a secret; both are already visible in what the server
+ * pays out.
  */
 async function publishLevelCurve(): Promise<void> {
   await getFirestore().collection(CONFIG_COLLECTION).doc(LEVEL_CURVE_DOC).set({
     maxLevel: MAX_LEVEL,
     thresholds: XP_THRESHOLDS,
+    // Keys are level numbers; Firestore stores them as strings.
+    milestonePoints: LEVEL_MILESTONE_POINTS,
+    referralUnlockXp: REFERRAL_UNLOCK_XP,
     updatedAt: FieldValue.serverTimestamp(),
   });
   levelCurvePublishedByThisInstance = true;
@@ -1743,12 +1754,17 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
         userDoc.get("displayName") as string | undefined
       );
       const feedTitle = String(redemptionDoc.get("optionTitle") || "");
+      // The denomination is what the feed line actually says - "1000 UC"
+      // rather than the game it belongs to. Still safe to publish: it is the
+      // same figure the catalogue shows everyone.
+      const feedAmount = String(redemptionDoc.get("packAmount") || "");
 
       transaction.set(
         firestore.collection(PAYOUT_FEED_COLLECTION).doc(redemptionId),
         {
           name: feedName,
           optionTitle: feedTitle,
+          packAmount: feedAmount,
           approvedAt: FieldValue.serverTimestamp(),
         }
       );
@@ -1759,6 +1775,7 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
         redemptionId,
         name: feedName,
         optionTitle: feedTitle,
+        packAmount: feedAmount,
       });
 
       return {refunded: 0, targetUid};

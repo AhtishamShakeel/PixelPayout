@@ -370,6 +370,8 @@ class HomeFragment : Fragment() {
             streakClaimButton.setOnClickListener { confirmStreakClaim() }
             goalsClaimButton.setOnClickListener { confirmGoalClaim() }
 
+            levelRewardsButton.setOnClickListener { openLevelRewards() }
+
             btnPayout.setOnClickListener { navigateToRedemption()}
         }
     }
@@ -460,29 +462,6 @@ class HomeFragment : Fragment() {
             getString(R.string.streak_title_none)
         }
 
-        // Every cell shows what that day of the cycle pays, claimed or not, so
-        // the week ahead is legible rather than a row of blanks.
-        streakCells(binding).forEachIndexed { index, cell ->
-            val reward = cycleRewards.getOrNull(index)
-            val filled = index < done
-
-            cell.setBackgroundResource(
-                if (filled) R.drawable.bg_streak_cell_done
-                else R.drawable.bg_streak_cell_todo
-            )
-            cell.text = reward?.let { cellLabel(it) }.orEmpty()
-            cell.setTextColor(
-                ContextCompat.getColor(
-                    requireContext(),
-                    when {
-                        filled -> R.color.on_gold
-                        reward != null && reward.points > 0 -> R.color.gold
-                        else -> R.color.text_faint
-                    }
-                )
-            )
-        }
-
         // The cycle position the NEXT claim will pay for. If the streak has
         // already moved today it lands on the day just reached; otherwise it
         // advances one. This has to match resolveStreakClaim exactly, or the
@@ -493,6 +472,43 @@ class HomeFragment : Fragment() {
             maxOf(done, 1)
         } else {
             done % STREAK_CYCLE_DAYS + 1
+        }
+
+        // Every cell shows what that day of the cycle pays, claimed or not, so
+        // the week ahead is legible rather than a row of blanks. The one the
+        // next claim will actually pay is ringed - the strip otherwise says
+        // what the week holds without saying which part of it is in play.
+        // Only while something is claimable: once today is paid, ringing a
+        // cell would point at a reward that is a day away.
+        val nextIndex = if (rewardedToday) -1 else claimPosition - 1
+
+        streakCells(binding).forEachIndexed { index, cell ->
+            val reward = cycleRewards.getOrNull(index)
+            val filled = index < done
+            val isNext = index == nextIndex
+
+            cell.setBackgroundResource(
+                when {
+                    filled && isNext -> R.drawable.bg_streak_cell_done_next
+                    filled -> R.drawable.bg_streak_cell_done
+                    isNext -> R.drawable.bg_streak_cell_next
+                    else -> R.drawable.bg_streak_cell_todo
+                }
+            )
+            cell.text = reward?.let { cellLabel(it) }.orEmpty()
+            cell.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    when {
+                        filled -> R.color.on_gold
+                        reward != null && reward.points > 0 -> R.color.gold
+                        // An XP day would otherwise be the faintest thing on
+                        // the strip while being the one cell that matters.
+                        isNext -> R.color.text_soft
+                        else -> R.color.text_faint
+                    }
+                )
+            )
         }
         // Only meaningful once today is settled; "tomorrow" is the day after
         // whichever day the current claim belongs to.
@@ -827,6 +843,14 @@ class HomeFragment : Fragment() {
         controller.navigate(R.id.leaderboardFragment, null, defaultNavOptions())
     }
 
+    /** The level ladder. Guarded the same way, and for the same reason. */
+    private fun openLevelRewards() {
+        val controller = findNavController()
+        if (controller.currentDestination?.id != R.id.navigation_home) return
+
+        controller.navigate(R.id.levelRewardsFragment, null, defaultNavOptions())
+    }
+
     /**
      * Today's goals.
      *
@@ -863,6 +887,21 @@ class HomeFragment : Fragment() {
         binding.goalsClaimButton.visibility =
             if (goals.allDone && !goals.bonusClaimed) View.VISIBLE else View.GONE
         binding.goalsClaimButton.isEnabled = !goalClaimInFlight
+
+        // Once the bonus is paid there is nothing left to do today, so the
+        // card collapses to the one line that still says something: what was
+        // claimed. The three rows would all read 3/3, and the bar would be
+        // full - a block of settled numbers occupying most of a screen.
+        //
+        // The card is not hidden outright: a claimed set is a thing the user
+        // did, and a card that vanishes on the last tap reads as a bug.
+        val settled = goals.allDone && goals.bonusClaimed
+        binding.goalsSubtitle.setText(
+            if (settled) R.string.goals_subtitle_claimed else R.string.goals_subtitle
+        )
+        binding.goalsProgressBar.visibility = if (settled) View.GONE else View.VISIBLE
+        binding.goalRows.visibility = if (settled) View.GONE else View.VISIBLE
+        if (settled) return
 
         val rows = listOf(
             Triple(binding.goalRow1, binding.goalMark1, binding.goalLabel1),
@@ -1094,22 +1133,22 @@ class HomeFragment : Fragment() {
 
         binding.payoutFeedRow.visibility = View.VISIBLE
         binding.payoutFeedText.text =
-            getString(R.string.payout_feed_row, latest.name, latest.optionTitle)
+            getString(R.string.payout_feed_row, latest.name, latest.label)
         binding.payoutFeedTime.text = relativeTime(latest.atMillis)
         binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet() }
     }
 
     /**
      * The whole feed, in a sheet. Rows are inflated rather than adapted: the
-     * server caps the list at twenty, and a RecyclerView plus its adapter
-     * would be more machinery than that justifies.
+     * fetch is capped at ten, and a RecyclerView plus its adapter would be
+     * more machinery than that justifies.
      *
      * The rows are FETCHED here rather than handed in. The live listener now
      * holds only the single entry Home draws, because a listener is billed a
      * read per document in its window every time a fresh process attaches it
-     * - twenty reads on every launch, for every user, to render one line. The
-     * other nineteen are worth reading when somebody asks to see them, and
-     * worth nothing on the launches where nobody does.
+     * - ten reads on every launch, for every user, to render one line. The
+     * other nine are worth reading when somebody asks to see them, and worth
+     * nothing on the launches where nobody does.
      */
     private fun showPayoutFeedSheet() {
         val view = layoutInflater.inflate(R.layout.sheet_payout_feed, null)
@@ -1135,7 +1174,7 @@ class HomeFragment : Fragment() {
             entries.forEach { entry ->
                 val row = layoutInflater.inflate(R.layout.item_payout_feed, rows, false)
                 row.findViewById<TextView>(R.id.payoutItemText).text =
-                    getString(R.string.payout_feed_row, entry.name, entry.optionTitle)
+                    getString(R.string.payout_feed_row, entry.name, entry.label)
                 row.findViewById<TextView>(R.id.payoutItemTime).text =
                     relativeTime(entry.atMillis)
                 rows.addView(row)

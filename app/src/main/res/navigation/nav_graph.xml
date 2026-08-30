@@ -32,6 +32,15 @@
         android:name="com.example.pixelpayout.ui.rewards.RewardsFragment"
         android:label="Rewards" />
 
+    <!--
+        A pushed destination, not a tab: it is opened from the level card on
+        Home and popped straight back off, the same shape as the leaderboard.
+    -->
+    <fragment
+        android:id="@+id/levelRewardsFragment"
+        android:name="com.example.pixelpayout.ui.rewards.LevelRewardsFragment"
+        android:label="Level rewards" />
+
     <fragment
         android:id="@+id/leaderboardFragment"
         android:name="com.example.pixelpayout.ui.leaderboard.LeaderboardFragment"

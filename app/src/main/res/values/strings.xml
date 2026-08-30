@@ -153,6 +153,36 @@
     <string name="level_xp_max">Max level</string>
     <string name="level_to_next">%1$d XP to Level %2$d</string>
     <string name="level_reached_max">Highest level reached</string>
+
+    <!-- Level rewards.
+         Thresholds are XP, not points: points are spent at cashout, XP is
+         what the curve is built on. Nothing here is claimable - milestone
+         stars are paid by the server the moment the level is crossed - so
+         there is no claim wording. -->
+    <string name="level_rewards_button">View rewards</string>
+    <string name="level_rewards_title">Level rewards</string>
+    <string name="level_rewards_lv">Lv</string>
+    <string name="level_rewards_lifetime_xp">%1$s lifetime XP</string>
+    <string name="level_rewards_next">Next: Level %1$d</string>
+    <string name="level_rewards_earned_label">Level stars earned</string>
+    <string name="level_rewards_ahead_label">Still locked ahead</string>
+    <string name="level_rewards_ladder">The ladder</string>
+    <!-- Says outright that this is a filtered view: the other levels are
+         progression and pay nothing, so they are not listed. -->
+    <string name="level_rewards_ladder_note">%1$d of %2$d levels unlock something</string>
+    <string name="level_rewards_threshold">%1$s XP</string>
+    <string name="level_rewards_stars">%1$d ★</string>
+    <string name="level_rewards_tag_reached">Reached</string>
+    <string name="level_rewards_tag_next">Next up</string>
+    <string name="level_rewards_tag_locked">Locked</string>
+    <string name="level_rewards_loading">Level rewards are still loading.</string>
+    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Milestone stars are paid the moment you reach the level - there is nothing to claim. Levels not listed here are progression only.</string>
+    <string name="level_perk_stars">+%1$d ★, paid the moment you reach it</string>
+    <!-- %1$d is the XP threshold the server actually tests, not the level:
+         the level is reached slightly before it. -->
+    <string name="level_perk_referral">Referral rewards - a friend you invited pays out once they reach %1$d XP</string>
+    <string name="level_perk_first_redeem">Discounted first redeem - one pack at a lower price, once per account</string>
+    <string name="level_perk_game">%1$s unlocks in Cashout</string>
     <!-- Quick actions -->
     <string name="quick_actions">Quick actions</string>
     <string name="tile_play_games">Play Games</string>
@@ -222,7 +252,9 @@
     <!-- Public payout feed -->
     <string name="recent_payouts">Recent payouts</string>
     <string name="recent_payouts_subtitle">Payouts we have approved lately.</string>
-    <string name="payout_feed_row">%1$s got %2$s</string>
+    <!-- %2$s is the pack the user received ("1000 UC"), falling back to the
+         game name on entries written before packAmount was published. -->
+    <string name="payout_feed_row">%1$s received %2$s</string>
     <string name="time_just_now">just now</string>
     <string name="time_minutes_ago">%1$dm ago</string>
     <string name="time_hours_ago">%1$dh ago</string>
@@ -241,6 +273,9 @@
     <string name="goals_title">Today\'s goal</string>
     <string name="goals_done_count">%1$d/%2$d done</string>
     <string name="goals_subtitle">Complete your daily set</string>
+    <!-- Replaces the subtitle once the bonus is paid, which is also when the
+         rows and the bar are hidden - so this line is the whole card. -->
+    <string name="goals_subtitle_claimed">Daily set claimed</string>
     <string name="goals_bonus">+%1$d ★</string>
     <string name="goals_claim">Claim</string>
     <string name="goals_claimed">Claimed</string>

@@ -1,5 +1,5 @@
 /**
- * The public payout feed: "joh*******23 got 100 UC, 10 minutes ago".
+ * The public payout feed: "joh*******23 received 100 UC, 10 minutes ago".
  *
  * A separate collection rather than opening up `redemptions`, and that is the
  * whole point of it. Redemption documents carry the owner's uid, their
@@ -15,13 +15,25 @@ import {FieldValue} from "firebase-admin/firestore";
 
 export const PAYOUT_FEED_COLLECTION = "payoutFeed";
 
-/** Kept short - this is social proof, not an audit log. */
-export const PAYOUT_FEED_PAGE_SIZE = 20;
+/**
+ * Kept short - this is social proof, not an audit log. Mirrors the client's
+ * PAYOUT_FEED_SHEET_LIMIT, which is what actually bounds the read.
+ */
+export const PAYOUT_FEED_PAGE_SIZE = 10;
 
 export interface PayoutFeedDoc {
   /** Already masked. The raw name is never written here. */
   name: string;
   optionTitle: string;
+  /**
+   * What was actually received, as text: "1000 UC", "400 Diamonds".
+   *
+   * The line reads better with this than with the game name, which is why it
+   * is here - "joh*****23 received 1000 UC" is the social proof; "received
+   * PUBG Mobile" is not. Entries written before this field existed have it
+   * empty, and the client falls back to optionTitle for those.
+   */
+  packAmount: string;
   approvedAt: FieldValue;
 }
 

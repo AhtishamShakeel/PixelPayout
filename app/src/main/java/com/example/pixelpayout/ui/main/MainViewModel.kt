@@ -108,8 +108,32 @@ class MainViewModel(
      * so opening Wallet does not re-read what this already has, and a price
      * edited in Firestore moves the bar here as well as the card there.
      */
-    private val redemptionGames: LiveData<List<RedemptionGame>> =
+    val redemptionGames: LiveData<List<RedemptionGame>> =
         userRepository.redemptionGames
+
+    /**
+     * The published curve: thresholds, the milestone table and the referral
+     * threshold. Level rewards lists all three; Home only needs the
+     * thresholds, which is why [levelProgress] below reads it too.
+     */
+    val levelCurve: LiveData<UserRepository.LevelCurve?> = userRepository.levelCurve
+
+    private val _firstRedeemMinLevel = MutableLiveData<Int?>(null)
+
+    /** The level the discounted first redeem unlocks at, or null until read. */
+    val firstRedeemMinLevel: LiveData<Int?> = _firstRedeemMinLevel
+
+    /**
+     * One config read per process, not per screen: the number only changes
+     * when somebody edits it in the console, and the Level rewards screen is
+     * not worth a read every time it is opened.
+     */
+    fun loadFirstRedeemMinLevel() {
+        if (_firstRedeemMinLevel.value != null) return
+        viewModelScope.launch {
+            _firstRedeemMinLevel.value = userRepository.getFirstRedeemMinLevel()
+        }
+    }
 
     val nextRedemption: LiveData<NextRedemption?> = MediatorLiveData<NextRedemption?>().apply {
         fun recompute() {

@@ -292,7 +292,7 @@
                 android:maxLines="1"
                 android:textColor="@color/text_dim"
                 android:textSize="12.5sp"
-                tools:text="Joh********23 got 100 UC" />
+                tools:text="Joh********23 received 1000 UC" />
 
             <TextView
                 android:id="@+id/payoutFeedTime"
@@ -418,6 +418,32 @@
                     android:textColor="@color/text_faint"
                     android:textSize="12sp"
                     tools:text="69 XP to Level 4" />
+
+                <!--
+                    The way into the ladder. The card above says how far the
+                    next level is; it has never said what reaching it is
+                    worth, which is the question the number invites.
+                -->
+                <TextView
+                    android:id="@+id/levelRewardsButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_button_accent_outline"
+                    android:clickable="true"
+                    android:drawableStart="@drawable/ic_gift"
+                    android:drawablePadding="7dp"
+                    android:drawableTint="@color/brand_violet_light"
+                    android:focusable="true"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="10dp"
+                    android:paddingBottom="9dp"
+                    android:text="@string/level_rewards_button"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="12sp" />
 
             </LinearLayout>
 
@@ -861,6 +887,7 @@
                 android:orientation="horizontal">
 
                 <TextView
+                    android:id="@+id/goalsSubtitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -916,7 +943,13 @@
                 android:progressDrawable="@drawable/progress_violet"
                 tools:progress="66" />
 
+            <!--
+                Collapsed once the bonus is claimed: the set is finished and
+                the reward is paid, so three rows of 3/3 are just a block of
+                settled numbers between the streak and the rest of the page.
+            -->
             <LinearLayout
+                android:id="@+id/goalRows"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"

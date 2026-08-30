@@ -65,20 +65,73 @@ class UserRepository {
                 val maxLevel = snapshot.getLong(FIELD_MAX_LEVEL)?.toInt()
 
                 if (!thresholds.isNullOrEmpty() && maxLevel != null) {
-                    _levelCurve.postValue(LevelCurve(maxLevel, thresholds))
+                    _levelCurve.postValue(
+                        LevelCurve(
+                            maxLevel = maxLevel,
+                            thresholds = thresholds,
+                            milestonePoints = parseMilestones(snapshot.get(FIELD_MILESTONES)),
+                            referralUnlockXp =
+                                snapshot.getLong(FIELD_REFERRAL_UNLOCK_XP)?.toInt() ?: 0
+                        )
+                    )
                 }
             }
+    }
+
+    /**
+     * The milestone map, whose keys are level numbers Firestore stores as
+     * strings. Written defensively because this document is published by a
+     * deploy: a client running against a project whose functions have not
+     * been redeployed yet simply sees no milestones, rather than crashing on
+     * a field that is not there.
+     */
+    private fun parseMilestones(raw: Any?): Map<Int, Int> {
+        val map = raw as? Map<*, *> ?: return emptyMap()
+        return map.mapNotNull { (key, value) ->
+            val level = (key as? String)?.toIntOrNull() ?: (key as? Number)?.toInt()
+            val points = (value as? Number)?.toInt()
+            if (level != null && points != null && points > 0) level to points else null
+        }.toMap()
     }
 
     data class LevelCurve(
         val maxLevel: Int,
         /** Cumulative XP required to reach level (index + 2). */
-        val thresholds: List<Int>
+        val thresholds: List<Int>,
+        /**
+         * Level -> the one-time star bonus reaching it pays. Only levels that
+         * pay something appear; the rest are progression alone.
+         */
+        val milestonePoints: Map<Int, Int> = emptyMap(),
+        /**
+         * The XP an invitee must reach before their referrer is paid. Zero
+         * when the curve document predates this field being published.
+         */
+        val referralUnlockXp: Int = 0
     ) {
         /** Total XP needed to reach [level]; 0 for level 1. */
         fun xpRequiredFor(level: Int): Int = when {
             level <= 1 -> 0
             else -> thresholds.getOrElse(minOf(level, maxLevel) - 2) { thresholds.last() }
+        }
+
+        /**
+         * The level somebody holding [xp] is at. Mirrors the server's
+         * levelForXp, from the same published thresholds.
+         *
+         * Used to place the referral threshold on the ladder: the server
+         * states that rule in XP, not levels, so the row is positioned from
+         * the curve rather than from a level number written down twice. The
+         * row's own wording still quotes the XP figure, because the level it
+         * sits on is reached slightly before the threshold is.
+         */
+        fun levelForXp(xp: Int): Int {
+            if (xp <= 0) return 1
+            var level = 1
+            for (threshold in thresholds) {
+                if (xp >= threshold) level++ else break
+            }
+            return minOf(level, maxLevel)
         }
     }
 
@@ -704,8 +757,23 @@ class UserRepository {
     private val _orders = MutableLiveData<List<Order>>(emptyList())
     val orders: LiveData<List<Order>> = _orders
 
-    /** One entry in the public payout feed. The name arrives already masked. */
-    data class PayoutFeedEntry(val name: String, val optionTitle: String, val atMillis: Long)
+    /**
+     * One entry in the public payout feed. The name arrives already masked.
+     *
+     * [packAmount] is what the row says the user received ("1000 UC"); it is
+     * empty on entries written before resolveRedemption started publishing
+     * it, which is why [label] falls back to the game name rather than
+     * showing a blank line for old payouts.
+     */
+    data class PayoutFeedEntry(
+        val name: String,
+        val optionTitle: String,
+        val packAmount: String,
+        val atMillis: Long
+    ) {
+        /** What was received, as the feed should word it. */
+        val label: String get() = packAmount.ifBlank { optionTitle }
+    }
 
     private val _payoutFeed = MutableLiveData<List<PayoutFeedEntry>>(emptyList())
     val payoutFeed: LiveData<List<PayoutFeedEntry>> = _payoutFeed
@@ -945,6 +1013,7 @@ class UserRepository {
         return PayoutFeedEntry(
             name = doc.getString("name").orEmpty(),
             optionTitle = doc.getString("optionTitle").orEmpty(),
+            packAmount = doc.getString("packAmount").orEmpty(),
             atMillis = at
         )
     }
@@ -1118,6 +1187,8 @@ class UserRepository {
         private const val FIELD_LEVEL = "level"
         private const val FIELD_THRESHOLDS = "thresholds"
         private const val FIELD_MAX_LEVEL = "maxLevel"
+        private const val FIELD_MILESTONES = "milestonePoints"
+        private const val FIELD_REFERRAL_UNLOCK_XP = "referralUnlockXp"
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
         private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"
         private const val FIELD_STREAK_COUNT = "streakCount"
@@ -1161,8 +1232,14 @@ class UserRepository {
          */
         private const val PAYOUT_FEED_ROW_LIMIT = 1L
 
-        /** How many the sheet fetches on demand, when somebody opens it. */
-        const val PAYOUT_FEED_SHEET_LIMIT = 20L
+        /**
+         * How many the sheet fetches on demand, when somebody opens it.
+         *
+         * Ten rather than twenty: the sheet is social proof, and the tenth
+         * row is already old enough that nobody reads to it - so the second
+         * ten were ten reads billed per open for nothing.
+         */
+        const val PAYOUT_FEED_SHEET_LIMIT = 10L
 
         private const val FIELD_OPTION_TYPE = "optionType"
         private const val FIELD_PACK_AMOUNT = "packAmount"

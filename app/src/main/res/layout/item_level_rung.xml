@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One rung of the level ladder. Inflated into fragment_level_rewards'
+    `levelRewardsRows`; see that file for why there is no adapter.
+
+    The rail is the 1dp line under the number square. It is what makes the
+    rungs read as one climb rather than as a stack of unrelated cards, and it
+    is drawn per row (rather than as one line behind them) so it can change
+    colour at the point the ladder stops being reached.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:baselineAligned="false"
+    android:orientation="horizontal"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="36dp"
+        android:layout_height="match_parent"
+        android:gravity="center_horizontal"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/rungBadge"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_chip_violet"
+            android:fontFamily="@font/mono_bold"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:textColor="@color/brand_violet_light"
+            android:textSize="13sp"
+            tools:text="10" />
+
+        <View
+            android:id="@+id/rungRail"
+            android:layout_width="1dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="6dp"
+            android:layout_weight="1"
+            android:background="@color/violet_tint_35" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rungCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="11dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_summary_card"
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="12dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/rungTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="@font/jakarta_bold"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="13.5sp"
+                tools:text="Level 10" />
+
+            <TextView
+                android:id="@+id/rungTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/bg_status_done"
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="0.06"
+                android:paddingStart="7dp"
+                android:paddingTop="3dp"
+                android:paddingEnd="7dp"
+                android:paddingBottom="3dp"
+                android:textAllCaps="true"
+                android:textColor="@color/success"
+                android:textSize="9.5sp"
+                tools:text="Reached" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/rungThreshold"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:fontFamily="@font/mono_medium"
+            android:textColor="@color/text_ghost"
+            android:textSize="11sp"
+            tools:text="1,050 XP" />
+
+        <LinearLayout
+            android:id="@+id/rungPerks"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="vertical" />
+
+    </LinearLayout>
+
+</LinearLayout>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    One rung of the level ladder. Inflated into fragment_level_rewards'
-    `levelRewardsRows`; see that file for why there is no adapter.
+    One rung of the level ladder, bound by LevelRungAdapter; see that file
+    for why the rungs are adapted rather than inflated in one go.
 
     The rail is the 1dp line under the number square. It is what makes the
     rungs read as one climb rather than as a stack of unrelated cards, and it

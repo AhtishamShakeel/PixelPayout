@@ -8,8 +8,10 @@ import {
   gameXpForScore,
   GAME_XP_PER_SESSION_CAP,
   LEVEL_UP_POINTS,
+  MAX_DAILY_BONUS_ATTEMPTS,
   MAX_DAILY_GAME_SESSIONS,
   MAX_DAILY_QUIZ_ATTEMPTS,
+  attemptsAllowance,
   levelUpPointsForLevels,
   parseLevelRewards,
 } from "../economy/rewardConfig";
@@ -389,6 +391,33 @@ assertEq(
     buildMilestoneEvent(10, 50).affectsPoints, true);
   assertEq("a zero-point milestone is not",
     buildMilestoneEvent(11, 0).affectsPoints, false);
+}
+
+// --- Bonus attempts ---------------------------------------------------------
+//
+// The clamp is the whole point of attemptsAllowance: the bonus count is
+// stored data, and the allowance has to stay bounded whatever ends up in that
+// field. These are the cases that would otherwise hand out a day nobody paid
+// for - or, in the negative case, take away part of a day everybody is
+// entitled to.
+{
+  assertEq("no bonus leaves the base allowance alone",
+    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 0), 10);
+  assertEq("one bonus adds one",
+    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 1), 11);
+  assertEq("a full day of bonuses is the base plus the cap",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, MAX_DAILY_BONUS_ATTEMPTS), 13);
+
+  assertEq("a stored count above the cap is clamped to it",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 99), 13);
+  assertEq("a negative count cannot reduce the base allowance",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, -5), 10);
+  assertEq("a fractional count is floored, never rounded up",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 1.9), 11);
+  assertEq("a non-numeric count reads as no bonus",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, NaN), 10);
+  assertEq("an infinite count is not a free day",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, Infinity), 10);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

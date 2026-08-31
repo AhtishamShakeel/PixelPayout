@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.Source
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.LiveData
 import kotlinx.coroutines.tasks.await
@@ -183,6 +184,10 @@ class UserRepository {
                                     it.getLong(FIELD_QUIZ_ATTEMPTS)?.toInt() ?: 0,
                                 gameAttempts =
                                     it.getLong(FIELD_GAME_ATTEMPTS)?.toInt() ?: 0,
+                                bonusQuizAttempts =
+                                    it.getLong(FIELD_BONUS_QUIZ_ATTEMPTS)?.toInt() ?: 0,
+                                bonusGameAttempts =
+                                    it.getLong(FIELD_BONUS_GAME_ATTEMPTS)?.toInt() ?: 0,
                                 attemptsStampedAtMillis =
                                     it.getTimestamp(FIELD_LAST_RESET_TIME)
                                         ?.toDate()?.time
@@ -230,6 +235,14 @@ class UserRepository {
          */
         val gameAttempts: Int = 0,
         /**
+         * Extra quiz attempts bought with a rewarded ad today, as stored.
+         * Read [bonusQuizAttemptsToday]; it rides the same day stamp as the
+         * counter it raises, so it goes stale in exactly the same way.
+         */
+        val bonusQuizAttempts: Int = 0,
+        /** Extra game runs bought today, on the same terms. */
+        val bonusGameAttempts: Int = 0,
+        /**
          * When the stored attempt counts were last reset, per the server.
          * Shared by both counters: the server re-stamps it on whichever
          * activity the user does first on a new day, and zeroes the other.
@@ -254,6 +267,22 @@ class UserRepository {
         /** Game runs claimed TODAY. Display only, exactly like the quiz count. */
         fun gameAttemptsToday(todayUtc: Long): Int =
             attemptsToday(gameAttempts, todayUtc)
+
+        /**
+         * Extra attempts bought TODAY, per activity.
+         *
+         * All four counters share one day stamp on the server, so they all
+         * go stale together and all four have to apply the same rollover
+         * here. Reading a bonus straight off the document would show
+         * yesterday's purchase as today's headroom - the client half of the
+         * bug the server guards against in readDailyAttempts.
+         */
+        fun bonusQuizAttemptsToday(todayUtc: Long): Int =
+            attemptsToday(bonusQuizAttempts, todayUtc)
+
+        /** Extra game runs bought TODAY. */
+        fun bonusGameAttemptsToday(todayUtc: Long): Int =
+            attemptsToday(bonusGameAttempts, todayUtc)
 
         private fun attemptsToday(stored: Int, todayUtc: Long): Int {
             val stamped = attemptsStampedAtMillis ?: return 0
@@ -606,13 +635,56 @@ class UserRepository {
      * without an app release - the server reads the same field when it
      * validates the claim, so the two cannot disagree for long. A failed read
      * falls back to the same default the server uses.
+     *
+     * MEMOISED FOR THE PROCESS, and cache-first before that, for the same
+     * reason LevelCurveStore is: the repository is constructed per view
+     * model, so Wallet and the Level rewards screen each used to pay their
+     * own SERVER round trip for a document that only changes when somebody
+     * edits the console. Worse, that round trip was on the path of the Level
+     * rewards ladder - the first-redeem rung could not be placed until the
+     * network answered, so the whole ladder was built once without it and
+     * again with it.
+     *
+     * The refresh below keeps "briefly stale" from becoming "permanently
+     * stale": the disk copy is what this call returns, and one server read
+     * behind it corrects the memo for the next open. Nothing here decides
+     * what is GRANTED - validateRedemption re-reads the same field on every
+     * claim - so a display that is one screen-open behind is harmless.
      */
     suspend fun getFirstRedeemMinLevel(): Int {
-        return try {
-            val doc = firestore.collection(COLLECTION_CONFIG)
-                .document(DOC_REDEMPTION).get().await()
-            doc.getLong("firstRedeemMinLevel")?.toInt() ?: DEFAULT_FIRST_REDEEM_MIN_LEVEL
+        cachedFirstRedeemMinLevel?.let { return it }
+
+        val doc = firestore.collection(COLLECTION_CONFIG).document(DOC_REDEMPTION)
+
+        // Free and instant whenever the disk copy is there, which after the
+        // first read it always is.
+        val cached = try {
+            doc.get(Source.CACHE).await().getLong("firstRedeemMinLevel")?.toInt()
         } catch (e: Exception) {
+            null
+        }
+
+        if (cached != null) {
+            cachedFirstRedeemMinLevel = cached
+            // One billed read, in the background, off the render path.
+            doc.get(Source.SERVER).addOnSuccessListener { fresh ->
+                fresh.getLong("firstRedeemMinLevel")?.toInt()?.let {
+                    cachedFirstRedeemMinLevel = it
+                }
+            }
+            return cached
+        }
+
+        // Nothing on disk yet - first launch, or cleared data.
+        return try {
+            val level = doc.get(Source.SERVER).await()
+                .getLong("firstRedeemMinLevel")?.toInt() ?: DEFAULT_FIRST_REDEEM_MIN_LEVEL
+            cachedFirstRedeemMinLevel = level
+            level
+        } catch (e: Exception) {
+            // The default is deliberately NOT memoised: it is a guess made
+            // because the read failed, and the next caller should try again
+            // rather than inherit it for the life of the process.
             DEFAULT_FIRST_REDEEM_MIN_LEVEL
         }
     }
@@ -750,6 +822,64 @@ class UserRepository {
             }
         } catch (e: Exception) {
             StreakClaimResult.Error(e.message ?: "Could not claim your streak")
+        }
+    }
+
+    /** Which allowance a bonus attempt is being bought for. */
+    enum class BonusActivity(val wireName: String) {
+        QUIZ("quiz"),
+        GAME("game")
+    }
+
+    sealed class BonusAttemptResult {
+        /** [allowance] is the new total for today, base plus bonuses. */
+        data class Granted(val allowance: Int, val bonusAttempts: Int) : BonusAttemptResult()
+
+        /** The server refused - already at the daily bonus cap. */
+        data object AtCap : BonusAttemptResult()
+
+        data class Error(val message: String) : BonusAttemptResult()
+    }
+
+    /**
+     * Buys one extra attempt for today, having watched a rewarded ad.
+     *
+     * The ad is asserted, not proven: there is no server-side verification,
+     * so `adWatched` is taken on trust exactly as claimDailyStreak takes it.
+     * What makes that survivable is the server's per-day cap, which a lying
+     * client cannot get past - see MAX_DAILY_BONUS_ATTEMPTS.
+     *
+     * Short timeout for the same reason the streak claim has one: the user is
+     * watching a button, and offline this would otherwise hang for over a
+     * minute with nothing to explain it. A call that never reached the server
+     * changed nothing, so retrying is safe - and the ad itself is already
+     * spent either way, which is why this is called the moment the reward
+     * fires rather than after the ad is dismissed.
+     */
+    suspend fun grantBonusAttempt(activity: BonusActivity): BonusAttemptResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("grantBonusAttempt")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call(mapOf("activity" to activity.wireName, "adWatched" to true))
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return BonusAttemptResult.Error("Unexpected response")
+            syncClock(data)
+
+            if (data["granted"] == true) {
+                BonusAttemptResult.Granted(
+                    allowance = (data["allowance"] as? Number)?.toInt() ?: 0,
+                    bonusAttempts = (data["bonusAttempts"] as? Number)?.toInt() ?: 0
+                )
+            } else {
+                // The only refusal the server returns rather than throws. The
+                // button should have been hidden before it could be reached,
+                // so this is worth a specific message rather than a shrug.
+                BonusAttemptResult.AtCap
+            }
+        } catch (e: Exception) {
+            BonusAttemptResult.Error(e.message ?: "Could not add an attempt")
         }
     }
 
@@ -1257,6 +1387,8 @@ class UserRepository {
         private const val FIELD_LAST_RESET_TIME = "last_reset_time"
         private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
         private const val FIELD_GAME_ATTEMPTS = "game_attempts"
+        private const val FIELD_BONUS_QUIZ_ATTEMPTS = "bonus_quiz_attempts"
+        private const val FIELD_BONUS_GAME_ATTEMPTS = "bonus_game_attempts"
         private const val FIELD_DAILY_STATS = "dailyStats"
         private const val FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc"
         private const val DOC_DAILY_GOALS = "dailyGoals"
@@ -1275,6 +1407,13 @@ class UserRepository {
         private const val DOC_REDEMPTION = "redemption"
         /** Matches DEFAULT_FIRST_REDEEM_MIN_LEVEL in the functions package. */
         private const val DEFAULT_FIRST_REDEEM_MIN_LEVEL = 10
+
+        /**
+         * The published first-redeem level, once read. Process-wide because
+         * the repository is not - see [getFirstRedeemMinLevel].
+         */
+        @Volatile
+        private var cachedFirstRedeemMinLevel: Int? = null
 
         private const val COLLECTION_REDEMPTIONS = "redemptions"
         private const val COLLECTION_PAYOUT_FEED = "payoutFeed"

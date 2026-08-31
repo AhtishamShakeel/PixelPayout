@@ -24,11 +24,13 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
-import com.example.pixelpayout.ui.main.MAX_DAILY_QUIZ_ATTEMPTS
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
+import com.example.pixelpayout.utils.startLoading
+import com.example.pixelpayout.utils.stopLoading
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.example.pixelpayout.utils.UserPreferences
 import com.example.pixelpayout.data.repository.DailyGoalEngine
@@ -249,7 +251,11 @@ class HomeFragment : Fragment() {
         // Attempts come off the user snapshot now, not from a callable. The
         // countdown half needs no observer at all - it is recomputed by the
         // per-second timer from the clock.
-        mainViewModel.quizAttemptsToday.observe(viewLifecycleOwner) {
+        // The allowance rather than the raw count: an attempt bought with a
+        // rewarded ad on the Quizzes tab widens it, and a tile still counting
+        // against the bare cap would tell the user they had none left while
+        // the Quizzes card offered them one.
+        mainViewModel.quizAllowance.observe(viewLifecycleOwner) {
             updateQuizStatusText()
         }
     }
@@ -329,8 +335,7 @@ class HomeFragment : Fragment() {
      * play, and the countdown is what they need once they cannot.
      */
     private fun updateQuizStatusText() {
-        val attempts = mainViewModel.quizAttemptsNow()
-        val remaining = maxOf(MAX_DAILY_QUIZ_ATTEMPTS - attempts, 0)
+        val remaining = mainViewModel.quizAllowanceNow().remaining
 
         binding.quizTileSubtitle.text = if (remaining > 0) {
             resources.getQuantityString(R.plurals.quizzes_left, remaining, remaining)
@@ -551,12 +556,14 @@ class HomeFragment : Fragment() {
 
         binding.streakClaimButton.visibility =
             if (rewardedToday) View.GONE else View.VISIBLE
-        binding.streakClaimButton.isEnabled = !streakClaimInFlight
         // A day whose streak already moved on but paid nothing is a retry, and
         // saying so is the difference between "come back tomorrow" and "have
         // another go".
-        binding.streakClaimButton.setText(
-            if (streakMovedToday) R.string.streak_try_again else R.string.streak_claim
+        binding.streakClaimButton.renderClaimState(
+            inFlight = streakClaimInFlight,
+            idleText = getString(
+                if (streakMovedToday) R.string.streak_try_again else R.string.streak_claim
+            )
         )
 
         pendingClaimDay = claimPosition
@@ -665,7 +672,7 @@ class HomeFragment : Fragment() {
      */
     private fun playAdThenClaim() {
         streakClaimInFlight = true
-        binding.streakClaimButton.isEnabled = false
+        binding.streakClaimButton.renderClaimState(inFlight = true)
 
         var earned = false
         AdManager.getInstance().showRewardedAd(
@@ -971,7 +978,10 @@ class HomeFragment : Fragment() {
 
         binding.goalsClaimButton.visibility =
             if (goals.allDone && !goals.bonusClaimed) View.VISIBLE else View.GONE
-        binding.goalsClaimButton.isEnabled = !goalClaimInFlight
+        binding.goalsClaimButton.renderClaimState(
+            inFlight = goalClaimInFlight,
+            idleText = getString(R.string.goals_claim)
+        )
 
         // Once the bonus is paid there is nothing left to do today, so the
         // card collapses to the one line that still says something: what was
@@ -1087,6 +1097,40 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /**
+     * A claim button while the server is thinking.
+     *
+     * Both claims sit behind a Cloud Function that most users hit once a day,
+     * so its instance is almost always cold - the gap between the ad closing
+     * and the answer landing is seconds, not milliseconds. Disabling the
+     * button was the only feedback, and a greyed-out button reads as one that
+     * did nothing rather than one that is working.
+     *
+     * Driven from the render pass rather than set once at the tap, because a
+     * claim WRITES to the user document: the snapshot listener fires
+     * mid-claim, renders again, and would otherwise put the idle label back
+     * underneath a still-spinning icon.
+     */
+    private fun MaterialButton.renderClaimState(
+        inFlight: Boolean,
+        idleText: String = text.toString()
+    ) {
+        if (inFlight) {
+            // Guarded on the icon so a snapshot landing mid-claim restarts
+            // neither the animation nor the label.
+            if (icon == null) {
+                startLoading(
+                    getString(R.string.claim_in_progress),
+                    resources.getDimensionPixelSize(R.dimen.claim_spinner_size)
+                )
+            }
+        } else {
+            // Idempotent, and it has to run every pass: the streak's idle
+            // label alternates between "Claim" and "Try again".
+            stopLoading(idleText)
+        }
+    }
+
     private fun confirmGoalClaim() {
         if (goalClaimInFlight) return
         val goals = mainViewModel.dailyGoals.value ?: return
@@ -1106,7 +1150,7 @@ class HomeFragment : Fragment() {
      */
     private fun playAdThenClaimGoals() {
         goalClaimInFlight = true
-        binding.goalsClaimButton.isEnabled = false
+        binding.goalsClaimButton.renderClaimState(inFlight = true)
 
         var earned = false
         AdManager.getInstance().showRewardedAd(
@@ -1122,7 +1166,8 @@ class HomeFragment : Fragment() {
                     ).show()
                 }
                 goalClaimInFlight = false
-                _binding?.goalsClaimButton?.isEnabled = true
+                _binding?.goalsClaimButton
+                    ?.renderClaimState(false, getString(R.string.goals_claim))
             }
         )
     }
@@ -1163,7 +1208,10 @@ class HomeFragment : Fragment() {
             }
 
             goalClaimInFlight = false
-            _binding?.goalsClaimButton?.isEnabled = true
+            // The card repaints through the snapshot listener; this only
+            // restores the button, the way the streak claim does.
+            _binding?.goalsClaimButton
+                ?.renderClaimState(false, getString(R.string.goals_claim))
         }
     }
 

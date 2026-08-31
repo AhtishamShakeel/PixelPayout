@@ -11,4 +11,9 @@
     <!-- Gap between the daily-play pips on Play &gt; Games. -->
     <dimen name="game_pip_gap">3dp</dimen>
 
+    <!-- The spinner inside a claim button. The auth screens use the loader at
+         its default 85px, which suits a full-width button and would swallow
+         one of these inline pills whole. -->
+    <dimen name="claim_spinner_size">16dp</dimen>
+
 </resources>

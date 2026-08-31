@@ -1,0 +1,698 @@
+<title>Panel Revenue Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #FBFAF7;
+    --surface:     #FFFFFF;
+    --surface-alt: #F3F1EA;
+    --ink:         #1C2B2D;
+    --ink-soft:    #3B4E50;
+    --muted:       #5E7274;
+    --faint:       #8A9B9C;
+    --hairline:    #E3E1D9;
+    --hairline-2:  #D2D0C6;
+    --gold:        #96691C;
+    --gold-bright: #B8862B;
+    --gold-wash:   #F7EFDD;
+    --teal:        #245C58;
+    --teal-bright: #2F6F6B;
+    --teal-wash:   #E6EEEC;
+    --stop:        #8C3A2B;
+    --stop-wash:   #F6E8E4;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12191A;
+      --surface:     #182122;
+      --surface-alt: #1D2728;
+      --ink:         #E8E9E4;
+      --ink-soft:    #C6CCC9;
+      --muted:       #93A3A3;
+      --faint:       #6E8081;
+      --hairline:    #26312F;
+      --hairline-2:  #35423F;
+      --gold:        #D9A648;
+      --gold-bright: #E7BC69;
+      --gold-wash:   #2A2416;
+      --teal:        #63B0A9;
+      --teal-bright: #7CC4BD;
+      --teal-wash:   #142624;
+      --stop:        #D98973;
+      --stop-wash:   #2B1B16;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #12191A;
+    --surface:     #182122;
+    --surface-alt: #1D2728;
+    --ink:         #E8E9E4;
+    --ink-soft:    #C6CCC9;
+    --muted:       #93A3A3;
+    --faint:       #6E8081;
+    --hairline:    #26312F;
+    --hairline-2:  #35423F;
+    --gold:        #D9A648;
+    --gold-bright: #E7BC69;
+    --gold-wash:   #2A2416;
+    --teal:        #63B0A9;
+    --teal-bright: #7CC4BD;
+    --teal-wash:   #142624;
+    --stop:        #D98973;
+    --stop-wash:   #2B1B16;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 100px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 780px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding: 72px 0 36px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 20px;
+  }
+
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(38px, 7vw, 60px);
+    font-weight: 500;
+    line-height: 1.04;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    margin: 0 0 22px;
+  }
+
+  .standfirst {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0;
+  }
+
+  .standfirst em { color: var(--ink); font-style: italic; }
+
+  /* ---------- sections ---------- */
+
+  section { padding-top: 60px; }
+
+  h2 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 31px;
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0 0 6px;
+  }
+
+  h3 {
+    font-family: "Public Sans", sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin: 34px 0 10px;
+  }
+
+  h4 {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 26px 0 10px;
+  }
+
+  p { margin: 0 0 16px; max-width: 66ch; }
+
+  a { color: var(--teal); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, .gate:focus-visible {
+    outline: 2px solid var(--gold-bright);
+    outline-offset: 3px;
+  }
+
+  strong { font-weight: 600; color: var(--ink); }
+
+  .lede { color: var(--muted); font-size: 15px; margin-bottom: 26px; max-width: 64ch; }
+
+  /* ---------- phase heading ---------- */
+
+  .phase-head {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--hairline-2);
+    margin-bottom: 8px;
+  }
+
+  .phase-num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    white-space: nowrap;
+    padding-top: 6px;
+  }
+
+  .phase-gate {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    white-space: nowrap;
+    padding-top: 8px;
+  }
+
+  /* ---------- gate table ---------- */
+
+  .table-scroll { overflow-x: auto; margin: 0 0 10px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14.5px;
+    min-width: 520px;
+  }
+
+  th {
+    text-align: left;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 14px 10px 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  td {
+    padding: 13px 14px 13px 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+  }
+
+  td:last-child, th:last-child { padding-right: 0; }
+
+  .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- track cards ---------- */
+
+  .track {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--accent-rail, var(--gold));
+    border-radius: 3px;
+    padding: 24px 26px;
+    margin: 22px 0;
+  }
+
+  .track.data { --accent-rail: var(--teal-bright); }
+
+  .track-label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 0 0 4px;
+  }
+
+  .track.data .track-label { color: var(--teal); }
+
+  .track h3:first-of-type { margin-top: 18px; }
+
+  /* ---------- lists ---------- */
+
+  ul, ol { margin: 0 0 16px; padding-left: 20px; max-width: 66ch; }
+  li { margin-bottom: 8px; padding-left: 3px; }
+  li::marker { color: var(--faint); }
+
+  .steps { list-style: none; padding-left: 0; counter-reset: step; }
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 34px;
+    margin-bottom: 14px;
+  }
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0; top: 1px;
+    width: 22px;
+    text-align: center;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    border: 1px solid var(--hairline-2);
+    border-radius: 2px;
+    line-height: 20px;
+  }
+
+  /* ---------- callouts ---------- */
+
+  .note {
+    background: var(--surface-alt);
+    border: 1px solid var(--hairline);
+    border-radius: 3px;
+    padding: 16px 20px;
+    margin: 22px 0;
+    font-size: 14.5px;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note.warn { background: var(--stop-wash); border-color: var(--stop); }
+  .note.warn .note-label { color: var(--stop); }
+  .note.have { background: var(--teal-wash); border-color: var(--teal); }
+  .note.have .note-label { color: var(--teal); }
+  .note.money { background: var(--gold-wash); border-color: var(--gold); }
+  .note.money .note-label { color: var(--gold); }
+
+  .note-label {
+    display: block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+  }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.87em;
+    background: var(--surface-alt);
+    border: 1px solid var(--hairline);
+    border-radius: 2px;
+    padding: 1px 5px;
+  }
+
+  hr {
+    border: 0;
+    border-top: 1px solid var(--hairline);
+    margin: 46px 0 0;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 22px;
+    border-top: 2px solid var(--ink);
+    font-size: 13.5px;
+    color: var(--muted);
+  }
+  footer p { max-width: 66ch; }
+
+  /* ---------- print / PDF ---------- */
+
+  @media print {
+    /* Paper is white regardless of the viewer's theme, so pin the light
+       palette rather than letting a dark theme print as dark ink on dark. */
+    :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+      --ground:      #FFFFFF;
+      --surface:     #FFFFFF;
+      --surface-alt: #F3F1EA;
+      --ink:         #162224;
+      --ink-soft:    #33474A;
+      --muted:       #56696B;
+      --faint:       #8A9B9C;
+      --hairline:    #DDDBD2;
+      --hairline-2:  #C6C4BA;
+      --gold:        #8A5F17;
+      --gold-bright: #A8781F;
+      --gold-wash:   #F8F1E1;
+      --teal:        #1E5350;
+      --teal-bright: #2A6561;
+      --teal-wash:   #E8F0EE;
+      --stop:        #7E3325;
+      --stop-wash:   #F8EBE7;
+    }
+
+    @page { margin: 16mm 15mm; }
+
+    body {
+      background: #FFFFFF;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      padding: 0;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .wrap { max-width: none; }
+
+    .masthead { padding: 0 0 20px; }
+    h1 { font-size: 30pt; }
+    .standfirst { font-size: 12.5pt; }
+
+    section { padding-top: 26px; }
+    h2 { font-size: 17pt; }
+    h3 { font-size: 11pt; margin-top: 20px; }
+
+    /* Keep a heading with the text it introduces, and never split a card,
+       callout, or table row across a page. */
+    h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+    .phase-head { break-after: avoid; page-break-after: avoid; }
+    .track, .note, tr, li, .table-scroll { break-inside: avoid; page-break-inside: avoid; }
+
+    .table-scroll { overflow-x: visible; }
+    table { min-width: 0; font-size: 10pt; }
+
+    hr { margin-top: 30px; }
+    footer { margin-top: 34px; }
+
+    a { color: var(--ink); text-decoration: none; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">PixelPayout · B2B revenue · hold until scale</p>
+    <h1>Panel Revenue Playbook</h1>
+    <p class="standfirst">Two businesses that sell the same asset — <em>a recruited panel of Pakistani phone users</em> — to buyers who cannot assemble one themselves. Neither is worth building today. Both are worth understanding before you need them.</p>
+  </header>
+
+  <section>
+    <h2>What you would actually be selling</h2>
+    <p class="lede">Read this part even if you skip the rest. It is the reason either business works.</p>
+
+    <p>You are not selling labour, and you are not selling installs. Both are commodities with global supply and prices set elsewhere. What you would own is narrower and much harder to replicate: <strong>a few thousand Urdu-speaking Pakistani phone users who already open your app daily and already accept non-cash payment.</strong></p>
+
+    <p>Every buyer in both tracks below has the same problem. They can pay for the work; what they struggle with is <em>recruiting and retaining that specific panel</em>. Playtest buyers need tier-3 South Asian players for soft-launch data. Language-data buyers need Urdu, Punjabi, Sindhi, and Pashto speakers at volume. Both routinely fail to source them, and both already outsource the sourcing.</p>
+
+    <p>That is your leverage, and it is also your constraint: <strong>the panel is the product, so neither business exists until the panel does.</strong> Below roughly 2,000 daily actives you have nothing to sell, and pitching early burns the contacts you will want later.</p>
+  </section>
+
+  <section>
+    <h2>When each piece becomes worth doing</h2>
+    <p class="lede">Ordered by the scale that unlocks it, so you can ignore everything below your current line.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:22%">Gate</th>
+            <th style="width:40%">Do this</th>
+            <th>Why then</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="num">Any size</td>
+            <td>Register the business entity</td>
+            <td>Long lead time, low cost, and blocks every B2B rupee in both tracks</td>
+          </tr>
+          <tr>
+            <td class="num">~500 DAU</td>
+            <td>Submit data-vendor applications</td>
+            <td>Six-month pipelines. Start the clock before you need the answer</td>
+          </tr>
+          <tr>
+            <td class="num">~2,000 DAU</td>
+            <td>Run one free playtest pilot</td>
+            <td>First order buyable; pilot becomes the case study that sells order two</td>
+          </tr>
+          <tr>
+            <td class="num">~5,000 DAU</td>
+            <td>Sell playtest orders properly</td>
+            <td>100-tester minimums are met without straining the panel</td>
+          </tr>
+          <tr>
+            <td class="num">~10,000 DAU</td>
+            <td>Take language-data contracts</td>
+            <td>Utterance volumes become deliverable inside a deadline</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="phase-head">
+      <span class="phase-num">PHASE 0</span>
+      <h2>The foundation</h2>
+      <span class="phase-gate">any size</span>
+    </div>
+    <p class="lede">Nothing here needs users, and nothing here is built in code. It is the paperwork both tracks are blocked behind.</p>
+
+    <h3>Register an entity</h3>
+    <p>Every idea in this document ends with sending someone an invoice. You cannot invoice a business as a private individual, and you should not receive client money into a personal account — the same exposure problem that ruled out taking cash from users.</p>
+    <ol class="steps">
+      <li><strong>Sole proprietorship.</strong> The lightest structure in Pakistan. You need a business name, a letterhead, and a stamp.</li>
+      <li><strong>NTN from FBR.</strong> Register through FBR's IRIS portal. This is what makes an invoice a real document.</li>
+      <li><strong>Business bank account.</strong> Opened with the NTN, the letterhead, and your CNIC. Client money never touches your personal account again.</li>
+      <li><strong>Payoneer.</strong> The standard route for receiving international client payments into Pakistan. Set it up before the first foreign invoice, not after. (Wise's Pakistan support is narrower — check current coverage before relying on it.)</li>
+    </ol>
+
+    <div class="note money">
+      <span class="note-label">Worth it regardless</span>
+      <p>This unlocks more than these two tracks. Direct advertiser deals, offerwall networks paying above a threshold, and any local sponsorship all need the same registration. Treat it as infrastructure, not as a step in one plan.</p>
+    </div>
+
+    <h3>Open the data conversations early</h3>
+    <p>Vendor onboarding in the language-data world runs three to six months from first contact to first task. That clock can run while you grow. Submit the partner or vendor forms at around 500 DAU, say honestly what your panel size is and where it is heading, and let them come back to you.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="phase-head">
+      <span class="phase-num">PHASE 1</span>
+      <h2>Playtest panel</h2>
+      <span class="phase-gate">~2,000 DAU</span>
+    </div>
+    <p class="lede">The realistic first B2B revenue. Reachable buyers, short sales cycle, and it reuses infrastructure you are already building.</p>
+
+    <div class="track">
+      <p class="track-label">Track A · Playtesting</p>
+
+      <h3>What you sell</h3>
+      <p>Structured playtest reports from real Pakistani mobile gamers, delivered in 48–72 hours. Not installs — <strong>installs plus verified structured feedback</strong>. The distinction is the entire business: an install is worth cents on any CPI network, a report from a verified player in a target market is worth dollars.</p>
+      <p>Your angle with publishers is <strong>tier-3 soft launch</strong>. Studios routinely soft-launch in Pakistan, India, and the Philippines to test retention and monetisation cheaply before a global release. They need local players and they need them fast.</p>
+
+      <h4>Pricing to validate</h4>
+      <ul>
+        <li><strong>$1.50–$4.00</strong> per completed test, depending on session length and report depth</li>
+        <li>Pay the user <strong>100–200 stars</strong> (roughly Rs 17–34 at your current pack pricing)</li>
+        <li>Gross margin lands around <strong>60–80%</strong></li>
+        <li>Minimum order <strong>100 testers</strong> — below that the admin overhead eats the deal</li>
+      </ul>
+      <p style="font-size:14px;color:var(--muted)">Treat these as starting points to test against real quotes, not as researched market rates.</p>
+
+      <h3>Finding the first client</h3>
+      <p>You correctly identified the blocker: no track record, nothing to show. There is one reliable answer and it is the same one every service business uses.</p>
+      <ol class="steps">
+        <li><strong>Run one order free.</strong> Find a single small studio, deliver 50–100 real reports at no charge, and ask only for permission to describe the results.</li>
+        <li><strong>Turn it into a case study.</strong> One page: panel size, turnaround, sample findings, what the studio changed as a result. This is the asset that sells order two.</li>
+        <li><strong>Then approach paying buyers</strong> with the case study attached. You are no longer asking them to take a risk on an unknown.</li>
+      </ol>
+
+      <h4>Where the buyers are</h4>
+      <ul>
+        <li>Indie developer communities — r/gamedev, r/IndieDev, Unity and Godot Discords, itch.io developer pages</li>
+        <li>LinkedIn search for mobile game studios in Pakistan, India, and Bangladesh — small teams, reachable founders, no procurement process</li>
+        <li>Local incubators: National Incubation Center Karachi and Lahore, and university accelerators with game teams</li>
+        <li>Publishers running tier-3 soft launches — the highest-value segment, worth approaching only once the case study exists</li>
+      </ul>
+
+      <h3>Verification: proving the install</h3>
+      <p><strong>You do not verify it, and you should not try.</strong> The buyer gives you an attribution link from their own measurement platform — AppsFlyer, Adjust, or Firebase. Their system records the install and fires a postback at your endpoint. Attribution is their cost and their source of truth, which also means they cannot dispute it later.</p>
+
+      <div class="note have">
+        <span class="note-label">You are already building this</span>
+        <p>It is the same server-to-server postback endpoint that the offerwall needs. Build it once for the offerwall and this track costs you almost nothing to add.</p>
+      </div>
+
+      <h3>Verification: proving the feedback is real</h3>
+      <p>This is the harder half, and the answer is design, not detection. Never accept free text as the primary deliverable — it is unverifiable, and it is exactly what a language model produces convincingly.</p>
+      <ul>
+        <li><strong>Answer key from the buyer.</strong> Questions only a player can answer: which boss ends level three, what colour is the shop icon, how much currency does the tutorial grant. The buyer supplies the answers; your server checks them. Free text becomes a supplement, never the proof.</li>
+        <li><strong>Screenshots at named checkpoints.</strong> Require captures at specific progress points, uploaded from the device.</li>
+        <li><strong>Session length from the buyer's analytics.</strong> They already measure it. A report from a two-minute session is rejected before you read it.</li>
+        <li><strong>Reputation tiers.</strong> Track pass rates per user. Proven testers get the higher-paying orders; a failed audit costs the reward and the tier.</li>
+      </ul>
+
+      <div class="note have">
+        <span class="note-label">You have already built this pattern</span>
+        <p>Server-side answer keys with the answers never exposed to the client is exactly what <code>quizAnswerKey.ts</code> does. The playtest task is the same mechanism with the buyer supplying the key instead of you.</p>
+      </div>
+
+      <h3>What to build in the app</h3>
+      <ul>
+        <li>A task document per order in Firestore: app id, tracking link, checkpoints, hashed answer key, reward, quota, deadline</li>
+        <li>A task screen — task list, install through the tracking link, return, answer structured questions, upload screenshots</li>
+        <li>Server validation against the key, with the reward held in a <strong>pending review</strong> state until the buyer accepts the batch</li>
+        <li>Ledger source: <code>SPONSORED_APP</code> is already declared in <code>RewardSource</code> and unused</li>
+      </ul>
+
+      <div class="note warn">
+        <span class="note-label">Hold the reward</span>
+        <p>Pay only after the buyer accepts. If you pay on submission and the batch is rejected, you have minted stars against revenue you never collected — the exact failure that breaks a rewards economy.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <div class="phase-head">
+      <span class="phase-num">PHASE 2</span>
+      <h2>Language data collection</h2>
+      <span class="phase-gate">~10,000 DAU</span>
+    </div>
+    <p class="lede">Higher ceiling, longer runway, and the only idea here that would leave you owning something defensible. Realistically six or more months from first contact to first payment.</p>
+
+    <div class="track data">
+      <p class="track-label">Track B · Language data</p>
+
+      <h3>What you sell</h3>
+      <p>Speech recordings, transcriptions, and labelled images in Urdu, Punjabi, Sindhi, and Pashto. The buyers are training speech recognition, translation, and OCR systems that perform badly in these languages precisely because the training data does not exist.</p>
+      <p><strong>Why a small vendor gets the work:</strong> the labelling capacity is not scarce — there is plenty of it worldwide. What is scarce is a recruited, retained, verifiable panel of Pakistani speakers. Large vendors subcontract exactly that step, because building it from nothing is slow and expensive. You would be selling them the part they cannot buy easily.</p>
+
+      <h4>Who to approach</h4>
+      <ul>
+        <li><strong>Data vendors who subcontract collection.</strong> DefinedAI, Shaip, Summa Linguae, TransPerfect DataForce, Welocalize, and Sama all publish vendor or partner application forms. No sales call required to start.</li>
+        <li><strong>Academic NLP groups.</strong> NUST SEECS, LUMS, and ITU Lahore run language technology work on grant funding. Contracts are small but real, the procurement is light, and being local and Urdu-speaking is an advantage rather than something to explain.</li>
+        <li><strong>Mozilla Common Voice.</strong> Unpaid, but it supports Urdu and contributing gives you something concrete to point at while you have no commercial history.</li>
+      </ul>
+
+      <h4>Pricing to validate</h4>
+      <ul>
+        <li>Speech recording: <strong>$0.10–$0.50</strong> per utterance, depending on the specification</li>
+        <li>Transcription: <strong>$0.50–$2.00</strong> per minute of audio</li>
+        <li>Image labelling: <strong>$0.02–$0.20</strong> per image</li>
+        <li>Pay the user in stars at roughly <strong>30–50%</strong> of your rate</li>
+      </ul>
+
+      <h3>Consent and licensing — do this correctly</h3>
+      <p>A person's recorded voice is personal data. Getting this wrong does not produce a warning; it produces a contract you cannot fulfil and a dataset you cannot legally sell.</p>
+      <ul>
+        <li><strong>Explicit, separate consent</strong> before the first recording — not a line buried in your existing terms. Stored with a timestamp and the version of the terms accepted.</li>
+        <li><strong>State the licence plainly:</strong> what the recording is used for, that it may be sold to third parties for training purposes, and whether it is anonymised.</li>
+        <li><strong>Offer withdrawal</strong> and honour it. Most buyer contracts will require you to have this.</li>
+        <li><strong>Never collect personal information in the recordings themselves.</strong> Prompts are supplied phrases. No names, no CNIC numbers, no addresses, no free speech about the speaker's own life.</li>
+      </ul>
+
+      <h3>Quality control</h3>
+      <p>Buyers reject batches on measured error rates, and a rejected batch you have already paid out on is a direct loss. Build the controls before the first order, not after the first rejection.</p>
+      <ul>
+        <li><strong>Seed gold-standard items</strong> with known correct answers throughout each batch, and score every worker against them — the same answer-key pattern as the playtest track</li>
+        <li><strong>Duplicate labelling with consensus</strong> on a sample: the same item to three workers, disagreement flags it for review</li>
+        <li><strong>Automated audio checks</strong> — duration, clipping, signal-to-noise — rejecting bad recordings at upload rather than at delivery</li>
+        <li><strong>Reputation tiers</strong>, as in Track A: proven contributors get the higher-rate work</li>
+      </ul>
+
+      <h3>What to build in the app</h3>
+      <ul>
+        <li>Task screen: prompt on screen, record button, upload. Firebase Storage is already a dependency</li>
+        <li>Server-side validation of format and duration, then a review queue before the reward releases</li>
+        <li>Consent screen with versioned, timestamped storage</li>
+        <li>Ledger source: <code>MISSION</code> is already declared in <code>RewardSource</code> and unused</li>
+      </ul>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>What both tracks share</h2>
+    <p class="lede">Build once, use twice. This is why the two businesses belong in one document.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:34%">Shared piece</th>
+            <th>Status in your codebase today</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>S2S postback endpoint</td>
+            <td>Missing — no <code>onRequest</code> function exists. Also blocks the offerwall, so build it first regardless</td>
+          </tr>
+          <tr>
+            <td>Server-side answer keys</td>
+            <td>Built. <code>quizAnswerKey.ts</code> is the pattern both tracks reuse</td>
+          </tr>
+          <tr>
+            <td>File upload</td>
+            <td>Available. Firebase Storage is already a dependency</td>
+          </tr>
+          <tr>
+            <td>Held / pending rewards</td>
+            <td>Partial. The pending-then-resolved flow exists in redemptions; rewards need the same treatment</td>
+          </tr>
+          <tr>
+            <td>Ledger sources</td>
+            <td>Declared. <code>SPONSORED_APP</code> and <code>MISSION</code> already sit unused in <code>RewardSource</code></td>
+          </tr>
+          <tr>
+            <td>Registered entity</td>
+            <td>Not started. Phase 0, and the hard blocker on every rupee here</td>
+          </tr>
+          <tr>
+            <td>Reputation scoring</td>
+            <td>Not started. Needed before either track pays real money</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>When to abandon this</h2>
+    <p class="lede">Written now, while nothing is invested and the judgement is still cheap.</p>
+    <ul>
+      <li><strong>You cannot hold 2,000 daily actives.</strong> Then there is no panel, and nothing in this document has a product. Fix retention first; none of this substitutes for it.</li>
+      <li><strong>The free playtest pilot converts nobody.</strong> If a studio takes 100 free reports and will not buy a second batch, the reports are not good enough — or the market does not want them. Two failed pilots is the signal.</li>
+      <li><strong>No data vendor replies within six months.</strong> Track B was always the slow bet. Let it go and put the effort into Track A.</li>
+      <li><strong>Panel quality collapses.</strong> If pass rates against gold-standard items fall below roughly 70%, you are selling something you cannot stand behind. Stop selling and fix the incentives before a rejected batch does it for you.</li>
+    </ul>
+
+    <div class="note warn">
+      <span class="note-label">The standing risk</span>
+      <p>Both tracks pay users more per action than any ad ever will, which makes fraud worth attempting for the first time in your app's life. Your current identity check is <code>Settings.Secure.ANDROID_ID</code>, which resets on factory reset and is trivially spoofed. Add the Play Integrity API before either track pays real money — not after the first incident.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Costs, rates, and turnaround figures are estimates to test against real quotes, not researched market data. Company and institution names are starting points for your own diligence — confirm current programmes and terms before committing to any of them.</p>
+    <p style="margin-top:14px">Written against the PixelPayout codebase on the <code>economy-refactor-ui</code> branch.</p>
+  </footer>
+
+</div>

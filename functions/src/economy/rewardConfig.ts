@@ -103,9 +103,43 @@ export const MAX_DAILY_QUIZ_ATTEMPTS = 10;
 // same effort in either game: one pipe, or one stacked block.
 export const GAME_XP_PER_SESSION_CAP = 30;
 // Games get the same daily allowance as quizzes, on the same UTC rollover and
-// the same stored day stamp (FIELD_LAST_RESET_TIME), so a day's ceiling is a
-// predictable 10 games plus 10 quizzes rather than an open-ended grind.
+// the same stored day stamp (FIELD_LAST_RESET_TIME), so whichever activity the
+// user does first on a new day resets both counters.
 export const MAX_DAILY_GAME_SESSIONS = 10;
+
+/**
+ * Extra attempts bought with a rewarded ad, per activity, per day.
+ *
+ * The day's ceiling is therefore 13 games plus 13 quizzes for someone who
+ * watches every ad, and the predictable 10 plus 10 for everyone else. It is
+ * bounded either way, which is the property that matters: nothing here is an
+ * open-ended grind.
+ *
+ * THIS NUMBER IS THE SECURITY. The ad is taken on the client's word - there
+ * is no server-side ad verification - so a client that lies about having
+ * watched one still gets no further than a patient honest user does. Every
+ * other defence would be defeated by the same lie; this one is not.
+ *
+ * Retuning it is a payout decision rather than a UX one. Extra attempts feed
+ * XP, and through XP the level curve and its milestone stars; they also feed
+ * the daily-goal targets, whose bonus pays redeemable Points, and weekly
+ * leaderboard standing, which settles for real.
+ */
+export const MAX_DAILY_BONUS_ATTEMPTS = 3;
+
+/**
+ * How many attempts an activity actually allows today.
+ *
+ * Clamped rather than added straight, because the stored bonus count is data:
+ * a console edit, a bad migration or a future bug that puts 99 in that field
+ * must not open the day up. The floor earns its place too - a negative would
+ * silently take the allowance BELOW what every user is entitled to without
+ * watching anything, which is the more embarrassing of the two failures.
+ */
+export function attemptsAllowance(base: number, bonusGranted: number): number {
+  const bonus = Number.isFinite(bonusGranted) ? Math.floor(bonusGranted) : 0;
+  return base + Math.min(Math.max(bonus, 0), MAX_DAILY_BONUS_ATTEMPTS);
+}
 export const GAME_XP_SCORE_DIVISOR: Record<string, number> = {
   floppy_bird: 1,
   tower_game: 25,

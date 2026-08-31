@@ -42,6 +42,16 @@ const val MAX_DAILY_QUIZ_ATTEMPTS = 10
 /** Mirrors the server's MAX_DAILY_GAME_SESSIONS. */
 const val MAX_DAILY_GAME_SESSIONS = 10
 
+/**
+ * Mirrors the server's MAX_DAILY_BONUS_ATTEMPTS - extra attempts buyable with
+ * a rewarded ad, per activity, per day.
+ *
+ * Display only, like the two above it. The server clamps against its own copy
+ * inside the grant transaction, so a client out of step with a retune shows a
+ * wrong button rather than buying a wrong allowance.
+ */
+const val MAX_DAILY_BONUS_ATTEMPTS = 3
+
 class MainViewModel(
     private val userRepository: UserRepository,
     private val userPreferences: UserPreferences
@@ -413,42 +423,108 @@ class MainViewModel(
     }
 
     /**
-     * Quiz attempts used today, straight off the user snapshot.
+     * One activity's standing for today: what has been used, what the ceiling
+     * currently is, and whether another ad would raise it.
      *
-     * This replaces checkAndResetQuizAttempts on every screen that only
-     * DISPLAYS the count. Both figures it needs - `quiz_attempts` and
-     * `last_reset_time` - are on the user document the listener already
-     * holds, so asking a callable was paying a Firestore read to be told
-     * something already in memory.
-     *
-     * The rollover rule is applied in [UserRepository.UserData.quizAttemptsToday]
-     * rather than trusted from the stored counter: a user who has not played
-     * since yesterday still carries yesterday's number until their next claim
-     * resets it.
+     * Both counter cards need all three and they have to agree, which is why
+     * this is one value rather than three LiveDatas the screens recombine.
      */
-    val quizAttemptsToday: LiveData<Int> = userRepository.userData.map {
-        it.quizAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+    data class Allowance(
+        val used: Int,
+        /** Base cap plus the bonuses already bought today. */
+        val allowance: Int,
+        /** Bonuses bought today, against [MAX_DAILY_BONUS_ATTEMPTS]. */
+        val bonusBought: Int
+    ) {
+        val remaining: Int get() = (allowance - used).coerceAtLeast(0)
+
+        /**
+         * Whether the "+" is worth offering. Deliberately NOT conditional on
+         * the allowance being spent: an attempt can be bought at any point in
+         * the day, so a user can bank one before they need it.
+         */
+        val canBuyMore: Boolean get() = bonusBought < MAX_DAILY_BONUS_ATTEMPTS
     }
 
-    /** The same figure for callers on a timer, which cannot await LiveData. */
-    fun quizAttemptsNow(): Int =
-        userRepository.userData.value
-            ?.quizAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
-            ?: 0
+    private fun allowanceOf(
+        base: Int,
+        used: Int,
+        bonusBought: Int
+    ): Allowance {
+        // Clamped the same way the server clamps, so a field edited in the
+        // console cannot draw a card with thirty pips on it.
+        val bonus = bonusBought.coerceIn(0, MAX_DAILY_BONUS_ATTEMPTS)
+        return Allowance(
+            used = used.coerceIn(0, base + bonus),
+            allowance = base + bonus,
+            bonusBought = bonus
+        )
+    }
 
     /**
-     * Game runs claimed today, on the same terms as [quizAttemptsToday] - the
-     * two counters share a day stamp on the user document, so they roll over
-     * together and neither needs a callable to stay honest.
+     * Both allowances come straight off the shared user snapshot.
+     *
+     * This is what replaced checkAndResetQuizAttempts on every screen that
+     * only DISPLAYS a count: all five figures involved - the two counters,
+     * their two bonus counters and `last_reset_time` - are already on the
+     * user document the listener holds, so asking a callable was paying a
+     * Firestore read to be told something in memory.
+     *
+     * The rollover is applied in UserData rather than trusted from the stored
+     * counters: a user who has not played since yesterday carries yesterday's
+     * numbers until their next claim resets them.
      */
-    val gameAttemptsToday: LiveData<Int> = userRepository.userData.map {
-        it.gameAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
+    val quizAllowance: LiveData<Allowance> = userRepository.userData.map {
+        val today = ServerClock.now() / MILLIS_PER_DAY
+        allowanceOf(
+            MAX_DAILY_QUIZ_ATTEMPTS,
+            it.quizAttemptsToday(today),
+            it.bonusQuizAttemptsToday(today)
+        )
     }
 
-    fun gameAttemptsNow(): Int =
-        userRepository.userData.value
-            ?.gameAttemptsToday(ServerClock.now() / MILLIS_PER_DAY)
-            ?: 0
+    val gameAllowance: LiveData<Allowance> = userRepository.userData.map {
+        val today = ServerClock.now() / MILLIS_PER_DAY
+        allowanceOf(
+            MAX_DAILY_GAME_SESSIONS,
+            it.gameAttemptsToday(today),
+            it.bonusGameAttemptsToday(today)
+        )
+    }
+
+    /** The same figures for callers on a timer, which cannot await LiveData. */
+    fun quizAllowanceNow(): Allowance {
+        val user = userRepository.userData.value ?: return allowanceOf(MAX_DAILY_QUIZ_ATTEMPTS, 0, 0)
+        val today = ServerClock.now() / MILLIS_PER_DAY
+        return allowanceOf(
+            MAX_DAILY_QUIZ_ATTEMPTS,
+            user.quizAttemptsToday(today),
+            user.bonusQuizAttemptsToday(today)
+        )
+    }
+
+    fun gameAllowanceNow(): Allowance {
+        val user = userRepository.userData.value ?: return allowanceOf(MAX_DAILY_GAME_SESSIONS, 0, 0)
+        val today = ServerClock.now() / MILLIS_PER_DAY
+        return allowanceOf(
+            MAX_DAILY_GAME_SESSIONS,
+            user.gameAttemptsToday(today),
+            user.bonusGameAttemptsToday(today)
+        )
+    }
+
+    /**
+     * Buys one extra attempt after a rewarded ad has played.
+     *
+     * Suspending rather than posting to shared LiveData: this view model is
+     * activity-scoped and two screens use it, so a result event would have to
+     * carry which screen asked. The caller awaits its own answer in its own
+     * view lifecycle scope, and a screen that goes away simply stops caring -
+     * the grant still lands, and the snapshot listener picks it up.
+     */
+    suspend fun buyBonusAttempt(
+        activity: UserRepository.BonusActivity
+    ): UserRepository.BonusAttemptResult = userRepository.grantBonusAttempt(activity)
 
     /**
      * The next UTC midnight, as the server reckons it. Quizzes and games share

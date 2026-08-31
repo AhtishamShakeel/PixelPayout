@@ -21,9 +21,14 @@ import com.example.pixelpayout.utils.SpacingItemDecoration
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.data.api.QuizCategory
 import java.util.concurrent.TimeUnit
+import androidx.lifecycle.lifecycleScope
+import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.main.MAX_DAILY_BONUS_ATTEMPTS
 import com.example.pixelpayout.ui.main.MAX_DAILY_QUIZ_ATTEMPTS
+import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.ServerClock
+import kotlinx.coroutines.launch
 
 class QuizListFragment : Fragment() {
     private var _binding: FragmentQuizListBinding? = null
@@ -41,9 +46,19 @@ class QuizListFragment : Fragment() {
     private val timerRunnable = object : Runnable {
         override fun run() {
             updateCountdownTimer()
+            // Polled here for the same reason Play > Games polls it: AdManager
+            // holds one availability listener and Home owns it, so a second
+            // registration would silently unsubscribe Home's.
+            refreshBonusButtonState()
             timerHandler.postDelayed(this, 1000) // Update every second
         }
     }
+
+    /** How many pips the row currently holds, so it is only rebuilt on change. */
+    private var pipCount = 0
+
+    /** True from the tap until the grant settles, so one ad buys one attempt. */
+    private var bonusInFlight = false
 
     // Add activity result launcher to listen for quiz completion
     private val quizLauncher = registerForActivityResult(
@@ -70,7 +85,10 @@ class QuizListFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        buildPips()
+        AdManager.getInstance().loadRewardedAd(requireContext())
+        binding.quizBonusButton.setOnClickListener { buyBonusAttempt() }
+
+        buildPips(MAX_DAILY_QUIZ_ATTEMPTS)
         // Before the observer, which does not fire until the user snapshot
         // arrives. An unpainted card reads as an empty allowance rather than
         // as one nobody has checked yet.
@@ -114,9 +132,7 @@ class QuizListFragment : Fragment() {
             binding.recyclerView.adapter = quizAdapter
         }
 
-        mainViewModel.quizAttemptsToday.observe(viewLifecycleOwner) { used ->
-            renderAllowance(used.coerceIn(0, MAX_DAILY_QUIZ_ATTEMPTS))
-        }
+        mainViewModel.quizAllowance.observe(viewLifecycleOwner) { renderAllowance(it) }
 
         // Timer will be updated in the timerRunnable
     }
@@ -125,13 +141,22 @@ class QuizListFragment : Fragment() {
      * One pip per attempt in the allowance, sized by weight so the row fills
      * the card whatever the cap happens to be. Built here rather than in XML
      * so a change to MAX_DAILY_QUIZ_ATTEMPTS cannot leave a stale count.
+     *
+     * [count] is the allowance rather than the constant, because an attempt
+     * bought with an ad widens it: the row grows to thirteen and shrinks back
+     * at the rollover. Rebuilt only when the number changes - the snapshot
+     * fires on every points or XP change too, and re-inflating the row each
+     * time would flicker it.
      */
-    private fun buildPips() {
+    private fun buildPips(count: Int) {
+        if (pipCount == count) return
+        pipCount = count
+
         val row = binding.quizPips
         val gap = resources.getDimensionPixelSize(R.dimen.game_pip_gap)
         row.removeAllViews()
 
-        repeat(MAX_DAILY_QUIZ_ATTEMPTS) { index ->
+        repeat(count) { index ->
             val pip = View(requireContext())
             val params = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
             if (index > 0) params.marginStart = gap
@@ -148,16 +173,30 @@ class QuizListFragment : Fragment() {
         }
     }
 
-    private fun renderAllowance(used: Int) {
-        val remaining = MAX_DAILY_QUIZ_ATTEMPTS - used
+    private fun renderAllowance(allowance: MainViewModel.Allowance) {
+        val used = allowance.used
 
-        binding.tvQuizzesLeft.text = if (remaining > 0) {
-            getString(R.string.quizzes_attempts_left, remaining, MAX_DAILY_QUIZ_ATTEMPTS)
-        } else {
+        buildPips(allowance.allowance)
+
+        binding.tvQuizzesLeft.text = when {
+            allowance.remaining > 0 ->
+                getString(R.string.quizzes_attempts_left, allowance.remaining, allowance.allowance)
+
+            // "Back tomorrow" stops being true while the pill is on screen.
+            allowance.canBuyMore -> getString(R.string.quizzes_attempts_spent_buyable)
+
             // True as written: games are a separate counter on the same day
             // stamp, so a spent quiz allowance leaves them untouched.
-            getString(R.string.quizzes_attempts_spent)
+            else -> getString(R.string.quizzes_attempts_spent)
         }
+
+        binding.quizBonusRow.visibility =
+            if (allowance.canBuyMore) View.VISIBLE else View.GONE
+        binding.quizBonusNote.text = getString(
+            R.string.bonus_attempt_remaining,
+            MAX_DAILY_BONUS_ATTEMPTS - allowance.bonusBought
+        )
+        refreshBonusButtonState()
 
         // Spent pips grey from the left, so the violet that remains reads as
         // what is left rather than as what has been used.
@@ -195,7 +234,7 @@ class QuizListFragment : Fragment() {
         // This used to read QuizListViewModel.dailyAttempts, which is seeded to
         // MAX_DAILY_ATTEMPTS and only corrected once a callable comes back - so
         // a tap before that landed was refused on a number nobody had checked.
-        if (mainViewModel.quizAttemptsNow() >= MAX_DAILY_QUIZ_ATTEMPTS) {
+        if (mainViewModel.quizAllowanceNow().remaining <= 0) {
             Toast.makeText(requireContext(), R.string.quizzes_limit_toast, Toast.LENGTH_LONG).show()
             return
         }
@@ -219,6 +258,91 @@ class QuizListFragment : Fragment() {
         }
         // Use the launcher instead of startActivity to get the result
         quizLauncher.launch(intent)
+    }
+
+    /**
+     * Greys the pill while an ad is unavailable or a grant is in flight. It
+     * stays VISIBLE either way - it disappears only at the daily cap, so a
+     * momentary fill gap does not flicker the offer in and out of the card.
+     */
+    private fun refreshBonusButtonState() {
+        val binding = _binding ?: return
+        val ready = !bonusInFlight && AdManager.getInstance().isRewardedAdReady()
+        binding.quizBonusButton.isEnabled = ready
+        binding.quizBonusButton.alpha = if (ready) 1f else 0.5f
+    }
+
+    /**
+     * Watch an ad, then buy one attempt.
+     *
+     * The grant fires on the REWARD callback rather than on dismissal: both
+     * arrive on a normal completion, but the reward comes first, so claiming
+     * there shrinks the window in which a killed process loses an ad the user
+     * actually sat through. [bonusInFlight] stops the pair of callbacks
+     * buying two attempts for one ad.
+     */
+    private fun buyBonusAttempt() {
+        if (bonusInFlight) return
+
+        if (!AdManager.getInstance().isRewardedAdReady()) {
+            toastBonus(R.string.bonus_attempt_ad_unavailable)
+            AdManager.getInstance().loadRewardedAd(requireContext())
+            return
+        }
+
+        bonusInFlight = true
+        binding.quizBonusLabel.setText(R.string.bonus_attempt_loading)
+        refreshBonusButtonState()
+
+        var claimed = false
+        AdManager.getInstance().showRewardedAd(
+            activity = requireActivity(),
+            onRewarded = {
+                if (!claimed) {
+                    claimed = true
+                    submitBonusAttempt()
+                }
+            },
+            // Dismissal without a reward means the ad was closed early: there
+            // is nothing to buy and nothing to apologise for.
+            onAdClosed = { if (!claimed) endBonusAttempt() },
+            onAdFailedToShow = {
+                if (!claimed) {
+                    toastBonus(R.string.bonus_attempt_ad_unavailable)
+                    endBonusAttempt()
+                }
+            }
+        )
+    }
+
+    private fun submitBonusAttempt() {
+        // The fragment's own scope: if the user leaves, this stops caring.
+        // The grant still lands, and the snapshot listener brings it back.
+        viewLifecycleOwner.lifecycleScope.launch {
+            when (mainViewModel.buyBonusAttempt(UserRepository.BonusActivity.QUIZ)) {
+                is UserRepository.BonusAttemptResult.Granted ->
+                    toastBonus(R.string.bonus_attempt_added_quiz)
+
+                UserRepository.BonusAttemptResult.AtCap ->
+                    toastBonus(R.string.bonus_attempt_at_cap)
+
+                is UserRepository.BonusAttemptResult.Error ->
+                    toastBonus(R.string.bonus_attempt_failed)
+            }
+            // The card is repainted by the snapshot listener, which is the
+            // only thing that knows what the server actually stored.
+            endBonusAttempt()
+        }
+    }
+
+    private fun endBonusAttempt() {
+        bonusInFlight = false
+        _binding?.quizBonusLabel?.setText(R.string.bonus_attempt_action)
+        refreshBonusButtonState()
+    }
+
+    private fun toastBonus(resId: Int) {
+        if (isAdded) Toast.makeText(requireContext(), resId, Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroyView() {

@@ -75,6 +75,30 @@
     <string name="quizzes_attempts_spent">Back tomorrow — games still pay today</string>
     <string name="quizzes_limit_toast">No quizzes left today — they reset at 00:00 UTC.</string>
 
+    <!-- Extra attempts bought with a rewarded ad. Shared by both allowance
+         cards, because the two behave identically and copy that drifted
+         apart would be the first thing to look wrong. -->
+    <string name="bonus_attempt_action">Watch an ad for +1</string>
+    <!-- Says what is left to buy, so the pill is not an open-ended offer.
+         Three a day is the cap the server enforces. -->
+    <string name="bonus_attempt_remaining">%1$d extra left today</string>
+    <string name="bonus_attempt_loading">Adding your attempt…</string>
+    <!-- Shown on a claim button between the ad closing and the server
+         answering. That gap is a cold start on a function most users hit once
+         a day, so it is measured in seconds and a button that only greys out
+         reads as one that did nothing. -->
+    <string name="claim_in_progress">Claiming…</string>
+    <string name="bonus_attempt_added_game">+1 play added. Enjoy.</string>
+    <string name="bonus_attempt_added_quiz">+1 quiz added. Enjoy.</string>
+    <string name="bonus_attempt_at_cap">That is every extra attempt for today. They reset at 00:00 UTC.</string>
+    <string name="bonus_attempt_failed">Could not add the attempt. Try again in a moment.</string>
+    <string name="bonus_attempt_ad_unavailable">No ad ready just yet — try again in a moment.</string>
+    <!-- The spent-allowance line when an ad could still buy one more. The
+         plain games_plays_spent/quizzes_attempts_spent copy says "back
+         tomorrow", which stops being true while the pill is on screen. -->
+    <string name="games_plays_spent_buyable">No plays left — watch an ad for one more</string>
+    <string name="quizzes_attempts_spent_buyable">No quizzes left — watch an ad for one more</string>
+
     <string name="daily_limit_reached">Daily Quiz Limit Reached!</string>
     <string name="next_quiz_time">Next quizzes available in %1$d hours %2$d minutes</string>
     <string name="remaining_quizzes">Remaining quizzes today: %d</string>

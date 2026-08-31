@@ -16,7 +16,11 @@ import {
   type User,
 } from "firebase/auth";
 import {getFunctions, connectFunctionsEmulator, httpsCallable} from "firebase/functions";
-import {LEVEL_UP_POINTS, MAX_DAILY_GAME_SESSIONS} from "../economy/rewardConfig";
+import {
+  LEVEL_UP_POINTS,
+  MAX_DAILY_BONUS_ATTEMPTS,
+  MAX_DAILY_GAME_SESSIONS,
+} from "../economy/rewardConfig";
 
 const PROJECT_ID = "pixelpayout-check";
 
@@ -1377,6 +1381,137 @@ async function run() {
     assertEq("a game claim resets the quiz counter too",
       snap.get("quiz_attempts"), 0);
     assertEq("a game claim stamps today",
+      utcDayOf(snap.get("last_reset_time").toMillis()), utcDayOf(Date.now()));
+  }
+
+  // --- bonus attempts bought with a rewarded ad ---------------------------
+  //
+  // The ceiling moves; the used counter does not. Everything below is there
+  // because getting one of these wrong is invisible in the UI and expensive
+  // in payouts.
+  {
+    const user = await makeUser("bonusgame");
+    await seedUserDoc(user.uid, "BONUSG1");
+    const grant = httpsCallable(clientFunctions, "grantBonusAttempt");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+
+    // Spend the whole ordinary allowance first.
+    for (let i = 0; i < MAX_DAILY_GAME_SESSIONS; i++) {
+      const session = await openGameSession("floppy_bird");
+      await backdateSession(user.uid, session, 60_000);
+      await claimReward({
+        rewardType: "game", gameId: "floppy_bird", score: 5, sessionId: session,
+      });
+    }
+    await assertThrows(
+      "at the cap, no further session opens",
+      () => httpsCallable(clientFunctions, "startGameSession")({gameId: "floppy_bird"}),
+      "failed-precondition"
+    );
+
+    const granted = await grant({activity: "game", adWatched: true});
+    const grantData = granted.data as {granted: boolean; allowance: number};
+    assertEq("a bonus attempt is granted", grantData.granted, true);
+    assertEq("the allowance moves by one",
+      grantData.allowance, MAX_DAILY_GAME_SESSIONS + 1);
+
+    // The bought attempt has to pass BOTH gates - startGameSession's
+    // pre-check and the claim - or the user paid an ad for nothing.
+    const bonusSession = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, bonusSession, 60_000);
+    const bonusClaim = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 5, sessionId: bonusSession,
+    });
+    assertEq("the bought attempt claims as the eleventh run",
+      (bonusClaim.data as {gameAttempts: number}).gameAttempts,
+      MAX_DAILY_GAME_SESSIONS + 1);
+
+    await assertThrows(
+      "the ceiling moved by exactly one, not indefinitely",
+      () => httpsCallable(clientFunctions, "startGameSession")({gameId: "floppy_bird"}),
+      "failed-precondition"
+    );
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("the used counter still counts real runs only",
+      snap.get("game_attempts"), MAX_DAILY_GAME_SESSIONS + 1);
+    assertEq("the bonus is held in its own counter",
+      snap.get("bonus_game_attempts"), 1);
+    assertEq("the lifetime grant total is recorded",
+      snap.get("bonusAttemptsGranted"), 1);
+  }
+
+  // --- the bonus cap is the only thing bounding an unverified ad -----------
+  {
+    const user = await makeUser("bonuscap");
+    await seedUserDoc(user.uid, "BONUSC1");
+    const grant = httpsCallable(clientFunctions, "grantBonusAttempt");
+
+    for (let i = 1; i <= MAX_DAILY_BONUS_ATTEMPTS; i++) {
+      const res = await grant({activity: "quiz", adWatched: true});
+      assertEq(`quiz bonus ${i} of ${MAX_DAILY_BONUS_ATTEMPTS} is granted`,
+        (res.data as {bonusAttempts: number}).bonusAttempts, i);
+    }
+
+    const refused = await grant({activity: "quiz", adWatched: true});
+    const refusedData = refused.data as {granted: boolean; reason: string};
+    assertEq("one past the cap is refused", refusedData.granted, false);
+    assertEq("...and says why, because the ad has already played",
+      refusedData.reason, "daily_bonus_limit");
+
+    // Refusing must not have quietly charged the user anyway.
+    const capped = await db.collection("users").doc(user.uid).get();
+    assertEq("a refused grant does not move the counter",
+      capped.get("bonus_quiz_attempts"), MAX_DAILY_BONUS_ATTEMPTS);
+
+    const gameGrant = await grant({activity: "game", adWatched: true});
+    assertEq("games are capped independently of quizzes",
+      (gameGrant.data as {granted: boolean}).granted, true);
+
+    await assertThrows("a grant that claims no ad is refused",
+      () => grant({activity: "game", adWatched: false}), "invalid-argument");
+    await assertThrows("an unknown activity is refused",
+      () => grant({activity: "dance", adWatched: true}), "invalid-argument");
+  }
+
+  // --- a grant on a stale day --------------------------------------------
+  //
+  // The counters and both bonus counters ride ONE day stamp, so a grant that
+  // re-stamps the day without clearing the rest would either hand out a free
+  // allowance every morning or - worse - sell an attempt into a day that
+  // still believes yesterday's ten were spent.
+  {
+    const user = await makeUser("bonusroll");
+    await seedUserDoc(user.uid, "BONUSR1", {
+      quiz_attempts: 10,
+      game_attempts: 10,
+      bonus_quiz_attempts: MAX_DAILY_BONUS_ATTEMPTS,
+      bonus_game_attempts: MAX_DAILY_BONUS_ATTEMPTS,
+      last_reset_time: Timestamp.fromDate(new Date("2000-01-01T00:00:00Z")),
+    });
+    const grant = httpsCallable(clientFunctions, "grantBonusAttempt");
+
+    const granted = await grant({activity: "game", adWatched: true});
+    const data = granted.data as {
+      granted: boolean; bonusAttempts: number; attemptsUsed: number; allowance: number;
+    };
+    assertEq("a stale day does not read as a spent bonus cap", data.granted, true);
+    assertEq("yesterday's bonuses do not count against today",
+      data.bonusAttempts, 1);
+    assertEq("today starts with nothing used", data.attemptsUsed, 0);
+    assertEq("the allowance is a fresh day plus the new bonus",
+      data.allowance, MAX_DAILY_GAME_SESSIONS + 1);
+
+    const utcDayOf = (ms: number) => Math.floor(ms / 86_400_000);
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("the grant clears yesterday's game attempts",
+      snap.get("game_attempts"), 0);
+    assertEq("...and yesterday's quiz attempts", snap.get("quiz_attempts"), 0);
+    assertEq("...and the other activity's stale bonus",
+      snap.get("bonus_quiz_attempts"), 0);
+    assertEq("...and leaves the granted one at one",
+      snap.get("bonus_game_attempts"), 1);
+    assertEq("the grant stamps today",
       utcDayOf(snap.get("last_reset_time").toMillis()), utcDayOf(Date.now()));
   }
 

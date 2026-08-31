@@ -99,6 +99,63 @@
                 android:layout_height="3dp"
                 android:layout_marginTop="11dp"
                 android:orientation="horizontal" />
+
+            <!-- Buys one more attempt with a rewarded ad. Hidden once the day's
+                 bonus cap is spent, so the offer is never open-ended. -->
+            <LinearLayout
+                android:id="@+id/gameBonusRow"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="11dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <LinearLayout
+                    android:id="@+id/gameBonusButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_bonus_attempt"
+                    android:baselineAligned="false"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="11dp"
+                    android:paddingTop="6dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="6dp">
+
+                    <ImageView
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_video"
+                        app:tint="@color/brand_violet_light" />
+
+                    <TextView
+                        android:id="@+id/gameBonusLabel"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="7dp"
+                        android:text="@string/bonus_attempt_action"
+                        android:textColor="@color/brand_violet_light"
+                        android:textSize="12.5sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/gameBonusNote"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:textColor="@color/text_ghost"
+                    android:textSize="11.5sp"
+                    tools:text="3 extra left today" />
+            </LinearLayout>
+
         </LinearLayout>
 
         <!-- ===== Section header ===== -->

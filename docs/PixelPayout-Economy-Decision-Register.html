@@ -1,0 +1,432 @@
+<title>Economy Decision Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #FBFAF7;
+    --surface:     #FFFFFF;
+    --surface-alt: #F3F1EA;
+    --ink:         #1C2B2D;
+    --ink-soft:    #3B4E50;
+    --muted:       #5E7274;
+    --faint:       #8A9B9C;
+    --hairline:    #E3E1D9;
+    --hairline-2:  #D2D0C6;
+    --gold:        #96691C;
+    --gold-wash:   #F7EFDD;
+    --teal:        #245C58;
+    --teal-wash:   #E6EEEC;
+    --stop:        #8C3A2B;
+    --stop-wash:   #F6E8E4;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12191A;
+      --surface:     #182122;
+      --surface-alt: #1D2728;
+      --ink:         #E8E9E4;
+      --ink-soft:    #C6CCC9;
+      --muted:       #93A3A3;
+      --faint:       #6E8081;
+      --hairline:    #26312F;
+      --hairline-2:  #35423F;
+      --gold:        #D9A648;
+      --gold-wash:   #2A2416;
+      --teal:        #63B0A9;
+      --teal-wash:   #142624;
+      --stop:        #D98973;
+      --stop-wash:   #2B1B16;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #12191A;
+    --surface:     #182122;
+    --surface-alt: #1D2728;
+    --ink:         #E8E9E4;
+    --ink-soft:    #C6CCC9;
+    --muted:       #93A3A3;
+    --faint:       #6E8081;
+    --hairline:    #26312F;
+    --hairline-2:  #35423F;
+    --gold:        #D9A648;
+    --gold-wash:   #2A2416;
+    --teal:        #63B0A9;
+    --teal-wash:   #142624;
+    --stop:        #D98973;
+    --stop-wash:   #2B1B16;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 20px 90px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  .masthead { padding: 64px 0 30px; border-bottom: 2px solid var(--ink); }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 18px;
+  }
+
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(36px, 6.5vw, 54px);
+    font-weight: 500; line-height: 1.05; letter-spacing: -0.02em;
+    text-wrap: balance; margin: 0 0 20px;
+  }
+
+  .standfirst {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 19px; line-height: 1.5; color: var(--ink-soft);
+    max-width: 62ch; margin: 0;
+  }
+
+  section { padding-top: 52px; }
+
+  h2 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 29px; font-weight: 500; line-height: 1.15;
+    letter-spacing: -0.01em; text-wrap: balance;
+    margin: 0 0 6px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline-2);
+  }
+
+  .lede { color: var(--muted); font-size: 15px; margin: 12px 0 22px; max-width: 64ch; }
+
+  p { margin: 0 0 15px; max-width: 66ch; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.86em; background: var(--surface-alt);
+    border: 1px solid var(--hairline); border-radius: 2px; padding: 1px 5px;
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 600px; }
+
+  th {
+    text-align: left;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 0 14px 10px 0; border-bottom: 1px solid var(--ink);
+  }
+
+  td { padding: 14px 14px 14px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td:last-child, th:last-child { padding-right: 0; }
+
+  .seq {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 12px; font-weight: 700; color: var(--gold); white-space: nowrap;
+  }
+
+  .item { font-weight: 600; }
+  .why { color: var(--muted); font-size: 13.5px; display: block; margin-top: 3px; max-width: 52ch; }
+
+  .chip {
+    display: inline-block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em;
+    text-transform: uppercase; padding: 3px 7px;
+    border-radius: 2px; white-space: nowrap; border: 1px solid;
+  }
+  .chip.now  { color: var(--stop); background: var(--stop-wash); border-color: var(--stop); }
+  .chip.next { color: var(--gold); background: var(--gold-wash); border-color: var(--gold); }
+  .chip.open { color: var(--teal); background: var(--teal-wash); border-color: var(--teal); }
+  .chip.hold { color: var(--muted); background: var(--surface-alt); border-color: var(--hairline-2); }
+
+  .note {
+    background: var(--surface-alt); border: 1px solid var(--hairline);
+    border-radius: 3px; padding: 16px 20px; margin: 24px 0; font-size: 14.5px;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note.warn { background: var(--stop-wash); border-color: var(--stop); }
+  .note.warn .note-label { color: var(--stop); }
+  .note.key { background: var(--gold-wash); border-color: var(--gold); }
+  .note.key .note-label { color: var(--gold); }
+
+  .note-label {
+    display: block; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; margin-bottom: 7px;
+  }
+
+  ul { margin: 0 0 15px; padding-left: 20px; max-width: 66ch; }
+  li { margin-bottom: 7px; padding-left: 3px; }
+  li::marker { color: var(--faint); }
+
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink);
+    font-size: 13.5px; color: var(--muted);
+  }
+  footer p { max-width: 66ch; }
+
+  @media print {
+    :root, :root[data-theme="dark"], :root:not([data-theme="light"]) {
+      --ground: #FFFFFF; --surface: #FFFFFF; --surface-alt: #F3F1EA;
+      --ink: #162224; --ink-soft: #33474A; --muted: #56696B; --faint: #8A9B9C;
+      --hairline: #DDDBD2; --hairline-2: #C6C4BA;
+      --gold: #8A5F17; --gold-wash: #F8F1E1;
+      --teal: #1E5350; --teal-wash: #E8F0EE;
+      --stop: #7E3325; --stop-wash: #F8EBE7;
+    }
+    @page { margin: 15mm 14mm; }
+    body { background: #FFFFFF; font-size: 10pt; line-height: 1.5; padding: 0;
+           print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    .wrap { max-width: none; }
+    .masthead { padding: 0 0 18px; }
+    h1 { font-size: 28pt; }
+    .standfirst { font-size: 12pt; }
+    section { padding-top: 24px; }
+    h2 { font-size: 16pt; }
+    h2, .note-label { break-after: avoid; page-break-after: avoid; }
+    tr, .note, li { break-inside: avoid; page-break-inside: avoid; }
+    .table-scroll { overflow-x: visible; }
+    table { min-width: 0; font-size: 9.5pt; }
+    footer { margin-top: 30px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">PixelPayout · economy review · decisions</p>
+    <h1>Economy Decision Register</h1>
+    <p class="standfirst">Every idea raised across the review, with its verdict and the reason behind it. The rejected list matters as much as the accepted one — it is what stops a settled question being reopened in three months.</p>
+  </header>
+
+  <section>
+    <h2>Building</h2>
+    <p class="lede">Ordered by dependency, not by appeal. The first three unblock everything under them.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:5%">#</th>
+            <th style="width:13%">When</th>
+            <th>Decision</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="seq">01</td>
+            <td><span class="chip now">Blocking</span></td>
+            <td>
+              <span class="item">Replace the AdMob test ad unit IDs</span>
+              <span class="why"><code>AppConfig.kt</code> still carries Google's test IDs (<code>ca-app-pub-3940256099942544/…</code>). Until this ships, every ad in the app earns exactly nothing.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">02</td>
+            <td><span class="chip now">Blocking</span></td>
+            <td>
+              <span class="item">Server-to-server postback endpoint</span>
+              <span class="why">No <code>onRequest</code> function exists anywhere in <code>functions/src</code>. Offerwall, surveys, affiliate, and the playtest track all pay through this one endpoint. Needs signature verification and idempotency on the network's transaction id.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">03</td>
+            <td><span class="chip next">First</span></td>
+            <td>
+              <span class="item">Offerwall — ayeT-Studios and Torox</span>
+              <span class="why">20–100× rewarded-video RPM. Drop Tapjoy: its Pakistan fill is poor, and the current wiring only logs <code>onRewardRequest</code> without ever crediting anyone. Run two or three networks at once; fill is the whole game in this market.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">04</td>
+            <td><span class="chip next">First</span></td>
+            <td>
+              <span class="item">Spins — free daily, ad-funded extras, premium at 15 stars</span>
+              <span class="why">Premium spin returns ~13 on a 15 stake: a 13% house edge, and your best self-funding sink. Include zero segments. <strong>Weight payouts toward XP, not stars</strong> — a rewarded ad in Pakistan funds roughly one star, so a star-heavy wheel loses ~20× per spin.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">05</td>
+            <td><span class="chip next">First</span></td>
+            <td>
+              <span class="item">Fix the XP per spin, randomise only the stars</span>
+              <span class="why">Keeps leaderboard rank a function of effort rather than roll luck, while the excitement stays in the star segment. Cheap, and it removes the only real objection to XP-ranked tournaments.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">06</td>
+            <td><span class="chip next">First</span></td>
+            <td>
+              <span class="item">Chests</span>
+              <span class="why">Same mechanic and same economics as spins. Ship after the spin numbers are proven, not alongside.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">07</td>
+            <td><span class="chip next">Second</span></td>
+            <td>
+              <span class="item">Streak milestones at day 10, 20, 30</span>
+              <span class="why"><code>FIELD_STREAK_COUNT</code> already stores the <em>absolute</em> day and increments forever — only the reward lookup wraps at seven. A milestone table keyed on absolute day is a small change and the 7-cell strip is untouched.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">08</td>
+            <td><span class="chip next">Second</span></td>
+            <td>
+              <span class="item">Streak insurance — pre-purchased, consumable</span>
+              <span class="why">Bought in advance, auto-consumes on a missed day, buy again after. Sells on optimism rather than regret. Needs the milestones above first, or there is nothing worth insuring.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">09</td>
+            <td><span class="chip next">Second</span></td>
+            <td>
+              <span class="item">Interstitials after 2–3 games or quizzes</span>
+              <span class="why">Gate on session count, and cap around four per day. Daily allowances are 10 quizzes plus 10 games, so an ungated rule fires up to eight times and costs more retention than it earns.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">10</td>
+            <td><span class="chip next">Second</span></td>
+            <td>
+              <span class="item">Rewarded ads for extra quiz and game attempts</span>
+              <span class="why">Sells your own daily cap back to the user at zero points liability. Ad-funded only — the stars-priced version is cut below.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">11</td>
+            <td><span class="chip next">Third</span></td>
+            <td>
+              <span class="item">Paid-entry tournament with a minimum-entry guard</span>
+              <span class="why">Entry in stars, prizes fixed. At 1,000 entrants that is a ~17K star sink per week. The guard matters because prize bands cover ranks 1–30: at 30 entrants every single entrant profits. Below the threshold, refund stakes and skip the week.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">12</td>
+            <td><span class="chip next">Third</span></td>
+            <td>
+              <span class="item">VIP — caps, cosmetics, priority fulfilment, support, ad-free</span>
+              <span class="why">Raised daily caps are the strongest perk and cost XP rather than points. Sold through Play Billing, so Google is merchant of record and your personal details never appear. <strong>No star multiplier</strong> — see the constraint below.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">13</td>
+            <td><span class="chip next">Third</span></td>
+            <td>
+              <span class="item">Easyload and data packages as a payout rail</span>
+              <span class="why">Sourced at a 2–4% distributor discount, and unlike game top-ups it appeals to your whole user base rather than only the gamers.</span>
+            </td>
+          </tr>
+          <tr>
+            <td class="seq">14</td>
+            <td><span class="chip next">Before scale</span></td>
+            <td>
+              <span class="item">Play Integrity API</span>
+              <span class="why">Your identity check is <code>Settings.Secure.ANDROID_ID</code>, which resets on factory reset and is trivially spoofed. Harmless while stars are worth little; the largest line item the moment offerwall or B2B money arrives.</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note key">
+      <span class="note-label">The one hard constraint</span>
+      <p><strong>The premium spin and any cash route to stars cannot coexist.</strong> A VIP star multiplier, or a VIP-raised daily goal bonus, is functionally selling stars — policy and regulators read effect, not implementation. Cash → stars → chance → a top-up of real value completes the gambling test; earned stars do not. Keep the spin, and let VIP sell only things that yield zero stars.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cut</h2>
+    <p class="lede">Each of these was examined and rejected for a specific reason. Recorded so the reasoning survives.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:32%">Idea</th>
+            <th>Why it was cut</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="item">Cash top-up storefront</td>
+            <td>Midasbuy is official, instant, and trusted. No way to win the same transaction on trust, speed, or price.</td>
+          </tr>
+          <tr>
+            <td class="item">Express fulfilment fee</td>
+            <td>A user who ground a month for Rs 250 of UC will not pay Rs 50 to hurry it — and if they had Rs 50 they would buy the UC directly.</td>
+          </tr>
+          <tr>
+            <td class="item">Extra attempts sold for stars</td>
+            <td>A quiz pays 10 XP, not points. Charging 20 stars for 10 XP is transparently bad value. The rewarded-ad version survives.</td>
+          </tr>
+          <tr>
+            <td class="item">Daily goal rerolls</td>
+            <td>Goals are easy and near-identical, so there is nothing worth paying to escape.</td>
+          </tr>
+          <tr>
+            <td class="item">User-generated quizzes</td>
+            <td>Saves a few hours of content authoring per month. Real, but far too small to justify the review and moderation surface.</td>
+          </tr>
+          <tr>
+            <td class="item">Affiliate marketing</td>
+            <td>Tracking is solved — <code>sub_id</code> postbacks through Involve Asia or Admitad reuse the same endpoint. But affiliate pays on <em>purchase</em>, and the app selects for users without money. Conversion would be dismal.</td>
+          </tr>
+          <tr>
+            <td class="item">VIP star multiplier</td>
+            <td>Functionally identical to selling stars, and it forecloses the premium spin. The spin is worth more.</td>
+          </tr>
+          <tr>
+            <td class="item">Carrier billing (DCB)</td>
+            <td>Parked, not dead. VIP is the only thing to sell through it, so revisit near 10,000 DAU when 1% conversion justifies the integration.</td>
+          </tr>
+          <tr>
+            <td class="item">Sponsored quizzes, direct CPI</td>
+            <td>Both need roughly 10–20K DAU before anyone will take the meeting. Right idea, wrong month.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Still open</h2>
+    <p class="lede">Not blocking anything, but unresolved.</p>
+    <ul>
+      <li><strong>Tournament ranking metric.</strong> XP ranking stands, given the daily spin cap and fixed XP per spin. Switching to raw game score remains available if luck or ad-grinding starts dominating the podium in practice.</li>
+      <li><strong>Premium spin odds disclosure.</strong> Play's requirement triggers on <em>purchase</em>, so it most likely does not bind while stars cannot be bought with cash. Publishing odds anyway costs nothing and removes the question. It becomes mandatory the moment any cash path to stars exists.</li>
+      <li><strong>Pack pricing.</strong> Every rupee figure in this review assumes roughly Rs 0.17 per star, derived from an estimated pack price. The real values live in Firestore — confirm them before trusting any of the liability arithmetic.</li>
+      <li><strong>Daily goal bonus.</strong> Live value is 10 per day, not the 30 in the code fallback. No change needed; noted so it is not re-analysed later.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Deferred to scale</h2>
+    <p class="lede">Documented in full separately, deliberately not built now.</p>
+    <p>The playtest panel (~2,000 DAU) and Urdu language-data collection (~10,000 DAU) are covered A–Z in the companion <strong>Panel Revenue Playbook</strong> — buyers, pricing, verification architecture, consent and licensing, and kill criteria.</p>
+    <p>One item from it belongs on the near-term list regardless of scale: <strong>registering the business entity</strong> — sole proprietorship, NTN, business bank account, Payoneer. It needs no users, takes weeks of calendar time, and blocks every B2B rupee as well as direct advertiser deals and offerwall payouts above a threshold.</p>
+
+    <div class="note warn">
+      <span class="note-label">The structural fact under all of it</span>
+      <p>An earn app selects for users who have time and no money. Every plan to charge those users fights that selection effect, which is why the cut list is mostly paid features. The revenue has to come from advertisers; user payments will always be a thin slice from a small segment. Budget effort accordingly — the offerwall is worth more than every paid feature in this document combined.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p>Rupee figures assume ~Rs 0.17 per star and Pakistani ad rates of roughly $0.20–0.80 eCPM; both are estimates to validate, not measured values. Code references are against the <code>economy-refactor-ui</code> branch.</p>
+  </footer>
+
+</div>

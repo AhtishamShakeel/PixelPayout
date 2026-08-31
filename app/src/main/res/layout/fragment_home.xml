@@ -135,7 +135,7 @@
                         android:includeFontPadding="false"
                         android:letterSpacing="-0.04"
                         android:textColor="@color/white"
-                        android:textSize="28sp"
+                        android:textSize="24sp"
                         tools:text="450" />
 
                     <TextView

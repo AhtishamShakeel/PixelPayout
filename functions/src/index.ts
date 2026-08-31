@@ -78,6 +78,7 @@ import {MAX_LEVEL, XP_THRESHOLDS} from "./economy/levelCurve";
 import {
   GAME_XP_SCORE_DIVISOR,
   LEVEL_UP_POINTS,
+  MAX_DAILY_BONUS_ATTEMPTS,
   MAX_DAILY_GAME_SESSIONS,
   MAX_DAILY_QUIZ_ATTEMPTS,
   QUIZ_CORRECT_XP,
@@ -88,6 +89,7 @@ import {
   REFERRER_REWARD_POINTS,
   REFERRER_REWARD_XP,
   RewardSource,
+  attemptsAllowance,
   gameXpForScore,
   levelUpPointsForLevels,
   parseLevelRewards,
@@ -145,6 +147,31 @@ const FIELD_QUIZ_ATTEMPTS = "quiz_attempts";
 // user does first on a new day resets both counters.
 const FIELD_GAME_ATTEMPTS = "game_attempts";
 const FIELD_LAST_RESET_TIME = "last_reset_time";
+// Extra attempts bought with a rewarded ad, one counter per activity.
+//
+// These RAISE the ceiling; they do not refund a used attempt. Decrementing
+// quiz_attempts/game_attempts was the obvious alternative and is worse in
+// three ways: those counters mean "runs actually claimed today", which is the
+// number any abuse analysis rests on, and a counter that also absorbed
+// favours can no longer answer that; it underflows, so two grants at zero
+// used is -2, silent permanent headroom; and it leaves no way to cap the
+// favours separately from the usage.
+//
+// They ride FIELD_LAST_RESET_TIME with the counters they raise, so all four
+// roll over together - see readDailyAttempts, which every reader goes through
+// so that the staleness rule exists exactly once.
+const FIELD_BONUS_QUIZ_ATTEMPTS = "bonus_quiz_attempts";
+const FIELD_BONUS_GAME_ATTEMPTS = "bonus_game_attempts";
+// Lifetime bonus attempts granted, never reset.
+//
+// This is the abuse signal, and it is deliberately NOT "grants that arrived
+// without an ad" the way FIELD_ADLESS_STREAK_CLAIMS is. That counter works
+// for the streak because an honest client calls dailyStreak with or without
+// an ad; here an honest client only ever calls after one, so a client that
+// lies simply sends adWatched: true and the adless count stays zero. A
+// lifetime total is comparable against the ad network's own reported
+// impressions, which is the one number a lying client cannot forge.
+const FIELD_BONUS_GRANTS_TOTAL = "bonusAttemptsGranted";
 const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
 const REFERRAL_LIST_LIMIT = 50;
 const FIELD_REFERRED_BY = "referredBy";
@@ -1425,6 +1452,51 @@ export const settleLeaderboardNow = functions.https.onCall(async (request: Calla
   return {success: true, ...result};
 });
 
+/** Today's attempt counters, with the daily rollover already applied. */
+interface DailyAttempts {
+  /** True when the stored day stamp is not today's, so every count reads 0. */
+  stale: boolean;
+  quiz: number;
+  game: number;
+  bonusQuiz: number;
+  bonusGame: number;
+}
+
+/**
+ * Reads all four attempt counters against one staleness test.
+ *
+ * ONE PLACE, on purpose. The two counters and their two bonus counters share
+ * a single day stamp, so "is this stamp from today" has to give the same
+ * answer for all four at the same instant. When that test lived at each call
+ * site it did not: a callable re-stamped the day while resetting only
+ * quiz_attempts, left game_attempts reading as yesterday's, and locked users
+ * out of games until repairStuckGameAttempts was written to dig them out.
+ * Adding two more counters to that stamp doubles the surface for the same
+ * bug, which is why the rule moved in here rather than being copied twice
+ * more.
+ *
+ * [stale] is returned rather than hidden because writers need it too: a
+ * counter found stale must be SET rather than incremented, and the stamp has
+ * to be rewritten in the same breath - along with every other counter riding
+ * it.
+ */
+function readDailyAttempts(
+  userDoc: FirebaseFirestore.DocumentSnapshot
+): DailyAttempts {
+  const lastResetAt = userDoc.get(FIELD_LAST_RESET_TIME) as Timestamp | undefined;
+  const stale =
+    !lastResetAt || utcDayFor(lastResetAt.toMillis()) !== utcDayFor(Date.now());
+  const read = (field: string) => (stale ? 0 : Number(userDoc.get(field) || 0));
+
+  return {
+    stale,
+    quiz: read(FIELD_QUIZ_ATTEMPTS),
+    game: read(FIELD_GAME_ATTEMPTS),
+    bonusQuiz: read(FIELD_BONUS_QUIZ_ATTEMPTS),
+    bonusGame: read(FIELD_BONUS_GAME_ATTEMPTS),
+  };
+}
+
 /**
  * Opens a game session. The returned sessionId must be presented when
  * claiming the reward, which is what ties a claim to a real, server-timed
@@ -1446,11 +1518,11 @@ export const startGameSession = functions.https.onCall(async (request: CallableR
   // claimed, so abandoning a game costs the player nothing; this read only
   // stops the app opening a session it already knows can never be paid out.
   const userDoc = await userRef.get();
-  const lastResetAt = userDoc.get(FIELD_LAST_RESET_TIME) as Timestamp | undefined;
-  const attemptsAreStale =
-    !lastResetAt || utcDayFor(lastResetAt.toMillis()) !== utcDayFor(Date.now());
-  const gamesToday = attemptsAreStale ? 0 : Number(userDoc.get(FIELD_GAME_ATTEMPTS) || 0);
-  if (gamesToday >= MAX_DAILY_GAME_SESSIONS) {
+  const daily = readDailyAttempts(userDoc);
+  // The bonus counter has to be read HERE as well as at the claim, or an
+  // attempt the user just paid an ad for would be refused a session and never
+  // reach the claim that honours it.
+  if (daily.game >= attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame)) {
     throw new functions.https.HttpsError("failed-precondition", "Daily game limit reached");
   }
 
@@ -1465,6 +1537,114 @@ export const startGameSession = functions.https.onCall(async (request: CallableR
   });
 
   return {sessionId: sessionRef.id};
+});
+
+/**
+ * Buys one extra attempt for today with a rewarded ad.
+ *
+ * RAISES THE CEILING; it does not refund a spent attempt. The user may call
+ * it with attempts still in hand, so a day runs 0..13 rather than resetting
+ * to 10 only once emptied - and whatever is left, bought or not, is gone at
+ * the UTC rollover.
+ *
+ * THE AD IS TAKEN ON THE CLIENT'S WORD, exactly as dailyStreak takes it.
+ * That is safe for the streak because its reward is capped at once a day; it
+ * is safe here for the same reason and no other, which is why
+ * MAX_DAILY_BONUS_ATTEMPTS is described as the security rather than as a
+ * tuning knob. There is no impression id to deduplicate on without
+ * server-side verification, so a lying client cannot be caught - only
+ * bounded. FIELD_BONUS_GRANTS_TOTAL is what makes the lying visible, by being
+ * comparable against the network's own impression counts.
+ *
+ * Refusals are RETURNED rather than thrown: by the time this is called the ad
+ * has already played, so the client needs to say something specific rather
+ * than show a generic failure. The client is expected to hide the button at
+ * the cap - reaching the refusal below means a user watched an ad for
+ * nothing, and that is a client bug worth seeing in the logs.
+ */
+export const grantBonusAttempt = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const activity = String(request.data?.activity || "").trim();
+  if (activity !== "quiz" && activity !== "game") {
+    throw new functions.https.HttpsError("invalid-argument", "Unknown activity");
+  }
+  // An honest client only reaches here from onUserEarnedReward, so a missing
+  // flag is a malformed call rather than a user who declined the ad.
+  if (request.data?.adWatched !== true) {
+    throw new functions.https.HttpsError("invalid-argument", "adWatched must be true");
+  }
+
+  const userId = request.auth.uid;
+  const isQuiz = activity === "quiz";
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    const daily = readDailyAttempts(userDoc);
+    const granted = isQuiz ? daily.bonusQuiz : daily.bonusGame;
+    const base = isQuiz ? MAX_DAILY_QUIZ_ATTEMPTS : MAX_DAILY_GAME_SESSIONS;
+    const used = isQuiz ? daily.quiz : daily.game;
+
+    if (granted >= MAX_DAILY_BONUS_ATTEMPTS) {
+      return {
+        granted: false as const,
+        reason: "daily_bonus_limit" as const,
+        bonusAttempts: granted,
+        attemptsUsed: used,
+        allowance: attemptsAllowance(base, granted),
+      };
+    }
+
+    const bonusField = isQuiz ? FIELD_BONUS_QUIZ_ATTEMPTS : FIELD_BONUS_GAME_ATTEMPTS;
+    const updates: Record<string, unknown> = {
+      // Set rather than incremented when the day has rolled over, for the
+      // same reason claimReward sets its counters: incrementing a stale
+      // counter carries yesterday's number into today.
+      [bonusField]: daily.stale ? 1 : FieldValue.increment(1),
+      [FIELD_BONUS_GRANTS_TOTAL]: FieldValue.increment(1),
+    };
+
+    // Granting on a stale day re-stamps it, and from that moment every
+    // counter sharing the stamp reads as TODAY's. The three not being granted
+    // must be zeroed in the same write, or the user buys an attempt and finds
+    // yesterday's usage already spending it.
+    if (daily.stale) {
+      updates[FIELD_LAST_RESET_TIME] = Timestamp.now();
+      updates[FIELD_QUIZ_ATTEMPTS] = 0;
+      updates[FIELD_GAME_ATTEMPTS] = 0;
+      updates[isQuiz ? FIELD_BONUS_GAME_ATTEMPTS : FIELD_BONUS_QUIZ_ATTEMPTS] = 0;
+    }
+
+    transaction.update(
+      userRef,
+      updates as FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>
+    );
+
+    const bonusAttempts = granted + 1;
+    return {
+      granted: true as const,
+      bonusAttempts,
+      attemptsUsed: daily.stale ? 0 : used,
+      allowance: attemptsAllowance(base, bonusAttempts),
+    };
+  });
+
+  console.log("Bonus attempt", {userId, activity, ...result});
+
+  return {
+    success: true,
+    activity,
+    bonusCap: MAX_DAILY_BONUS_ATTEMPTS,
+    ...result,
+  };
 });
 
 export const claimReward = functions.https.onCall(async (request: CallableRequest) => {
@@ -1574,15 +1754,10 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // The client applies the same rule locally for DISPLAY (see
     // UserData.quizAttemptsToday), but display is all it decides - the cap
     // below is what a quiz claim is actually refused by.
-    const lastResetAt = userDoc.get(FIELD_LAST_RESET_TIME) as Timestamp | undefined;
-    const attemptsAreStale =
-      !lastResetAt || utcDayFor(lastResetAt.toMillis()) !== utcDayFor(Date.now());
-    const currentAttempts = attemptsAreStale ?
-      0 :
-      Number(userDoc.get(FIELD_QUIZ_ATTEMPTS) || 0);
-    const currentGameAttempts = attemptsAreStale ?
-      0 :
-      Number(userDoc.get(FIELD_GAME_ATTEMPTS) || 0);
+    const daily = readDailyAttempts(userDoc);
+    const attemptsAreStale = daily.stale;
+    const currentAttempts = daily.quiz;
+    const currentGameAttempts = daily.game;
     // Only actually applied to multiplier-eligible sources - buildAward
     // decides that from the source, not from this value.
     const buffMultiplier = activeMultiplier(
@@ -1594,12 +1769,19 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       Date.now()
     );
 
-    if (incrementQuizAttempt && currentAttempts >= MAX_DAILY_QUIZ_ATTEMPTS) {
+    // The allowance, not the bare constant: an attempt bought with a rewarded
+    // ad is only worth anything if the cap that actually refuses claims knows
+    // about it. This is the enforcement point - startGameSession's identical
+    // test is a courtesy that saves a doomed session, nothing more.
+    const quizAllowance = attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, daily.bonusQuiz);
+    const gameAllowance = attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame);
+
+    if (incrementQuizAttempt && currentAttempts >= quizAllowance) {
       throw new functions.https.HttpsError("failed-precondition", "Daily quiz limit reached");
     }
     // Thrown before the session is burned below, so a run refused for being
     // over the cap leaves its session open rather than silently spending it.
-    if (incrementGameAttempt && currentGameAttempts >= MAX_DAILY_GAME_SESSIONS) {
+    if (incrementGameAttempt && currentGameAttempts >= gameAllowance) {
       throw new functions.https.HttpsError("failed-precondition", "Daily game limit reached");
     }
 
@@ -1705,6 +1887,12 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
       extraUpdates[FIELD_LAST_RESET_TIME] = Timestamp.now();
       if (!incrementQuizAttempt) extraUpdates[FIELD_QUIZ_ATTEMPTS] = 0;
       if (!incrementGameAttempt) extraUpdates[FIELD_GAME_ATTEMPTS] = 0;
+      // The bonus counters ride this same stamp. Re-stamping the day without
+      // clearing them would carry yesterday's purchased attempts into today,
+      // handing out a free extra allowance every morning to anyone who bought
+      // one the day before.
+      extraUpdates[FIELD_BONUS_QUIZ_ATTEMPTS] = 0;
+      extraUpdates[FIELD_BONUS_GAME_ATTEMPTS] = 0;
     }
 
     const {milestonePoints, milestoneLevels} =

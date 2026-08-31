@@ -75,6 +75,26 @@ export const LEADERBOARD_PRIZES: PrizeBand[] = [
   {fromRank: 11, toRank: 30, points: 50},
 ];
 
+/**
+ * One document per settled week, so a re-run can tell at a glance whether it
+ * has work to do without reading thirty ledger entries to find out.
+ *
+ * Server-only: it is not matched in firestore.rules, so the catch-all deny at
+ * the bottom of that file covers it.
+ */
+export const LEADERBOARD_SETTLEMENTS_COLLECTION = "leaderboardSettlements";
+
+/**
+ * The week a settlement running now should pay: the one that has just ended.
+ *
+ * Derived from the clock rather than from the schedule, so a job that fires
+ * late - or is triggered by hand on a Wednesday to catch up - still settles
+ * the right week instead of whichever one the trigger happened to imply.
+ */
+export function settlementWeekFor(nowMillis: number): number {
+  return utcWeekFor(nowMillis) - 1;
+}
+
 /** What one rank wins, or zero if it is outside every band. */
 export function prizeForRank(rank: number): number {
   if (!Number.isInteger(rank) || rank < 1) return 0;
@@ -105,6 +125,63 @@ export function totalWeeklyPrizePool(): number {
  * scheduled job has to touch every user document at the week boundary. A user
  * who does not play simply never has last week's figure read again.
  */
+/** One winner's share of a settled week. */
+export interface SettlementEntry {
+  uid: string;
+  rank: number;
+  weeklyXp: number;
+  points: number;
+}
+
+/**
+ * Turns an ordered board into the list of payouts.
+ *
+ * Pure, so the one decision that moves real money out of the business can be
+ * tested without an emulator and without a database full of fixtures.
+ *
+ * RANK IS POSITION IN THE LIST, ties included. Two players on identical XP
+ * take adjacent ranks and adjacent prizes, decided by Firestore's ordering
+ * (document name, for equal weeklyXp) rather than by who got there first.
+ * That is not the fairest rule imaginable, but it is the only one that keeps
+ * the weekly outgoing bounded at [totalWeeklyPrizePool]: paying every tied
+ * player the higher band would make a week where thirty players all finish on
+ * the same score cost thirty first prizes. Exact ties are likely here - quiz
+ * XP comes in tens and a game session caps at thirty - so this is a case that
+ * will really happen, not a hypothetical.
+ *
+ * getLeaderboard ranks the same way for exactly this reason, so what the
+ * board showed and what the settlement pays cannot disagree.
+ *
+ * Entries with no XP are dropped rather than paid. They can only be trailing
+ * ones - the caller orders by XP descending - so dropping them never shifts
+ * anybody else's rank.
+ */
+export function buildSettlement(
+  ordered: Array<{uid: string; weeklyXp: number}>
+): SettlementEntry[] {
+  const payouts: SettlementEntry[] = [];
+
+  ordered.forEach((entry, index) => {
+    const rank = index + 1;
+    if (rank > LEADERBOARD_SIZE) return;
+
+    const weeklyXp = Math.max(Math.trunc(entry.weeklyXp) || 0, 0);
+    if (weeklyXp <= 0) return;
+
+    const points = prizeForRank(rank);
+    if (points <= 0) return;
+
+    payouts.push({uid: entry.uid, rank, weeklyXp, points});
+  });
+
+  return payouts;
+}
+
+/** What a settlement will cost, before any of it is written. */
+export function settlementCost(payouts: SettlementEntry[]): number {
+  return payouts.reduce((sum, payout) => sum + payout.points, 0);
+}
+
 export function nextWeeklyXp(
   storedWeekKey: number | null | undefined,
   storedWeeklyXp: number | null | undefined,

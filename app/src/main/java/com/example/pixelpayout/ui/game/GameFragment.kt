@@ -64,6 +64,11 @@ class GameFragment : Fragment() {
             getString(R.string.games_xp_footnote, GAME_XP_PER_SESSION_CAP)
 
         buildPips()
+        // Painted before the observer, because the observer does not fire
+        // until the user snapshot arrives. Without this the card sat on an
+        // empty allowance, which reads as "no plays left" rather than as
+        // "not known yet" - and the rows were live while it did.
+        renderLoading()
 
         binding.playFlappy.setOnClickListener { launchGame(GamePlayActivity.SLUG_FLAPPY) }
         binding.playTower.setOnClickListener { launchGame(GamePlayActivity.SLUG_TOWER) }
@@ -71,6 +76,20 @@ class GameFragment : Fragment() {
         mainViewModel.gameAttemptsToday.observe(viewLifecycleOwner) { used ->
             renderAllowance(used.coerceIn(0, MAX_DAILY_GAME_SESSIONS))
         }
+    }
+
+    /**
+     * The state before the first snapshot: no count, no pips lit, and both
+     * rows disabled so a tap cannot open a session against an allowance
+     * nobody has checked yet.
+     */
+    private fun renderLoading() {
+        binding.playsLeftNote.text = getString(R.string.games_plays_loading)
+        binding.playsPips.children.forEach { pip ->
+            pip.setBackgroundResource(R.drawable.bg_pip_spent)
+        }
+        setRowEnabled(binding.playFlappy, binding.flappyAction, false)
+        setRowEnabled(binding.playTower, binding.towerAction, false)
     }
 
     override fun onResume() {

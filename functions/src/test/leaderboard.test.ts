@@ -3,8 +3,11 @@
  * Run via: npm run test:unit
  */
 import {
+  buildSettlement,
   nextWeeklyXp,
   prizeForRank,
+  settlementCost,
+  settlementWeekFor,
   totalWeeklyPrizePool,
   utcWeekFor,
   weekEndMillis,
@@ -143,6 +146,65 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   // scale with how many people play.
   assertEq("the weekly pool totals up", totalWeeklyPrizePool(),
     350 + 2 * 200 + 7 * 100 + 20 * 50);
+}
+
+// --- which week a settlement pays ------------------------------------------
+{
+  const monday = weekStartMillis(2900);
+  assertEq("a run at the boundary settles the week that just ended",
+    settlementWeekFor(monday), 2899);
+  assertEq("a run mid-week still settles the week that just ended",
+    settlementWeekFor(monday + 3 * 86_400_000), 2899);
+  assertEq("a run one millisecond before the boundary settles the week before",
+    settlementWeekFor(monday - 1), 2898);
+}
+
+// --- turning a board into payouts -------------------------------------------
+{
+  const board = (count: number, xp = 100) =>
+    Array.from({length: count}, (_, i) => ({uid: `u${i}`, weeklyXp: xp - i}));
+
+  const full = buildSettlement(board(LEADERBOARD_SIZE));
+  assertEq("a full board pays every place", full.length, LEADERBOARD_SIZE);
+  assertEq("a full board costs exactly the pool",
+    settlementCost(full), totalWeeklyPrizePool());
+  assertEq("first place takes the top prize", full[0],
+    {uid: "u0", rank: 1, weeklyXp: 100, points: 350});
+
+  // The cost has to be bounded by the table, not by turnout.
+  const overflowing = buildSettlement(board(LEADERBOARD_SIZE + 20));
+  assertEq("nobody past the board is paid", overflowing.length, LEADERBOARD_SIZE);
+  assertEq("an oversubscribed week still costs the pool",
+    settlementCost(overflowing), totalWeeklyPrizePool());
+
+  // The case that actually happens: quiz XP comes in tens, so exact ties are
+  // common. Tied players must take adjacent ranks, not a shared higher one.
+  const tied = buildSettlement([
+    {uid: "a", weeklyXp: 400},
+    {uid: "b", weeklyXp: 400},
+    {uid: "c", weeklyXp: 400},
+  ]);
+  assertEq("ties take adjacent ranks", tied.map((t) => t.rank), [1, 2, 3]);
+  assertEq("a tied week costs the same as any other",
+    settlementCost(tied), 350 + 200 + 200);
+
+  // A thirty-way tie is the blow-up case a shared-rank rule would produce.
+  const allTied = buildSettlement(
+    Array.from({length: LEADERBOARD_SIZE}, (_, i) => ({uid: `t${i}`, weeklyXp: 50}))
+  );
+  assertEq("a thirty-way tie is still capped at the pool",
+    settlementCost(allTied), totalWeeklyPrizePool());
+
+  // Nobody is paid for not playing.
+  const withIdle = buildSettlement([
+    {uid: "played", weeklyXp: 40},
+    {uid: "idle", weeklyXp: 0},
+    {uid: "negative", weeklyXp: -10},
+  ]);
+  assertEq("only players are paid", withIdle.map((p) => p.uid), ["played"]);
+
+  assertEq("an empty week pays nothing", buildSettlement([]), []);
+  assertEq("an empty week costs nothing", settlementCost([]), 0);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

@@ -122,6 +122,27 @@
     }
     .banner.error { border-color: #6b2f2f; color: #fca5a5; }
     .banner.ok { border-color: #2f6b45; color: #86efac; }
+    /* The settlement panel. Set apart from the redemption queue above it by a
+       rule rather than a card, because it is a different job on the same
+       page, not another item in the list. */
+    #settle {
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--line);
+    }
+    #settle h2 { font-size: 1rem; margin: 0 0 .35rem; }
+    #settle p { margin: 0 0 .9rem; max-width: 60ch; }
+    #settleResult { margin-top: .6rem; }
+    input {
+      font: inherit;
+      border: 1px solid var(--line);
+      background: #232733;
+      color: var(--text);
+      padding: .5rem .7rem;
+      border-radius: 6px;
+      width: 11rem;
+    }
+    input:focus { outline: none; border-color: var(--accent); }
     .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
     .tabs button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
     .status { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
@@ -153,6 +174,26 @@
     </div>
 
     <div id="list"></div>
+
+    <!--
+      The leaderboard has been showing prizes since it shipped and nothing
+      paid them. settleWeeklyLeaderboard covers every week from now on; this
+      is how the unpaid ones get settled, one week at a time. Safe to press
+      twice - the settlement is idempotent and reports a week already done.
+    -->
+    <section id="settle" hidden>
+      <h2>Weekly leaderboard</h2>
+      <p class="muted">
+        Pays the prizes for a finished week. Leave the box empty for the week
+        that just ended, or enter a week number to settle an older one. A week
+        already settled is reported, not paid again.
+      </p>
+      <div class="actions" style="margin:0">
+        <input id="settleWeek" type="number" placeholder="Week (optional)" />
+        <button id="settleRun">Settle week</button>
+      </div>
+      <div class="muted" id="settleResult"></div>
+    </section>
   </main>
 
   <script type="module">
@@ -204,6 +245,31 @@
     el("signOut").onclick = () => fbSignOut(auth);
     el("refresh").onclick = () => load();
 
+    el("settleRun").onclick = async () => {
+      const raw = el("settleWeek").value.trim();
+      const payload = raw === "" ? {} : {weekKey: Number(raw)};
+      const which = raw === "" ? "the week that just ended" : `week ${raw}`;
+
+      if (!confirm(`Pay leaderboard prizes for ${which}?`)) return;
+
+      el("settleRun").disabled = true;
+      el("settleResult").textContent = "Settling…";
+      try {
+        const res = await httpsCallable(fns, "settleLeaderboardNow")(payload);
+        const d = res.data ?? {};
+        el("settleResult").textContent = d.alreadySettled
+          ? `Week ${d.weekKey} was already settled — nothing paid.`
+          : `Week ${d.weekKey}: paid ${d.paid} of ${d.winners} winners, ` +
+            `${(d.pointsPaid ?? 0).toLocaleString()} stars.`;
+        banner("");
+      } catch (e) {
+        el("settleResult").textContent = "";
+        banner(e.message);
+      } finally {
+        el("settleRun").disabled = false;
+      }
+    };
+
     for (const tab of el("tabs").querySelectorAll("button")) {
       tab.onclick = () => {
         currentStatus = tab.dataset.status;
@@ -219,8 +285,11 @@
       el("signOut").hidden = !user;
       el("refresh").hidden = !user;
       el("tabs").hidden = !user;
+      el("settle").hidden = !user;
       listEl.innerHTML = "";
       banner("");
+
+      el("settleResult").textContent = "";
 
       if (!user) {
         el("who").textContent = "Not signed in";

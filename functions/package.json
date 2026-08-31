@@ -13,7 +13,8 @@
     "test:smoke": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions \"node functions/lib/test/smoke.js\"",
     "test:rules": "npm run build && cd .. && firebase emulators:exec --only firestore \"node functions/lib/test/rules.test.js\"",
     "test:all": "npm run test:unit && cd .. && firebase emulators:exec --only auth,firestore,functions \"node functions/lib/test/smoke.js && node functions/lib/test/rules.test.js\"",
-    "seed:options": "npm run build && node lib/tools/seedRedemptionOptions.js"
+    "seed:options": "npm run build && node lib/tools/seedRedemptionOptions.js",
+    "repair:gameattempts": "npm run build && echo \"Built. Now run: node lib/tools/repairStuckGameAttempts.js <projectId> [--apply]\""
   },
   "engines": {
     "node": "22"

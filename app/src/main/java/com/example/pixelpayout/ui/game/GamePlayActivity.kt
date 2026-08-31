@@ -154,13 +154,33 @@ class GamePlayActivity : AppCompatActivity() {
             event?.let { showLevelUp(it) }
         }
 
-        viewModel.pointsUpdated.observe(this) { success ->
-            if (success) {
-                setResult(RESULT_OK)
-                finish()
-            } else {
-                binding.loadingIndicator.visibility = View.VISIBLE
+        viewModel.claimOutcome.observe(this) { outcome ->
+            when (outcome) {
+                is GamePlayViewModel.ClaimOutcome.Paid -> {
+                    setResult(RESULT_OK)
+                    finish()
+                }
+                is GamePlayViewModel.ClaimOutcome.Refused -> showClaimRefused(outcome.reason)
             }
+        }
+    }
+
+    /**
+     * A finished run that could not be paid.
+     *
+     * The game is torn down rather than left running behind the message: the
+     * session is spent, so there is nothing a second attempt at the same run
+     * could earn, and leaving a playable board on screen would invite one.
+     * RESULT_OK is deliberately not set - nothing was awarded.
+     */
+    private fun showClaimRefused(reasonRes: Int) {
+        binding.apply {
+            loadingIndicator.visibility = View.GONE
+            gameWebView.visibility = View.GONE
+            placeholderText.visibility = View.GONE
+            claimErrorText.setText(reasonRes)
+            claimErrorPanel.visibility = View.VISIBLE
+            claimErrorAction.setOnClickListener { finish() }
         }
     }
 

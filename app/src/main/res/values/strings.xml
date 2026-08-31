@@ -45,11 +45,25 @@
     <string name="games_section_title">Games</string>
     <string name="games_available">%1$d available</string>
     <string name="games_plays_left">%1$d of %2$d plays left today</string>
+    <!-- Shown until the user snapshot lands. Without it the card painted an
+         empty allowance, which reads as "none left" rather than "not known
+         yet". -->
+    <string name="games_plays_loading">Checking today\'s plays…</string>
     <string name="games_plays_spent">Back tomorrow — quizzes still pay today</string>
     <string name="games_more_coming">More games coming</string>
     <string name="games_limit_toast">No plays left today — they reset at 00:00 UTC.</string>
     <string name="games_xp_footnote">Plays are shared across both games and reset at 00:00 UTC. XP depends on your score, up to %1$d a game.</string>
     <string name="game_xp_chip">Up to %1$d XP</string>
+
+    <!-- A finished run that could not be paid. Each says what happened and
+         what it means for the run, because the session is spent either way
+         and a vague message would just look like the old hang. -->
+    <string name="game_claim_rejected">That score could not be verified, so this run earned no XP. Play a full round and it will count.</string>
+    <string name="game_claim_limit">Your plays for today are used up, so this run earned no XP. They reset at 00:00 UTC.</string>
+    <string name="game_claim_no_session">This run was not started properly, so it earned no XP. Open the game again from Play.</string>
+    <string name="game_claim_signed_out">You are signed out, so this run earned no XP. Sign in and play again.</string>
+    <string name="game_claim_offline">We could not reach the server, so this run earned no XP. Check your connection and play again.</string>
+    <string name="game_claim_back">Back to games</string>
     <string name="game_flappy_name">Neon Flap</string>
     <string name="game_flappy_desc">Tap to fly. One point for every pipe you clear.</string>
     <string name="game_tower_name">Tower Building</string>
@@ -57,6 +71,7 @@
     <!-- Play &gt; Quizzes. Mirrors the games_* copy: same allowance card,
          same shape of sentence. -->
     <string name="quizzes_attempts_left">%1$d of %2$d quizzes left today</string>
+    <string name="quizzes_attempts_loading">Checking today\'s quizzes…</string>
     <string name="quizzes_attempts_spent">Back tomorrow — games still pay today</string>
     <string name="quizzes_limit_toast">No quizzes left today — they reset at 00:00 UTC.</string>
 

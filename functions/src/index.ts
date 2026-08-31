@@ -21,23 +21,24 @@ import {
   PAYOUT_FEED_COLLECTION,
 } from "./economy/payoutFeed";
 import {
+  buildSettlement,
   nextWeeklyXp,
   prizeForRank,
+  settlementCost,
+  settlementWeekFor,
   totalWeeklyPrizePool,
   utcWeekFor,
   weekEndMillis,
   LEADERBOARD_PREVIEW_SIZE,
+  LEADERBOARD_SETTLEMENTS_COLLECTION,
   LEADERBOARD_SIZE,
 } from "./economy/leaderboard";
 import {
-  goalProgress,
-  isGoalDone,
   resolveBonusPoints,
   resolveGoalBonus,
   selectDailyGoals,
   statsForDay,
   DAILY_GOALS_CONFIG_DOC,
-  DAILY_GOAL_COUNT,
   DAILY_GOAL_POOL,
   GOAL_KINDS,
   DailyStats,
@@ -453,61 +454,21 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
   return {success: true, created: true, referralCode};
 });
 
-// New function for on-demand quiz attempt reset
-export const checkAndResetQuizAttempts = functions.https.onCall(async (request: CallableRequest) => {
-  // Ensure user is authenticated
-  if (!request.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
-  }
-
-  const userId = request.auth.uid;
-  const userRef = getFirestore().collection("users").doc(userId);
-
-  // Get the current user data
-  const userDoc = await userRef.get();
-  if (!userDoc.exists) {
-    throw new functions.https.HttpsError("not-found", "User document not found");
-  }
-
-  const userData = userDoc.data();
-
-  // Get server timestamp (not client timestamp)
-  const now = Timestamp.now();
-  const lastResetTime = userData?.last_reset_time || Timestamp.fromDate(new Date(0));
-
-  // Check if it's a new day in UTC time
-  const lastResetDate = lastResetTime.toDate();
-  const nowDate = now.toDate();
-
-  const isNewDay =
-    lastResetDate.getUTCFullYear() !== nowDate.getUTCFullYear() ||
-    lastResetDate.getUTCMonth() !== nowDate.getUTCMonth() ||
-    lastResetDate.getUTCDate() !== nowDate.getUTCDate();
-
-  if (isNewDay) {
-    // It's a new day, reset attempts
-    await userRef.update({
-      quiz_attempts: 0,
-      last_reset_time: now
-    });
-    return {
-      success: true,
-      attempts: 0,
-      resetPerformed: true,
-      lastResetTime: now.toMillis(),
-      serverTime: now.toMillis()
-    };
-  } else {
-    // Not a new day, return current attempts
-    return {
-      success: true,
-      attempts: userData?.quiz_attempts || 0,
-      resetPerformed: false,
-      lastResetTime: lastResetTime.toMillis(),
-      serverTime: now.toMillis()
-    };
-  }
-});
+// checkAndResetQuizAttempts was REMOVED, and this note is here so it does not
+// come back.
+//
+// It reset quiz_attempts and re-stamped last_reset_time on its own, outside
+// the award funnel - and quizzes and games SHARE that stamp. Stamping today
+// while leaving game_attempts alone told claimReward the day had already
+// rolled over, so yesterday's game count was read as today's. The client
+// applies the same stamp rule for display, so the Games card agreed. Since
+// MainActivity called this on every cold start, anyone who had ever used all
+// ten game runs was locked out of games permanently: the counter could never
+// reach a claim that would reset it.
+//
+// Nothing needs it now. The rollover happens inside the claimReward
+// transaction - the moment it is actually enforced - and the client reads
+// both counters straight off the user snapshot it already holds.
 
 /**
  * Applies an award to the transaction: the user's points/xp/level fields, the
@@ -1021,54 +982,12 @@ async function configuredGoalBonus(): Promise<number> {
   return points;
 }
 
-/**
- * Today's three goals, with progress.
- *
- * The selection is derived from the uid and the day rather than stored, so it
- * is the same on every read without a write, stable for the whole day, and
- * different from the next user's. Progress is computed from the same counters
- * the client already receives on its user document, so the card stays live
- * without calling back here.
- */
-export const getDailyGoals = functions.https.onCall(async (request: CallableRequest) => {
-  if (!request.auth) {
-    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
-  }
-
-  const userId = request.auth.uid;
-  const userDoc = await getFirestore()
-    .collection(USERS_COLLECTION)
-    .doc(userId)
-    .get();
-
-  const todayUtc = utcDayFor(Date.now());
-  const goals = selectDailyGoals(userId, todayUtc);
-  const stats = statsForDay(
-    userDoc.get(FIELD_DAILY_STATS) as Partial<DailyStats> | undefined,
-    todayUtc
-  );
-
-  const bonusPoints = await configuredGoalBonus();
-
-  // serverTime rides along on every response so ServerClock can sync from
-  // whichever call happens to land first, rather than depending on the quiz
-  // reset having been fetched. Nothing here trusts a client clock - this is
-  // only so the UI counts down against the same time the server enforces.
-  return {
-    serverTime: Date.now(),
-    dayUtc: todayUtc,
-    bonusPoints,
-    goalCount: DAILY_GOAL_COUNT,
-    bonusClaimed: userDoc.get(FIELD_LAST_GOAL_BONUS_DAY) === todayUtc,
-    goals: goals.map((goal) => ({
-      id: goal.id,
-      kind: goal.kind,
-      target: goal.target,
-      progress: goalProgress(goal, stats),
-      done: isGoalDone(goal, stats),
-    })),
-  };
-});
+// getDailyGoals was REMOVED. DailyGoalEngine on the client derives the same
+// three goals from the pool published on config/levelCurve and the dailyStats
+// map the snapshot listener already delivers, so the callable answered a
+// question nobody was asking any more - and a second implementation of the
+// selection rule is exactly the thing that drifts out of step with the one
+// that decides whether the bonus pays.
 
 /**
  * Pays the bonus for finishing all three of today's goals.
@@ -1240,21 +1159,36 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
 
   let myRank = 0;
   if (myXp > 0) {
-    // One aggregation, billed per thousand index entries scanned rather than
-    // per document ahead.
-    const ahead = await firestore
-      .collection(USERS_COLLECTION)
-      .where(FIELD_WEEK_KEY, "==", weekKey)
-      .where(FIELD_WEEKLY_XP, ">", myXp)
-      // Ordering does not change what a count returns, but it does decide
-      // which index serves the query. Descending reuses the index the board
-      // itself needs; without it Firestore wants a second, ascending one -
-      // and every extra composite index is write amplification on a document
-      // that is written on every reward claim.
-      .orderBy(FIELD_WEEKLY_XP, "desc")
-      .count()
-      .get();
-    myRank = ahead.data().count + 1;
+    // Position in the board first, which costs nothing - the board is already
+    // in hand - and, more importantly, is the rank the SETTLEMENT will pay.
+    //
+    // The count query below answers "how many people are ahead of me", which
+    // gives every tied player the same rank. That is the friendlier reading,
+    // and it is the wrong one to show anybody who is about to be paid by
+    // rank: two players tied on 400 XP would both be told they were second
+    // and only one of them would receive second prize. Inside the board the
+    // two questions have to give the same answer, so this one wins.
+    const seat = board.findIndex((entry) => entry.uid === userId);
+    if (seat >= 0) {
+      myRank = seat + 1;
+    } else {
+      // Outside the board, where no prize is at stake and the count is the
+      // only way to answer at all. Billed per thousand index entries scanned
+      // rather than per document ahead, so it survives a large user base.
+      const ahead = await firestore
+        .collection(USERS_COLLECTION)
+        .where(FIELD_WEEK_KEY, "==", weekKey)
+        .where(FIELD_WEEKLY_XP, ">", myXp)
+        // Ordering does not change what a count returns, but it does decide
+        // which index serves the query. Descending reuses the index the board
+        // itself needs; without it Firestore wants a second, ascending one -
+        // and every extra composite index is write amplification on a
+        // document that is written on every reward claim.
+        .orderBy(FIELD_WEEKLY_XP, "desc")
+        .count()
+        .get();
+      myRank = ahead.data().count + 1;
+    }
   }
 
   const visible = full ? board : board.slice(0, LEADERBOARD_PREVIEW_SIZE);
@@ -1281,6 +1215,214 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
       isMe: entry.uid === userId,
     })),
   };
+});
+
+/**
+ * Pays out one finished week of the leaderboard.
+ *
+ * The board has been promising prizes since it shipped and nothing has ever
+ * credited them; this is what makes that promise true. Four things it has to
+ * get right, because this is the one path that hands out Points nobody
+ * earned through an activity:
+ *
+ *   1. IDEMPOTENT. Schedulers retry, and a retry that pays twice is money
+ *      gone. Each winner's ledger entry is `leaderboard:{weekKey}`, and the
+ *      transaction refuses to pay when it already exists. The marker document
+ *      is a shortcut, not the guarantee - it saves reading thirty user
+ *      documents to be told there is nothing to do.
+ *   2. BOUNDED. buildSettlement pays by position, capped at LEADERBOARD_SIZE,
+ *      so a week costs at most totalWeeklyPrizePool() however many people
+ *      played or how many of them tied.
+ *   3. SETTLES THE WEEK THAT ENDED, not "the week the trigger implies". A job
+ *      that fires late, or is run by hand days afterwards, still pays the
+ *      same week.
+ *   4. PARTIAL PROGRESS SURVIVES. One transaction per winner rather than one
+ *      for all thirty: a single transaction spanning thirty user documents
+ *      contends with live play and gets retried whole, and a failure halfway
+ *      through must not roll back prizes that already landed.
+ */
+async function settleLeaderboardWeek(weekKey: number): Promise<{
+  weekKey: number;
+  alreadySettled: boolean;
+  winners: number;
+  paid: number;
+  pointsPaid: number;
+}> {
+  const firestore = getFirestore();
+  const markerRef = firestore
+    .collection(LEADERBOARD_SETTLEMENTS_COLLECTION)
+    .doc(String(weekKey));
+
+  const marker = await markerRef.get();
+  if (marker.get("status") === "complete") {
+    console.log("Weekly leaderboard already settled", {weekKey});
+    return {
+      weekKey,
+      alreadySettled: true,
+      winners: Number(marker.get("winners") || 0),
+      paid: 0,
+      pointsPaid: 0,
+    };
+  }
+
+  // The same query, and the same composite index, the live board uses - so
+  // what was on screen all week is what gets paid.
+  const snapshot = await firestore
+    .collection(USERS_COLLECTION)
+    .where(FIELD_WEEK_KEY, "==", weekKey)
+    .orderBy(FIELD_WEEKLY_XP, "desc")
+    .limit(LEADERBOARD_SIZE)
+    .get();
+
+  const payouts = buildSettlement(
+    snapshot.docs.map((doc) => ({
+      uid: doc.id,
+      weeklyXp: Number(doc.get(FIELD_WEEKLY_XP) || 0),
+    }))
+  );
+
+  console.log("Weekly leaderboard settling", {
+    weekKey,
+    winners: payouts.length,
+    cost: settlementCost(payouts),
+  });
+
+  let paid = 0;
+  let pointsPaid = 0;
+
+  for (const payout of payouts) {
+    const userRef = firestore.collection(USERS_COLLECTION).doc(payout.uid);
+    const ledgerRef = userRef
+      .collection(REWARD_EVENTS_SUBCOLLECTION)
+      .doc(`leaderboard:${weekKey}`);
+
+    const applied = await firestore.runTransaction(async (transaction) => {
+      const [userDoc, ledgerDoc] = await Promise.all([
+        transaction.get(userRef),
+        transaction.get(ledgerRef),
+      ]);
+
+      if (!userDoc.exists) return false;
+      // The real guard. A deterministic id means a re-run finds the entry it
+      // wrote last time and pays nothing, whatever the marker says.
+      if (ledgerDoc.exists) return false;
+
+      const award = buildAward(
+        Number(userDoc.get(FIELD_POINTS) || 0),
+        Number(userDoc.get(FIELD_XP) || 0),
+        {
+          source: "LEADERBOARD",
+          basePoints: payout.points,
+          // Prizes pay Points only. Awarding XP here would feed the next
+          // week's board with last week's result.
+          baseXp: 0,
+          metadata: {
+            weekKey,
+            rank: payout.rank,
+            weeklyXp: payout.weeklyXp,
+          },
+          storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
+        }
+      );
+
+      writeAward(transaction, userRef, ledgerRef, award);
+      return true;
+    });
+
+    if (applied) {
+      paid++;
+      pointsPaid += payout.points;
+    }
+  }
+
+  await markerRef.set(
+    {
+      weekKey,
+      status: "complete",
+      settledAt: FieldValue.serverTimestamp(),
+      winners: payouts.length,
+      paid,
+      pointsPaid,
+      // The whole board as it was paid, so a query about last week never has
+      // to be answered from user documents that have since moved on.
+      entries: payouts,
+    },
+    {merge: true}
+  );
+
+  console.log("Weekly leaderboard settled", {
+    weekKey,
+    winners: payouts.length,
+    paid,
+    pointsPaid,
+  });
+
+  return {
+    weekKey,
+    alreadySettled: false,
+    winners: payouts.length,
+    paid,
+    pointsPaid,
+  };
+}
+
+/**
+ * Settles the week that has just ended, every Monday.
+ *
+ * Five past midnight rather than on the stroke of it: weeklyXp is written by
+ * claimReward, and starting the read a few minutes after the boundary keeps
+ * the settlement clear of the claims still landing on the old week.
+ *
+ * The timezone is pinned because everything else in this economy counts UTC
+ * days and weeks. Leaving it to the platform default would settle on a
+ * boundary the rest of the code does not recognise.
+ */
+export const settleWeeklyLeaderboard = onSchedule(
+  {schedule: "5 0 * * 1", timeZone: "UTC"},
+  async (_event) => {
+    await settleLeaderboardWeek(settlementWeekFor(Date.now()));
+  }
+);
+
+/**
+ * Settles a week on demand. Admin-only.
+ *
+ * Two jobs: paying the weeks that have already run without a settlement (the
+ * board has been showing prizes it could not honour), and making the schedule
+ * testable without waiting for a Monday. Defaults to the week that just
+ * ended; pass weekKey to name an older one.
+ *
+ * Safe to run repeatedly - it goes through the same idempotent path the
+ * schedule does.
+ */
+export const settleLeaderboardNow = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  if (request.auth.token.admin !== true) {
+    throw new functions.https.HttpsError("permission-denied", "Admin only");
+  }
+
+  const requested = request.data?.weekKey;
+  const weekKey = requested === undefined || requested === null ?
+    settlementWeekFor(Date.now()) :
+    Number(requested);
+
+  if (!Number.isInteger(weekKey) || weekKey < 0) {
+    throw new functions.https.HttpsError("invalid-argument", "Invalid weekKey");
+  }
+  // Refusing the current week is the guard that matters: settling it would
+  // pay a standing that is still moving, and burn the ledger id the real
+  // settlement needs on Monday.
+  if (weekKey >= utcWeekFor(Date.now())) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "That week has not finished yet"
+    );
+  }
+
+  const result = await settleLeaderboardWeek(weekKey);
+  return {success: true, ...result};
 });
 
 /**

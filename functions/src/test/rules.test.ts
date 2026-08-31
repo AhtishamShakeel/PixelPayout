@@ -328,6 +328,33 @@ async function run() {
     () => setDoc(doc(ownerDb, "redemptionOptions", "option1"), {pointsCost: 1})
   );
 
+  // --- leaderboardSettlements: server-only, and never read by a client ---
+  //
+  // Covered by the catch-all deny rather than a rule of its own, which is
+  // exactly why it is worth asserting: a settlement document lists uids
+  // against the Points they were paid, so a rule added later that widened
+  // client access would leak the whole board's payouts. If this test starts
+  // failing, that has happened.
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await setDoc(
+      doc(context.firestore(), "leaderboardSettlements", "2956"),
+      {weekKey: 2956, status: "complete", pointsPaid: 550}
+    );
+  });
+
+  await expectFails(
+    "no client can read a leaderboard settlement",
+    () => getDoc(doc(ownerDb, "leaderboardSettlements", "2956"))
+  );
+  await expectFails(
+    "no client can list leaderboard settlements",
+    () => getDocs(collection(ownerDb, "leaderboardSettlements"))
+  );
+  await expectFails(
+    "no client can write a leaderboard settlement",
+    () => setDoc(doc(ownerDb, "leaderboardSettlements", "2956"), {pointsPaid: 0})
+  );
+
   await testEnv.cleanup();
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===`);

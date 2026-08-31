@@ -13,11 +13,10 @@ import {
   connectAuthEmulator,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
   type User,
 } from "firebase/auth";
 import {getFunctions, connectFunctionsEmulator, httpsCallable} from "firebase/functions";
-import {MAX_DAILY_GAME_SESSIONS} from "../economy/rewardConfig";
+import {LEVEL_UP_POINTS, MAX_DAILY_GAME_SESSIONS} from "../economy/rewardConfig";
 
 const PROJECT_ID = "pixelpayout-check";
 
@@ -248,18 +247,20 @@ async function run() {
     });
     const data = res.data as {level: number; milestonePoints: number; milestoneLevels: number[]};
     assertEq("crossing into level 5 reports the milestone", data.milestoneLevels, [5]);
-    assertEq("milestone bonus points reported", data.milestonePoints, 25);
+    assertEq("milestone bonus points reported", data.milestonePoints, LEVEL_UP_POINTS[5]);
 
     const snap = await db.collection("users").doc(user.uid).get();
     assertEq("milestone reached level 5", snap.get("level"), 5);
     // The quiz itself awards no points - every point here is the milestone.
-    assertEq("milestone bonus credited to the points balance", snap.get("points"), 25);
+    assertEq("milestone bonus credited to the points balance",
+      snap.get("points"), LEVEL_UP_POINTS[5]);
 
     const events = await getLedgerEvents(user.uid);
     const milestoneEvent = events.find((e) => e.source === "LEVEL_UP");
     assertEq("a LEVEL_UP ledger entry was written", milestoneEvent !== undefined, true);
     assertEq("milestone ledger id is keyed by level", milestoneEvent?.id, "levelup:5");
-    assertEq("milestone ledger records the points", milestoneEvent?.finalPoints, 25);
+    assertEq("milestone ledger records the points",
+      milestoneEvent?.finalPoints, LEVEL_UP_POINTS[5]);
     assertEq("milestone ledger awards no xp", milestoneEvent?.xpAwarded, 0);
 
     // Earning more XP at the same level must not pay the milestone again.
@@ -267,7 +268,8 @@ async function run() {
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
     const afterSnap = await db.collection("users").doc(user.uid).get();
-    assertEq("milestone does not pay again on further xp", afterSnap.get("points"), 25);
+    assertEq("milestone does not pay again on further xp",
+      afterSnap.get("points"), LEVEL_UP_POINTS[5]);
     assertEq(
       "still exactly one LEVEL_UP ledger entry",
       (await getLedgerEvents(user.uid)).filter((e) => e.source === "LEVEL_UP").length,
@@ -293,10 +295,16 @@ async function run() {
     assertEq("xp is unaffected by the repair", snap.get("xp"), 210);
   }
 
-  // --- a non-milestone level-up pays no Points ---
+  // --- EVERY level from 2 up pays -----------------------------------------
+  //
+  // This block used to assert the opposite: that level 2 was not a milestone
+  // and paid nothing. The reward table changed - a player could climb four
+  // levels and be given nothing at all for it, which made levelling feel like
+  // it did not pay - and the assertion is now that the smallest level-up on
+  // the curve still credits its listed amount.
   {
-    const user = await makeUser("nomilestone");
-    await seedUserDoc(user.uid, "NOMILESTONE", {xp: 45, level: 1});
+    const user = await makeUser("everylevel");
+    await seedUserDoc(user.uid, "EVERYLEVEL", {xp: 45, level: 1});
     const claimReward = httpsCallable(clientFunctions, "claimReward");
 
     const res = await claimReward({
@@ -304,14 +312,15 @@ async function run() {
     });
     const data = res.data as {level: number; milestonePoints: number};
     assertEq("levelled up to 2", data.level, 2);
-    assertEq("level 2 is not a milestone, so no bonus", data.milestonePoints, 0);
+    assertEq("level 2 pays its listed bonus", data.milestonePoints, LEVEL_UP_POINTS[2]);
 
     const snap = await db.collection("users").doc(user.uid).get();
-    assertEq("no points from a non-milestone level-up", snap.get("points"), 0);
+    assertEq("the level-2 bonus reaches the balance",
+      snap.get("points"), LEVEL_UP_POINTS[2]);
     assertEq(
-      "no LEVEL_UP ledger entry for a non-milestone level",
+      "one LEVEL_UP ledger entry for the level crossed",
       (await getLedgerEvents(user.uid)).filter((e) => e.source === "LEVEL_UP").length,
-      0
+      1
     );
   }
 
@@ -390,13 +399,18 @@ async function run() {
   // above" and paid nobody. The referee kept their bonus, the referrer got
   // nothing, permanently.
   {
+    // Seeded mid-level on purpose. Every level from 2 up now pays a bonus,
+    // so an account parked just below a threshold has its referral reward
+    // mixed with a level-up bonus in the same balance - and this block is
+    // about the referral, not the ladder. 120 xp is level 3, and the 50 xp
+    // the referrer earns lands at 170, short of level 4 at 179.
     const referrer = await makeUser("refpayee");
-    await seedUserDoc(referrer.uid, "PAYME1", {points: 0, xp: 0, level: 1});
+    await seedUserDoc(referrer.uid, "PAYME1", {points: 0, xp: 120, level: 3});
 
     // A referee sitting just under the threshold, so the referral's own XP
-    // carries them over it.
+    // carries them over it. 75 + 25 = 100 exactly, still inside level 2.
     const referee = await makeUser("refcrosser");
-    await seedUserDoc(referee.uid, "CROSS1", {points: 0, xp: 90, level: 2});
+    await seedUserDoc(referee.uid, "CROSS1", {points: 0, xp: 75, level: 2});
 
     await httpsCallable(clientFunctions, "submitReferral")({referralCode: "PAYME1"});
 
@@ -420,7 +434,7 @@ async function run() {
 
     const paid = await db.collection("users").doc(referrer.uid).get();
     assertEq("the referrer is paid on the next claim", paid.get("points"), 100);
-    assertEq("and gets the referrer xp too", paid.get("xp"), 50);
+    assertEq("and gets the referrer xp too", paid.get("xp"), 120 + 50);
     assertEq(
       "the referee is flagged so it cannot pay twice",
       (await db.collection("users").doc(referee.uid).get()).get("referralRewardClaimed"),
@@ -440,8 +454,10 @@ async function run() {
 
   // --- referral: a referee already well past the threshold still pays out ---
   {
+    // Mid-level again, so the referrer's 50 xp crosses no threshold and
+    // their balance is the referral reward alone.
     const referrer = await makeUser("reflate");
-    await seedUserDoc(referrer.uid, "LATE01", {points: 0, xp: 0, level: 1});
+    await seedUserDoc(referrer.uid, "LATE01", {points: 0, xp: 120, level: 3});
 
     const referee = await makeUser("reflatecode");
     await seedUserDoc(referee.uid, "LATE02", {points: 0, xp: 500, level: 6});
@@ -950,7 +966,14 @@ async function run() {
   // --- claimReward: quiz daily cap ---
   {
     const user = await makeUser("quizcap");
-    await seedUserDoc(user.uid, "QUIZREF2", {quiz_attempts: 10});
+    // last_reset_time matters as much as the count. claimReward rolls the
+    // counters over itself, and treats a missing or stale stamp as a new day
+    // - so without a stamp of TODAY this seeds an account whose attempts
+    // reset on the first claim, and the test passes whatever the cap does.
+    await seedUserDoc(user.uid, "QUIZREF2", {
+      quiz_attempts: 10,
+      last_reset_time: Timestamp.now(),
+    });
     const claimReward = httpsCallable(clientFunctions, "claimReward");
     await assertThrows(
       "quiz over daily cap is rejected",
@@ -995,7 +1018,14 @@ async function run() {
     );
 
     const events = await getLedgerEvents(user.uid);
-    assertEq("ledger has exactly 2 GAME events (rejections wrote nothing)", events.length, 2);
+    // Filtered by source: a game claim that levels the account up also writes
+    // a LEVEL_UP entry now, and counting the whole collection would make this
+    // assertion about the reward ladder rather than about rejected claims.
+    assertEq(
+      "ledger has exactly 2 GAME events (rejections wrote nothing)",
+      events.filter((e) => e.source === "GAME").length,
+      2
+    );
     const floppyEvent = events.find((e) => (e.metadata as any)?.gameId === "floppy_bird");
     assertEq("floppy_bird ledger entry xpAwarded 30", floppyEvent?.xpAwarded, 30);
     assertEq("floppy_bird ledger entry basePoints 0", floppyEvent?.basePoints, 0);
@@ -1176,8 +1206,10 @@ async function run() {
 
   // --- referrer payout now unlocks on the referee's XP, not their points ---
   {
+    // Mid-level, so the referrer's 50 xp crosses nothing and their balance is
+    // the referral reward alone. See the note on refpayee above.
     const referrer = await makeUser("referrer2");
-    await seedUserDoc(referrer.uid, "BOOST100", {points: 0});
+    await seedUserDoc(referrer.uid, "BOOST100", {points: 0, xp: 120, level: 3});
 
     const referee = await makeUser("referee3");
     await seedUserDoc(referee.uid, "REFCODE3");
@@ -1207,7 +1239,7 @@ async function run() {
     // immediately - no polling for an async trigger.
     referrerSnap = await db.collection("users").doc(referrer.uid).get();
     assertEq("referrer got +100 points once referee crossed the xp threshold", referrerSnap.get("points"), 100);
-    assertEq("referrer also got referral xp", referrerSnap.get("xp"), 50);
+    assertEq("referrer also got referral xp", referrerSnap.get("xp"), 120 + 50);
 
     const refereeSnap = await db.collection("users").doc(referee.uid).get();
     assertEq("referee crossed the xp threshold", refereeSnap.get("xp") >= 100, true);
@@ -1239,7 +1271,7 @@ async function run() {
     // quizzes/games award no Points, so a quiz-only user's points balance
     // never moves past the 50 from the referral itself.
     const referrer = await makeUser("referrer4");
-    await seedUserDoc(referrer.uid, "QUIZONLY");
+    await seedUserDoc(referrer.uid, "QUIZONLY", {xp: 120, level: 3});
 
     const referee = await makeUser("referee5");
     await seedUserDoc(referee.uid, "REFCODE5");
@@ -1256,8 +1288,23 @@ async function run() {
       });
     }
 
-    const refereeSnap = await db.collection("users").doc(referee.uid).get();
-    assertEq("quiz-only referee earned no points beyond the referral itself", refereeSnap.get("points"), 50);
+    // Asked of the ledger rather than the balance. The balance is no longer
+    // the right question: 105 xp crosses level 2, which pays a milestone
+    // bonus, so a quiz-only account CAN gain Points - just never from a quiz.
+    // That distinction is the whole claim being made here.
+    const refereeEvents = await getLedgerEvents(referee.uid);
+    const quizPoints = refereeEvents
+      .filter((e) => e.source === "QUIZ")
+      .reduce((sum, e) => sum + Number(e.finalPoints || 0), 0);
+    assertEq("quizzes awarded the referee no points at all", quizPoints, 0);
+    assertEq(
+      "the only points a quiz-only referee earns are the referral and the ladder",
+      refereeEvents
+        .filter((e) => Number(e.finalPoints || 0) !== 0)
+        .map((e) => e.source)
+        .sort(),
+      ["LEVEL_UP", "REFERRAL_REFEREE"]
+    );
 
     const referrerSnap = await db.collection("users").doc(referrer.uid).get();
     assertEq("quiz-only engagement still pays the referrer", referrerSnap.get("points"), 100);
@@ -1289,52 +1336,115 @@ async function run() {
     assertEq("concurrent double-submit: exactly one ledger entry", events.length, 1);
   }
 
-  // --- checkAndResetQuizAttempts: stale last_reset_time triggers a reset ---
+  // --- the day rollover, which no longer has a callable of its own ---------
+  //
+  // checkAndResetQuizAttempts used to own this and was removed: it stamped
+  // last_reset_time while resetting only quiz_attempts, and the two counters
+  // share that stamp, so it convinced claimReward that the day had already
+  // rolled over and froze game_attempts at yesterday's value. The rollover
+  // now happens inside the claim transaction, so the thing worth asserting is
+  // that ONE claim on a stale stamp resets BOTH counters.
   {
-    const user = await makeUser("resetstale");
-    await seedUserDoc(user.uid, "RESETREF1", {
-      quiz_attempts: 7,
+    const user = await makeUser("rollover");
+    await seedUserDoc(user.uid, "ROLLOVER1", {
+      quiz_attempts: 10,
+      game_attempts: 10,
       last_reset_time: Timestamp.fromDate(new Date("2000-01-01T00:00:00Z")),
     });
     await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
-    const checkAndReset = httpsCallable(clientFunctions, "checkAndResetQuizAttempts");
 
-    const res = await checkAndReset({});
-    const data = res.data as {resetPerformed: boolean; attempts: number};
-    assertEq("stale last_reset_time -> resetPerformed true", data.resetPerformed, true);
-    assertEq("stale last_reset_time -> attempts reset to 0", data.attempts, 0);
+    // A stale stamp must not read as "ten games played today".
+    const sessionId = await openGameSession("floppy_bird");
+    assertEq(
+      "stale stamp -> a game session still opens",
+      typeof sessionId === "string" && sessionId.length > 0,
+      true
+    );
+    await backdateSession(user.uid, sessionId, 10_000);
 
-    const snap = await db.collection("users").doc(user.uid).get();
-    assertEq("quiz_attempts persisted as 0 after reset", snap.get("quiz_attempts"), 0);
-  }
-
-  // --- checkAndResetQuizAttempts: same-day last_reset_time does not reset ---
-  {
-    const user = await makeUser("resetfresh");
-    await seedUserDoc(user.uid, "RESETREF2", {
-      quiz_attempts: 4,
-      last_reset_time: Timestamp.now(),
+    const claim = httpsCallable(clientFunctions, "claimReward");
+    const claimed = await claim({
+      rewardType: "game",
+      gameId: "floppy_bird",
+      score: 12,
+      sessionId,
     });
-    await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
-    const checkAndReset = httpsCallable(clientFunctions, "checkAndResetQuizAttempts");
+    const data = claimed.data as {gameAttempts: number};
+    assertEq("stale stamp -> game attempts restart at 1", data.gameAttempts, 1);
 
-    const res = await checkAndReset({});
-    const data = res.data as {resetPerformed: boolean; attempts: number};
-    assertEq("fresh last_reset_time -> resetPerformed false", data.resetPerformed, false);
-    assertEq("fresh last_reset_time -> attempts unchanged", data.attempts, 4);
-
+    const utcDayOf = (ms: number) => Math.floor(ms / 86_400_000);
     const snap = await db.collection("users").doc(user.uid).get();
-    assertEq("quiz_attempts untouched in Firestore", snap.get("quiz_attempts"), 4);
+    assertEq("a game claim resets the quiz counter too",
+      snap.get("quiz_attempts"), 0);
+    assertEq("a game claim stamps today",
+      utcDayOf(snap.get("last_reset_time").toMillis()), utcDayOf(Date.now()));
   }
 
-  // --- checkAndResetQuizAttempts: unauthenticated call rejected ---
+  // --- weekly leaderboard settlement --------------------------------------
   {
-    await signOut(clientAuth);
-    const checkAndReset = httpsCallable(clientFunctions, "checkAndResetQuizAttempts");
+    const winner = await makeUser("boardfirst");
+    const runnerUp = await makeUser("boardsecond");
+    const idle = await makeUser("boardidle");
+
+    // Last week, finished. weekKey is written by claimReward; seeded directly
+    // here so the test does not have to play a week of games.
+    const lastWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7) - 1;
+    await seedUserDoc(winner.uid, "BOARD1", {weekKey: lastWeek, weeklyXp: 400});
+    await seedUserDoc(runnerUp.uid, "BOARD2", {weekKey: lastWeek, weeklyXp: 250});
+    await seedUserDoc(idle.uid, "BOARD3", {weekKey: lastWeek, weeklyXp: 0});
+
+    await admin.auth().setCustomUserClaims(winner.uid, {admin: true});
+    await signInWithEmailAndPassword(clientAuth, winner.email!, "Test1234!");
+    await clientAuth.currentUser!.getIdToken(true);
+
+    const settle = httpsCallable(clientFunctions, "settleLeaderboardNow");
+
+    const first = await settle({weekKey: lastWeek});
+    const firstData = first.data as {paid: number; pointsPaid: number};
+    assertEq("settlement pays the two players", firstData.paid, 2);
+    assertEq("settlement pays first and second prize",
+      firstData.pointsPaid, 350 + 200);
+
+    const winnerSnap = await db.collection("users").doc(winner.uid).get();
+    assertEq("first place is credited", winnerSnap.get("points"), 350);
+    const idleSnap = await db.collection("users").doc(idle.uid).get();
+    assertEq("a player with no XP is not paid", idleSnap.get("points") || 0, 0);
+
+    // The guarantee that matters: a scheduler retry must not pay again.
+    const second = await settle({weekKey: lastWeek});
+    const secondData = second.data as {alreadySettled: boolean; pointsPaid: number};
+    assertEq("a re-run reports the week already settled",
+      secondData.alreadySettled, true);
+    assertEq("a re-run pays nothing further", secondData.pointsPaid, 0);
+
+    const winnerAfter = await db.collection("users").doc(winner.uid).get();
+    assertEq("first place is still credited exactly once",
+      winnerAfter.get("points"), 350);
+
+    const ledger = await db.collection("users").doc(winner.uid)
+      .collection("rewardEvents").doc(`leaderboard:${lastWeek}`).get();
+    assertEq("the prize has a ledger entry", ledger.exists, true);
+    assertEq("the ledger records the rank", ledger.get("metadata").rank, 1);
+
+    // A week still in progress must not be settled early.
+    const thisWeek = lastWeek + 1;
     await assertThrows(
-      "unauthenticated checkAndResetQuizAttempts rejected",
-      () => checkAndReset({}),
-      "unauthenticated"
+      "settling the current week is refused",
+      () => settle({weekKey: thisWeek}),
+      "failed-precondition"
+    );
+  }
+
+  // --- settlement is admin-only -------------------------------------------
+  {
+    const user = await makeUser("boardnonadmin");
+    await seedUserDoc(user.uid, "BOARD4");
+    await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
+    const settle = httpsCallable(clientFunctions, "settleLeaderboardNow");
+    await assertThrows(
+      "a non-admin cannot settle the leaderboard",
+      () => settle({}),
+      "permission-denied"
     );
   }
 

@@ -16,7 +16,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.R
 import com.example.pixelpayout.data.repository.UserRepository
-import com.example.pixelpayout.ui.dialogs.LoadingDialog
 import com.pixelpayout.databinding.ActivityMainBinding
 import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
@@ -37,9 +36,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var referralViewModel: ReferralViewModel
     private lateinit var connectivityCheck: AndroidConnectivityCheck
     private var noInternetDialog: NoInternetDialog? = null
-    private var loadingDialog: LoadingDialog? = null
     private var isConnectedToInternet = true
-    private var isDataLoading = false
 
     // False until the level ring has painted a real value once; the first
     // paint jumps straight to the value, later ones animate.
@@ -63,8 +60,7 @@ class MainActivity : AppCompatActivity() {
 
         setupConnectivityCheck()
         quizViewModel.loadCachedQuizzes(this)
-        quizViewModel.refreshAttemptsIfNeeded()
-        
+
         // Observe categories and preload animations efficiently
         quizViewModel.categories.observe(this) { categories ->
             lifecycleScope.launch(Dispatchers.IO) {
@@ -234,68 +230,23 @@ class MainActivity : AppCompatActivity() {
             binding.customToolbar.pointsHeader.pointsText.text =
                 getString(R.string.points_value, points)
         }
-        quizViewModel.showLoadingDialog.observe(this) { isLoading ->
-            isDataLoading = isLoading
-            updateBlockingDialogState()
-        }
-        quizViewModel.errorState.observe(this) { errorMsg ->
-            if (errorMsg != null) {
-                showRetryButtonInDialog()
-            }
-        }
     }
 
+    /**
+     * Now only about connectivity.
+     *
+     * A second, app-wide blocking dialog used to live here, driven by the
+     * checkAndResetQuizAttempts round trip - so every cold start put a spinner
+     * over the whole app while the server was asked for a number the user
+     * snapshot already carried. That callable is gone and so is the dialog;
+     * Firestore's own offline cache covers the case it was really guarding.
+     */
     private fun updateBlockingDialogState() {
         if (!isConnectedToInternet) {
-            hideLoadingDialog()
             showNoInternetDialog()
-            return
-        }
-
-        hideNoInternetDialog()
-
-        if (isDataLoading) {
-            showLoadingDialog()
         } else {
-            hideLoadingDialog()
+            hideNoInternetDialog()
         }
-    }
-
-    private fun showLoadingDialog() {
-        if (!isConnectedToInternet || supportFragmentManager.isStateSaved) return
-
-        if (loadingDialog == null) {
-            loadingDialog = LoadingDialog { retryFetchingData() } // Pass retry function
-            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
-        } else {
-            loadingDialog?.setLoadingState() // Reset to loading state if already shown
-        }
-    }
-
-
-    private fun hideLoadingDialog() {
-        loadingDialog?.dismiss()
-        loadingDialog = null
-    }
-
-    private fun showRetryButtonInDialog() {
-        if (!isConnectedToInternet) return
-
-        if (loadingDialog == null) {
-            loadingDialog = LoadingDialog { retryFetchingData() }
-            loadingDialog?.show(supportFragmentManager, LoadingDialog.TAG)
-        }
-
-        Log.d("QuizDebug", "showRetryButtonInDialog() called") // Debugging
-        loadingDialog?.showRetry()
-    }
-
-    private fun retryFetchingData() {
-        loadingDialog?.setLoadingState()
-        // retryNow rather than a plain force: an explicit retry has to clear
-        // the failure cooldown, or the button does nothing for 30 seconds
-        // after the failure that put the dialog on screen.
-        quizViewModel.retryNow()
     }
 
     private fun checkAndShowReferralPopup() {

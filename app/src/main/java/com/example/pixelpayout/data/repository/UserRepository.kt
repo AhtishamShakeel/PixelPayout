@@ -1117,40 +1117,11 @@ class UserRepository {
         )
     }
 
-    /**
-     * Today's goals and their progress.
-     *
-     * Progress is recomputed server-side from counters it increments itself,
-     * so this is a read of the truth rather than a report from the client.
-     */
-    suspend fun getDailyGoals(): DailyGoals? {
-        return try {
-            val result = functions.getHttpsCallable("getDailyGoals").call().await()
-            val data = result.data as? Map<*, *> ?: return null
-            syncClock(data)
-
-            val goals = (data["goals"] as? List<*>).orEmpty().mapNotNull { entry ->
-                val map = entry as? Map<*, *> ?: return@mapNotNull null
-                DailyGoal(
-                    id = map["id"] as? String ?: return@mapNotNull null,
-                    kind = map["kind"] as? String ?: return@mapNotNull null,
-                    target = (map["target"] as? Number)?.toInt() ?: 0,
-                    progress = (map["progress"] as? Number)?.toInt() ?: 0,
-                    done = map["done"] == true
-                )
-            }
-
-            DailyGoals(
-                goals = goals,
-                bonusPoints = (data["bonusPoints"] as? Number)?.toInt() ?: 0,
-                bonusClaimed = data["bonusClaimed"] == true,
-                dayUtc = (data["dayUtc"] as? Number)?.toLong() ?: 0L
-            )
-        } catch (e: Exception) {
-            Log.e("DailyGoals", "Could not load goals: ${e.message}")
-            null
-        }
-    }
+    // getDailyGoals was removed here and on the server. MainViewModel.dailyGoals
+    // derives the same three goals from DailyGoalEngine plus the user snapshot,
+    // so this was a Firestore read per return to Home for an answer already in
+    // memory - and a second implementation of the selection rule to keep in
+    // step with the one claimDailyGoalBonus actually enforces.
 
     sealed class GoalBonusResult {
         data class Claimed(val pointsAwarded: Int) : GoalBonusResult()

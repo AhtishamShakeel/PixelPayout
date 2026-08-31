@@ -71,6 +71,10 @@ class QuizListFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         buildPips()
+        // Before the observer, which does not fire until the user snapshot
+        // arrives. An unpainted card reads as an empty allowance rather than
+        // as one nobody has checked yet.
+        renderLoading()
         setupRecyclerView()
         observeViewModel()
 
@@ -101,14 +105,6 @@ class QuizListFragment : Fragment() {
             addItemDecoration(SpacingItemDecoration(43))
         }
     }
-
-    /*private fun setupSwipeRefresh() {
-        binding.swipeRefresh.setOnRefreshListener {
-            viewModel.fetchDailyAttempts(forceRefresh = true)
-            viewModel.checkAndUpdateQuizzes(requireContext())
-            binding.swipeRefresh.isRefreshing = false
-        }
-    }*/
 
     private fun observeViewModel() {
         viewModel.categories.observe(viewLifecycleOwner) { categoryList ->
@@ -141,6 +137,14 @@ class QuizListFragment : Fragment() {
             if (index > 0) params.marginStart = gap
             pip.layoutParams = params
             row.addView(pip)
+        }
+    }
+
+    /** The state before the first snapshot: no count, no pips lit. */
+    private fun renderLoading() {
+        binding.tvQuizzesLeft.text = getString(R.string.quizzes_attempts_loading)
+        binding.quizPips.children.forEach { pip ->
+            pip.setBackgroundResource(R.drawable.bg_pip_spent)
         }
     }
 

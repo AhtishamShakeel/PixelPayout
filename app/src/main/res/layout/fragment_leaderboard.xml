@@ -122,7 +122,7 @@
                             android:fontFamily="@font/jakarta_extrabold"
                             android:includeFontPadding="false"
                             android:letterSpacing="-0.043"
-                            android:textColor="@color/gold"
+                            android:textColor="@color/stars_accent"
                             android:textSize="28sp"
                             tools:text="2,450" />
 
@@ -133,7 +133,7 @@
                             android:fontFamily="@font/jakarta_bold"
                             android:includeFontPadding="false"
                             android:text="@string/leaderboard_star"
-                            android:textColor="@color/gold_label"
+                            android:textColor="@color/stars_accent_soft"
                             android:textSize="13sp" />
 
                     </LinearLayout>
@@ -277,7 +277,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="10dp"
                         android:paddingBottom="4dp"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/stars_accent"
                         android:textSize="11sp"
                         tools:text="200 ★" />
 
@@ -301,7 +301,7 @@
                         android:fontFamily="@font/jakarta_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/podium_gold"
                         android:textSize="15sp"
                         tools:text="M" />
 
@@ -353,7 +353,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="10dp"
                         android:paddingBottom="4dp"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/stars_accent"
                         android:textSize="11sp"
                         tools:text="350 ★" />
 
@@ -429,7 +429,7 @@
                         android:paddingTop="4dp"
                         android:paddingEnd="10dp"
                         android:paddingBottom="4dp"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/stars_accent"
                         android:textSize="11sp"
                         tools:text="200 ★" />
 

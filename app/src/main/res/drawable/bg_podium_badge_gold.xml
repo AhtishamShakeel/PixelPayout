@@ -2,6 +2,6 @@
 <!-- The rank badge overlapping the avatar, filled in the place colour. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/gold" />
+    <solid android:color="@color/podium_gold" />
     <corners android:radius="100dp" />
 </shape>

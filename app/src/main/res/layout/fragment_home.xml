@@ -14,9 +14,18 @@
 
       * The full-width violet balance card is gone, split into two half-width
         cards. It was the tallest thing on the screen and said one number.
-        Stars is violet and XP is gold, at TINT weight rather than the old
-        saturated fill - two loud cards side by side would fight, and the old
-        one was already drowning everything under it.
+        Both cards now share ONE ground and differ only in their border -
+        gold for Stars, violet for XP. They were tinted grounds until the
+        colour system was given meanings, and before that the two hues were
+        the other way round entirely. See the semantic block at the foot of
+        colors.xml for why gold is the premium currency and violet is
+        progress, and bg_stat_card_stars.xml for why the accent sits in the
+        hairline rather than under the whole card.
+      * The two cards are the same SHAPE as well as the same size: eyebrow,
+        headline figure, one line naming what the bar fills toward, bar.
+        Each used to carry a spare row - a shortfall restated under the
+        Stars bar, a ratio above the XP one - which made them different
+        heights and said the same fact twice.
       * Level and boost no longer share a row. Level moved into the XP card;
         boost is its own full-width row, visible only while one is running.
       * The featured-offer card became the third tile in Quick ways to earn.
@@ -28,7 +37,7 @@
     something already on screen twice:
 
       * `balanceRatio` ("50 / 100") - the bar shows the same fraction and
-        `nextTierText` says it in words.
+        `balanceTarget` names the prize it fills toward.
       * `levelChip` - the level number, which `levelTitle` now carries in the
         XP card, and which the toolbar avatar ring already shows ambiently.
 -->
@@ -78,7 +87,7 @@
                     <FrameLayout
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:background="@drawable/bg_icon_violet">
+                        android:background="@drawable/bg_icon_gold">
 
                         <ImageView
                             android:layout_width="13dp"
@@ -86,7 +95,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_star"
-                            app:tint="@color/brand_violet_light" />
+                            app:tint="@color/stars_accent" />
 
                     </FrameLayout>
 
@@ -99,7 +108,7 @@
                         android:letterSpacing="0.1"
                         android:text="@string/stars_eyebrow"
                         android:textAllCaps="true"
-                        android:textColor="@color/brand_violet_light"
+                        android:textColor="@color/stars_accent"
                         android:textSize="10sp" />
 
                 </LinearLayout>
@@ -146,6 +155,14 @@
                     Fills toward the cheapest redemption not yet affordable.
                     Hidden outright when there is no such target, rather than
                     showing a permanently full bar that means nothing.
+
+                    ONE line above the bar, naming the actual prize - "30 UC
+                    at 600 stars" rather than the old "Next reward at 600" and
+                    a second line under the bar restating it as "565 more
+                    stars to unlock 30 UC". Three rows said the same fact
+                    three ways and made this the taller of the two cards; the
+                    bar already carries "how far", so the words only have to
+                    carry "toward what".
                 -->
                 <LinearLayout
                     android:id="@+id/nextTierGroup"
@@ -159,12 +176,12 @@
                         android:id="@+id/balanceTarget"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:ellipsize="end"
                         android:fontFamily="@font/jakarta_semibold"
-                        android:lineSpacingMultiplier="1.2"
-                        android:maxLines="2"
+                        android:maxLines="1"
                         android:textColor="@color/text_dim"
                         android:textSize="10.5sp"
-                        tools:text="Next reward at 600 ★" />
+                        tools:text="30 UC at 600 stars" />
 
                     <ProgressBar
                         android:id="@+id/redemptionProgress"
@@ -174,19 +191,45 @@
                         android:layout_marginTop="8dp"
                         android:max="100"
                         android:progress="0"
-                        android:progressDrawable="@drawable/progress_violet"
+                        android:progressDrawable="@drawable/progress_gold"
                         tools:progress="50" />
 
-                    <TextView
-                        android:id="@+id/nextTierText"
+                    <!--
+                        Where you are and where you are going, at the two ends
+                        of the bar they describe. The bar shows the ratio; the
+                        figures make it a quantity, and putting them under its
+                        ends rather than in a sentence costs one short row
+                        instead of a full line of prose.
+                    -->
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:fontFamily="@font/jakarta_medium"
-                        android:lineSpacingMultiplier="1.2"
-                        android:textColor="@color/text_faint"
-                        android:textSize="10.5sp"
-                        tools:text="565 more stars to unlock 30 UC" />
+                        android:layout_marginTop="6dp"
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/balanceCurrent"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/mono_medium"
+                            android:includeFontPadding="false"
+                            android:textColor="@color/text_faint"
+                            android:textSize="9.5sp"
+                            tools:text="55" />
+
+                        <TextView
+                            android:id="@+id/balanceRequired"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/mono_medium"
+                            android:includeFontPadding="false"
+                            android:textColor="@color/text_faint"
+                            android:textSize="9.5sp"
+                            tools:text="600" />
+
+                    </LinearLayout>
 
                 </LinearLayout>
 
@@ -201,7 +244,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_button_violet_solid"
+                    android:background="@drawable/bg_button_stars_outline"
                     android:clickable="true"
                     android:focusable="true"
                     android:fontFamily="@font/jakarta_bold"
@@ -211,7 +254,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="10dp"
                     android:text="@string/stars_redeem_cta"
-                    android:textColor="@color/white"
+                    android:textColor="@color/stars_accent"
                     android:textSize="12sp" />
 
             </LinearLayout>
@@ -235,7 +278,7 @@
                     <FrameLayout
                         android:layout_width="24dp"
                         android:layout_height="24dp"
-                        android:background="@drawable/bg_icon_gold">
+                        android:background="@drawable/bg_icon_violet">
 
                         <ImageView
                             android:layout_width="13dp"
@@ -243,7 +286,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_bolt"
-                            app:tint="@color/gold" />
+                            app:tint="@color/xp_accent" />
 
                     </FrameLayout>
 
@@ -256,7 +299,7 @@
                         android:letterSpacing="0.1"
                         android:text="@string/xp_eyebrow"
                         android:textAllCaps="true"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/xp_accent"
                         android:textSize="10sp" />
 
                 </LinearLayout>
@@ -275,15 +318,29 @@
                     android:textSize="24sp"
                     tools:text="Level 6" />
 
+                <!--
+                    Deliberately the same shape as the Stars card opposite:
+                    one line naming what the bar is filling toward, then the
+                    bar. It used to be a ratio ABOVE the bar ("12 / 114 XP")
+                    and a countdown BELOW it ("102 XP to Level 7"), which was
+                    the same fact twice and made this card a row taller than
+                    its twin.
+
+                    Jakarta rather than the mono this line used to carry: it
+                    is a sentence now, not a numeric ratio, and it has to sit
+                    level with `balanceTarget` across the gap.
+                -->
                 <TextView
-                    android:id="@+id/levelXpRatio"
+                    android:id="@+id/levelReward"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:fontFamily="@font/mono_medium"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:maxLines="1"
                     android:textColor="@color/text_dim"
                     android:textSize="10.5sp"
-                    tools:text="12 / 114 XP" />
+                    tools:text="6 XP to claim 6 Stars" />
 
                 <ProgressBar
                     android:id="@+id/levelProgressBar"
@@ -293,19 +350,45 @@
                     android:layout_marginTop="8dp"
                     android:max="100"
                     android:progress="0"
-                    android:progressDrawable="@drawable/progress_gold"
+                    android:progressDrawable="@drawable/progress_violet"
                     tools:progress="35" />
 
-                <TextView
-                    android:id="@+id/levelFooter"
+                <!--
+                    Where you are and where you are going, at the two ends
+                    of the bar they describe. The bar shows the ratio; the
+                    figures make it a quantity, and putting them under its
+                    ends rather than in a sentence costs one short row
+                    instead of a full line of prose.
+                -->
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:lineSpacingMultiplier="1.2"
+                    android:layout_marginTop="6dp"
+                    android:baselineAligned="false"
+                    android:orientation="horizontal">
+
+                    <TextView
+                    android:id="@+id/levelXpCurrent"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="@font/mono_medium"
+                    android:includeFontPadding="false"
                     android:textColor="@color/text_faint"
-                    android:textSize="10.5sp"
-                    tools:text="102 XP to Level 7" />
+                    android:textSize="9.5sp"
+                    tools:text="53" />
+
+                    <TextView
+                    android:id="@+id/levelXpRequired"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/mono_medium"
+                    android:includeFontPadding="false"
+                    android:textColor="@color/text_faint"
+                    android:textSize="9.5sp"
+                    tools:text="59" />
+
+                </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
@@ -323,7 +406,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:background="@drawable/bg_button_gold_outline"
+                    android:background="@drawable/bg_button_xp_outline"
                     android:clickable="true"
                     android:focusable="true"
                     android:fontFamily="@font/jakarta_bold"
@@ -333,7 +416,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="10dp"
                     android:text="@string/level_rewards_button"
-                    android:textColor="@color/gold"
+                    android:textColor="@color/xp_accent"
                     android:textSize="12sp" />
 
             </LinearLayout>
@@ -486,11 +569,11 @@
             android:id="@+id/streakCard"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:background="@drawable/bg_streak_card"
             android:orientation="vertical"
             android:paddingStart="16dp"
-            android:paddingTop="14dp"
+            android:paddingTop="8dp"
             android:paddingEnd="16dp"
             android:paddingBottom="14dp">
 
@@ -513,7 +596,7 @@
                     android:layout_marginStart="7dp"
                     android:layout_weight="1"
                     android:fontFamily="@font/jakarta_bold"
-                    android:textColor="@color/gold_warm"
+                    android:textColor="@color/text_strong"
                     android:textSize="13sp"
                     tools:text="7 day streak" />
 
@@ -534,9 +617,9 @@
                     android:paddingBottom="8dp"
                     android:text="@string/streak_claim"
                     android:textAllCaps="false"
-                    android:textColor="@color/on_gold"
+                    android:textColor="@color/white"
                     android:textSize="12sp"
-                    app:backgroundTint="@color/gold_warm"
+                    app:backgroundTint="@color/brand_violet"
                     app:cornerRadius="10dp" />
 
             </LinearLayout>
@@ -550,20 +633,19 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="8dp"
+                android:baselineAligned="false"
                 android:orientation="horizontal">
 
                     <TextView
                         android:id="@+id/streakCell1"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -571,15 +653,13 @@
                     <TextView
                         android:id="@+id/streakCell2"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -587,15 +667,13 @@
                     <TextView
                         android:id="@+id/streakCell3"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -603,15 +681,13 @@
                     <TextView
                         android:id="@+id/streakCell4"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -619,15 +695,13 @@
                     <TextView
                         android:id="@+id/streakCell5"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -635,15 +709,13 @@
                     <TextView
                         android:id="@+id/streakCell6"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -651,15 +723,13 @@
                     <TextView
                         android:id="@+id/streakCell7"
                         android:layout_width="0dp"
-                        android:layout_height="wrap_content"
+                        android:layout_height="34dp"
                         android:layout_weight="1"
-                        android:minHeight="34dp"
                         android:layout_marginStart="5dp"
                         android:background="@drawable/bg_streak_cell_todo"
                         android:fontFamily="@font/mono_bold"
                         android:gravity="center"
                         android:includeFontPadding="false"
-                        android:lineSpacingMultiplier="0.95"
                         android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="9sp" />
@@ -820,7 +890,10 @@
                     android:id="@+id/goalRow1"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/bg_row_ripple"
                     android:baselineAligned="false"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingTop="9dp"
@@ -894,7 +967,10 @@
                     android:id="@+id/goalRow2"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/bg_row_ripple"
                     android:baselineAligned="false"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingTop="9dp"
@@ -969,7 +1045,10 @@
                     android:id="@+id/goalRow3"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:background="@drawable/bg_row_ripple"
                     android:baselineAligned="false"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:paddingTop="9dp"
@@ -1086,7 +1165,7 @@
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_bolt"
-                        app:tint="@color/brand_violet_light" />
+                        app:tint="@color/xp_accent" />
 
                 </FrameLayout>
 
@@ -1222,7 +1301,7 @@
                     android:layout_height="match_parent"
                     android:layout_marginStart="8dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_tile_earn_blue"
+                    android:background="@drawable/bg_tile_earn_violet"
                     android:clickable="true"
                     android:focusable="true"
                     android:orientation="vertical"
@@ -1238,7 +1317,7 @@
                         <FrameLayout
                             android:layout_width="30dp"
                             android:layout_height="30dp"
-                            android:background="@drawable/bg_icon_blue">
+                            android:background="@drawable/bg_icon_violet">
 
                             <ImageView
                                 android:layout_width="16dp"
@@ -1246,7 +1325,7 @@
                                 android:layout_gravity="center"
                                 android:importantForAccessibility="no"
                                 android:src="@drawable/ic_quiz"
-                                app:tint="@color/boost_blue_light" />
+                                app:tint="@color/xp_accent" />
 
                         </FrameLayout>
 
@@ -1321,7 +1400,7 @@
                                 android:layout_gravity="center"
                                 android:importantForAccessibility="no"
                                 android:src="@drawable/ic_gift"
-                                app:tint="@color/gold" />
+                                app:tint="@color/stars_accent" />
 
                         </FrameLayout>
 
@@ -1387,7 +1466,7 @@
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_users"
-                        app:tint="@color/gold" />
+                        app:tint="@color/stars_accent" />
 
                 </FrameLayout>
 
@@ -1449,7 +1528,7 @@
                 <FrameLayout
                     android:layout_width="28dp"
                     android:layout_height="28dp"
-                    android:background="@drawable/bg_chip_gold">
+                    android:background="@drawable/bg_chip_violet">
 
                     <ImageView
                         android:layout_width="16dp"
@@ -1457,7 +1536,7 @@
                         android:layout_gravity="center"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_trophy"
-                        app:tint="@color/gold" />
+                        app:tint="@color/xp_accent" />
 
                 </FrameLayout>
 
@@ -1479,7 +1558,7 @@
                     android:layout_marginStart="8dp"
                     android:fontFamily="@font/jakarta_semibold"
                     android:text="@string/leaderboard_view"
-                    android:textColor="@color/gold"
+                    android:textColor="@color/xp_accent"
                     android:textSize="11.5sp" />
 
                 <ImageView
@@ -1488,7 +1567,7 @@
                     android:layout_marginStart="3dp"
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/gold" />
+                    app:tint="@color/xp_accent" />
 
             </LinearLayout>
 
@@ -1522,7 +1601,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/mono_bold"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/text_soft"
                         android:textSize="11.5sp"
                         tools:text="#24" />
 
@@ -1560,9 +1639,9 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="6dp"
                         android:fontFamily="@font/mono_bold"
-                        android:textColor="@color/gold"
+                        android:textColor="@color/text_faint"
                         android:textSize="11.5sp"
-                        tools:text="1,240 XP" />
+                        tools:text="120 ★" />
 
                 </LinearLayout>
 
@@ -1587,7 +1666,7 @@
                     <FrameLayout
                         android:layout_width="26dp"
                         android:layout_height="26dp"
-                        android:background="@drawable/bg_icon_gold">
+                        android:background="@drawable/bg_icon_violet">
 
                         <ImageView
                             android:layout_width="14dp"
@@ -1595,7 +1674,7 @@
                             android:layout_gravity="center"
                             android:importantForAccessibility="no"
                             android:src="@drawable/ic_users"
-                            app:tint="@color/gold" />
+                            app:tint="@color/xp_accent" />
 
                     </FrameLayout>
 

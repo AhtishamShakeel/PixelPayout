@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?><!--
     The Stars half of the pair at the top of Home.
 
-    A tinted dark surface, NOT the old bg_balance_card's saturated violet
-    fill. Two cards side by side both painted that loudly would fight each
-    other and drown everything below them - which is what the full-width
-    balance card was already doing on its own.
+    One ground, `surface_card`, shared with every other card on the screen;
+    the ACCENT LIVES IN THE BORDER. That is the rule the whole home screen now
+    follows, and it replaced a tinted-ground scheme that had each card sitting
+    on its own coloured wash. Two reasons it had to go:
+
+      * a 16% gold tint over a warm ground mixes to olive, so the surfaces
+        meant to read as premium read as disabled instead, and
+      * four differently-tinted grounds in one scroll left no neutral for the
+        eye to rest on, which is what made the screen feel assembled.
+
+    A shared ground plus a coloured hairline says the same thing more quietly:
+    these are the same kind of object, and this one is about Stars.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <gradient
-        android:angle="315"
-        android:startColor="@color/offer_grad_start"
-        android:endColor="@color/offer_grad_end"
-        android:type="linear" />
-    <stroke android:width="1dp" android:color="@color/violet_tint_35" />
+    <solid android:color="@color/surface_card" />
+    <stroke android:width="1dp" android:color="@color/stars_stroke" />
     <corners android:radius="18dp" />
 </shape>

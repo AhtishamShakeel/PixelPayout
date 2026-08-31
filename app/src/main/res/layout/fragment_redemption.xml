@@ -201,7 +201,7 @@
                                 android:layout_height="13dp"
                                 android:contentDescription="@null"
                                 android:src="@drawable/ic_star"
-                                app:tint="@color/gold" />
+                                app:tint="@color/stars_accent" />
 
                             <TextView
                                 android:layout_width="wrap_content"

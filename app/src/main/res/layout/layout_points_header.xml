@@ -27,7 +27,7 @@
         android:layout_height="14dp"
         android:importantForAccessibility="no"
         android:src="@drawable/ic_star"
-        app:tint="@color/gold" />
+        app:tint="@color/stars_accent" />
 
     <TextView
         android:id="@+id/pointsText"

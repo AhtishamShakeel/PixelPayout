@@ -19,7 +19,7 @@
         android:layout_height="15dp"
         android:contentDescription="@null"
         android:src="@drawable/ic_star"
-        app:tint="@color/brand_violet" />
+        app:tint="@color/stars_accent" />
 
     <TextView
         android:id="@+id/statValue"

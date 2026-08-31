@@ -98,7 +98,14 @@ class MainViewModel(
         val title: String,
         val pointsCost: Int,
         val pointsShort: Int,
-        val percent: Int
+        val percent: Int,
+        /**
+         * The balance the bar is filled to. Carried rather than derived from
+         * pointsCost - pointsShort: that subtraction is only correct while
+         * pointsShort has not hit its floor of zero, and the card prints this
+         * figure under the bar where being off by the overshoot would show.
+         */
+        val pointsHeld: Int
     )
 
     /**
@@ -166,7 +173,8 @@ class MainViewModel(
                 title = amount,
                 pointsCost = cost,
                 pointsShort = (cost - user.points).coerceAtLeast(0),
-                percent = (user.points * 100 / cost).coerceIn(0, 100)
+                percent = (user.points * 100 / cost).coerceIn(0, 100),
+                pointsHeld = user.points
             )
         }
 
@@ -473,7 +481,17 @@ class MainViewModel(
         val xpIntoLevel: Int,
         val xpForNextLevel: Int,
         val isMaxLevel: Boolean,
-        val totalXp: Int
+        val totalXp: Int,
+        /**
+         * The one-time star bonus the NEXT level pays, or 0 when the curve
+         * publishes none for it (or has not loaded).
+         *
+         * Carried here so the home card can say what the next level is worth
+         * rather than only how far away it is. Zero is rendered as the plain
+         * "N XP to Level M" - never as "claim 0 stars", which would be a
+         * promise the server does not keep.
+         */
+        val nextLevelReward: Int = 0
     )
 
     val levelProgress: LiveData<LevelProgress> = MediatorLiveData<LevelProgress>().apply {
@@ -501,7 +519,9 @@ class MainViewModel(
                 xpIntoLevel = (user.xp - floor).coerceAtLeast(0),
                 xpForNextLevel = if (isMax) 0 else curve.xpRequiredFor(user.level + 1) - floor,
                 isMaxLevel = isMax,
-                totalXp = user.xp
+                totalXp = user.xp,
+                nextLevelReward =
+                    if (isMax) 0 else curve.levelRewards[user.level + 1] ?: 0
             )
         }
 

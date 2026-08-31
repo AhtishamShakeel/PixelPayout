@@ -36,9 +36,13 @@ class ActivityAdapter :
             } else {
                 context.getString(R.string.activity_delta_plus, magnitude)
             }
+            // The figure is Stars either way, so a gain is gold. A SPEND
+            // stays neutral rather than going gold with a minus in front:
+            // this list is mostly spends, and a column of gold minus-signs
+            // would make the screen look like it was mostly paying out.
             binding.activityDelta.setTextColor(
                 context.getColor(
-                    if (entry.points < 0) R.color.text_faint else R.color.brand_violet_light
+                    if (entry.points < 0) R.color.text_faint else R.color.stars_accent
                 )
             )
 

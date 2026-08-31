@@ -103,6 +103,14 @@ object DailyGoalEngine {
     fun isDone(goal: GoalTemplate, stats: UserRepository.DailyStats): Boolean =
         progressFor(goal, stats) >= goal.target
 
-    private const val KIND_PLAY_GAMES = "PLAY_GAMES"
-    private const val KIND_COMPLETE_QUIZZES = "COMPLETE_QUIZZES"
+    /**
+     * The goal vocabulary the server publishes on config/levelCurve.
+     *
+     * Public because the UI has to read it too - it decides both how a goal
+     * is worded and which screen tapping it opens - and two copies of these
+     * strings is exactly the kind of thing that drifts the first time a kind
+     * is renamed in the console.
+     */
+    const val KIND_PLAY_GAMES = "PLAY_GAMES"
+    const val KIND_COMPLETE_QUIZZES = "COMPLETE_QUIZZES"
 }

@@ -1,17 +1,31 @@
 <resources>
+    <!--
+        The theme now says the same thing the layouts do.
+
+        It did not before: colorSecondary was `accent`, a #03A9F4 light blue
+        left over from the Material starter theme and used nowhere by hand,
+        so every Material widget that reaches for the secondary colour - a
+        switch, a FAB, a text-field caret - was painting itself a hue that
+        appears nowhere else in this app. colorSurface was a #1E1E1E neutral
+        grey against a violet-tinted page, for the same reason.
+
+        The mapping follows the currency rule: PRIMARY is the brand violet,
+        SECONDARY is Stars gold. colorOnSecondary is on_stars rather than
+        white, because white on #FFD24A is about 1.7:1.
+    -->
     <style name="Theme.PixelPayout" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorPrimary">@color/brand_violet</item>
+        <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
         <item name="colorOnPrimary">@color/white</item>
-        <item name="colorSecondary">@color/accent</item>
-        <item name="colorSecondaryVariant">@color/accent_dark</item>
-        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondary">@color/stars_accent</item>
+        <item name="colorSecondaryVariant">@color/stars_accent_deep</item>
+        <item name="colorOnSecondary">@color/on_stars</item>
         <item name="android:statusBarColor">@color/background_dark</item>
         <item name="android:forceDarkAllowed">false</item>
         <item name="android:windowBackground">@color/background_dark</item>
-        <item name="colorSurface">@color/surface_dark</item>
+        <item name="colorSurface">@color/surface_card</item>
         <item name="colorOnSurface">@color/white</item>
-        <item name="cardBackgroundColor">@color/card_dark</item>
+        <item name="cardBackgroundColor">@color/surface_card</item>
     </style>
 
     <style name="Theme.MaterialComponents.Dialog.MinWidth" parent="Theme.MaterialComponents.Dialog">

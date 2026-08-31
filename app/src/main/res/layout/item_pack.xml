@@ -87,7 +87,7 @@
             android:layout_height="11dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_star"
-            app:tint="@color/gold" />
+            app:tint="@color/stars_accent" />
 
         <TextView
             android:id="@+id/packCost"
@@ -95,7 +95,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
             android:fontFamily="@font/mono_bold"
-            android:textColor="@color/gold"
+            android:textColor="@color/stars_accent"
             android:textSize="13sp"
             tools:text="5,800" />
 

@@ -42,7 +42,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="12dp"
         android:fontFamily="@font/mono_bold"
-        android:textColor="@color/gold"
+        android:textColor="@color/stars_accent"
         android:textSize="13sp"
         tools:text="700 ★" />
 

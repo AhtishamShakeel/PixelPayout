@@ -61,7 +61,7 @@
         android:fontFamily="@font/mono_bold"
         android:includeFontPadding="false"
         android:letterSpacing="-0.03"
-        android:textColor="@color/gold"
+        android:textColor="@color/stars_accent"
         android:textSize="30sp"
         tools:text="+10 ★" />
 

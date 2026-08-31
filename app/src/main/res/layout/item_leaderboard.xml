@@ -99,7 +99,7 @@
         android:layout_marginStart="10dp"
         android:fontFamily="@font/mono_bold"
         android:gravity="end"
-        android:textColor="@color/gold"
+        android:textColor="@color/stars_accent"
         android:textSize="12sp"
         tools:text="150 ★" />
 

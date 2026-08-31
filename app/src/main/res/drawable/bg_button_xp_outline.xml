@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The action inside the XP card. Was bg_button_gold_outline, and moved
+    with the card it lives on when the two currencies swapped hues.
+
+    Outlined rather than filled: the pair at the top of Home has exactly one
+    filled button, the redeem CTA in the Stars card, because cashing out is
+    the thing the screen is ultimately for. This is the secondary of the two
+    and says so by weight, not by hue.
+
+    Radius 10dp, not the 8dp of bg_button_accent_outline: it matches the
+    solid button opposite it, and the two sit on the same line.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/violet_tint_20" />
+            <stroke android:width="1dp" android:color="@color/xp_accent" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <!--
+                Transparent, not a violet tint. A tinted fill over the card's
+                already-violet ground mixes to a flat wash that reads as a
+                disabled button - the stroke and the label carry it alone.
+            -->
+            <solid android:color="@android:color/transparent" />
+            <stroke android:width="1dp" android:color="@color/xp_stroke" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</selector>

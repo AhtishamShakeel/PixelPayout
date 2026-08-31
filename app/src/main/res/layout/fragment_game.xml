@@ -224,7 +224,7 @@
             <FrameLayout
                 android:layout_width="68dp"
                 android:layout_height="68dp"
-                android:background="@drawable/bg_game_art_gold">
+                android:background="@drawable/bg_game_art_violet">
 
                 <ImageView
                     android:layout_width="30dp"
@@ -232,7 +232,7 @@
                     android:layout_gravity="center"
                     android:contentDescription="@null"
                     android:src="@drawable/ic_game_tower"
-                    app:tint="@color/gold" />
+                    app:tint="@color/xp_accent" />
             </FrameLayout>
 
             <LinearLayout

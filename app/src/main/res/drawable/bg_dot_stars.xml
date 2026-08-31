@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The marker on a dialog about Stars - today only the refund on a declined
+    redemption, which pays Stars back.
+
+    Was bg_dot_neutral, which was a dot named for a meaning it did not have:
+    it was gold, and gold is not neutral in this app.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/stars_accent_deep" />
+</shape>

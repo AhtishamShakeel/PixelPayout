@@ -1,15 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    The XP half of the pair. Gold at the same weight as bg_stat_card_stars is
-    violet, so the two read as one row of two kinds rather than as a card and
-    a lesser card beside it.
-
-    surface_streak is reused rather than a new brown: it is already the app's
-    "warm dark surface", and a second one a shade off would show as a seam
-    against the streak card further down the same screen.
+    The XP half of the pair. Identical to bg_stat_card_stars but for the
+    border colour, which is the entire point - see that file for why the
+    accent moved out of the ground and into the hairline.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/surface_streak" />
-    <stroke android:width="1dp" android:color="@color/gold_stroke" />
+    <solid android:color="@color/surface_card" />
+    <stroke android:width="1dp" android:color="@color/xp_stroke" />
     <corners android:radius="18dp" />
 </shape>

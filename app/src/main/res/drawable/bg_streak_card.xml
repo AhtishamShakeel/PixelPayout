@@ -1,7 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?><!--
+    The streak card. Same ground as every other card, and a NEUTRAL hairline
+    rather than the warm one it had: a streak is not a currency, so it has no
+    accent to claim. The only colour inside it is on the days that pay Stars.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/surface_streak" />
-    <stroke android:width="1dp" android:color="@color/streak_stroke" />
+    <solid android:color="@color/surface_card" />
+    <stroke android:width="1dp" android:color="@color/stroke_card" />
     <corners android:radius="18dp" />
 </shape>

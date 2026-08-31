@@ -20,7 +20,7 @@
         android:layout_marginTop="2dp"
         android:importantForAccessibility="no"
         android:src="@drawable/ic_star"
-        app:tint="@color/brand_violet_light" />
+        app:tint="@color/stars_accent" />
 
     <TextView
         android:id="@+id/perkText"

@@ -79,7 +79,7 @@
             android:paddingEnd="8dp"
             android:paddingBottom="3dp"
             android:textAllCaps="true"
-            android:textColor="@color/gold"
+            android:textColor="@color/stars_accent"
             android:textSize="10.5sp"
             tools:text="Processing" />
 

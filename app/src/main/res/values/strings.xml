@@ -155,7 +155,6 @@
     <string name="level_badge_value">%1$d</string>
     <string name="balance_title">Your Balance</string>
     <string name="keep_earning">Keep earning</string>
-    <string name="next_tier">%1$d more stars to unlock %2$s</string>
     <string name="buff_rate_note">Payout rate unchanged</string>
     <!-- The multiplier is applied to basePoints only - buildAward never
          multiplies baseXp - so this is a stars boost, not an XP one. It also
@@ -179,13 +178,13 @@
     <string name="payout">Payout</string>
     <!-- The target is the cheapest reward not yet affordable, not a fixed
          withdrawal floor - see MainViewModel.nextRedemption. -->
-    <string name="balance_target">Next reward at %1$d ★</string>
+    <string name="balance_target">%1$s at %2$s ★</string>
     <string name="balance_ratio">%1$d / %2$d</string>
     <!-- Level card -->
     <string name="level_card_title">Level %1$d</string>
     <string name="level_xp_ratio">%1$d / %2$d XP</string>
-    <string name="level_xp_max">Max level</string>
     <string name="level_to_next">%1$d XP to Level %2$d</string>
+    <string name="level_reward_next">%1$d XP to claim %2$s ★</string>
     <string name="level_reached_max">Highest level reached</string>
 
     <!-- Level rewards.
@@ -241,7 +240,9 @@
     <!-- leaderboard_you already exists further down, for the standings
          screen's own "me" row; the card reuses it rather than adding a
          second copy of the same word. -->
-    <string name="leaderboard_my_xp">%1$s XP</string>
+    <!-- The home card shows what the rank is WORTH, in Stars. -->
+    <string name="leaderboard_my_prize">%1$s ★</string>
+    <string name="leaderboard_my_none">No prize yet</string>
     <string name="leaderboard_unranked_xp">--</string>
     <string name="tile_play_games">Play Games</string>
     <string name="action_earn_stars">Earn stars</string>
@@ -334,7 +335,7 @@
     <!-- Replaces the subtitle once the bonus is paid, which is also when the
          rows and the bar are hidden - so this line is the whole card. -->
     <string name="goals_subtitle_claimed">Daily set claimed</string>
-    <string name="goals_bonus">+%1$d ★</string>
+    <string name="goals_bonus">+%1$s ★</string>
     <string name="goals_claim">Claim</string>
     <string name="goals_claimed">Claimed</string>
     <string name="goals_progress">%1$d/%2$d</string>

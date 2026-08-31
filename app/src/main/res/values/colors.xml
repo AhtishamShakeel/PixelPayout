@@ -1,11 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- ... existing colors ... -->
-    <color name="primary">#8A8AFF</color>
-    <color name="primary_dark">#5757FF</color>
+    <!--
+        THE app violet, and there is now only one.
+
+        These were #8A8AFF and #5757FF - a second violet, a little lighter and
+        bluer than brand_violet, reached by sixteen drawables and four layouts
+        (the level badge, the nav centre, the bolt glyph, the quiz banner, the
+        selected-answer state...) while everything drawn since used
+        brand_violet. Two brand hues one step apart is the kind of thing that
+        never looks broken in isolation and always looks slightly wrong when
+        two screens sit side by side.
+
+        Aliased rather than find-and-replaced across twenty files: the names
+        read correctly where they are used, and the theme's colorPrimary
+        genuinely is this.
+    -->
+    <item name="primary" type="color">@color/brand_violet</item>
+    <item name="primary_dark" type="color">@color/brand_violet_deep</item>
     <color name="primary_transparent">#508A8AFF</color>
-    <color name="accent">#03A9F4</color>
-    <color name="accent_dark">#0288D1</color>
     <color name="gray">#808080</color>
     <color name="primary_text">#D5D5FF</color>
     <!-- Dark theme specific colors -->
@@ -22,32 +35,27 @@
         with more contrast than before. That is the thing to look at on the
         screens not yet redrawn.
     -->
-    <color name="background_dark">#08080D</color>
+    <!--
+        Not black. #08080D was a neutral near-black, and against it the violet
+        chrome (nav, buttons, XP) read as the only coloured thing in the room.
+        This carries a little of the brand hue in the ground itself, at a
+        lightness that is still unmistakably a dark theme - the tint is meant
+        to be felt rather than seen, and it should never be nameable as
+        "purple" on a device.
+    -->
+    <color name="background_dark">#0A0814</color>
     <color name="surface_dark">#1E1E1E</color>
     <color name="card_dark">#2D2D2D</color>
     <color name="difficulty_easy">#4CAF50</color>
-    <color name="difficulty_medium">#FFC107</color>
     <color name="difficulty_hard">#F44336</color>
 
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
     <!-- Semantic tokens. Prefer these over raw hex in layouts so a palette
          change is a one-file edit. Values below are the ones already in use,
          lifted out of the layouts rather than invented. -->
     <color name="text_secondary">#B1B1B1</color>
-    <color name="text_muted">#B3FFFFFF</color>
-    <color name="star_gold">#FFD700</color>
-    <color name="star_gold_dark">#FFA500</color>
-    <color name="quiz_gold">#FFDF00</color>
-    <color name="success_green">#00C853</color>
     <color name="track_dark">#3A3A3A</color>
-    <color name="track_light">#444444</color>
     <color name="card_stroke">#4A4A4A</color>
     <color name="nav_bar_stroke">#2A2A2A</color>
 
@@ -64,9 +72,11 @@
          ================================================================== -->
 
     <!-- Surfaces -->
-    <color name="surface_card">#101018</color>
-    <color name="surface_streak">#16110B</color>
-    <color name="surface_boost">#0A1220</color>
+    <!-- The ONE card ground, shared by every card on Home and by the wallet
+         and games screens. Lifted with the page beneath it so the step
+         between them stays the same, and tinted to match it - a neutral card
+         on a violet-tinted page reads as a grey patch. -->
+    <color name="surface_card">#15131F</color>
 
     <!-- Hairline borders. The design uses these instead of shadows, so they
          are the only thing separating a card from the page - do not drop
@@ -90,23 +100,16 @@
     <!-- Gold. Distinct from the existing star_gold/quiz_gold, which are
          warmer and belong to the old screens. -->
     <color name="gold">#FFD24A</color>
-    <color name="gold_warm">#FFB54D</color>
     <color name="gold_deep">#FFA82A</color>
-    <color name="gold_grad_end">#E0A800</color>
     <color name="gold_tint_16">#29FFD24A</color>
     <color name="gold_stroke">#2EFFD24A</color>
-    <color name="streak_stroke">#38FFA82A</color>
-    <color name="streak_fill">#D9FFA82A</color>
     <!-- Text sitting ON gold, where white would be unreadable. -->
     <color name="on_gold">#2B1A00</color>
-    <color name="on_gold_muted">#A62B1A00</color>
-    <color name="on_gold_icon">#3A2600</color>
 
     <!-- Boost blue -->
     <color name="boost_blue">#4A9EFF</color>
     <color name="boost_blue_light">#6CB2FF</color>
     <color name="boost_stroke">#384A9EFF</color>
-    <color name="boost_tint_16">#294A9EFF</color>
 
     <!-- Completed states -->
     <color name="success">#4ADE80</color>
@@ -117,8 +120,8 @@
     <color name="avatar_grad_start">#3A2F6B</color>
     <color name="avatar_grad_end">#1A1730</color>
 
-    <!-- Secondary text ramp. The design uses .40-.75 white; these four cover
-         it. `text_muted` above is .70 and is reused for the .65-.70 band. -->
+    <!-- Secondary text ramp. The design uses .40-.75 white; with text_strong
+         through text_trace further down, these cover it. -->
     <color name="text_dim">#BFFFFFFF</color>
     <color name="text_faint">#73FFFFFF</color>
     <color name="text_ghost">#66FFFFFF</color>
@@ -225,4 +228,78 @@
     <color name="surface_row">#17171F</color>
     <color name="pip_remaining">#737C5CFF</color>
     <color name="pip_spent">#2A2A33</color>
+
+    <!-- ==================================================================
+         SEMANTIC LAYER - what a colour MEANS, not what it looks like.
+
+         Everything above this line is the palette: raw hues, named after
+         themselves. Everything below is the vocabulary layouts are meant to
+         speak. The rule is one sentence:
+
+             a layout names a MEANING; only this file names a HUE.
+
+         The reason is not tidiness. Before this block, the star glyph was
+         tinted four different ways across the app - `gold` in the wallet,
+         `brand_violet_light` on Home, `brand_violet` on Profile, and
+         `text_faint` in the activity row - and the Home stat cards had the
+         two currencies exactly inverted, Stars painted violet and XP gold.
+         None of that was a decision; each screen reached for a hue that
+         looked right on its own. A token called `gold` invites that. A token
+         called `stars_accent` does not: painting XP with it is visibly wrong
+         at the point of writing, not three screens later.
+
+         The two currencies:
+
+             Stars - the premium currency, the thing that is redeemed for
+                     something real. GOLD, wherever a Star balance, cost,
+                     reward or payout appears. Never decorative.
+             XP    - the progress currency, earned constantly, spent never.
+                     VIOLET, the brand family.
+
+         XP sharing the brand hue is deliberate, and the ambiguity it invites
+         is resolved by WEIGHT rather than by a fifth hue: XP surfaces go
+         violet TINTED, and the glyph does the rest - a bolt is XP, a star is
+         Stars.
+
+         One exception, which is a rule rather than a let-off: INSIDE A
+         CURRENCY CARD, THE CURRENCY OWNS THE PRIMARY ACTION. The Stars card's
+         redeem button is gold, the XP card's is violet. Violet-on-gold was
+         tried first and failed - the brand violet sits near the complement of
+         the Stars card's warm ground, so the button read as pasted onto the
+         card rather than part of it. Anywhere off those two cards - nav,
+         sheets, dialogs, generic CTAs - violet is still the action colour.
+         ================================================================== -->
+
+    <!-- Stars. -->
+    <item name="stars_accent_dash" type="color">@color/gold_dash</item>
+    <item name="stars_accent" type="color">@color/gold</item>
+    <item name="stars_accent_deep" type="color">@color/gold_deep</item>
+    <!-- Star-coloured text that must recede - a unit label beside a figure,
+         a caption under it - without dropping to plain grey. -->
+    <item name="stars_accent_soft" type="color">@color/gold_label</item>
+    <item name="stars_tint" type="color">@color/gold_tint_16</item>
+    <item name="stars_stroke" type="color">@color/gold_stroke</item>
+    <!-- For the rare case of text sitting ON a solid Stars fill. -->
+    <item name="on_stars" type="color">@color/on_gold</item>
+
+    <!-- First place. Gold, and NOT stars_accent, even though it resolves to
+         the same hex today: a medal and a currency are different facts that
+         happen to share a colour, and the leaderboard shows both at once -
+         a gold "1" beside a gold prize figure. Naming them apart is what
+         lets one of them be repainted later without hunting for which golds
+         on that screen meant money. Silver and bronze sit beside it. -->
+    <item name="podium_gold" type="color">@color/gold</item>
+
+    <!-- Home's cards share ONE ground, `surface_card`, and say which
+         currency they are about with their BORDER. There is deliberately no
+         `stars_surface`/`xp_surface` pair: a tinted ground per card is what
+         produced the olive cards the accent tints mixed to, and left the
+         screen with no neutral to rest on. Accent belongs in the hairline,
+         the glyph and the figure - not under them. -->
+
+    <!-- XP. -->
+    <item name="xp_accent" type="color">@color/brand_violet_light</item>
+    <item name="xp_accent_deep" type="color">@color/brand_violet</item>
+    <item name="xp_tint" type="color">@color/violet_tint_20</item>
+    <item name="xp_stroke" type="color">@color/violet_tint_35</item>
 </resources>

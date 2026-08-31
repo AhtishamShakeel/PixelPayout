@@ -1,6 +1,31 @@
-<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <solid android:color="@color/streak_fill" />
-    <corners android:radius="6dp" />
-</shape>
+<?xml version="1.0" encoding="utf-8"?><!--
+    A day already claimed: the same cell as its neighbours, filled, with a tick in it.
+
+    A LAYER-LIST, not a compound drawable on the TextView.
+
+    The tick used to be set in code with setCompoundDrawables(). Android pins
+    a left compound drawable to the view's left padding edge and centres only
+    the text in what is left, so the tick sat off to one side and no gravity
+    could move it. Putting it in the background instead centres it by
+    construction, and - the part that matters more - the claimed cell is now
+    the SAME box as the six beside it, because it is the same shape with one
+    extra layer rather than a differently measured view.
+
+    Cells are a fixed 34dp, so nothing here can change a cell's size.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/xp_accent_deep" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+
+    <item
+        android:width="15dp"
+        android:height="15dp"
+        android:drawable="@drawable/ic_check"
+        android:gravity="center" />
+
+</layer-list>

@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    The cell for the reward the NEXT claim pays out.
+    The day the next claim pays for. Ringed, not filled - it has not been earned yet, and filling it would say it had.
 
-    Same shape as bg_streak_cell_todo, drawn at 2dp in the full gold rather
-    than the 1dp .22-alpha stroke, so the one cell that is actually in play
-    reads apart from the five that are not - without moving anything, which
-    would reflow the strip every day.
+    THE STRIP'S RULE: state is carried by FILL WEIGHT, reward type by TEXT
+    COLOUR. It used to carry both in the fill - a day already claimed was a
+    solid warm block and a day that pays Stars was a gold-tinted one - so a
+    lit cell was ambiguous: reached, or valuable? Now the box only ever says
+    where you are in the week, and the label only ever says what the day pays.
 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="@color/gold_tint_16" />
-    <stroke android:width="2dp" android:color="@color/gold_deep" />
-    <corners android:radius="6dp" />
+    <solid android:color="@android:color/transparent" />
+    <stroke android:width="1dp" android:color="@color/text_wisp" />
+    <corners android:radius="10dp" />
 </shape>

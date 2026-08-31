@@ -31,7 +31,9 @@ import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.example.pixelpayout.utils.UserPreferences
+import com.example.pixelpayout.data.repository.DailyGoalEngine
 import com.example.pixelpayout.utils.ServerClock
+import com.example.pixelpayout.utils.setStarText
 import android.os.Handler
 import android.os.Looper
 import kotlinx.coroutines.flow.first
@@ -57,6 +59,7 @@ private val REDEEM_TARGET_MILLIS = WalletFormat.PAYOUT_TARGET_MILLIS
 /** Matches STREAK_CYCLE_DAYS server-side; the strip draws one cycle. */
 private const val STREAK_CYCLE_DAYS = 7
 
+
 class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
@@ -73,6 +76,7 @@ class HomeFragment : Fragment() {
 
     /** What the next claim would pay, and which day, for the dialog. */
     private var pendingRewardLabel: String? = null
+    private var pendingRewardIsStars = false
     private var pendingClaimDay: Int = 1
 
     /**
@@ -151,10 +155,16 @@ class HomeFragment : Fragment() {
             } else {
                 binding.nextTierGroup.visibility = View.VISIBLE
                 binding.redemptionProgress.progress = next.percent
-                binding.balanceTarget.text =
-                    getString(R.string.balance_target, next.pointsCost)
-                binding.nextTierText.text =
-                    getString(R.string.next_tier, next.pointsShort, next.title)
+                // Names the prize, not just the price. "30 UC at 600 stars"
+                // replaced a pair of lines that between them said the target,
+                // the shortfall and the prize - three rows for one fact.
+                val cost = formatCount(next.pointsCost)
+                binding.balanceTarget.setStarText(
+                    getString(R.string.balance_target, next.title, cost),
+                    emphasise = cost
+                )
+                binding.balanceCurrent.text = formatCount(next.pointsHeld)
+                binding.balanceRequired.text = cost
             }
         }
 
@@ -167,8 +177,9 @@ class HomeFragment : Fragment() {
                     // left to earn here", which is the truth; an empty one
                     // would read as no progress at all.
                     binding.levelProgressBar.progress = 100
-                    binding.levelXpRatio.setText(R.string.level_xp_max)
-                    binding.levelFooter.setText(R.string.level_reached_max)
+                    binding.levelReward.setText(R.string.level_reached_max)
+                    binding.levelXpCurrent.text = ""
+                    binding.levelXpRequired.text = ""
                 }
 
                 // The curve is fetched once per session and can still be in
@@ -177,23 +188,34 @@ class HomeFragment : Fragment() {
                 // as 0 / 0.
                 progress.xpForNextLevel <= 0 -> {
                     binding.levelProgressBar.progress = 0
-                    binding.levelXpRatio.text = ""
-                    binding.levelFooter.text = ""
+                    binding.levelReward.text = ""
+                    binding.levelXpCurrent.text = ""
+                    binding.levelXpRequired.text = ""
                 }
 
                 else -> {
                     binding.levelProgressBar.progress =
                         (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
-                    binding.levelXpRatio.text = getString(
-                        R.string.level_xp_ratio,
-                        progress.xpIntoLevel,
-                        progress.xpForNextLevel
-                    )
-                    binding.levelFooter.text = getString(
-                        R.string.level_to_next,
-                        progress.xpForNextLevel - progress.xpIntoLevel,
-                        progress.level + 1
-                    )
+
+                    // One line where there were two, and it leads with what
+                    // the next level PAYS rather than only how far it is -
+                    // the question the level number invites is "worth what?".
+                    // Levels the published curve pays nothing for fall back
+                    // to the distance alone; "claim 0 stars" would be a
+                    // promise the server never makes.
+                    val xpToGo = progress.xpForNextLevel - progress.xpIntoLevel
+                    if (progress.nextLevelReward > 0) {
+                        val reward = formatCount(progress.nextLevelReward)
+                        binding.levelReward.setStarText(
+                            getString(R.string.level_reward_next, xpToGo, reward),
+                            emphasise = reward
+                        )
+                    } else {
+                        binding.levelReward.text =
+                            getString(R.string.level_to_next, xpToGo, progress.level + 1)
+                    }
+                    binding.levelXpCurrent.text = formatCount(progress.xpIntoLevel)
+                    binding.levelXpRequired.text = formatCount(progress.xpForNextLevel)
                 }
             }
         }
@@ -480,20 +502,35 @@ class HomeFragment : Fragment() {
                     else -> R.drawable.bg_streak_cell_todo
                 }
             )
-            cell.text = reward?.let { cellLabel(it) }.orEmpty()
-            cell.setTextColor(
-                ContextCompat.getColor(
-                    requireContext(),
-                    when {
-                        filled -> R.color.on_gold
-                        reward != null && reward.points > 0 -> R.color.gold
-                        // An XP day would otherwise be the faintest thing on
-                        // the strip while being the one cell that matters.
-                        isNext -> R.color.text_soft
-                        else -> R.color.text_faint
-                    }
+            // A CLAIMED day drops its figure for a tick. What day three paid
+            // stops being information the moment it is banked, and seven spent
+            // figures compete with the days still to come, which are the only
+            // ones the strip is really for.
+            //
+            // Everywhere else the label carries the REWARD TYPE and nothing
+            // else - the box already said reached, in play, or ahead. A Stars
+            // day is gold, as a star is on every screen in this app; an XP day
+            // is neutral, and leans brighter while it is the one in play.
+            if (filled) {
+                // Nothing to draw here: the cell's background carries both
+                // the fill and the tick, centred. This used to set a compound
+                // drawable, which Android pins to the view's edge rather than
+                // centring, and which made the claimed cell measure
+                // differently from the six beside it.
+                cell.text = ""
+            } else {
+                cell.text = reward?.let { cellLabel(it) }.orEmpty()
+                cell.setTextColor(
+                    ContextCompat.getColor(
+                        requireContext(),
+                        when {
+                            reward != null && reward.points > 0 -> R.color.stars_accent
+                            isNext -> R.color.text_soft
+                            else -> R.color.text_faint
+                        }
+                    )
                 )
-            )
+            }
         }
         // Only meaningful once today is settled; "tomorrow" is the day after
         // whichever day the current claim belongs to.
@@ -524,6 +561,7 @@ class HomeFragment : Fragment() {
 
         pendingClaimDay = claimPosition
         pendingRewardLabel = claimReward?.let { describeReward(it) }
+        pendingRewardIsStars = (claimReward?.points ?: 0) > 0
     }
 
     private fun streakCells(binding: FragmentHomeBinding) = listOf(
@@ -556,6 +594,7 @@ class HomeFragment : Fragment() {
         showAdClaimDialog(
             title = getString(R.string.streak_dialog_title, pendingClaimDay),
             reward = pendingRewardLabel,
+            rewardIsStars = pendingRewardIsStars,
             dotRes = R.drawable.bg_dot_streak,
             onWatch = { playAdThenClaim() }
         )
@@ -572,6 +611,13 @@ class HomeFragment : Fragment() {
         title: String,
         reward: String?,
         dotRes: Int,
+        /**
+         * Which currency [reward] is quoted in. The figure was painted gold
+         * unconditionally, which was right for the Stars days of the streak
+         * and for the goal bonus, and wrong for its four XP days - a gold
+         * "+30 XP" reads as a payout that never arrives.
+         */
+        rewardIsStars: Boolean,
         onWatch: () -> Unit
     ) {
         val view = layoutInflater.inflate(R.layout.dialog_ad_claim, null)
@@ -585,6 +631,12 @@ class HomeFragment : Fragment() {
         val rewardView = view.findViewById<TextView>(R.id.adClaimReward)
         if (reward != null) {
             rewardView.text = getString(R.string.streak_dialog_reward, reward)
+            rewardView.setTextColor(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (rewardIsStars) R.color.stars_accent else R.color.xp_accent
+                )
+            )
         } else {
             // Better to say nothing than a figure the claim might not pay.
             rewardView.visibility = View.GONE
@@ -760,8 +812,12 @@ class HomeFragment : Fragment() {
         } else {
             title.setText(R.string.redemption_declined_title)
             value.text = getString(R.string.redemption_declined_refund, result.refundedPoints)
-            value.setTextColor(ContextCompat.getColor(requireContext(), R.color.gold_warm))
-            dot.setBackgroundResource(R.drawable.bg_dot_neutral)
+            // A refund is Stars coming back, so it is gold like every other
+            // Stars figure - not the warm off-gold this used to be.
+            value.setTextColor(
+                ContextCompat.getColor(requireContext(), R.color.stars_accent)
+            )
+            dot.setBackgroundResource(R.drawable.bg_dot_stars)
             // The admin can attach a reason; when there is one it is more use
             // than the generic line.
             val reason = result.rejectionReason?.trim().orEmpty()
@@ -798,10 +854,11 @@ class HomeFragment : Fragment() {
         }
         binding.leaderboardRow.visibility = View.VISIBLE
 
-        binding.leaderboardSubtitle.text = getString(
-            R.string.leaderboard_subtitle,
-            board.size,
-            formatCount(board.prizePool)
+        val pool = formatCount(board.prizePool)
+        binding.leaderboardSubtitle.setStarText(
+            getString(R.string.leaderboard_subtitle, board.size, pool),
+            emphasise = pool,
+            emphasisColor = R.color.stars_accent
         )
 
         binding.leaderboardRank.text = if (board.isRanked) {
@@ -810,13 +867,30 @@ class HomeFragment : Fragment() {
             getString(R.string.leaderboard_play_to_enter)
         }
 
-        // An unranked user has no weekly XP worth printing - a hard zero
-        // beside "Play to enter" reads like a score they lost rather than
-        // one they have not started.
-        binding.leaderboardMyXp.text = if (board.isRanked) {
-            getString(R.string.leaderboard_my_xp, formatCount(board.myXp))
-        } else {
-            getString(R.string.leaderboard_unranked_xp)
+        // What the rank is WORTH, in Stars, rather than the weekly XP that
+        // produced it. The card is about a prize pool - the figure beside
+        // "You" is the share of it this rank currently takes.
+        //
+        // A ranked user outside the prize zone wins nothing, and "0 stars"
+        // beside their name reads as a payout of zero rather than as a
+        // position that does not pay yet. Unranked users have no standing at
+        // all, which is a third thing again.
+        when {
+            !board.isRanked ->
+                binding.leaderboardMyXp.text =
+                    getString(R.string.leaderboard_unranked_xp)
+
+            board.myPrize > 0 -> {
+                val prize = formatCount(board.myPrize)
+                binding.leaderboardMyXp.setStarText(
+                    getString(R.string.leaderboard_my_prize, prize),
+                    emphasise = prize,
+                    emphasisColor = R.color.stars_accent
+                )
+            }
+
+            else -> binding.leaderboardMyXp.text =
+                getString(R.string.leaderboard_my_none)
         }
 
         binding.leaderboardRow.setOnClickListener { openLeaderboard() }
@@ -874,12 +948,20 @@ class HomeFragment : Fragment() {
 
         binding.goalsDoneCount.text =
             getString(R.string.goals_done_count, goals.doneCount, goals.goals.size)
-        binding.goalsBonus.text = getString(R.string.goals_bonus, goals.bonusPoints)
+        val bonus = formatCount(goals.bonusPoints)
+        binding.goalsBonus.setStarText(
+            getString(R.string.goals_bonus, bonus),
+            emphasise = bonus,
+            emphasisColor = R.color.stars_accent
+        )
         binding.goalsProgressBar.progress =
             goals.doneCount * 100 / goals.goals.size
 
-        // Green once the set is finished, so the reward reads as earned rather
-        // than as another grey number on the card.
+        // The figure is gold in both states - it is Stars either way. What
+        // changes on completion is the WORD beside it, which goes green: the
+        // reward reads as earned rather than as another number on the card.
+        // Set before the star text above would be overwritten by it, so this
+        // paints the surrounding sentence only.
         binding.goalsBonus.setTextColor(
             ContextCompat.getColor(
                 requireContext(),
@@ -961,6 +1043,13 @@ class HomeFragment : Fragment() {
 
             progressViews[index].text =
                 getString(R.string.goals_progress, goal.progress, goal.target)
+
+            // A goal names something to go and DO, and until now said it on a
+            // screen with no way to get there - the user had to read "play 8
+            // games", find Play themselves, and remember which of the two
+            // tabs it meant. Finished goals stay tappable: having done one is
+            // not a reason to block the way back to it.
+            row.setOnClickListener { openGoalTarget(goal.kind) }
         }
     }
 
@@ -970,11 +1059,32 @@ class HomeFragment : Fragment() {
      */
     private fun goalLabel(goal: UserRepository.DailyGoal): String {
         val plural = when (goal.kind) {
-            "PLAY_GAMES" -> R.plurals.goal_play_games
-            "COMPLETE_QUIZZES" -> R.plurals.goal_complete_quizzes
+            DailyGoalEngine.KIND_PLAY_GAMES -> R.plurals.goal_play_games
+            DailyGoalEngine.KIND_COMPLETE_QUIZZES -> R.plurals.goal_complete_quizzes
             else -> R.plurals.goal_correct_answers
         }
         return resources.getQuantityString(plural, goal.target, goal.target)
+    }
+
+    /**
+     * Where a goal is actually done.
+     *
+     * The kinds fall into two destinations rather than three: answering
+     * correctly is something that happens INSIDE a quiz, so it lands on the
+     * same tab as completing them. The `else` arm matches progressFor, which
+     * also treats any unrecognised kind as a correct-answers goal - a kind
+     * added in the console but not yet known to this build lands somewhere
+     * sensible instead of doing nothing when tapped.
+     */
+    private fun openGoalTarget(kind: String) {
+        // Guarded like openLeaderboard: two taps in quick succession would
+        // otherwise push Play onto the stack twice.
+        if (findNavController().currentDestination?.id != R.id.navigation_home) return
+
+        when (kind) {
+            DailyGoalEngine.KIND_PLAY_GAMES -> navigateToGame()
+            else -> navigateToQuizzes()
+        }
     }
 
     private fun confirmGoalClaim() {
@@ -983,6 +1093,7 @@ class HomeFragment : Fragment() {
         showAdClaimDialog(
             title = getString(R.string.goals_dialog_title),
             reward = getString(R.string.streak_reward_points, goals.bonusPoints),
+            rewardIsStars = true,
             dotRes = R.drawable.bg_dot_success,
             onWatch = { playAdThenClaimGoals() }
         )

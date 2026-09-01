@@ -76,6 +76,7 @@ import {
 } from "./economy/pointsBuff";
 import {MAX_LEVEL, XP_THRESHOLDS} from "./economy/levelCurve";
 import {
+  GAME_XP_PER_SESSION_CAP,
   GAME_XP_SCORE_DIVISOR,
   LEVEL_UP_POINTS,
   MAX_DAILY_BONUS_ATTEMPTS,
@@ -1924,8 +1925,242 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
   const {rejected: _rejected, ...payload} = result;
   return {
     success: true,
+    // The handle a double is claimed against. Returned rather than
+    // reconstructed by the client because only games have an id the client
+    // could have rebuilt (`game:<sessionId>`) - a quiz entry is an
+    // auto-generated document name that exists nowhere else.
+    eventId: ledgerRef.id,
     ...payload,
   };
+});
+
+/**
+ * How long after a claim its double is still accepted.
+ *
+ * Doubling is offered on the results screen and taken within seconds, so this
+ * only has to be generous enough to cover a slow ad load and a player who
+ * reads before tapping. It exists because the base ledger entry would
+ * otherwise be a permanent, doubleable asset: with no window, a client could
+ * sit on a day's worth of entry ids and cash them in together later, which is
+ * exactly the shape of farming this is meant to make pointless.
+ */
+const DOUBLE_XP_WINDOW_MS = 10 * 60 * 1000;
+
+/** The play sources a double is offered on. Both are XP-only and capped. */
+const DOUBLEABLE_SOURCES: ReadonlySet<string> = new Set(["GAME", "QUIZ"]);
+
+/** Suffix marking an entry as the bonus half of a pair. */
+const DOUBLE_SUFFIX = ":double";
+
+/**
+ * Pays a second helping of XP for a run or answer whose ad the player watched.
+ *
+ * KEYED ON THE LEDGER ENTRY, not on a game session. A game session id would
+ * only ever have covered games: a quiz attempt has no session, and quizzes
+ * needed the same offer. What both have is exactly one ledger entry recording
+ * exactly what they were paid - which is the thing being doubled - so that
+ * entry's id is the natural handle. `claimReward` now returns it.
+ *
+ * SEPARATE FROM claimReward ON PURPOSE. The base claim lands the moment the
+ * activity ends, before any ad is shown, so a failed, unfilled or abandoned
+ * ad can never cost the player the XP they actually earned - the offer is
+ * strictly upside. Folding this into claimReward as a `doubled` flag would
+ * have meant holding the entire claim open until the ad resolved.
+ *
+ * The base entry is the input: this reads what was really awarded rather than
+ * taking a number from the client, so the amount doubled is the server's own
+ * figure. The double writes its own entry at `<eventId>:double`, which makes
+ * it idempotent for free - a redelivered call lands on the same document
+ * instead of paying twice - and leaves the audit trail showing base and bonus
+ * as two entries rather than one inflated one.
+ *
+ * THE AD IS ASSERTED, NOT PROVEN, exactly as grantBonusAttempt's is: there is
+ * no server-side verification, so a tampered client can call this without
+ * watching anything. What bounds that is what bounds a bonus attempt - the
+ * ceiling. One double per entry, one entry per attempt, attempts capped per
+ * day and XP capped per attempt; the most a liar collects is what a patient
+ * honest player collects.
+ *
+ * WEEKLY LEADERBOARD XP IS COUNTED, deliberately, and this is the one place
+ * the double touches something that settles against other players.
+ *
+ * The reasoning is that the weekly pot is FIXED. Letting ad-boosted XP into
+ * the standings redistributes rank; it does not increase what we pay out, so
+ * the tournament becomes a reason to watch ads at no extra payout cost. That
+ * is the whole point of the offer.
+ *
+ * What that knowingly accepts: the ad is asserted, not proven, so a tampered
+ * client can call this without watching anything and convert that straight
+ * into rank. It is bounded - one double per attempt, attempts capped per day,
+ * so a liar's ceiling is exactly an honest ad-watcher's ceiling - but within
+ * that bound a cheat takes a real prize from someone who actually watched.
+ * Server-side ad verification (AdMob SSV) is what would close it; until then
+ * this is a priced trade, not an oversight.
+ *
+ * Daily goal counters are still NOT advanced - see below. Those are a count
+ * of activities completed, and a double is one attempt paid twice rather than
+ * a second attempt.
+ */
+export const claimDoubleXp = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const eventId = String(request.data.eventId || "").trim();
+  if (!eventId) {
+    throw new functions.https.HttpsError("invalid-argument", "A reward event id is required");
+  }
+  // A slash would address a different collection entirely - `doc("a/b/c")` is
+  // a path, not a name - so an id containing one could reach outside this
+  // user's rewardEvents. Refused before it is ever turned into a reference.
+  if (eventId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "Malformed reward event id");
+  }
+  // A bonus entry carries the same source and shape as the base one it came
+  // from, so without this it would satisfy every check below and double
+  // itself - `x:double:double`, and again for as long as the window held.
+  if (eventId.endsWith(DOUBLE_SUFFIX)) {
+    throw new functions.https.HttpsError("invalid-argument", "A bonus cannot be doubled");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+  const events = userRef.collection(REWARD_EVENTS_SUBCOLLECTION);
+  const baseRef = events.doc(eventId);
+  const doubleRef = events.doc(`${eventId}${DOUBLE_SUFFIX}`);
+
+  await ensureLevelCurvePublished();
+  // Refreshed before the transaction, because writeAward reads the reward
+  // table synchronously from inside one. See ensureLevelRewardsFresh.
+  await ensureLevelRewardsFresh();
+
+  return firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    const baseDoc = await transaction.get(baseRef);
+    const doubleDoc = await transaction.get(doubleRef);
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+    if (!baseDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "No claim to double");
+    }
+    // Not something a player should ever reach - the button is gone by then -
+    // but a redelivered call must not pay twice, and saying so is better than
+    // silently rewriting the same document.
+    if (doubleDoc.exists) {
+      throw new functions.https.HttpsError("already-exists", "This was already doubled");
+    }
+
+    const source = String(baseDoc.get("source") || "");
+    // Only play earns a double. Referral, streak and level-up awards are
+    // fixed by design and a redemption is a debit - none of them are things
+    // an ad may re-pay.
+    if (!DOUBLEABLE_SOURCES.has(source)) {
+      throw new functions.https.HttpsError("invalid-argument", "That reward cannot be doubled");
+    }
+    if (baseDoc.get("status") !== "applied") {
+      throw new functions.https.HttpsError("failed-precondition", "That claim was reversed");
+    }
+
+    const createdAt = baseDoc.get("createdAt") as Timestamp | undefined;
+    if (!createdAt || Date.now() - createdAt.toMillis() > DOUBLE_XP_WINDOW_MS) {
+      throw new functions.https.HttpsError("failed-precondition", "That reward is too old to double");
+    }
+
+    // What was actually paid, buff included. Doubling the buffed figure is
+    // the intent: the offer on screen says "double your XP", and the number
+    // it doubles has to be the one the player was just shown.
+    const baseXp = Number(baseDoc.get("xpAwarded") || 0);
+    if (!Number.isFinite(baseXp) || baseXp <= 0) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "That earned no XP to double"
+      );
+    }
+
+    // Clamped against the source's own per-attempt ceiling as well as
+    // trusting the ledger's figure. The ledger is server-written and should
+    // never exceed it, but this is the one place an old or hand-edited entry
+    // could be turned back into XP, so it is not taken on faith either.
+    //
+    // THE CEILING IS SCALED BY THE BUFF THE BASE ENTRY RECORDED. The caps
+    // govern the PRE-buff figure - gameXpForScore applies GAME_XP_PER_SESSION_CAP
+    // before buildAward multiplies - so a player running an XP booster is
+    // legitimately paid above the bare cap, and `xpAwarded` here is that
+    // buffed number. Comparing it against the unscaled ceiling would quietly
+    // pay a boosted player LESS for their double than the ad promised, and
+    // the further the booster went above 1x the worse it would get.
+    const ceiling = source === "GAME" ? GAME_XP_PER_SESSION_CAP : QUIZ_CORRECT_XP;
+    const recordedMultiplier = Number(baseDoc.get("xpMultiplierApplied"));
+    // A missing or nonsensical multiplier falls back to 1 rather than being
+    // trusted: this value only ever widens the ceiling, so it is exactly the
+    // field a hand-edited entry would want to inflate.
+    const buff = Number.isFinite(recordedMultiplier) && recordedMultiplier >= 1 ?
+      Math.min(recordedMultiplier, MAX_BUFF_MULTIPLIER) :
+      1;
+    const bonusXp = Math.min(Math.floor(baseXp), Math.floor(ceiling * buff));
+
+    const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
+    const currentXp = Number(userDoc.get(FIELD_XP) || 0);
+    const currentLevel = Number(userDoc.get(FIELD_LEVEL) || 1);
+
+    // Reads before writes, as everywhere else: the bonus can be the gain that
+    // carries a referred user past REFERRAL_UNLOCK_XP.
+    const referrer = await readReferrerForUnlock(transaction, userDoc, currentXp, bonusXp);
+
+    // No activeXpMultiplier is passed: the base entry was already buffed and
+    // this doubles what that paid. Applying the buff again would compound it.
+    const award = buildAward(currentPoints, currentXp, {
+      source: source as RewardSource,
+      basePoints: 0,
+      baseXp: bonusXp,
+      metadata: {
+        doubledFrom: eventId,
+        rewardedAd: true,
+      },
+      storedLevel: currentLevel,
+    });
+
+    // The weekly leaderboard, and nothing else.
+    //
+    // Read through nextWeeklyXp rather than incremented blindly so a week
+    // that rolls over between the base claim and its double resets the total
+    // instead of carrying last week's into this one. That gap is seconds
+    // wide, but it is exactly as wide as a rewarded ad and the boundary does
+    // not care.
+    //
+    // The daily goal counters and the attempt counters stay untouched: this
+    // is one attempt being paid twice, not a second attempt, so a double must
+    // never advance a goal or spend an allowance.
+    const weekKey = utcWeekFor(Date.now());
+    const extraUpdates: Record<string, FieldValue | number> = {
+      [FIELD_WEEKLY_XP]: nextWeeklyXp(
+        userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+        userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+        weekKey,
+        bonusXp
+      ),
+      [FIELD_WEEK_KEY]: weekKey,
+    };
+
+    const {milestonePoints, milestoneLevels} =
+      writeAward(transaction, userRef, doubleRef, award, extraUpdates);
+
+    payReferrerIfUnlocked(transaction, userRef, referrer);
+
+    return {
+      success: true,
+      xpAwarded: award.xpAwarded,
+      totalXp: award.level.xp,
+      level: award.level.level,
+      leveledUp: award.level.leveledUp,
+      milestonePoints,
+      milestoneLevels,
+      totalPoints: currentPoints + milestonePoints,
+    };
+  });
 });
 /**
  * Spends Points on one pack of one game.

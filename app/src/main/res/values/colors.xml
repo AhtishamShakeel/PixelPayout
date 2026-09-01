@@ -85,6 +85,11 @@
     <color name="stroke_card">#12FFFFFF</color>
     <color name="stroke_strong">#1FFFFFFF</color>
 
+    <!-- The rail down the left of an unanswered quiz option. Deliberately
+         dimmer than stroke_strong: it sits next to the violet one marking the
+         selection, and anything brighter competes with it. -->
+    <color name="option_bar_idle">#17FFFFFF</color>
+
     <!-- Violet. `primary`/`primary_dark` (#8A8AFF/#5757FF) are already the
          balance-gradient stops, so they are reused there rather than
          duplicated under new names. -->

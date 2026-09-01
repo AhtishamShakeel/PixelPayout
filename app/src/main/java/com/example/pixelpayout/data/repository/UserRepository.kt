@@ -408,6 +408,15 @@ class UserRepository {
     data class RewardClaimResult(
         val pointsAwarded: Int,
         val totalPoints: Int,
+        /**
+         * The ledger entry this claim wrote, and the handle [claimDoubleXp]
+         * doubles against.
+         *
+         * Comes from the server rather than being rebuilt here: a game entry
+         * is `game:<sessionId>` and could have been reconstructed, but a quiz
+         * entry is an auto-generated document name that exists nowhere else.
+         */
+        val eventId: String = "",
         val xpAwarded: Int = 0,
         val totalXp: Int = 0,
         val level: Int = 1,
@@ -439,6 +448,77 @@ class UserRepository {
                 "sessionId" to sessionId
             )
         )
+    }
+
+    /**
+     * Doubles the XP a finished game run or quiz answer already paid, having
+     * watched a rewarded ad.
+     *
+     * Deliberately a SECOND call rather than a flag on the claim. The base
+     * claim goes in the moment the activity ends, before the offer is even on
+     * screen, so an ad that never fills or gets closed early cannot cost the
+     * player XP they earned by playing - the offer is upside only. It also
+     * means the number on the results screen is real before anyone is asked
+     * to watch anything.
+     *
+     * Keyed on [eventId], the ledger entry the claim returned, which is what
+     * lets one call serve both games and quizzes: a quiz attempt is a single
+     * question, so it has exactly one entry, the same shape a game run has.
+     *
+     * No amount is sent. The server reads what it actually paid from its own
+     * ledger and matches it, so there is nothing here for a client to
+     * inflate, and the double is idempotent on the entry id - a retry after a
+     * dropped response cannot pay twice.
+     *
+     * The ad is asserted rather than proven, as it is for [grantBonusAttempt];
+     * one double per session is what bounds it.
+     *
+     * Short timeout for the same reason the bonus grant has one: the player is
+     * watching a spinner on a finished game, and offline this would otherwise
+     * hang for a minute with nothing to explain it.
+     */
+    suspend fun claimDoubleXp(eventId: String): DoubleXpResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("claimDoubleXp")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call(mapOf("eventId" to eventId))
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return DoubleXpResult.Error
+
+            DoubleXpResult.Paid(
+                xpAwarded = (data["xpAwarded"] as? Number)?.toInt() ?: 0,
+                level = (data["level"] as? Number)?.toInt() ?: 1,
+                leveledUp = data["leveledUp"] == true,
+                milestonePoints = (data["milestonePoints"] as? Number)?.toInt() ?: 0
+            )
+        } catch (e: Exception) {
+            // ALREADY_EXISTS means a previous attempt got through and the
+            // response was lost. The XP is banked either way, so this is a
+            // success the player should see as one - reporting it as an error
+            // would tell somebody who has already been paid that they were not.
+            val code = (e as? FirebaseFunctionsException)?.code
+            if (code == FirebaseFunctionsException.Code.ALREADY_EXISTS) {
+                DoubleXpResult.AlreadyDoubled
+            } else {
+                DoubleXpResult.Error
+            }
+        }
+    }
+
+    sealed class DoubleXpResult {
+        data class Paid(
+            val xpAwarded: Int,
+            val level: Int,
+            val leveledUp: Boolean,
+            val milestonePoints: Int
+        ) : DoubleXpResult()
+
+        /** The double had already landed; nothing more to pay, nothing wrong. */
+        data object AlreadyDoubled : DoubleXpResult()
+
+        data object Error : DoubleXpResult()
     }
 
     /**
@@ -1360,6 +1440,7 @@ class UserRepository {
         return RewardClaimResult(
             pointsAwarded = data.getInt("pointsAwarded"),
             totalPoints = data.getInt("totalPoints"),
+            eventId = data["eventId"] as? String ?: "",
             xpAwarded = data.optInt("xpAwarded"),
             totalXp = data.optInt("totalXp"),
             level = data.optInt("level", default = 1),

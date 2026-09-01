@@ -36,6 +36,36 @@ class QuizViewModel : ViewModel() {
     private val _levelUp = MutableLiveData<LevelUpEvent?>()
     val levelUp: LiveData<LevelUpEvent?> = _levelUp
 
+    /** How the "double it" offer ended. Mirrors the game results screen. */
+    sealed class DoubleOutcome {
+        data class Paid(val xpAwarded: Int) : DoubleOutcome()
+
+        /**
+         * The double had already landed - a previous call got through and its
+         * response was lost. The XP is banked, so this is a success with no
+         * number to show, not a failure.
+         */
+        data object AlreadyPaid : DoubleOutcome()
+
+        data object Failed : DoubleOutcome()
+    }
+
+    private val _doubleOutcome = MutableLiveData<DoubleOutcome>()
+    val doubleOutcome: LiveData<DoubleOutcome> = _doubleOutcome
+
+    /**
+     * The ledger entry this attempt can still be doubled against.
+     *
+     * A quiz attempt is ONE question, so there is exactly one entry to double
+     * - the same shape a game run has, which is why both go through the same
+     * server call. Cleared the instant the double is requested, so a
+     * double-tap cannot send two.
+     */
+    private var doubleableEventId: String? = null
+
+    /** Whether there is a paid answer to offer a double on. */
+    fun canDouble(): Boolean = doubleableEventId != null
+
     private val userRepository = UserRepository()
 
     fun setQuiz(quiz: Quiz) {
@@ -57,6 +87,11 @@ class QuizViewModel : ViewModel() {
                 )
                 earnedXp += result.xpAwarded
                 _score.postValue(earnedXp)
+                // A wrong answer earns nothing, and the server refuses a
+                // double on it - so the offer is not made rather than made
+                // and then refused.
+                doubleableEventId =
+                    if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
                 _totalPoints.postValue(result.totalXp)
                 if (result.leveledUp) {
                     _levelUp.postValue(
@@ -65,7 +100,40 @@ class QuizViewModel : ViewModel() {
                 }
                 _isQuizComplete.postValue(true)
             } catch (e: Exception) {
+                doubleableEventId = null
                 _isQuizComplete.postValue(true)
+            }
+        }
+    }
+
+    /**
+     * Claims the doubled XP, the rewarded ad having been watched.
+     *
+     * Called from the ad's REWARD callback rather than on dismissal: both
+     * arrive on a normal completion but the reward comes first, which shrinks
+     * the window in which a killed process loses an ad the player actually
+     * sat through.
+     */
+    fun claimDoubleXp() {
+        val eventId = doubleableEventId ?: return
+        doubleableEventId = null
+
+        viewModelScope.launch {
+            when (val result = userRepository.claimDoubleXp(eventId)) {
+                is UserRepository.DoubleXpResult.Paid -> {
+                    earnedXp += result.xpAwarded
+                    _score.postValue(earnedXp)
+                    if (result.leveledUp) {
+                        _levelUp.postValue(
+                            LevelUpEvent(result.level, result.milestonePoints)
+                        )
+                    }
+                    _doubleOutcome.postValue(DoubleOutcome.Paid(result.xpAwarded))
+                }
+                is UserRepository.DoubleXpResult.AlreadyDoubled ->
+                    _doubleOutcome.postValue(DoubleOutcome.AlreadyPaid)
+                is UserRepository.DoubleXpResult.Error ->
+                    _doubleOutcome.postValue(DoubleOutcome.Failed)
             }
         }
     }

@@ -23,13 +23,31 @@ class GamePlayViewModel : ViewModel() {
      * session is spent, so silence is the one response that helps nobody.
      */
     sealed class ClaimOutcome {
-        object Paid : ClaimOutcome()
+        /** [xpAwarded] is what the server actually paid, buffs included. */
+        data class Paid(val xpAwarded: Int) : ClaimOutcome()
         /** [reason] is a string resource the activity shows. */
         data class Refused(val reason: Int) : ClaimOutcome()
     }
 
+    /** How the "double it" offer ended. */
+    sealed class DoubleOutcome {
+        data class Paid(val xpAwarded: Int) : DoubleOutcome()
+
+        /**
+         * The double had already landed - a previous call got through and its
+         * response was lost. The XP is banked, so this is a success with no
+         * number to show, not a failure.
+         */
+        data object AlreadyPaid : DoubleOutcome()
+
+        data object Failed : DoubleOutcome()
+    }
+
     private val _claimOutcome = MutableLiveData<ClaimOutcome>()
     val claimOutcome: LiveData<ClaimOutcome> = _claimOutcome
+
+    private val _doubleOutcome = MutableLiveData<DoubleOutcome>()
+    val doubleOutcome: LiveData<DoubleOutcome> = _doubleOutcome
 
     private val _levelUp = MutableLiveData<LevelUpEvent?>()
     val levelUp: LiveData<LevelUpEvent?> = _levelUp
@@ -38,6 +56,20 @@ class GamePlayViewModel : ViewModel() {
     val sessionReady: LiveData<Boolean> = _sessionReady
 
     private var sessionId: String? = null
+
+    /**
+     * The ledger entry a paid run can still be doubled against.
+     *
+     * Not [sessionId], which is cleared at claim time so a second completion
+     * cannot reuse it. These are two different lifetimes: the play session is
+     * spent the moment it pays, while the right to double what it paid lasts
+     * until the player leaves the results screen. Cleared the instant the
+     * double is requested, so a double-tap cannot send two calls.
+     */
+    private var doubleableEventId: String? = null
+
+    /** Whether there is still a paid run to offer a double on. */
+    fun canDouble(): Boolean = doubleableEventId != null
 
     /**
      * Opens a server-side session before play starts. A reward claim is only
@@ -74,12 +106,46 @@ class GamePlayViewModel : ViewModel() {
                 if (result.leveledUp) {
                     _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
                 }
-                _claimOutcome.value = ClaimOutcome.Paid
+                // Only a run that paid something can be doubled - the server
+                // refuses a zero anyway, and offering an ad in exchange for
+                // twice nothing is worse than not offering one.
+                doubleableEventId =
+                    if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
+                _claimOutcome.value = ClaimOutcome.Paid(result.xpAwarded)
             } catch (e: Exception) {
                 // The session is burned by the server on a rejection, so it is
                 // dropped here too - retrying it could only fail again.
                 sessionId = null
+                doubleableEventId = null
                 _claimOutcome.value = ClaimOutcome.Refused(reasonFor(e))
+            }
+        }
+    }
+
+    /**
+     * Claims the doubled XP, the rewarded ad having been watched.
+     *
+     * Called from the ad's REWARD callback rather than on dismissal, the same
+     * way the bonus-attempt purchase is: both fire on a normal completion but
+     * the reward comes first, which shrinks the window in which a killed
+     * process loses an ad the player actually sat through.
+     */
+    fun claimDoubleXp() {
+        val eventId = doubleableEventId ?: return
+        doubleableEventId = null
+
+        viewModelScope.launch {
+            when (val result = userRepository.claimDoubleXp(eventId)) {
+                is UserRepository.DoubleXpResult.Paid -> {
+                    if (result.leveledUp) {
+                        _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
+                    }
+                    _doubleOutcome.value = DoubleOutcome.Paid(result.xpAwarded)
+                }
+                is UserRepository.DoubleXpResult.AlreadyDoubled ->
+                    _doubleOutcome.value = DoubleOutcome.AlreadyPaid
+                is UserRepository.DoubleXpResult.Error ->
+                    _doubleOutcome.value = DoubleOutcome.Failed
             }
         }
     }

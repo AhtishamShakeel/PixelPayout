@@ -284,18 +284,16 @@ class QuizListFragment : Fragment() {
     private fun buyBonusAttempt() {
         if (bonusInFlight) return
 
-        if (!AdManager.getInstance().isRewardedAdReady()) {
-            toastBonus(R.string.bonus_attempt_ad_unavailable)
-            AdManager.getInstance().loadRewardedAd(requireContext())
-            return
-        }
-
         bonusInFlight = true
-        binding.quizBonusLabel.setText(R.string.bonus_attempt_loading)
+        // "Finding an ad" first: showRewardedAdWhenReady waits a few seconds
+        // for one rather than refusing the tap outright, so the label has to
+        // describe that wait before it can honestly claim to be buying
+        // anything. It becomes "Adding your attempt" once the reward fires.
+        binding.quizBonusLabel.setText(R.string.bonus_attempt_finding_ad)
         refreshBonusButtonState()
 
         var claimed = false
-        AdManager.getInstance().showRewardedAd(
+        AdManager.getInstance().showRewardedAdWhenReady(
             activity = requireActivity(),
             onRewarded = {
                 if (!claimed) {
@@ -316,6 +314,8 @@ class QuizListFragment : Fragment() {
     }
 
     private fun submitBonusAttempt() {
+        _binding?.quizBonusLabel?.setText(R.string.bonus_attempt_loading)
+
         // The fragment's own scope: if the user leaves, this stops caring.
         // The grant still lands, and the snapshot listener brings it back.
         viewLifecycleOwner.lifecycleScope.launch {

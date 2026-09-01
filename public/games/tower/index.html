@@ -209,6 +209,16 @@
     height: gameHeight,
     canvasId: 'canvas',
     soundOn: true,
+    // Scoring, which the engine applies as:
+    //     score += successScore + (perfectScore * consecutive-perfect-streak)
+    //
+    // The engine's defaults are 25 and 25, which ran 25 / 50 / 75 / 100 as a
+    // perfect streak built - so a flawless run accelerated hard enough to
+    // reach the XP ceiling almost immediately and swamped the payout maths.
+    // Dropping the streak term to 10 gives 25 / 35 / 45 / 55: precision is
+    // still worth more, but it compounds two and a half times slower.
+    successScore: 25,
+    perfectScore: 10,
     setGameScore: function (s) {
       score = s
     },

@@ -73,12 +73,12 @@ class GameFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val xpChip = getString(R.string.game_xp_chip, GAME_XP_PER_SESSION_CAP)
+        val xpChip = getString(R.string.game_xp_chip, GAME_XP_PER_MINUTE)
         binding.flappyXpChip.text = xpChip
         binding.towerXpChip.text = xpChip
         binding.gamesAvailable.text = getString(R.string.games_available, GAME_COUNT)
         binding.gamesFootnote.text =
-            getString(R.string.games_xp_footnote, GAME_XP_PER_SESSION_CAP)
+            getString(R.string.games_xp_footnote)
 
         AdManager.getInstance().loadRewardedAd(requireContext())
 
@@ -267,18 +267,16 @@ class GameFragment : Fragment() {
     private fun buyBonusAttempt() {
         if (bonusInFlight) return
 
-        if (!AdManager.getInstance().isRewardedAdReady()) {
-            toast(R.string.bonus_attempt_ad_unavailable)
-            AdManager.getInstance().loadRewardedAd(requireContext())
-            return
-        }
-
         bonusInFlight = true
-        binding.gameBonusLabel.setText(R.string.bonus_attempt_loading)
+        // "Finding an ad" first: showRewardedAdWhenReady waits a few seconds
+        // for one rather than refusing the tap outright, so the label has to
+        // describe that wait before it can honestly claim to be buying
+        // anything. It becomes "Adding your attempt" once the reward fires.
+        binding.gameBonusLabel.setText(R.string.bonus_attempt_finding_ad)
         refreshBonusButtonState()
 
         var claimed = false
-        AdManager.getInstance().showRewardedAd(
+        AdManager.getInstance().showRewardedAdWhenReady(
             activity = requireActivity(),
             onRewarded = {
                 if (!claimed) {
@@ -299,6 +297,8 @@ class GameFragment : Fragment() {
     }
 
     private fun submitBonusAttempt() {
+        _binding?.gameBonusLabel?.setText(R.string.bonus_attempt_loading)
+
         // The fragment's own scope: if the user leaves, this simply stops
         // caring. The grant still lands server-side and the snapshot listener
         // brings it back next time the card is drawn.
@@ -336,8 +336,13 @@ class GameFragment : Fragment() {
     }
 
     private companion object {
-        /** Mirrors the server's GAME_XP_PER_SESSION_CAP, for the "up to" chip. */
-        const val GAME_XP_PER_SESSION_CAP = 30
+        /**
+         * What the "up to N XP/min" chip quotes - a RATE, not the per-session
+         * ceiling, which is deliberately not advertised. The ceiling is
+         * GAME_XP_PER_SESSION_CAP on the server and is what actually bounds a
+         * run; this is roughly what a good run earns per minute.
+         */
+        const val GAME_XP_PER_MINUTE = 30
 
         /** Games wired up on this screen, for the "N available" count. */
         const val GAME_COUNT = 2

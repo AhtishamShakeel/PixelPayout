@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The countdown ring. Drawn as a determinate ProgressBar rather than as the
+    static circle it replaces, because in the Ring-led design the clock is the
+    only heavy element on the screen - a number alone would not carry it.
+
+    innerRadius + thickness give the 104dp outer / 92dp inner the design asks
+    for. The progress layer is rotated so it starts at twelve o'clock; without
+    that a ring sweeps from three.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:id="@android:id/background">
+        <shape
+            android:shape="ring"
+            android:innerRadius="46dp"
+            android:thickness="6dp"
+            android:useLevel="false">
+            <solid android:color="@color/stroke_card" />
+        </shape>
+    </item>
+
+    <item android:id="@android:id/progress">
+        <rotate
+            android:fromDegrees="270"
+            android:toDegrees="270"
+            android:pivotX="50%"
+            android:pivotY="50%">
+            <shape
+                android:shape="ring"
+                android:innerRadius="46dp"
+                android:thickness="6dp"
+                android:useLevel="true">
+                <solid android:color="@color/brand_violet" />
+            </shape>
+        </rotate>
+    </item>
+
+</layer-list>

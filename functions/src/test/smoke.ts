@@ -234,9 +234,17 @@ async function run() {
     assertEq("level persisted to the user document", snap.get("level"), 2);
     assertEq("xp persisted to the user document", snap.get("xp"), 55);
 
+    // Found by source, NOT events[0]. getLedgerEvents does an unordered get(),
+    // so Firestore returns documents in ID order - and this claim writes two:
+    // the QUIZ entry under a random auto-id, and the milestone under
+    // `levelup:2`. Whether the auto-id sorts before "levelup:2" is a coin
+    // flip, so indexing here asserted against the milestone entry (whose
+    // levelAtEvent is the level reached, not the level before) on roughly
+    // half of all runs.
     const events = await getLedgerEvents(user.uid);
-    assertEq("ledger records the level before the event", events[0].levelAtEvent, 1);
-    assertEq("ledger records the level after the event", events[0].levelAfterEvent, 2);
+    const quizEvent = events.find((e) => e.source === "QUIZ");
+    assertEq("ledger records the level before the event", quizEvent?.levelAtEvent, 1);
+    assertEq("ledger records the level after the event", quizEvent?.levelAfterEvent, 2);
   }
 
   // --- reaching a milestone level pays a one-time Points bonus ---
@@ -994,8 +1002,13 @@ async function run() {
 
     const session1 = await openGameSession("floppy_bird");
     await backdateSession(user.uid, session1, 60_000); // 60s of play
-    const res = await claimReward({rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: session1});
-    assertEq("floppy_bird score 42 -> 30 xp (per-session cap)", (res.data as {xpAwarded: number}).xpAwarded, 30);
+    // Comfortably above GAME_XP_PER_SESSION_CAP, so what is asserted is the
+    // cap doing its job rather than the divisor. 60s of play is what makes it
+    // claimable: the rate check tests the CAPPED score, so a maxed run needs
+    // roughly cap/maxScorePerSecond seconds behind it however high the raw
+    // total goes.
+    const res = await claimReward({rewardType: "game", gameId: "floppy_bird", score: 100, sessionId: session1});
+    assertEq("floppy_bird score 100 -> 60 xp (per-session cap)", (res.data as {xpAwarded: number}).xpAwarded, 60);
     assertEq("games award no points (XP-only source)", (res.data as {pointsAwarded: number}).pointsAwarded, 0);
 
     const session2 = await openGameSession("tower_game");
@@ -1005,7 +1018,7 @@ async function run() {
 
     await assertThrows(
       "replaying a consumed session is rejected",
-      () => claimReward({rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: session1}),
+      () => claimReward({rewardType: "game", gameId: "floppy_bird", score: 100, sessionId: session1}),
       "failed-precondition"
     );
 
@@ -1031,11 +1044,316 @@ async function run() {
       2
     );
     const floppyEvent = events.find((e) => (e.metadata as any)?.gameId === "floppy_bird");
-    assertEq("floppy_bird ledger entry xpAwarded 30", floppyEvent?.xpAwarded, 30);
+    assertEq("floppy_bird ledger entry xpAwarded 60", floppyEvent?.xpAwarded, 60);
     assertEq("floppy_bird ledger entry basePoints 0", floppyEvent?.basePoints, 0);
-    assertEq("floppy_bird ledger entry metadata.score 42", (floppyEvent?.metadata as any)?.score, 42);
+    // The RAW score is what the ledger keeps, not the capped payout. That is
+    // deliberate - botting is spotted from the shape of a user's sessions, and
+    // a ledger that only recorded the capped figure would hide exactly the
+    // outliers worth looking at.
+    assertEq("floppy_bird ledger entry metadata.score 100", (floppyEvent?.metadata as any)?.score, 100);
     assertEq("game ledger event id is derived from the session", floppyEvent?.id, `game:${session1}`);
     assertEq("floppy_bird ledger entry not multiplier eligible", floppyEvent?.multiplierEligible, false);
+  }
+
+  // --- claimDoubleXp: the rewarded-ad double ------------------------------
+  //
+  // Weekly XP IS counted: the tournament pot is fixed, so ad-boosted XP
+  // redistributes rank without increasing what we pay, which is what makes
+  // the offer worth making. The assertions below pin the boundary of that
+  // decision - the double feeds the leaderboard, and nothing else. The daily
+  // stats (which pay a real goal bonus) and the attempt counters stay put,
+  // because a double is one attempt paid twice rather than a second attempt.
+  {
+    const user = await makeUser("doublexp");
+    await seedUserDoc(user.uid, "DOUBLEXP1");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    await assertThrows(
+      "doubling an entry that does not exist is rejected",
+      () => claimDoubleXp({eventId: "game:not-a-real-session"}),
+      "not-found"
+    );
+    await assertThrows(
+      "doubling with no event id is rejected",
+      () => claimDoubleXp({}),
+      "invalid-argument"
+    );
+    // `doc("a/b/c")` is a path, not a name, so a slash would reach outside
+    // this user's rewardEvents entirely.
+    await assertThrows(
+      "an event id containing a path separator is rejected",
+      () => claimDoubleXp({eventId: "../../users/someoneelse"}),
+      "invalid-argument"
+    );
+
+    const session = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, session, 60_000);
+    const base = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: session,
+    });
+    const baseData = base.data as {xpAwarded: number; eventId: string};
+    // 42, not the per-session cap: floppy_bird divides its score by 1 and
+    // GAME_XP_PER_SESSION_CAP is 60, so this run is paid in full. Chosen so
+    // the doubled total stays under the cap too - the cap bounds each award,
+    // and a run at the ceiling would make the double look capped when it is
+    // simply a second award of the same size.
+    assertEq("the run pays 42 xp before any ad", baseData.xpAwarded, 42);
+    assertEq("the claim returns the ledger id to double against",
+      baseData.eventId, `game:${session}`);
+
+    const beforeSnap = await db.collection("users").doc(user.uid).get();
+    const weeklyBefore = Number(beforeSnap.get("weeklyXp") || 0);
+    const statsBefore = beforeSnap.get("dailyStats");
+    const attemptsBefore = beforeSnap.get("game_attempts");
+
+    const dbl = await claimDoubleXp({eventId: baseData.eventId});
+    const dblData = dbl.data as {xpAwarded: number; totalXp: number};
+    assertEq("the double pays the same again", dblData.xpAwarded, 42);
+    assertEq("the double reports the running total", dblData.totalXp, 84);
+
+    const afterSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("both halves reach the stored xp", afterSnap.get("xp"), 84);
+    assertEq("the double DOES feed the weekly leaderboard",
+      afterSnap.get("weeklyXp"), weeklyBefore + 42);
+    assertEq("the double does NOT advance the daily goal counters",
+      afterSnap.get("dailyStats"), statsBefore);
+    assertEq("the double does NOT spend another attempt",
+      afterSnap.get("game_attempts"), attemptsBefore);
+
+    const events = await getLedgerEvents(user.uid);
+    const doubleEvent = events.find((e) => e.id === `${baseData.eventId}:double`);
+    assertEq("the double writes its own ledger entry", doubleEvent !== undefined, true);
+    assertEq("the double ledger entry records the bonus xp", doubleEvent?.xpAwarded, 42);
+    assertEq("the double ledger entry awards no points", doubleEvent?.finalPoints, 0);
+    assertEq("the double ledger entry names the entry it doubled",
+      (doubleEvent?.metadata as any)?.doubledFrom, baseData.eventId);
+    assertEq(
+      "base and bonus are two entries, not one inflated one",
+      events.filter((e) => e.source === "GAME").length,
+      2
+    );
+
+    // Idempotency. The app claims from the ad's reward callback, so a
+    // redelivery or an impatient second tap has to land on the same document
+    // rather than pay again.
+    await assertThrows(
+      "the same entry cannot be doubled twice",
+      () => claimDoubleXp({eventId: baseData.eventId}),
+      "already-exists"
+    );
+    // A bonus entry carries the same source and shape as the base it came
+    // from, so without an explicit guard it would satisfy every other check
+    // and double itself, and again, for as long as the window held.
+    await assertThrows(
+      "a bonus entry cannot itself be doubled",
+      () => claimDoubleXp({eventId: `${baseData.eventId}:double`}),
+      "invalid-argument"
+    );
+    const twiceSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("the refused second double changed nothing", twiceSnap.get("xp"), 84);
+  }
+
+  // --- claimDoubleXp: a week that rolls over mid-offer ---------------------
+  //
+  // The gap between a claim and its double is exactly one rewarded ad wide,
+  // and the week boundary does not care. Reading through nextWeeklyXp rather
+  // than incrementing blindly is what stops the bonus being added to a total
+  // that belongs to last week's tournament - which would seed the new week
+  // with a standing the player did not earn in it.
+  {
+    const user = await makeUser("doublerollover");
+    await seedUserDoc(user.uid, "DBLROLL1");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    const session = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, session, 60_000);
+    const base = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: session,
+    });
+    const eventId = (base.data as {eventId: string}).eventId;
+
+    // Rewind the stored week to last week's, as if the boundary passed while
+    // the ad was on screen. The claim above left a total for a week that is
+    // now over.
+    const lastWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7) - 1;
+    await db.collection("users").doc(user.uid).update({weekKey: lastWeek, weeklyXp: 400});
+
+    await claimDoubleXp({eventId});
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("a rolled-over week starts from the bonus alone",
+      snap.get("weeklyXp"), 42);
+    assertEq("the double stamps the current week", snap.get("weekKey"), lastWeek + 1);
+    // The lifetime total is untouched by any of this - only the weekly
+    // standing resets.
+    assertEq("lifetime xp still has both halves", snap.get("xp"), 84);
+  }
+
+  // --- claimDoubleXp: quizzes take the same offer -------------------------
+  //
+  // A quiz attempt is ONE question, so it has exactly one ledger entry - the
+  // same shape a game run has, which is why both go through one callable
+  // keyed on the entry rather than on anything game-specific.
+  {
+    const user = await makeUser("doublequiz");
+    await seedUserDoc(user.uid, "DOUBLEQ1");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    const correct = await claimReward({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+    const correctData = correct.data as {xpAwarded: number; eventId: string; wasCorrect: boolean};
+    assertEq("a correct answer pays quiz xp", correctData.xpAwarded, 10);
+    assertEq("the quiz claim returns a ledger id", typeof correctData.eventId, "string");
+
+    const weeklyBefore = Number(
+      (await db.collection("users").doc(user.uid).get()).get("weeklyXp") || 0
+    );
+
+    const dbl = await claimDoubleXp({eventId: correctData.eventId});
+    assertEq("the quiz double pays the same again",
+      (dbl.data as {xpAwarded: number}).xpAwarded, 10);
+
+    const afterSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("both halves of the quiz reach the stored xp", afterSnap.get("xp"), 20);
+    assertEq("the quiz double DOES feed the weekly leaderboard",
+      afterSnap.get("weeklyXp"), weeklyBefore + 10);
+    assertEq("the quiz double does NOT advance the correct-answer goal counter",
+      (afterSnap.get("dailyStats") as {correct: number}).correct, 1);
+    assertEq("the quiz double does NOT spend another attempt",
+      afterSnap.get("quiz_attempts"), 1);
+
+    const doubleEvent = (await getLedgerEvents(user.uid))
+      .find((e) => e.id === `${correctData.eventId}:double`);
+    assertEq("the quiz double is recorded as a QUIZ event", doubleEvent?.source, "QUIZ");
+    assertEq("the quiz double awards no points", doubleEvent?.finalPoints, 0);
+
+    // A wrong answer earns nothing, so there is nothing to double. The client
+    // hides the offer in this case, but the server is what decides it.
+    const wrong = await claimReward({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 1, selectedAnswer: 0,
+    });
+    const wrongData = wrong.data as {xpAwarded: number; eventId: string};
+    assertEq("a wrong answer pays nothing", wrongData.xpAwarded, 0);
+    await assertThrows(
+      "a wrong answer cannot be doubled",
+      () => claimDoubleXp({eventId: wrongData.eventId}),
+      "failed-precondition"
+    );
+  }
+
+  // --- claimDoubleXp: the double stacks with the XP booster ----------------
+  //
+  // These are two different mechanisms and they are SUPPOSED to compound. The
+  // booster is a time-windowed multiplier on future earnings, granted by an
+  // admin; the double is a one-shot rewarded-ad match on one entry that has
+  // already been paid. A boosted run pays 2x, and doubling it pays that same
+  // boosted figure again.
+  //
+  // The regression this guards is the per-attempt ceiling. The caps govern
+  // the PRE-buff score - gameXpForScore clamps before buildAward multiplies -
+  // so a boosted award legitimately exceeds the bare cap. Comparing it to an
+  // unscaled ceiling silently paid a boosted player less for their double
+  // than the ad promised, which is invisible in the UI and gets worse the
+  // bigger the booster.
+  {
+    const adminUser = await makeUser("doublebuffadmin");
+    await seedUserDoc(adminUser.uid, "DBLBUFFAD");
+    await admin.auth().setCustomUserClaims(adminUser.uid, {admin: true});
+
+    const user = await makeUser("doublebuff");
+    await seedUserDoc(user.uid, "DBLBUFF1");
+
+    // Granted as the admin, then the run is played as the user.
+    await signInWithEmailAndPassword(clientAuth, adminUser.email!, "Test1234!");
+    const granted = await httpsCallable(clientFunctions, "grantPointsBuff")({
+      uid: user.uid, multiplier: 2, durationMs: 10 * 60 * 1000, kind: "xp",
+    });
+    assertEq("the xp booster was granted", (granted.data as {applied: boolean}).applied, true);
+
+    await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    // Score 100 is above GAME_XP_PER_SESSION_CAP, so the run caps at 60 and
+    // the booster then doubles it to 120 - a figure deliberately ABOVE the
+    // bare ceiling, which is the whole point of this block.
+    const session = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, session, 60_000);
+    const base = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 100, sessionId: session,
+    });
+    const baseData = base.data as {xpAwarded: number; eventId: string};
+    assertEq("the booster doubles the capped run to 120 xp", baseData.xpAwarded, 120);
+
+    const dbl = await claimDoubleXp({eventId: baseData.eventId});
+    assertEq("the double matches the BOOSTED figure, not the bare cap",
+      (dbl.data as {xpAwarded: number}).xpAwarded, 120);
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("booster and double compound to 4x the capped run", snap.get("xp"), 240);
+
+    // The bonus entry must not re-apply the booster on top of the figure that
+    // already carried it - that would be 2x again, not a double.
+    const doubleEvent = (await getLedgerEvents(user.uid))
+      .find((e) => e.id === `${baseData.eventId}:double`);
+    assertEq("the bonus entry does not re-apply the booster",
+      doubleEvent?.xpMultiplierApplied, 1);
+    assertEq("the bonus entry records the boosted amount as its base",
+      doubleEvent?.baseXp, 120);
+  }
+
+  // --- claimDoubleXp: what it refuses -------------------------------------
+  {
+    const user = await makeUser("doublexpedge");
+    // Seeded just below the level-2 threshold so one correct answer crosses
+    // it and writes a LEVEL_UP entry to try doubling.
+    await seedUserDoc(user.uid, "DOUBLEXP2", {xp: 45, level: 1});
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    // A run worth nothing has nothing to double.
+    const zeroSession = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, zeroSession, 60_000);
+    const zero = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 0, sessionId: zeroSession,
+    });
+    await assertThrows(
+      "a run that earned no xp cannot be doubled",
+      () => claimDoubleXp({eventId: (zero.data as {eventId: string}).eventId}),
+      "failed-precondition"
+    );
+
+    // The window. Without it the base ledger entry is a permanent asset a
+    // client could bank and cash in later in bulk.
+    const staleSession = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, staleSession, 60_000);
+    const stale = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: staleSession,
+    });
+    const staleId = (stale.data as {eventId: string}).eventId;
+    await db.collection("users").doc(user.uid)
+      .collection("rewardEvents").doc(staleId)
+      .update({createdAt: Timestamp.fromMillis(Date.now() - 60 * 60 * 1000)});
+    await assertThrows(
+      "an entry older than the double window is refused",
+      () => claimDoubleXp({eventId: staleId}),
+      "failed-precondition"
+    );
+
+    // Only play earns a double. A milestone bonus is fixed by design, and an
+    // ad must not be able to re-pay one.
+    const levelUpEvent = (await getLedgerEvents(user.uid)).find((e) => e.source === "LEVEL_UP");
+    assertEq("the account crossed a level, writing a LEVEL_UP entry",
+      levelUpEvent !== undefined, true);
+    await assertThrows(
+      "a level-up bonus cannot be doubled",
+      () => claimDoubleXp({eventId: String(levelUpEvent?.id)}),
+      "invalid-argument"
+    );
   }
 
   // --- game: implausible results are rejected ---
@@ -1224,11 +1542,14 @@ async function run() {
 
     const claimReward = httpsCallable(clientFunctions, "claimReward");
 
-    // Two capped game sessions: 25 + 30 = 55 xp, still short of the 100 threshold.
+    // Two 30-xp game sessions: 25 + 30 + 30 = 85 xp, still short of the 100
+    // threshold. The scores are chosen to sit UNDER the per-session cap on
+    // purpose - a capped score would tie this block to the cap's value, and
+    // what it is actually about is the threshold either side of 100.
     for (const _ of [1, 2]) {
       const s = await openGameSession("floppy_bird");
       await backdateSession(referee.uid, s, 60_000);
-      await claimReward({rewardType: "game", gameId: "floppy_bird", score: 60, sessionId: s});
+      await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: s});
     }
 
     let referrerSnap = await db.collection("users").doc(referrer.uid).get();
@@ -1237,7 +1558,7 @@ async function run() {
     // One more session takes the referee to 115 xp, past the threshold.
     const finalSession = await openGameSession("floppy_bird");
     await backdateSession(referee.uid, finalSession, 60_000);
-    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 60, sessionId: finalSession});
+    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: finalSession});
 
     // The payout is now part of the same transaction, so it is visible
     // immediately - no polling for an async trigger.
@@ -1258,7 +1579,7 @@ async function run() {
     // Earning more XP must not pay the referrer a second time.
     const extraSession = await openGameSession("floppy_bird");
     await backdateSession(referee.uid, extraSession, 60_000);
-    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 60, sessionId: extraSession});
+    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: extraSession});
 
     referrerSnap = await db.collection("users").doc(referrer.uid).get();
     assertEq("referrer is not paid twice on further xp gains", referrerSnap.get("points"), 100);
@@ -1364,7 +1685,7 @@ async function run() {
       typeof sessionId === "string" && sessionId.length > 0,
       true
     );
-    await backdateSession(user.uid, sessionId, 10_000);
+    await backdateSession(user.uid, sessionId, 60_000);
 
     const claim = httpsCallable(clientFunctions, "claimReward");
     const claimed = await claim({

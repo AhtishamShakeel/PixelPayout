@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The contents of a reward results card, shared by the game results panel and
+  the quiz results dialog.
+
+  ONE LAYOUT, INCLUDED TWICE, rather than two that happen to match. They drifted
+  apart the first time precisely because they were separate files - the quiz
+  kept the old dialog's look while the game got the new one - and "keep these
+  two in sync" is not a thing a layout file can enforce about itself.
+
+  What the two callers still own is the card around this and the label at the
+  top: a game finishes a RUN, a quiz finishes an ANSWER. Both set that text in
+  code, so neither can inherit the other's wording by accident.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/resultsTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:letterSpacing="0.08"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        tools:text="RUN COMPLETE" />
+
+    <TextView
+        android:id="@+id/resultsXpText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/xp_accent"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        tools:text="+42 XP" />
+
+    <!--
+      Gone when there is nothing to double - a run worth no XP, or a wrong
+      answer. The server refuses those anyway, and offering an ad in exchange
+      for twice nothing is worse than making no offer at all.
+    -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/doubleXpButton"
+        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="@color/primary"
+        android:paddingVertical="14dp"
+        android:text="@string/double_xp_action"
+        android:textAllCaps="false"
+        android:textSize="16sp"
+        app:cornerRadius="50dp" />
+
+    <!--
+      Carries the ad's progress and its failures. A separate line rather than
+      the button's own label: the button is disabled while an ad is being
+      found, and a disabled button is the worst place to put the only
+      explanation of why nothing is happening.
+    -->
+    <TextView
+        android:id="@+id/doubleXpStatus"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center"
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:visibility="gone"
+        tools:text="Finding an ad…"
+        tools:visibility="visible" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/resultsContinueButton"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:paddingVertical="12dp"
+        android:text="@string/results_continue"
+        android:textAllCaps="false"
+        android:textColor="@color/text_secondary"
+        android:textSize="15sp" />
+
+</LinearLayout>

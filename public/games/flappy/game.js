@@ -44,7 +44,11 @@
     G = H * 2.4;
     FLAP = -H * 0.72;
     PIPE_SPEED = H * 0.42;
-    PIPE_GAP = H * 0.27;
+    // Tightened from 0.27. The gap is the whole difficulty dial for this
+    // game, and at 0.27 a run barely ended - which matters more now that the
+    // per-session XP ceiling is 60 rather than 30, since a game nobody loses
+    // pays every player the maximum.
+    PIPE_GAP = H * 0.22;
     PIPE_W = Math.min(W * 0.16, H * 0.11);
     PIPE_SPACING = Math.max(W * 0.62, H * 0.42);
     BIRD_R = H * 0.026;

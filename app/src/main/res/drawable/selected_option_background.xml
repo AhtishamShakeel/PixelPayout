@@ -1,13 +1,46 @@
-<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android">
+<?xml version="1.0" encoding="utf-8"?><!--
+    The chosen option, before it is submitted.
 
-    <!-- Transparent Background -->
-    <solid android:color="@android:color/transparent"/>
+    Set on the option's CardView by QuizActivity, which is why all four states
+    are backgrounds rather than view properties: the selection model is
+    "swap the background drawable", and these keep that contract while drawing
+    the Ring-led design's hairline row instead of a 6dp stroked pill.
 
-    <!-- Stroke Outline -->
-    <stroke android:width="6dp" android:color="@color/primary"/>
+    THE FIRST LAYER IS LOAD-BEARING AND INVISIBLE. CardView calls
+    setClipToOutline(true) in its constructor, and the outline is taken from
+    the background - where LayerDrawable.getOutline() returns the FIRST layer
+    that yields a non-empty one. With the hairline first, every row clipped
+    its own text to a 1dp band and the options vanished. A full-bounds
+    transparent rectangle in front of it gives the outline the row's real
+    shape and costs nothing to draw.
 
-    <!-- Rounded Corners -->
-    <corners android:radius="25dp"/>
+    Then: the rule above the row, and the rail that carries the state. The
+    last row's closing rule is a divider in activity_quiz.xml, because a
+    per-row drawable cannot know which row is last.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
 
-</shape>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@android:color/transparent" />
+        </shape>
+    </item>
+
+    <item android:gravity="top" android:height="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/stroke_card" />
+        </shape>
+    </item>
+
+    <item
+        android:gravity="center_vertical|start"
+        android:start="4dp"
+        android:width="5dp"
+        android:height="22dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="3dp" />
+            <solid android:color="@color/brand_violet" />
+        </shape>
+    </item>
+
+</layer-list>

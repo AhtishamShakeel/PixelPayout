@@ -1,19 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One answer option, in the Ring-led design: a row on the page with a rule
+    above it and a rail down its left, rather than a stroked pill.
+
+    STILL A CardView, and still called optionCard, because QuizActivity finds
+    it as one and drives every state - default, selected, correct, wrong - by
+    swapping this view's background. Restyling the four drawables was how the
+    design landed without touching that logic.
+
+    So the card is flattened rather than removed: no corner radius, no
+    elevation, transparent card colour. What is drawn is entirely the
+    background drawable.
+
+    The text is inset by 23dp - the rail's 4dp offset, its 5dp width, and the
+    14dp gap the design puts after it.
+-->
 <androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/optionCard"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    app:cardCornerRadius="12dp"
-    android:layout_marginBottom="8dp"
     android:background="@drawable/default_option_background"
-    app:cardElevation="4dp">
+    app:cardBackgroundColor="@android:color/transparent"
+    app:cardCornerRadius="0dp"
+    app:cardElevation="0dp"
+    app:cardPreventCornerOverlap="false"
+    app:cardUseCompatPadding="false">
 
     <TextView
         android:id="@+id/optionText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
-        android:textSize="16sp"
-        android:textColor="@color/primary_text"
-        android:textAlignment="center"/>
+        android:fontFamily="@font/jakarta_medium"
+        android:lineSpacingMultiplier="1.3"
+        android:paddingStart="23dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="4dp"
+        android:paddingBottom="16dp"
+        android:textColor="@color/text_soft"
+        android:textSize="15.5sp"
+        tools:text="Saltwater crocodile" />
+
 </androidx.cardview.widget.CardView>

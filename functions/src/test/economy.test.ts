@@ -129,24 +129,40 @@ assertEq(
   validateGameClaim({gameId: "floppy_bird", score: 5_000, elapsedMs: 10_000}).rejection,
   "implausible_rate"
 );
+// 1.1 pipes a second is the bound, so ten seconds allows eleven.
 assertEq(
   "score exactly at the plausible rate accepted (boundary)",
-  validateGameClaim({gameId: "floppy_bird", score: 20, elapsedMs: 10_000}).valid,
+  validateGameClaim({gameId: "floppy_bird", score: 11, elapsedMs: 10_000}).valid,
   true
 );
 assertEq(
   "one point above the plausible rate rejected",
-  validateGameClaim({gameId: "floppy_bird", score: 21, elapsedMs: 10_000}).rejection,
+  validateGameClaim({gameId: "floppy_bird", score: 12, elapsedMs: 10_000}).rejection,
+  "implausible_rate"
+);
+// Reaching the XP ceiling needs 1500 tower points, and the bound of 100/s
+// puts the floor for that at fifteen seconds. Ten is not enough.
+assertEq(
+  "tower_game cannot reach the XP ceiling faster than the bound allows",
+  validateGameClaim({gameId: "tower_game", score: 2_000, elapsedMs: 10_000}).rejection,
   "implausible_rate"
 );
 assertEq(
-  "tower_game allows a much higher rate than floppy_bird",
-  validateGameClaim({gameId: "tower_game", score: 2_000, elapsedMs: 10_000}).valid,
+  "...but the same score over a plausible run is fine",
+  validateGameClaim({gameId: "tower_game", score: 2_000, elapsedMs: 25_000}).valid,
+  true
+);
+// The case the capped-score rule exists for. Raw rate here is 165/s, well
+// past the 100/s bound - but everything above 1500 pays nothing, so a player
+// who actually did this must not be refused.
+assertEq(
+  "a long flawless tower run is not punished for scoring past the ceiling",
+  validateGameClaim({gameId: "tower_game", score: 19_800, elapsedMs: 120_000}).valid,
   true
 );
 assertEq(
-  "a long flawless tower run stays inside the rate ceiling",
-  validateGameClaim({gameId: "tower_game", score: 45_750, elapsedMs: 120_000}).valid,
+  "a floppy run far past its ceiling is judged on the paying score too",
+  validateGameClaim({gameId: "floppy_bird", score: 90, elapsedMs: 60_000}).valid,
   true
 );
 assertEq(

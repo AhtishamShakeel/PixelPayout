@@ -101,7 +101,7 @@ export const MAX_DAILY_QUIZ_ATTEMPTS = 10;
 // its score down, and every session is capped so one lucky run can't shortcut
 // the level curve. The divisors are picked so a point of XP costs roughly the
 // same effort in either game: one pipe, or one stacked block.
-export const GAME_XP_PER_SESSION_CAP = 30;
+export const GAME_XP_PER_SESSION_CAP = 60;
 // Games get the same daily allowance as quizzes, on the same UTC rollover and
 // the same stored day stamp (FIELD_LAST_RESET_TIME), so whichever activity the
 // user does first on a new day resets both counters.

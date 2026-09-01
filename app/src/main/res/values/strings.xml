@@ -21,9 +21,17 @@
     <string name="points_value">%d </string>
     <string name="submit_answer">Submit Answer</string>
     <string name="select_answer">Please select an answer</string>
-    <string name="timer_format">%d s</string>
-    <string name="quiz_completed">Quiz Completed!</string>
-    <string name="points_earned">You earned %d XP!</string>
+    <!-- The unit moved out of the number: the Ring-led design puts the
+         seconds figure at 30sp inside the ring with "SECONDS" underneath it,
+         so the value on its own is what belongs here. Used only by the quiz
+         countdown. -->
+    <string name="timer_format">%d</string>
+    <string name="quiz_timer_unit">seconds</string>
+    <string name="quiz_xp_if_correct">+%1$d XP if correct</string>
+    <!-- Said before it can bite, not after. The attempt is spent whether the
+         user leaves deliberately or takes a call, so this is the one warning
+         that has to be on screen rather than in a toast nobody sees. -->
+    <string name="quiz_forfeit_warning">Leaving or minimising the app will use this attempt</string>
     <string name="level_up_with_bonus">Level %1$d reached! Bonus: %2$d stars</string>
     <string name="level_up">Level up! You reached level %d</string>
     <string name="done">Done</string>
@@ -52,8 +60,12 @@
     <string name="games_plays_spent">Back tomorrow — quizzes still pay today</string>
     <string name="games_more_coming">More games coming</string>
     <string name="games_limit_toast">No plays left today — they reset at 00:00 UTC.</string>
-    <string name="games_xp_footnote">Plays are shared across both games and reset at 00:00 UTC. XP depends on your score, up to %1$d a game.</string>
-    <string name="game_xp_chip">Up to %1$d XP</string>
+    <!-- Says the RATE, not the per-session ceiling. The cap still exists and
+         is still enforced server-side, but a headline number the user can
+         see themselves hit reads as a wall to stop at rather than as a score
+         to beat. %1$d is XP per minute of play. -->
+    <string name="games_xp_footnote">Plays are shared across both games and reset at 00:00 UTC. The better you play, the more XP you earn.</string>
+    <string name="game_xp_chip">Up to %1$d XP/min</string>
 
     <!-- A finished run that could not be paid. Each says what happened and
          what it means for the run, because the session is spent either way
@@ -64,6 +76,28 @@
     <string name="game_claim_signed_out">You are signed out, so this run earned no XP. Sign in and play again.</string>
     <string name="game_claim_offline">We could not reach the server, so this run earned no XP. Check your connection and play again.</string>
     <string name="game_claim_back">Back to games</string>
+
+    <!-- The results screen shown after a paid run, and its double-XP offer. -->
+    <!-- The label at the top of the shared results card. The card is one
+         layout (view_reward_results); only this word differs, because a
+         game finishes a run and a quiz finishes an answer. -->
+    <string name="game_results_title">RUN COMPLETE</string>
+    <string name="quiz_results_title">QUIZ COMPLETE</string>
+    <string name="results_xp_earned">+%d XP</string>
+    <string name="results_continue">Continue</string>
+    <!-- The brief pause before an interstitial. Neutral on purpose: it must
+         not promise a reward or dress the ad up as something else. -->
+    <string name="ad_hold_message">Just a moment…</string>
+    <string name="double_xp_action">Double it — watch an ad</string>
+    <string name="double_xp_finding">Finding an ad…</string>
+    <string name="double_xp_claiming">Adding your XP…</string>
+    <string name="double_xp_unavailable">No ad ready just yet — try again in a moment.</string>
+    <!-- Says the earned XP is safe on purpose: the base claim landed before
+         the offer was ever shown, and a player watching a failure message has
+         no way of knowing that unless it is spelled out. -->
+    <string name="double_xp_failed">Could not add the bonus XP. The XP you earned is safe.</string>
+    <string name="double_xp_done">Doubled! +%d XP</string>
+    <string name="double_xp_already">Your bonus XP was already added.</string>
     <string name="game_flappy_name">Neon Flap</string>
     <string name="game_flappy_desc">Tap to fly. One point for every pipe you clear.</string>
     <string name="game_tower_name">Tower Building</string>
@@ -82,6 +116,7 @@
     <!-- Says what is left to buy, so the pill is not an open-ended offer.
          Three a day is the cap the server enforces. -->
     <string name="bonus_attempt_remaining">%1$d extra left today</string>
+    <string name="bonus_attempt_finding_ad">Finding an ad…</string>
     <string name="bonus_attempt_loading">Adding your attempt…</string>
     <!-- Shown on a claim button between the ad closing and the server
          answering. That gap is a cold start on a function most users hit once

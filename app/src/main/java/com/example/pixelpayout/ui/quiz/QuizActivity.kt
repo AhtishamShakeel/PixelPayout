@@ -16,9 +16,9 @@ import com.pixelpayout.databinding.ActivityQuizBinding
 import com.example.pixelpayout.data.api.Question
 import com.example.pixelpayout.data.api.Quiz
 import com.example.pixelpayout.utils.AdCadence
+import com.example.pixelpayout.utils.AdHold
 import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
-import com.example.pixelpayout.utils.InterstitialAdManager
 import com.example.pixelpayout.utils.showLevelUp
 import com.example.pixelpayout.ui.main.MainActivity
 import android.text.Html
@@ -337,7 +337,7 @@ class QuizActivity : AppCompatActivity() {
      */
     private fun leave() {
         if (AdCadence.onActivityCompleted(this, rewardedShown = rewardedAdShown)) {
-            InterstitialAdManager.getInstance().show(this) { finish() }
+            AdHold.showInterstitialThen(this) { finish() }
         } else {
             finish()
         }

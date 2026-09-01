@@ -35,12 +35,11 @@ class PixelPayoutApp : Application() {
             // can reach within seconds of the app opening, so it goes first
             // and alone.
             //
-            // Still well ahead of when it is needed. AdCadence asks whether an
-            // ad is cached at the moment a slot comes due and skips the slot
-            // outright if not - it never makes the player wait while one
-            // loads - so the cache being warm BEFORE the first slot is what
-            // decides whether that slot pays. Eight seconds is far inside the
-            // three completions the grace period covers.
+            // Still well ahead of when it is needed: AdHold gives the request
+            // one more chance at show time, but a cache warmed minutes in
+            // advance is what makes that hold a formality rather than a bet.
+            // Eight seconds is far inside the three completions the grace
+            // period covers.
             Handler(Looper.getMainLooper()).postDelayed({
                 InterstitialAdManager.getInstance().load(this)
             }, INTERSTITIAL_WARMUP_DELAY_MS)

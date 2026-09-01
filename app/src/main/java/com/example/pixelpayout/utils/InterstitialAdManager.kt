@@ -24,14 +24,15 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
  *   * A rewarded ad is something the player ASKED FOR. AdManager therefore
  *     waits several seconds for one, because a tap that does nothing is worse
  *     than a tap that takes a moment; the player is buying something.
- *   * An interstitial is something we are IMPOSING. Waiting for one would
- *     mean holding the player on a finished results screen while we look for
- *     an advert to show them. So [show] never waits: no ad ready means no ad,
- *     and the player carries on immediately.
+ *   * An interstitial is something we are IMPOSING. It gets the short hold
+ *     [AdHold] puts in front of it and nothing more - the player has finished
+ *     and asked to move on, so we do not hold them while we shop for an
+ *     advert.
  *
- * Hence [show]'s contract: `onDone` fires exactly once, always, whether an ad
- * showed, failed to show, or was never there. Callers navigate from it, so a
- * missing ad can never strand anyone on a dead screen.
+ * Hence [show]'s contract: `onDone` fires exactly once, always, and says
+ * whether an ad was actually displayed. Callers navigate from it, so a
+ * missing ad can never strand anyone, and the cadence only spends a slot when
+ * there was really an impression.
  *
  * One ad cached rather than AdManager's pool of two, because the cadence
  * itself guarantees the spacing a pool would otherwise cover - see
@@ -80,6 +81,32 @@ class InterstitialAdManager private constructor() {
     fun isReady(): Boolean {
         sweep()
         return cached != null
+    }
+
+    /**
+     * Whether showing an ad is worth pausing the player for.
+     *
+     * True when one is already cached, or when a request could actually go
+     * out inside [windowMs] and so has a real chance of landing during the
+     * hold.
+     *
+     * THIS IS WHAT STOPS A DEAD UNIT CHARGING THE PLAYER A PAUSE PER EXIT.
+     * Readiness moved to after the hold so that a request landing during it
+     * still counts - but on its own that means a unit which never fills is
+     * never ready, the cadence slot never resets, and from the second
+     * completion onward EVERY game and quiz ends with a pause that shows
+     * nothing. Asking whether a request is even permitted right now
+     * distinguishes "the cache happens to be empty this second", which the
+     * hold genuinely fixes, from "this unit is in backoff or rate limited",
+     * which it cannot.
+     */
+    fun canServeWithin(windowMs: Long): Boolean {
+        sweep()
+        if (cached != null) return true
+        // nextAllowedAt carries the request floor, the failure backoff and the
+        // rate-limit cooldown all folded together - see the note on it - so
+        // this one comparison covers every reason a request would be refused.
+        return SystemClock.uptimeMillis() + windowMs >= nextAllowedAt
     }
 
     /** Fills the cache. Safe to call as often as you like. */
@@ -148,16 +175,17 @@ class InterstitialAdManager private constructor() {
      * Shows the cached ad if there is one, then calls [onDone].
      *
      * [onDone] is invoked exactly once in every path - shown and dismissed,
-     * failed to show, or nothing cached - and always on the main thread. It
-     * is where the caller navigates.
+     * failed to show, or nothing cached - always on the main thread, and its
+     * argument says whether an ad was really displayed. It is where the
+     * caller navigates.
      */
-    fun show(activity: Activity, onDone: () -> Unit) {
+    fun show(activity: Activity, onDone: (shown: Boolean) -> Unit) {
         sweep()
 
         val ad = cached
         if (ad == null || activity.isFinishing || activity.isDestroyed) {
             load(activity)
-            onDone()
+            onDone(false)
             return
         }
 
@@ -170,19 +198,19 @@ class InterstitialAdManager private constructor() {
         load(activity)
 
         var finished = false
-        val finish = {
+        val finish = { shown: Boolean ->
             if (!finished) {
                 finished = true
-                onDone()
+                onDone(shown)
             }
         }
 
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() = finish()
+            override fun onAdDismissedFullScreenContent() = finish(true)
 
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 Log.w(TAG, "Interstitial failed to show: ${error.code} ${error.message}")
-                finish()
+                finish(false)
             }
         }
 

@@ -13,9 +13,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.config.AppConfig
 import com.example.pixelpayout.utils.AdCadence
+import com.example.pixelpayout.utils.AdHold
 import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
-import com.example.pixelpayout.utils.InterstitialAdManager
 import com.example.pixelpayout.utils.showLevelUp
 import com.example.pixelpayout.ui.main.MainActivity
 import com.pixelpayout.R
@@ -339,16 +339,17 @@ class GamePlayActivity : AppCompatActivity() {
      *
      * The ad lands at the TRANSITION rather than over the results panel: the
      * player has read their XP and asked to move on, which is the moment an
-     * interruption costs least. [InterstitialAdManager.show] always calls
-     * back, with an ad or without one, so this cannot strand anybody on a
-     * finished screen.
+     * interruption costs least. [AdHold] then puts a brief pause between that
+     * tap and the ad, so the tap cannot carry through onto the ad and a
+     * request has a last chance to fill. It always calls back, with an ad or
+     * without one, so this cannot strand anybody on a finished screen.
      */
     private fun leave() {
         if (leaving) return
         leaving = true
 
         if (AdCadence.onActivityCompleted(this, rewardedAdShown)) {
-            InterstitialAdManager.getInstance().show(this) { finish() }
+            AdHold.showInterstitialThen(this) { finish() }
         } else {
             finish()
         }

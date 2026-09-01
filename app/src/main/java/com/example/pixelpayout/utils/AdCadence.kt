@@ -33,16 +33,17 @@ import android.util.Log
  *      [MIN_GAP_MS] of the last one - a quiz can end quickly, and without a
  *      floor two fast activities can stack two interstitials inside a minute.
  *
- * A slot that cannot be spent - too soon, or no ad in the cache - is NOT
- * consumed: the counter keeps climbing and the ad shows at the next
- * completion instead of being pushed a full interval away.
+ * THE SLOT IS SPENT ON AN IMPRESSION, NOT ON THE DECISION. Only
+ * [noteInterstitialShown] resets the counter, and [AdHold] calls it from the
+ * ad's own callback - so a slot that comes due and then finds no ad stays
+ * open and is tried again at the next completion, rather than being silently
+ * burned. Readiness therefore cannot be the final word here: an ad that
+ * arrives DURING the hold still counts, which is the point of the hold.
  *
- * READINESS IS ASKED HERE, before the slot is committed. Deferring it to the
- * moment of display costs the player a pause in front of an ad that may not
- * exist: with no fill the counter never resets, so every completion from the
- * second onward reads as due and every exit pays for a wait that ends in
- * nothing. Asking first means a no-fill is invisible - the player simply
- * carries on - and the slot stays open for the next completion.
+ * What is still asked here is whether an ad could plausibly arrive at all -
+ * see [InterstitialAdManager.canServeWithin]. Without that, a unit that never
+ * fills would leave the counter permanently past its threshold and charge the
+ * player an 800ms pause on every single exit, forever, showing nothing.
  */
 object AdCadence {
 
@@ -54,34 +55,33 @@ object AdCadence {
     private const val KEY_LAST_SHOWN_AT = "last_interstitial_at"
 
     /**
-     * Show one every third activity finished.
+     * Show one every second activity finished.
      *
      * The economy allows 10 games plus 10 quizzes a day, and up to three
-     * bought attempts on each - so 26 completions is a realistic hard day.
-     * One interstitial per completion would be 26 full-screen ads imposed on
-     * somebody whose reason for being here is that we pay THEM; a third of
-     * that is about six, which is a normal ad load for a casual game.
+     * bought attempts on each - so 26 completions is a realistic hard day,
+     * which at every second is about thirteen interstitials. That is a heavy
+     * load for an app whose pitch is that we pay the player, and it is
+     * deliberate: [MIN_GAP_MS] is what actually keeps it tolerable, because
+     * two completions inside the floor cannot both pay.
      */
-    private const val EVERY_N_COMPLETIONS = 3
+    private const val EVERY_N_COMPLETIONS = 2
 
-    /**
-     * No two interstitials closer together than this, whatever the count.
-     *
-     * 50s, not the 90 this started at. A quiz attempt is a single question on
-     * a countdown, so a normal player finishes three of them in well under two
-     * minutes - and at 90s the floor, not the every-third rule, was deciding
-     * when ads appeared. That is the wrong knob in charge: the count is the
-     * policy, and this is only here to stop two activities finishing back to
-     * back from stacking two full-screen ads inside a minute.
-     */
-    private const val MIN_GAP_MS = 50_000L
+    /** No two interstitials closer together than this, whatever the count. */
+    private const val MIN_GAP_MS = 45_000L
 
     /** Completions at the start of a fresh install that are never interrupted. */
     private const val GRACE_COMPLETIONS = 3
 
     /**
-     * Records a finished game or quiz and answers whether to show an
-     * interstitial now.
+     * How far ahead [InterstitialAdManager] is asked to look when deciding
+     * whether a slot is worth pausing for. Matches AdHold's hold, because
+     * that is exactly the time a request would have to land in.
+     */
+    private const val HOLD_WINDOW_MS = 800L
+
+    /**
+     * Records a finished game or quiz and answers whether an interstitial is
+     * DUE.
      *
      * Both halves are one call on purpose. As two - "count this" and "should
      * I?" - every caller would have to get the order right and remember to do
@@ -131,19 +131,31 @@ object AdCadence {
             return false
         }
 
-        // Asked last, and only once everything else has passed, because a
-        // slot spent on an ad that does not exist is an interval of silence
-        // for no impression - and, worse, a wait the player sits through for
-        // nothing.
-        if (!InterstitialAdManager.getInstance().isReady()) {
-            Log.d(TAG, "Slot due but no interstitial cached")
+        // Asked last, and deliberately NOT a readiness test - an ad that
+        // lands during the hold still counts. This only refuses the pause
+        // when no request can even go out during it.
+        if (!InterstitialAdManager.getInstance().canServeWithin(HOLD_WINDOW_MS)) {
+            Log.d(TAG, "Slot due but no ad cached and none can be requested yet")
             return false
         }
 
-        prefs.edit()
-            .putInt(KEY_SINCE_LAST, 0)
-            .putLong(KEY_LAST_SHOWN_AT, now)
-            .apply()
         return true
+    }
+
+    /**
+     * Consumes the slot, an ad having actually been shown.
+     *
+     * Driven by the interstitial's own callback rather than by the decision
+     * above, so the counter only resets on a real impression. A no-fill at
+     * show time therefore costs the player a short hold and nothing more: the
+     * slot stays open and the next completion tries again.
+     */
+    fun noteInterstitialShown(context: Context) {
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putInt(KEY_SINCE_LAST, 0)
+            .putLong(KEY_LAST_SHOWN_AT, System.currentTimeMillis())
+            .apply()
     }
 }

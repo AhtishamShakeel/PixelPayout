@@ -117,4 +117,28 @@
         <item name="android:textSize">14sp</item>
         <item name="android:textAllCaps">false</item>
     </style>
+
+    <!--
+        Edge-to-edge dialogs: the paid takeover and the declined sheet.
+
+        windowIsFloating=false is what makes them fill the screen instead of
+        being laid out as a centred card, and backgroundDimEnabled=false hands
+        the scrim to the layout - both dialogs paint their own, at two
+        different strengths, and a platform dim on top would flatten that
+        difference. The layouts pad themselves off the system bars from the
+        window insets.
+    -->
+    <style name="TakeoverDialogTheme" parent="Theme.MaterialComponents.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowIsFloating">false</item>
+        <!-- A non-floating window is laid out like an activity's, which means
+             it would otherwise get a title bar. -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
 </resources>

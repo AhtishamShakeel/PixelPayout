@@ -1,0 +1,445 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    "Your reward is paid" - variant 1a of the Reward Paid handoff.
+
+    A TAKEOVER RATHER THAN A CARD, because this is the one moment the whole
+    app exists to produce: weeks of play turned into stars, stars spent on a
+    payout, then a wait for a human to approve it. The decline case gets its
+    own quieter sheet (dialog_redemption_declined.xml) - the two are
+    deliberately not one layout with a colour swapped.
+
+    "View receipt" from the handoff is gone: the Orders tab already IS the
+    receipt, and a second route to it from a dialog that also has "Got it" was
+    one button too many. Share takes the whole row in its place, which is the
+    right weight for the only optional action on the screen.
+
+    Shown through TakeoverDialogTheme, which is not floating and not dimmed -
+    the scrim below is the whole background. Motion is transform and opacity
+    only, driven from RedemptionNotifier, so it stays cheap on low-end
+    devices; nothing here animates a blur or a filter.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/scrim_takeover"
+    android:clipChildren="true">
+
+    <!-- The bloom. Overhangs the top edge and is clipped by this frame. -->
+    <View
+        android:id="@+id/paidGlow"
+        android:layout_width="520dp"
+        android:layout_height="520dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="-120dp"
+        android:background="@drawable/bg_glow_gold" />
+
+    <!-- The falling stars. Placed by horizontal bias so they land on the
+         handoff's percentages on any screen width; animated from code. -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/paidStarLayer"
+        android:layout_width="match_parent"
+        android:layout_height="340dp"
+        android:clipChildren="false">
+
+        <ImageView
+            android:id="@+id/paidStar1"
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.08"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar2"
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.20"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar3"
+            android:layout_width="11dp"
+            android:layout_height="11dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.33"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar4"
+            android:layout_width="7dp"
+            android:layout_height="7dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.47"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar5"
+            android:layout_width="9dp"
+            android:layout_height="9dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.60"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar6"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.74"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+        <ImageView
+            android:id="@+id/paidStar7"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:alpha="0"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_star"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.88"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/gold" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <LinearLayout
+        android:id="@+id/paidContent"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="26dp">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="72dp">
+
+            <ImageView
+                android:id="@+id/paidClose"
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_gravity="end|center_vertical"
+                android:background="@drawable/bg_ghost_circle"
+                android:contentDescription="@string/redemption_paid_close"
+                android:padding="10dp"
+                android:src="@drawable/ic_close"
+                app:tint="@color/text_dim" />
+
+        </FrameLayout>
+
+        <!-- Centred between the header and the buttons, and scrollable only
+             when a short screen plus a long admin note would otherwise push
+             the buttons off the bottom. -->
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true"
+            android:overScrollMode="never"
+            android:scrollbars="none">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:minHeight="0dp"
+                android:orientation="vertical"
+                android:paddingTop="8dp"
+                android:paddingBottom="8dp">
+
+                <FrameLayout
+                    android:id="@+id/paidMedallion"
+                    android:layout_width="116dp"
+                    android:layout_height="116dp">
+
+                    <View
+                        android:id="@+id/paidMedallionRing"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/bg_medallion_ring" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:layout_margin="8dp"
+                        android:background="@drawable/bg_medallion_inner" />
+
+                    <ImageView
+                        android:layout_width="46dp"
+                        android:layout_height="46dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_star"
+                        app:tint="@color/gold" />
+
+                    <ImageView
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:layout_gravity="bottom|end"
+                        android:layout_marginEnd="-2dp"
+                        android:layout_marginBottom="2dp"
+                        android:background="@drawable/bg_check_badge"
+                        android:contentDescription="@null"
+                        android:padding="8dp"
+                        android:src="@drawable/ic_check"
+                        app:tint="@color/background_dark" />
+
+                </FrameLayout>
+
+                <TextView
+                    android:id="@+id/paidEyebrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="26dp"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:letterSpacing="0.1"
+                    android:text="@string/redemption_paid_eyebrow"
+                    android:textColor="@color/gold"
+                    android:textSize="10sp" />
+
+                <TextView
+                    android:id="@+id/paidTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:fontFamily="@font/jakarta_extrabold"
+                    android:letterSpacing="-0.03"
+                    android:text="@string/redemption_paid_title"
+                    android:textColor="@color/white"
+                    android:textSize="27sp" />
+
+                <TextView
+                    android:id="@+id/paidAmount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:fontFamily="@font/mono_bold"
+                    android:includeFontPadding="false"
+                    android:letterSpacing="-0.04"
+                    android:textColor="@color/gold"
+                    android:textSize="40sp"
+                    tools:text="1M uc" />
+
+                <TextView
+                    android:id="@+id/paidMessage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:gravity="center"
+                    android:lineSpacingMultiplier="1.5"
+                    android:maxWidth="250dp"
+                    android:text="@string/redemption_paid_message"
+                    android:textColor="@color/text_faint"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/paidDetailCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="26dp"
+                    android:background="@drawable/bg_card_detail"
+                    android:orientation="vertical"
+                    android:paddingStart="16dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="14dp">
+
+                    <!-- Hidden when the payout carried no player id, which is
+                         true of any reward that is not a game top-up. -->
+                    <LinearLayout
+                        android:id="@+id/paidSentToRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingBottom="11dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:text="@string/redemption_paid_sent_to"
+                            android:textColor="@color/text_faint"
+                            android:textSize="11.5sp" />
+
+                        <TextView
+                            android:id="@+id/paidSentToValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:fontFamily="@font/mono_bold"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            tools:text="5219884471 · Asia" />
+
+                    </LinearLayout>
+
+                    <View
+                        android:id="@+id/paidDetailRule"
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:background="@color/stroke_card" />
+
+                    <LinearLayout
+                        android:id="@+id/paidApprovedRow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:baselineAligned="false"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="11dp"
+                        android:paddingBottom="11dp">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:text="@string/redemption_paid_approved_at"
+                            android:textColor="@color/text_faint"
+                            android:textSize="11.5sp" />
+
+                        <TextView
+                            android:id="@+id/paidApprovedValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="12dp"
+                            android:fontFamily="@font/mono_bold"
+                            android:textColor="@color/white"
+                            android:textSize="12sp"
+                            tools:text="Today, 21:04" />
+
+                    </LinearLayout>
+
+                    <!-- Only when the admin left one. GONE by default. -->
+                    <LinearLayout
+                        android:id="@+id/paidNoteBox"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_note_violet"
+                        android:orientation="vertical"
+                        android:paddingStart="12dp"
+                        android:paddingTop="11dp"
+                        android:paddingEnd="12dp"
+                        android:paddingBottom="11dp"
+                        android:visibility="gone"
+                        tools:visibility="visible">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.09"
+                            android:text="@string/redemption_paid_note_label"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="9.5sp" />
+
+                        <TextView
+                            android:id="@+id/paidNoteText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:lineSpacingMultiplier="1.45"
+                            android:textColor="@color/text_dim"
+                            android:textSize="11.5sp"
+                            tools:text="Delivered in one drop. Give it a few minutes to show up in-game." />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </ScrollView>
+
+        <LinearLayout
+            android:id="@+id/paidFooter"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/paidDone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_button_violet_14"
+                android:fontFamily="@font/jakarta_bold"
+                android:gravity="center"
+                android:paddingTop="15dp"
+                android:paddingBottom="15dp"
+                android:text="@string/redemption_result_done"
+                android:textColor="@color/white"
+                android:textSize="14sp" />
+
+            <LinearLayout
+                android:id="@+id/paidShare"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_ghost_12"
+                android:gravity="center"
+                android:orientation="horizontal"
+                android:paddingTop="13dp"
+                android:paddingBottom="13dp">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_share"
+                    app:tint="@color/text_dim" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="9dp"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:text="@string/redemption_paid_share"
+                    android:textColor="@color/text_dim"
+                    android:textSize="12.5sp" />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

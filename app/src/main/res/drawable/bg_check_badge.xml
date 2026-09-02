@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The tick clipped to the medallion's lower right. Its 3dp ring is the page
+    ground, not a colour, so the badge reads as sitting ON the medallion
+    rather than inside it.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/success" />
+    <stroke android:width="3dp" android:color="@color/background_dark" />
+</shape>

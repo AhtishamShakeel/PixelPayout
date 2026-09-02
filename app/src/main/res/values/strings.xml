@@ -688,4 +688,24 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_sign_out">Sign out</string>
     <string name="profile_sign_out_confirm">Sign out of PixelPayout?</string>
     <string name="profile_version">PixelPayout v%1$s</string>
+
+    <!-- Reward paid / declined popups. -->
+    <string name="redemption_paid_eyebrow">PAYOUT APPROVED</string>
+    <string name="redemption_paid_title">Your reward is paid</string>
+    <string name="redemption_paid_message">Sent straight to your game account. Nothing left to do.</string>
+    <string name="redemption_paid_sent_to">Sent to</string>
+    <string name="redemption_paid_approved_at">Approved</string>
+    <string name="redemption_paid_note_label">NOTE FROM US</string>
+    <string name="redemption_paid_share">Share your win</string>
+    <string name="redemption_paid_share_subject">I just got paid on PixelPayout</string>
+    <string name="redemption_paid_share_body">I just cashed out %1$s on PixelPayout. Play games, earn stars, get paid.</string>
+    <string name="redemption_paid_close">Close</string>
+    <string name="redemption_declined_returned">returned to your balance</string>
+    <string name="redemption_declined_why">WHY</string>
+    <string name="redemption_declined_reviewed">Reviewed</string>
+    <string name="redemption_declined_reason_default">We could not complete this one. Your stars are back in your balance, so nothing was lost.</string>
+    <string name="redemption_declined_again">Redeem again</string>
+    <string name="redemption_refund_amount">+%1$d</string>
+    <string name="redemption_detail_time">%1$s, %2$s</string>
+
 </resources>

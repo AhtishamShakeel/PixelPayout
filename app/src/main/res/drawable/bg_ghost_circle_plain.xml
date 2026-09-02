@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sheet's close target. No hairline, unlike bg_ghost_circle: on the
+     sheet's lighter ground a stroke would read as a button, and this is a
+     dismiss affordance sitting beside a title. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/stroke_subtle" />
+</shape>

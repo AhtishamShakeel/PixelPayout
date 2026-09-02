@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The bloom behind the medallion on the paid takeover. Overhangs the top
+    edge and is clipped by its parent, so only the lower two thirds is seen.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <gradient
+        android:type="radial"
+        android:gradientRadius="260dp"
+        android:startColor="@color/gold_glow"
+        android:endColor="#00FFD24A" />
+</shape>

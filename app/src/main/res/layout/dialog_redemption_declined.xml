@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    "Payout declined" - variant 1c of the Reward Paid handoff.
+
+    ITS OWN DESIGN, NOT THE PAID TAKEOVER RECOLOURED. No bloom, no falling
+    stars, no medallion, and a sheet rather than a full-screen takeover: a
+    decline leaves the user in the middle of a flow they can finish, so it
+    takes over as little as possible and puts "Redeem again" within reach.
+
+    It is gold rather than red throughout, because the stars came back. A
+    refund dressed in red reads as money lost, which is the opposite of what
+    happened.
+
+    Shown through TakeoverDialogTheme, so the scrim below is the whole
+    background; it is lighter than the paid one for the same reason.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/declinedScrim"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/scrim_sheet">
+
+    <LinearLayout
+        android:id="@+id/declinedSheet"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="@drawable/bg_sheet_declined"
+        android:orientation="vertical"
+        android:paddingStart="24dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="24dp"
+        android:paddingBottom="26dp">
+
+        <View
+            android:layout_width="44dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="20dp"
+            android:background="@drawable/bg_sheet_handle" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_dot_stars" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:fontFamily="@font/jakarta_bold"
+                android:text="@string/redemption_declined_title"
+                android:textColor="@color/white"
+                android:textSize="17sp" />
+
+            <ImageView
+                android:id="@+id/declinedClose"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="@drawable/bg_ghost_circle_plain"
+                android:contentDescription="@string/redemption_paid_close"
+                android:padding="9dp"
+                android:src="@drawable/ic_close"
+                app:tint="@color/text_half" />
+
+        </LinearLayout>
+
+        <!-- The refund, which is the first thing worth knowing. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:baselineAligned="false"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/declinedRefund"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/mono_bold"
+                android:includeFontPadding="false"
+                android:letterSpacing="-0.04"
+                android:textColor="@color/gold"
+                android:textSize="30sp"
+                tools:text="+150" />
+
+            <ImageView
+                android:layout_width="19dp"
+                android:layout_height="19dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="5dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_star"
+                app:tint="@color/gold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginBottom="7dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:text="@string/redemption_declined_returned"
+                android:textColor="@color/gold_label"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_note_gold"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingTop="13dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="13dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="0.09"
+                android:text="@string/redemption_declined_why"
+                android:textColor="@color/gold_label"
+                android:textSize="9.5sp" />
+
+            <TextView
+                android:id="@+id/declinedReason"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:lineSpacingMultiplier="1.5"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp"
+                tools:text="The player ID didn't match an account on the Asia server. Check it and redeem again - nothing was lost." />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/jakarta_medium"
+                android:text="@string/redemption_declined_reviewed"
+                android:textColor="@color/text_ghost"
+                android:textSize="11.5sp" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_marginStart="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_rule_dashed"
+                android:layerType="software" />
+
+            <TextView
+                android:id="@+id/declinedReviewed"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/mono_bold"
+                android:textColor="@color/text_dim"
+                android:textSize="12.5sp"
+                tools:text="2 Sep, 21:04" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/declinedDone"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_button_ghost_12"
+                android:fontFamily="@font/jakarta_bold"
+                android:gravity="center"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:text="@string/redemption_result_done"
+                android:textColor="@color/text_dim"
+                android:textSize="13sp" />
+
+            <TextView
+                android:id="@+id/declinedRetry"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_button_violet_12"
+                android:fontFamily="@font/jakarta_bold"
+                android:gravity="center"
+                android:paddingTop="14dp"
+                android:paddingBottom="14dp"
+                android:text="@string/redemption_declined_again"
+                android:textColor="@color/white"
+                android:textSize="13sp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

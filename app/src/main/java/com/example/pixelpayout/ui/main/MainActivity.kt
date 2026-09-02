@@ -22,6 +22,7 @@ import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.utils.showPendingLevelRewards
+import com.example.pixelpayout.utils.showRedemptionResult
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -43,7 +44,6 @@ class MainActivity : AppCompatActivity() {
     // paint jumps straight to the value, later ones animate.
     private var hasShownLevelRing = false
 
-    private val TAG_LEVEL_REWARDS = "LevelRewards"
 
     /**
      * True while the level-reward celebration is on screen.
@@ -54,6 +54,9 @@ class MainActivity : AppCompatActivity() {
      * would stack a second dialog on the first.
      */
     private var announcingLevelRewards = false
+
+    /** The same guard, for the payout-settled dialog. */
+    private var announcingRedemption = false
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -114,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         setupNavigation()
         observeViewModel()
         observeLevelRewards()
+        observeRedemptionResults()
     }
 
     /**
@@ -134,23 +138,14 @@ class MainActivity : AppCompatActivity() {
         if (announcingLevelRewards) return
 
         val progress = viewModel.levelProgress.value
-        if (progress == null) {
-            Log.d(TAG_LEVEL_REWARDS, "No level progress yet")
-            return
-        }
+        if (progress == null) return
 
         val pending = progress.pendingLevelRewards
-        if (pending.isEmpty()) {
-            Log.d(TAG_LEVEL_REWARDS, "Nothing pending at level ${progress.level}")
-            return
-        }
+        if (pending.isEmpty()) return
 
         val rewards = viewModel.levelCurve.value?.levelRewards.orEmpty()
-        if (rewards.isEmpty()) {
-            // The curve observer below re-asks when it lands.
-            Log.d(TAG_LEVEL_REWARDS, "Curve not loaded; pending=$pending")
-            return
-        }
+        // The curve observer below re-asks when it lands.
+        if (rewards.isEmpty()) return
 
         // KEYED ON THE QUEUE, NOT ON THE LEVEL. The two usually agree, but not
         // on an account that crossed levels before any of this existed: those
@@ -161,10 +156,7 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val announced = userPreferences.lastAnnouncedLevel.firstOrNull() ?: 0
-            if (top <= announced) {
-                Log.d(TAG_LEVEL_REWARDS, "Already announced up to $announced")
-                return@launch
-            }
+            if (top <= announced) return@launch
             if (announcingLevelRewards || isFinishing) return@launch
 
             announcingLevelRewards = true
@@ -175,8 +167,6 @@ class MainActivity : AppCompatActivity() {
                 onDismissed = { announcingLevelRewards = false },
                 onClaim = { openLevelRewards() }
             )
-
-            Log.d(TAG_LEVEL_REWARDS, "pending=$pending shown=$shown")
 
             if (shown) {
                 // Recorded only on a dialog that really appeared, so a run
@@ -191,6 +181,90 @@ class MainActivity : AppCompatActivity() {
     private fun observeLevelRewards() {
         viewModel.levelProgress.observe(this) { maybeAnnounceLevelRewards() }
         viewModel.levelCurve.observe(this) { maybeAnnounceLevelRewards() }
+    }
+
+    /**
+     * Tells the user about a payout that was settled while they were away.
+     *
+     * MOVED UP FROM HomeFragment, which could only speak when Home happened to
+     * be the visible tab. Approval is a manual action on our side and almost
+     * always lands with the app closed, so whichever screen they open next is
+     * arbitrary - and on any other one the pending row simply vanished and the
+     * balance quietly changed, with nothing saying that the thing they had been
+     * waiting for actually happened. A rejection mattered more still: their
+     * stars came back and nothing on screen explained why.
+     *
+     * Two triggers, for the same reason the level announcement has three. The
+     * observer catches a settlement landing while they are watching; onResume
+     * catches the ordinary case, where it landed while this activity was
+     * stopped and there is no emission left to hear by the time anyone is.
+     *
+     * "Once" is a stored timestamp rather than a set of seen ids: one
+     * comparison, it never grows, and anything settled before it is by
+     * definition already known.
+     */
+    private fun maybeAnnounceRedemptionResult() {
+        if (announcingRedemption) return
+
+        val resolved = viewModel.resolvedRedemptions.value.orEmpty()
+        if (resolved.isEmpty()) return
+
+        lifecycleScope.launch {
+            val lastSeen = userPreferences.lastSeenRedemptionResolvedAt.firstOrNull() ?: 0L
+
+            // First run on this device: adopt the current history silently.
+            // Everything already settled predates the app knowing about it, and
+            // greeting a fresh install with news of a months-old payout would be
+            // worse than saying nothing.
+            if (lastSeen == 0L) {
+                userPreferences.setLastSeenRedemptionResolvedAt(
+                    resolved.maxOf { it.resolvedAtMillis }
+                )
+                return@launch
+            }
+
+            val unseen = resolved.filter { it.resolvedAtMillis > lastSeen }
+            if (unseen.isEmpty()) return@launch
+            if (announcingRedemption || isFinishing) return@launch
+
+            announcingRedemption = true
+            // The repository sorts newest first, and the newest is the one
+            // worth a dialog.
+            val newest = unseen.first()
+            val shown = showRedemptionResult(
+                result = newest,
+                onRedeemAgain = { openRedemption() },
+                onDismissed = { announcingRedemption = false }
+            )
+
+            if (shown) {
+                // Marked only on a dialog that really appeared, so a run that
+                // bailed out can still announce later. Everything unseen is
+                // marked, not just the one shown - if several were settled at
+                // once the rest would otherwise queue up behind it.
+                userPreferences.setLastSeenRedemptionResolvedAt(
+                    unseen.maxOf { it.resolvedAtMillis }
+                )
+            } else {
+                announcingRedemption = false
+            }
+        }
+    }
+
+    private fun observeRedemptionResults() {
+        viewModel.resolvedRedemptions.observe(this) { maybeAnnounceRedemptionResult() }
+    }
+
+    /**
+     * "Redeem again", from the declined sheet.
+     *
+     * The tab rather than the sheet: the payout that was turned down is
+     * usually turned down over a detail of it - a mistyped player id, the
+     * wrong server - so the catalogue, where they pick the reward and enter
+     * those again, is the honest place to land.
+     */
+    private fun openRedemption() {
+        binding.bottomNav.selectedItemId = R.id.navigation_redemption
     }
 
     /**
@@ -237,6 +311,7 @@ class MainActivity : AppCompatActivity() {
         // one - and the data it depends on usually settled while this activity
         // was stopped, so there may be no emission left to react to.
         maybeAnnounceLevelRewards()
+        maybeAnnounceRedemptionResult()
     }
 
     private fun setupConnectivityCheck() {

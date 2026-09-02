@@ -235,6 +235,36 @@
     <color name="pip_spent">#2A2A33</color>
 
     <!-- ==================================================================
+         Reward paid / declined (reward-redemption-approval-popup handoff).
+
+         Variant 1a is a full-screen takeover, 1c a bottom sheet. Nearly every
+         value the handoff uses already had a token here - its palette and
+         ours are the same one, down to #15131F and #14141E - so only the six
+         below are new. The rest resolve to gold, gold_tint_16, gold_stroke,
+         gold_label, gold_deep, violet_tint_14, violet_tint_25, brand_violet,
+         success, surface_card, surface_sheet, stroke_card, stroke_subtle,
+         stroke_strong, text_dim and text_faint.
+         ================================================================== -->
+
+    <!-- The takeover's ground. Deliberately NOT backgroundDimEnabled: at .94
+         over background_dark the app behind is a suggestion rather than a
+         picture, which is the whole point of a takeover. -->
+    <color name="scrim_takeover">#F00A0814</color>
+    <!-- The declined sheet keeps more of the app visible, because a decline
+         leaves the user mid-flow rather than finishing one. -->
+    <color name="scrim_sheet">#C706050C</color>
+
+    <!-- Gold at the two weights the medallion needs: .20 for the bloom it
+         sits in, .35 for the edge of its inner disc. -->
+    <color name="gold_glow">#33FFD24A</color>
+    <color name="gold_tint_35">#59FFD24A</color>
+
+    <!-- White at .04 and .18 - the ghost button's fill, and the grabber and
+         the dashed leader rules. -->
+    <color name="fill_ghost">#0AFFFFFF</color>
+    <color name="hairline_soft">#2EFFFFFF</color>
+
+    <!-- ==================================================================
          SEMANTIC LAYER - what a colour MEANS, not what it looks like.
 
          Everything above this line is the palette: raw hues, named after

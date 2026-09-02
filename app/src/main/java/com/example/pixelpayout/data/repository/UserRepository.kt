@@ -1125,15 +1125,44 @@ class UserRepository {
     private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, "", null))
     val pendingRedemptions: LiveData<PendingRedemptions> = _pendingRedemptions
 
-    /** A redemption the admin has settled, approved or rejected. */
+    /**
+     * A redemption the admin has settled, approved or rejected.
+     *
+     * Carries the destination and the denomination as well as the outcome,
+     * because the settled dialog shows a receipt - "1M uc", "sent to
+     * 5219884471 - Asia" - and re-reading the document to fill that in would
+     * be a second read of something this snapshot already holds.
+     *
+     * `note` is the admin's own words. The field behind it is written on both
+     * paths by resolveRedemption, so it is the reason on a decline and a note
+     * on an approval; it is usually absent on an approval.
+     */
     data class ResolvedRedemption(
         val id: String,
         val title: String,
         val approved: Boolean,
         val resolvedAtMillis: Long,
         val refundedPoints: Int,
-        val rejectionReason: String?
-    )
+        val rejectionReason: String?,
+        val packAmount: String = "",
+        val playerId: String = "",
+        val server: String = ""
+    ) {
+        /**
+         * The figure the paid dialog leads with: the denomination if the
+         * catalogue gave one ("1M uc"), else the reward's own name.
+         */
+        val headline: String
+            get() = packAmount.ifBlank { title }
+
+        /** "5219884471 - Asia", or blank when this reward has no destination. */
+        val destination: String
+            get() = when {
+                playerId.isBlank() -> ""
+                server.isBlank() -> playerId
+                else -> "$playerId · $server"
+            }
+    }
 
     private val _resolvedRedemptions = MutableLiveData<List<ResolvedRedemption>>(emptyList())
     val resolvedRedemptions: LiveData<List<ResolvedRedemption>> = _resolvedRedemptions
@@ -1247,7 +1276,10 @@ class UserRepository {
                             resolvedAtMillis = at,
                             refundedPoints =
                                 doc.getLong(FIELD_REFUNDED_POINTS)?.toInt() ?: 0,
-                            rejectionReason = doc.getString(FIELD_REJECTION_REASON)
+                            rejectionReason = doc.getString(FIELD_REJECTION_REASON),
+                            packAmount = doc.getString(FIELD_PACK_AMOUNT).orEmpty(),
+                            playerId = doc.getString(FIELD_PLAYER_ID).orEmpty(),
+                            server = doc.getString(FIELD_SERVER).orEmpty()
                         )
                     }.sortedByDescending { it.resolvedAtMillis }
                 )

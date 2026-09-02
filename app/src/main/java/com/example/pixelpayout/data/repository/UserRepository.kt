@@ -161,6 +161,10 @@ class UserRepository {
                                 points = it.getLong(FIELD_POINTS)?.toInt() ?: 0,
                                 xp = it.getLong(FIELD_XP)?.toInt() ?: 0,
                                 level = it.getLong(FIELD_LEVEL)?.toInt() ?: 1,
+                                pendingLevelRewards =
+                                    parsePendingLevelRewards(
+                                        it.get(FIELD_PENDING_LEVEL_REWARDS)
+                                    ),
                                 activeBuff = parseBuff(it.get(FIELD_ACTIVE_BUFF)),
                                 activeXpBuff = parseBuff(it.get(FIELD_ACTIVE_XP_BUFF)),
                                 streak = Streak(
@@ -202,6 +206,16 @@ class UserRepository {
         val points: Int,
         val xp: Int = 0,
         val level: Int = 1,
+        /**
+         * Levels whose one-time star bonus is earned but still locked behind
+         * a rewarded ad, lowest first. Mirrors the server's
+         * `pendingLevelRewards`; see claimLevelReward for why the order
+         * matters and why this rides the user snapshot rather than a query.
+         *
+         * Empty is the normal state - it fills the moment a level is crossed
+         * and empties one ad at a time.
+         */
+        val pendingLevelRewards: List<Int> = emptyList(),
         val activeBuff: TimedBuff? = null,
         val activeXpBuff: TimedBuff? = null,
         val streak: Streak = Streak(),
@@ -405,6 +419,24 @@ class UserRepository {
         return TimedBuff(multiplier, expiresAt)
     }
 
+    /**
+     * The queue of unclaimed level bonuses, sorted low to high.
+     *
+     * Sorted HERE rather than trusted from the document: the server appends
+     * with arrayUnion, which preserves insertion order and makes no promise
+     * about it, and everything on the client that reads this - the claim
+     * button's label, the ladder's tags - is describing "the next one you
+     * can claim". The server picks the minimum for itself when it pays, so
+     * this is about showing the same answer, not about deciding it.
+     */
+    private fun parsePendingLevelRewards(raw: Any?): List<Int> {
+        val list = raw as? List<*> ?: return emptyList()
+        return list.mapNotNull { (it as? Number)?.toInt() }
+            .filter { it > 1 }
+            .distinct()
+            .sorted()
+    }
+
     data class RewardClaimResult(
         val pointsAwarded: Int,
         val totalPoints: Int,
@@ -421,7 +453,12 @@ class UserRepository {
         val totalXp: Int = 0,
         val level: Int = 1,
         val leveledUp: Boolean = false,
-        /** One-time Points bonus from any milestone level reached by this claim. */
+        /**
+         * The one-time star bonus this claim LOCKED, from any milestone level
+         * it crossed. Not paid, and deliberately not in [totalPoints]: level
+         * bonuses are released by a rewarded ad on the Level rewards screen
+         * (see [claimLevelReward]), so this is what is now waiting there.
+         */
         val milestonePoints: Int = 0,
         val wasCorrect: Boolean = false
     )
@@ -963,6 +1000,78 @@ class UserRepository {
         }
     }
 
+    sealed class LevelRewardResult {
+        /**
+         * One level was released. [pendingLevels] is what is LEFT, so the
+         * screen can go straight on to offering the next one rather than
+         * waiting for the snapshot to come back and tell it.
+         */
+        data class Claimed(
+            val level: Int,
+            val pointsAwarded: Int,
+            val totalPoints: Int,
+            val pendingLevels: List<Int>
+        ) : LevelRewardResult()
+
+        /**
+         * The server had nothing queued, or the level was already settled.
+         *
+         * Not an error and not worth a red toast: it means this screen was
+         * looking at a stale snapshot, or the button was tapped twice. The
+         * ad, sadly, is already spent either way - which is why the claim is
+         * fired the moment the reward callback lands rather than after the ad
+         * is dismissed.
+         */
+        data class NothingToClaim(val pendingLevels: List<Int>) : LevelRewardResult()
+
+        data class Error(val message: String) : LevelRewardResult()
+    }
+
+    /**
+     * Releases the LOWEST locked level bonus, having watched a rewarded ad.
+     *
+     * The level is deliberately not a parameter. The server drains its own
+     * queue lowest-first (see claimLevelReward), so a client cannot skip
+     * ahead to the biggest one - and passing a level here would suggest it
+     * could, which is exactly the misunderstanding a stale screen would act
+     * on.
+     *
+     * The ad is asserted, not proven, on the same terms as the streak and
+     * bonus-attempt claims. It is the mildest case of that trade in the app:
+     * the amount was fixed by the server when the level was crossed, so
+     * lying skips an ad rather than minting stars.
+     *
+     * Short timeout for the reason every user-facing callable here has one -
+     * somebody is watching a button, and offline this would otherwise hang
+     * for over a minute with nothing to explain it.
+     */
+    suspend fun claimLevelReward(): LevelRewardResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("claimLevelReward")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call()
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return LevelRewardResult.Error("Unexpected response")
+            syncClock(data)
+
+            val pending = parsePendingLevelRewards(data["pendingLevels"])
+            if (data["claimed"] == true) {
+                LevelRewardResult.Claimed(
+                    level = (data["level"] as? Number)?.toInt() ?: 0,
+                    pointsAwarded = (data["pointsAwarded"] as? Number)?.toInt() ?: 0,
+                    totalPoints = (data["totalPoints"] as? Number)?.toInt() ?: 0,
+                    pendingLevels = pending
+                )
+            } else {
+                LevelRewardResult.NothingToClaim(pending)
+            }
+        } catch (e: Exception) {
+            LevelRewardResult.Error(e.message ?: "Could not claim that reward")
+        }
+    }
+
     /**
      * The reward for every day of the cycle, so the strip can show what each
      * day pays before anything is claimed. Read from the server rather than
@@ -1243,6 +1352,12 @@ class UserRepository {
     }
 
     private fun toLedgerEntry(doc: com.google.firebase.firestore.DocumentSnapshot): LedgerEntry? {
+        // A locked level-up bonus records a promise, not a movement, so it has
+        // no place in a list that explains the balance above it. The indexed
+        // query already excludes it (affectsPoints is false until it is
+        // claimed); this is what keeps the wide fallback query honest too,
+        // since that one filters on the amount alone.
+        if (doc.getString(FIELD_LEDGER_STATUS) == LEDGER_LOCKED) return null
         return LedgerEntry(
             id = doc.id,
             source = doc.getString(FIELD_SOURCE).orEmpty(),
@@ -1465,6 +1580,7 @@ class UserRepository {
         private const val FIELD_POINTS = "points"
         private const val FIELD_XP = "xp"
         private const val FIELD_LEVEL = "level"
+        private const val FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards"
         private const val FIELD_LAST_RESET_TIME = "last_reset_time"
         private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
         private const val FIELD_GAME_ATTEMPTS = "game_attempts"
@@ -1552,6 +1668,8 @@ class UserRepository {
         private const val FIELD_METADATA = "metadata"
         private const val FIELD_LEDGER_STATUS = "status"
         private const val LEDGER_REVERSED = "reversed"
+        /** A level-up bonus earned but not yet released by an ad. */
+        private const val LEDGER_LOCKED = "locked"
         private const val FIELD_AFFECTS_POINTS = "affectsPoints"
 
         /**

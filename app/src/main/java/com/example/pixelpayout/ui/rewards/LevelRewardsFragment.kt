@@ -4,16 +4,22 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.utils.AdManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentLevelRewardsBinding
 import com.pixelpayout.databinding.ViewLevelRewardsFooterBinding
 import com.pixelpayout.databinding.ViewLevelRewardsHeaderBinding
+import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -23,10 +29,21 @@ import java.util.Locale
  * Opened from the level card on Home, which until now said how much XP the
  * next level costs without ever saying what it buys.
  *
- * NOTHING IS CLAIMED HERE. Milestone stars are paid by awardReward in the
- * same transaction that crosses the level, so the handoff's "Claim reward"
- * button has no work to do in this economy - a button that only looked like
- * it worked would be worse than none. The rungs are a readout.
+ * THIS IS ALSO WHERE LEVEL STARS ARE COLLECTED. Crossing a level earns its
+ * bonus; awardReward writes it LOCKED and queues the level on the user
+ * document, and a rewarded ad releases it here - one level per ad, lowest
+ * first, so somebody who climbed to 5 without claiming works up through 2, 3
+ * and 4 to get there. The order is the server's (claimLevelReward drains its
+ * own queue and ignores anything the client might name); this screen only has
+ * to show which one is next and why the others are waiting.
+ *
+ * The rungs remain a readout - the claim lives in the header card, above the
+ * ladder rather than on it, because there is only ever ONE claimable level
+ * and a button per rung would imply a choice between them.
+ *
+ * STILL COSTS NO READS AT ALL. The pending queue arrives on the user snapshot
+ * the app already listens to, so knowing there is something to claim is free;
+ * only the claim itself is a call.
  *
  * COSTS NO READS AT ALL. The curve is fetched once per process by
  * LevelCurveStore, the catalogue is seeded from Firestore's disk cache at
@@ -65,6 +82,15 @@ class LevelRewardsFragment : Fragment() {
      * back. [render] updates this and then asks for a redraw.
      */
     private var screen: Screen = Screen(null, null)
+
+    /**
+     * True from the moment the ad starts until the claim call returns.
+     *
+     * Guards the whole round trip rather than just the network call, because
+     * the ad is the long part: without it a second tap during playback would
+     * queue a second claim and release two levels for one ad.
+     */
+    private var claimInFlight = false
 
     private data class Screen(
         val progress: MainViewModel.LevelProgress?,
@@ -112,6 +138,11 @@ class LevelRewardsFragment : Fragment() {
 
         mainViewModel.loadFirstRedeemMinLevel()
 
+        // Warms the pool for the claim button. A no-op when an ad is already
+        // ready or the pacer says wait, so opening the screen repeatedly costs
+        // nothing - see AdManager.loadRewardedAd.
+        AdManager.getInstance().loadRewardedAd(requireContext())
+
         // Four independent sources, any of which can land last. Each one just
         // asks for a redraw rather than trying to sequence them - the render
         // below is written to cope with whichever are missing, and both the
@@ -140,7 +171,8 @@ class LevelRewardsFragment : Fragment() {
                 curve = curve,
                 currentLevel = progress.level,
                 firstRedeemMinLevel = mainViewModel.firstRedeemMinLevel.value,
-                games = mainViewModel.redemptionGames.value.orEmpty()
+                games = mainViewModel.redemptionGames.value.orEmpty(),
+                pendingLevels = progress.pendingLevelRewards
             )
         }
 
@@ -160,11 +192,14 @@ class LevelRewardsFragment : Fragment() {
 
         val ladder = screen.ladder
         if (ladder == null) {
+            header.levelClaimCard.visibility = View.GONE
             header.levelRewardsEarned.text = ""
             header.levelRewardsAhead.text = ""
             header.levelRewardsLadderNote.text = ""
             return
         }
+
+        renderClaim(header, ladder)
 
         header.levelRewardsEarned.text =
             getString(R.string.level_rewards_stars, ladder.starsEarned)
@@ -175,6 +210,143 @@ class LevelRewardsFragment : Fragment() {
             ladder.rungCount,
             ladder.maxLevel
         )
+    }
+
+    /**
+     * The claim card, which exists only while something is owed.
+     *
+     * Driven entirely by the ladder, which is derived from the user document -
+     * so it appears the moment a level is crossed and disappears the moment
+     * the queue empties, without this screen tracking anything of its own.
+     * That matters because the level-up it is reacting to happened in another
+     * activity entirely, on a results screen this fragment never saw.
+     */
+    private fun renderClaim(
+        header: ViewLevelRewardsHeaderBinding,
+        ladder: LevelLadder.Ladder
+    ) {
+        val level = ladder.nextClaimLevel
+        if (level == null) {
+            header.levelClaimCard.visibility = View.GONE
+            return
+        }
+
+        header.levelClaimCard.visibility = View.VISIBLE
+        header.levelClaimTitle.text = getString(R.string.level_claim_title, level)
+        header.levelClaimAmount.text =
+            getString(R.string.level_claim_amount, ladder.nextClaimStars)
+
+        // How many are BEHIND this one, so the number promises what is still
+        // coming rather than counting the card the user is looking at.
+        val behind = ladder.pendingCount - 1
+        header.levelClaimNote.text = if (behind > 0) {
+            resources.getQuantityString(R.plurals.level_claim_note_queued, behind, behind)
+        } else {
+            getString(R.string.level_claim_note_single)
+        }
+
+        header.levelClaimButton.apply {
+            isEnabled = !claimInFlight
+            setText(
+                if (claimInFlight) R.string.level_claim_working else R.string.level_claim_watch
+            )
+            setOnClickListener { playAdThenClaim() }
+        }
+    }
+
+    /**
+     * The ad, then the claim.
+     *
+     * Fired from the REWARD callback rather than from dismissal, and the
+     * difference is the point: onRewarded is the moment AdMob says the ad was
+     * genuinely watched, and an ad can be dismissed without it ever firing.
+     *
+     * If no ad plays, NOTHING is claimed - unlike the daily streak, where the
+     * ad gates only the payout and the streak itself has to advance either
+     * way. Here the stars are the whole transaction and nothing is lost by
+     * waiting: the level stays queued, the card stays on screen, and the user
+     * can try again when fill comes back.
+     */
+    private fun playAdThenClaim() {
+        if (claimInFlight) return
+        claimInFlight = true
+        headerAdapter?.redraw()
+
+        // Held rather than looked up in the callbacks. Those fire after a
+        // full-screen ad has come and gone, and requireActivity() from a
+        // fragment that was detached in the meantime throws - on the one path
+        // where a reward has already been earned and must not be dropped.
+        val host = requireActivity()
+
+        var earned = false
+        AdManager.getInstance().showRewardedAdWhenReady(
+            activity = host,
+            onRewarded = { earned = true },
+            onAdClosed = {
+                if (earned) {
+                    submitClaim(host)
+                } else {
+                    // Closed early. Nothing was earned for it, so the level
+                    // stays queued and the button comes back.
+                    claimInFlight = false
+                    headerAdapter?.redraw()
+                }
+            },
+            onAdFailedToShow = {
+                claimInFlight = false
+                if (isAdded) {
+                    Toast.makeText(
+                        requireContext(),
+                        R.string.level_claim_ad_unavailable,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+                headerAdapter?.redraw()
+            }
+        )
+    }
+
+    private fun submitClaim(host: FragmentActivity) {
+        // Deliberately the ACTIVITY's scope rather than the view's. The ad has
+        // already been watched by the time this runs, so the claim is owed;
+        // backing out of the screen mid-call must not cancel it.
+        host.lifecycleScope.launch {
+            val result = mainViewModel.claimLevelReward()
+            claimInFlight = false
+
+            if (isAdded) {
+                when (result) {
+                    is UserRepository.LevelRewardResult.Claimed -> Toast.makeText(
+                        requireContext(),
+                        getString(
+                            R.string.level_claim_toast,
+                            result.level,
+                            result.pointsAwarded
+                        ),
+                        Toast.LENGTH_LONG
+                    ).show()
+
+                    // A stale screen or a double tap, not a failure. Said
+                    // plainly and quietly; the snapshot corrects the card.
+                    is UserRepository.LevelRewardResult.NothingToClaim -> Toast.makeText(
+                        requireContext(),
+                        R.string.level_claim_nothing,
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    is UserRepository.LevelRewardResult.Error -> Toast.makeText(
+                        requireContext(),
+                        result.message,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+
+            // The user document's snapshot listener repaints the queue and the
+            // balance; this only restores the button in the cases where the
+            // queue did not change.
+            if (_binding != null) render()
+        }
     }
 
     /**

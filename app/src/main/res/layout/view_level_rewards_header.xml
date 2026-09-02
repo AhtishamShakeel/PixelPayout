@@ -189,6 +189,99 @@
 
     </LinearLayout>
 
+    <!-- ================= Locked rewards ================= -->
+    <!--
+        Only present when a level has been reached and its stars have not been
+        released yet. Everything about it is bound in code and it starts GONE,
+        so on the ordinary visit - nothing owing - the screen is exactly what
+        it was before this existed.
+
+        It sits directly under the hero card rather than at the top of the
+        ladder because it is about a level already climbed: the hero says
+        where you are, this says what that owes you, and the ladder below is
+        still the forward-looking part.
+    -->
+    <LinearLayout
+        android:id="@+id/levelClaimCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:background="@drawable/bg_first_redeem_card"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_dot_stars" />
+
+            <TextView
+                android:id="@+id/levelClaimTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="@font/jakarta_bold"
+                android:letterSpacing="-0.01"
+                android:maxLines="1"
+                android:textColor="@color/white"
+                android:textSize="15sp"
+                tools:text="Level 4 reward ready" />
+
+            <TextView
+                android:id="@+id/levelClaimAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="@font/mono_bold"
+                android:textColor="@color/stars_accent"
+                android:textSize="17sp"
+                tools:text="+7 ★" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/levelClaimNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:textColor="@color/text_faint"
+            android:textSize="12sp"
+            tools:text="2 more waiting after this one, claimed in order." />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/levelClaimButton"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:fontFamily="@font/jakarta_bold"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
+            android:text="@string/level_claim_watch"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="13sp"
+            app:backgroundTint="@color/brand_violet"
+            app:cornerRadius="10dp" />
+
+    </LinearLayout>
+
     <!-- ================= Earned / ahead ================= -->
     <!--
         Both figures are milestone STARS only, because those are the only

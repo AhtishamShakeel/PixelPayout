@@ -173,6 +173,20 @@ class HomeFragment : Fragment() {
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
             binding.levelTitle.text = getString(R.string.level_card_title, progress.level)
 
+            // The way into the ladder becomes an errand while stars are owed.
+            // Level bonuses are released by a rewarded ad now (see
+            // claimLevelReward), and a level-up happens on a results screen
+            // two taps from here - so without this the only sign that
+            // something is waiting would be a toast the user already dismissed.
+            val owed = progress.pendingLevelRewards.size
+            binding.levelRewardsButton.text = if (owed > 0) {
+                resources.getQuantityString(
+                    R.plurals.level_rewards_button_claim, owed, owed
+                )
+            } else {
+                getString(R.string.level_rewards_button)
+            }
+
             when {
                 progress.isMaxLevel -> {
                     // No next level to fill toward. A full bar says "nothing

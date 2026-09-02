@@ -32,7 +32,11 @@
          user leaves deliberately or takes a call, so this is the one warning
          that has to be on screen rather than in a toast nobody sees. -->
     <string name="quiz_forfeit_warning">Leaving or minimising the app will use this attempt</string>
-    <string name="level_up_with_bonus">Level %1$d reached! Bonus: %2$d stars</string>
+    <!-- The stars are EARNED at this moment and PAID when the ad is watched,
+         so the wording has to promise without claiming to have delivered.
+         "Waiting for you" plus where to get it, because the level-up happens
+         on the results screen and the claim lives two taps away. -->
+    <string name="level_up_with_bonus">Level %1$d reached! %2$d stars waiting in Level rewards</string>
     <string name="level_up">Level up! You reached level %d</string>
     <string name="done">Done</string>
     <string name="redeem">Redeem</string>
@@ -248,16 +252,23 @@
 
     <!-- Level rewards.
          Thresholds are XP, not points: points are spent at cashout, XP is
-         what the curve is built on. Nothing here is claimable - milestone
-         stars are paid by the server the moment the level is crossed - so
-         there is no claim wording. -->
+         what the curve is built on. Reaching a level EARNS its stars; a
+         rewarded ad releases them, one level at a time and lowest first, so
+         the claim wording below always names a single level rather than a
+         total. -->
     <string name="level_rewards_button">View rewards</string>
+    <!-- Replaces the link's label on Home while anything is owed, so the card
+         reads as an errand rather than a page to browse. -->
+    <plurals name="level_rewards_button_claim">
+        <item quantity="one">Claim %1$d reward</item>
+        <item quantity="other">Claim %1$d rewards</item>
+    </plurals>
     <string name="level_rewards_title">Level rewards</string>
     <string name="level_rewards_lv">Lv</string>
     <string name="level_rewards_lifetime_xp">%1$s lifetime XP</string>
     <string name="level_rewards_next">Next: Level %1$d</string>
     <string name="level_rewards_earned_label">Level stars earned</string>
-    <string name="level_rewards_ahead_label">Still locked ahead</string>
+    <string name="level_rewards_ahead_label">Stars still ahead</string>
     <string name="level_rewards_ladder">The ladder</string>
     <!-- Says outright that this is a filtered view: the other levels are
          progression and pay nothing, so they are not listed. -->
@@ -267,9 +278,28 @@
     <string name="level_rewards_tag_reached">Reached</string>
     <string name="level_rewards_tag_next">Next up</string>
     <string name="level_rewards_tag_locked">Locked</string>
+    <!-- Reached, and the stars are collectable right now. -->
+    <string name="level_rewards_tag_claim">Claim</string>
+    <!-- Reached, but a lower level is owed first. The word has to say "your
+         turn is coming" rather than "locked", which would read as not yet
+         earned. -->
+    <string name="level_rewards_tag_queued">In queue</string>
+    <string name="level_rewards_locked_label">Waiting on an ad</string>
+    <string name="level_claim_title">Level %1$d reward ready</string>
+    <string name="level_claim_amount">+%1$d ★</string>
+    <string name="level_claim_watch">Watch ad to claim</string>
+    <string name="level_claim_working">Claiming…</string>
+    <string name="level_claim_note_single">Watch a short ad and these stars are yours.</string>
+    <plurals name="level_claim_note_queued">
+        <item quantity="one">%1$d more level is waiting behind this one — they are claimed in order.</item>
+        <item quantity="other">%1$d more levels are waiting behind this one — they are claimed in order.</item>
+    </plurals>
+    <string name="level_claim_toast">Level %1$d claimed: +%2$d stars</string>
+    <string name="level_claim_nothing">That reward was already claimed.</string>
+    <string name="level_claim_ad_unavailable">No ad available right now — your reward is still saved.</string>
     <string name="level_rewards_loading">Level rewards are still loading.</string>
-    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Every level pays stars the moment you reach it - there is nothing to claim. Level 1 is where you start, so it is not on the ladder.</string>
-    <string name="level_perk_stars">+%1$d ★, paid the moment you reach it</string>
+    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Reaching a level earns its stars; watch a short ad to collect them, one level at a time starting from the lowest you have not claimed. Level 1 is where you start, so it is not on the ladder.</string>
+    <string name="level_perk_stars">+%1$d ★, claim with an ad</string>
     <!-- %1$d is the XP threshold the server actually tests, not the level:
          the level is reached slightly before it. -->
     <string name="level_perk_referral">Referral rewards - a friend you invited pays out once they reach %1$d XP</string>

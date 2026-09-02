@@ -121,6 +121,17 @@ const LEVEL_CURVE_DOC = "levelCurve";
 const FIELD_POINTS = "points";
 const FIELD_XP = "xp";
 const FIELD_LEVEL = "level";
+/**
+ * Levels whose one-time star bonus has been EARNED but not yet released.
+ *
+ * An array of level numbers, appended to by writeAward with arrayUnion and
+ * emptied one entry at a time by claimLevelReward - lowest first, so a player
+ * sitting on levels 2, 3 and 4 claims 2, then 3, then 4 rather than cherry
+ * picking the biggest. It is on the user document rather than derived from a
+ * query over rewardEvents so the client learns what is waiting from the
+ * snapshot it already holds, at no extra read.
+ */
+const FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards";
 const FIELD_STREAK_COUNT = "streakCount";
 const FIELD_LAST_STREAK_DAY = "lastStreakDayUtc";
 // Tracked apart from the streak day: the streak advances whether or not an ad
@@ -502,10 +513,27 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
  * Applies an award to the transaction: the user's points/xp/level fields, the
  * ledger entry, and the level-up bonus for every level the XP gain crossed.
  *
- * Level-up bonuses are folded into the SAME points increment as the award
- * itself - two FieldValue.increment writes to one field in one transaction
- * would clobber each other rather than add up. Each level gets its own ledger
- * entry keyed by level, so a level can never pay out twice.
+ * LEVEL-UP BONUSES ARE LOCKED HERE, NOT PAID. Crossing the level earns the
+ * stars; a rewarded ad releases them (claimLevelReward). So this writes two
+ * things and credits nothing:
+ *
+ *   * a `levelup:<level>` ledger entry per level crossed, status "locked",
+ *     carrying the amount as it stood at the moment it was earned, and
+ *   * the level number onto [FIELD_PENDING_LEVEL_REWARDS], the user's queue
+ *     of unclaimed levels.
+ *
+ * THE QUEUE IS AN arrayUnion, WHICH IS THE WHOLE REASON IT IS AN ARRAY. It
+ * needs no prior value, so writeAward does not have to read the user document
+ * (several of its eight callers do not hold one), it creates the field on
+ * first use rather than needing a migration for accounts that predate this,
+ * and appending a level already in it is a no-op - so a retried transaction
+ * cannot queue the same level twice. The client gets the pending set for free
+ * on the snapshot it already listens to, which is what keeps the "you have
+ * rewards waiting" prompt off the read budget entirely.
+ *
+ * Points from the award ITSELF are still a single increment: two
+ * FieldValue.increment writes to one field in one transaction would clobber
+ * each other rather than add up.
  */
 function writeAward(
   transaction: FirebaseFirestore.Transaction,
@@ -518,6 +546,8 @@ function writeAward(
     award.level.levelsCrossed,
     cachedLevelRewards.table
   );
+  // What was LOCKED, not what was credited. Callers pass it back to the
+  // client so the level-up moment can say what is now waiting to be claimed.
   const milestonePoints = milestones.reduce((sum, m) => sum + m.points, 0);
 
   const updateData: Record<string, unknown> = {
@@ -525,9 +555,14 @@ function writeAward(
     ...extraUpdates,
   };
 
-  const totalPoints = award.pointsAwarded + milestonePoints;
-  if (totalPoints !== 0) {
-    updateData[FIELD_POINTS] = FieldValue.increment(totalPoints);
+  if (award.pointsAwarded !== 0) {
+    updateData[FIELD_POINTS] = FieldValue.increment(award.pointsAwarded);
+  }
+
+  if (milestones.length > 0) {
+    updateData[FIELD_PENDING_LEVEL_REWARDS] = FieldValue.arrayUnion(
+      ...milestones.map((m) => m.level)
+    );
   }
 
   if (Object.keys(updateData).length > 0) {
@@ -543,7 +578,7 @@ function writeAward(
   }
 
   if (milestones.length > 0) {
-    console.log("Level-up rewards awarded", {
+    console.log("Level-up rewards locked", {
       levels: milestones.map((m) => m.level),
       points: milestonePoints,
     });
@@ -1904,9 +1939,12 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     return {
       rejected: false as const,
       pointsAwarded: award.pointsAwarded,
+      // What the level-ups LOCKED, and which levels are now waiting. The
+      // balance below deliberately excludes them: they are claimed with an
+      // ad, so adding them here would report stars the user does not have.
       milestonePoints,
       milestoneLevels,
-      totalPoints: currentPoints + award.pointsAwarded + milestonePoints,
+      totalPoints: currentPoints + award.pointsAwarded,
       xpAwarded: award.xpAwarded,
       totalXp: award.level.xp,
       level: award.level.level,
@@ -2156,12 +2194,154 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
       totalXp: award.level.xp,
       level: award.level.level,
       leveledUp: award.level.leveledUp,
+      // Locked, not credited - see the note in claimReward's response.
       milestonePoints,
       milestoneLevels,
-      totalPoints: currentPoints + milestonePoints,
+      totalPoints: currentPoints,
     };
   });
 });
+
+/**
+ * Releases ONE locked level-up bonus, in exchange for a rewarded ad.
+ *
+ * Levelling still happens the instant the XP lands - the level number, the
+ * curve, the perks it unlocks and everything gated on it are untouched. What
+ * moved behind the ad is only the star payout: writeAward now queues the
+ * level on the user's [FIELD_PENDING_LEVEL_REWARDS] and writes its ledger
+ * entry "locked", and this is the other half of that.
+ *
+ * ONE CALL RELEASES ONE LEVEL, LOWEST FIRST. A player who climbed three
+ * levels without claiming holds three entries in the queue and watches three
+ * ads to empty it, in order - 2, then 3, then 4. That is not a limitation
+ * working around a batch call that would have been easier to write; it is the
+ * point of the feature, so the queue is drained with `Math.min` rather than
+ * by taking whatever the client names. THE CLIENT DOES NOT CHOOSE THE LEVEL
+ * AT ALL: nothing is read from `request.data`, which is what makes the order
+ * unskippable rather than merely suggested.
+ *
+ * THE AMOUNT COMES FROM THE LOCKED LEDGER ENTRY, not from the reward table.
+ * The table is console-editable, so re-reading it here would let a retune
+ * change what a player was already promised - upward or downward - between
+ * reaching a level and claiming it. The entry recorded the figure at the
+ * moment it was earned and this pays exactly that.
+ *
+ * WHAT STOPS A DOUBLE PAYOUT, in a transaction, twice over: the level must
+ * still be in the queue (removed with arrayRemove in the same commit as the
+ * credit), and its entry must still be "locked" (flipped to "applied" in that
+ * same commit). Either alone would do; both cost nothing, and they fail in
+ * opposite directions - a queue that somehow held a stale level cannot pay,
+ * and an entry that was somehow already applied cannot be re-applied.
+ *
+ * THE AD IS ASSERTED, NOT PROVEN - the same trade the streak claim, the goal
+ * bonus, the bonus attempts and the double-XP offer already make, and the
+ * same reasoning: there is no AdMob SSV yet, so a tampered client can call
+ * this without watching anything. The exposure is smaller here than anywhere
+ * else in the app, because this pays out a FIXED, ALREADY-EARNED amount from
+ * a queue the server built. A liar does not mint stars; they skip an ad on
+ * stars the honest path would have paid them anyway. The ceiling is the
+ * level curve itself, which XP - not ad-watching - controls.
+ */
+export const claimLevelReward = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  return firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    // Defensive about the shape as well as the contents: this array is only
+    // ever written by writeAward, but a document is a document, and a stray
+    // string in here would otherwise become a document path below.
+    const queue = (userDoc.get(FIELD_PENDING_LEVEL_REWARDS) as unknown[] | undefined) ?? [];
+    const levels = queue
+      .map((value) => Number(value))
+      .filter((level) => Number.isInteger(level) && level > 1 && level <= MAX_LEVEL);
+
+    if (levels.length === 0) {
+      // Not an error. The button is gone once the queue empties, so reaching
+      // this means a stale screen or a double tap, and both deserve the
+      // truth rather than a red toast.
+      return {
+        success: true,
+        claimed: false,
+        reason: "nothing_pending",
+        level: 0,
+        pointsAwarded: 0,
+        totalPoints: Number(userDoc.get(FIELD_POINTS) || 0),
+        pendingLevels: [] as number[],
+      };
+    }
+
+    // Lowest first. See the note on ordering above.
+    const level = Math.min(...levels);
+    const eventRef = userRef
+      .collection(REWARD_EVENTS_SUBCOLLECTION)
+      .doc(`levelup:${level}`);
+    const eventDoc = await transaction.get(eventRef);
+
+    // The queue and the ledger entry are written together and can only
+    // disagree if something outside this code touched one of them. Dropping
+    // the level rather than paying a guessed amount is the safe direction:
+    // the alternative is inventing stars from a table the entry was supposed
+    // to have pinned.
+    if (!eventDoc.exists || eventDoc.get("status") !== "locked") {
+      transaction.update(userRef, {
+        [FIELD_PENDING_LEVEL_REWARDS]: FieldValue.arrayRemove(level),
+      });
+      console.warn("Dropped a queued level with no locked entry", {userId, level});
+      return {
+        success: true,
+        claimed: false,
+        reason: "already_claimed",
+        level,
+        pointsAwarded: 0,
+        totalPoints: Number(userDoc.get(FIELD_POINTS) || 0),
+        pendingLevels: levels.filter((l) => l !== level).sort((a, b) => a - b),
+      };
+    }
+
+    const points = Math.max(Math.trunc(Number(eventDoc.get("finalPoints") || 0)), 0);
+    const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
+
+    transaction.update(userRef, {
+      ...(points > 0 ? {[FIELD_POINTS]: FieldValue.increment(points)} : {}),
+      [FIELD_PENDING_LEVEL_REWARDS]: FieldValue.arrayRemove(level),
+    });
+
+    // The entry becomes a real balance movement now, so it joins the Stars
+    // activity list - and it is dated to the claim rather than to the
+    // level-up, because that is when the balance actually changed. The
+    // moment it was EARNED is not lost: `lockedAt` keeps it.
+    transaction.update(eventRef, {
+      status: "applied",
+      affectsPoints: points !== 0,
+      lockedAt: eventDoc.get("createdAt") ?? null,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    const pendingLevels = levels.filter((l) => l !== level).sort((a, b) => a - b);
+    console.log("Level reward claimed", {userId, level, points, remaining: pendingLevels.length});
+
+    return {
+      success: true,
+      claimed: true,
+      reason: "",
+      level,
+      pointsAwarded: points,
+      totalPoints: currentPoints + points,
+      pendingLevels,
+    };
+  });
+});
+
 /**
  * Spends Points on one pack of one game.
  *

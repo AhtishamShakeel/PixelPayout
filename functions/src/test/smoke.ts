@@ -247,7 +247,13 @@ async function run() {
     assertEq("ledger records the level after the event", quizEvent?.levelAfterEvent, 2);
   }
 
-  // --- reaching a milestone level pays a one-time Points bonus ---
+  // --- reaching a milestone level LOCKS a one-time Points bonus ---
+  //
+  // This block used to assert that the bonus landed in the balance on the
+  // spot. It no longer does, and that is the whole change: crossing the level
+  // EARNS the stars, watching a rewarded ad RELEASES them. What is asserted
+  // here is the earning half - the promise is written, the queue names the
+  // level, and the balance has not moved.
   {
     const user = await makeUser("milestone");
     // Level 5 needs 261 xp; seed just below so one correct answer crosses it.
@@ -257,36 +263,201 @@ async function run() {
     const res = await claimReward({
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
-    const data = res.data as {level: number; milestonePoints: number; milestoneLevels: number[]};
+    const data = res.data as {
+      level: number; milestonePoints: number; milestoneLevels: number[]; totalPoints: number;
+    };
     assertEq("crossing into level 5 reports the milestone", data.milestoneLevels, [5]);
     assertEq("milestone bonus points reported", data.milestonePoints, LEVEL_UP_POINTS[5]);
+    // The figure above is what was LOCKED. The balance it reports alongside
+    // must not include it, or the client would draw stars nobody has.
+    assertEq("the reported balance excludes the locked bonus", data.totalPoints, 0);
 
     const snap = await db.collection("users").doc(user.uid).get();
     assertEq("milestone reached level 5", snap.get("level"), 5);
-    // The quiz itself awards no points - every point here is the milestone.
-    assertEq("milestone bonus credited to the points balance",
-      snap.get("points"), LEVEL_UP_POINTS[5]);
+    assertEq("the milestone bonus is NOT credited yet", snap.get("points"), 0);
+    assertEq("the level is queued for claiming", snap.get("pendingLevelRewards"), [5]);
 
     const events = await getLedgerEvents(user.uid);
     const milestoneEvent = events.find((e) => e.source === "LEVEL_UP");
     assertEq("a LEVEL_UP ledger entry was written", milestoneEvent !== undefined, true);
     assertEq("milestone ledger id is keyed by level", milestoneEvent?.id, "levelup:5");
-    assertEq("milestone ledger records the points",
+    assertEq("milestone ledger records the points it will pay",
       milestoneEvent?.finalPoints, LEVEL_UP_POINTS[5]);
     assertEq("milestone ledger awards no xp", milestoneEvent?.xpAwarded, 0);
+    assertEq("milestone ledger is locked, not applied",
+      milestoneEvent?.status, "locked");
+    // The Stars activity list queries on this. A locked promise is not a
+    // movement and must not appear there until it is claimed.
+    assertEq("a locked milestone is not a star movement",
+      milestoneEvent?.affectsPoints, false);
 
-    // Earning more XP at the same level must not pay the milestone again.
+    // Earning more XP at the same level must not queue or lock it again.
     await claimReward({
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
     const afterSnap = await db.collection("users").doc(user.uid).get();
-    assertEq("milestone does not pay again on further xp",
-      afterSnap.get("points"), LEVEL_UP_POINTS[5]);
+    assertEq("further xp does not credit the locked bonus", afterSnap.get("points"), 0);
+    assertEq("further xp does not queue the level twice",
+      afterSnap.get("pendingLevelRewards"), [5]);
     assertEq(
       "still exactly one LEVEL_UP ledger entry",
       (await getLedgerEvents(user.uid)).filter((e) => e.source === "LEVEL_UP").length,
       1
     );
+  }
+
+  // --- claiming a locked level reward -------------------------------------
+  {
+    const user = await makeUser("levelclaim");
+    await seedUserDoc(user.uid, "LEVELCLAIM", {xp: 255, level: 4});
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimLevelReward = httpsCallable(clientFunctions, "claimLevelReward");
+
+    await claimReward({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+
+    const res = await claimLevelReward({});
+    const data = res.data as {
+      claimed: boolean; level: number; pointsAwarded: number;
+      totalPoints: number; pendingLevels: number[];
+    };
+    assertEq("the claim reports success", data.claimed, true);
+    assertEq("it released the level that was queued", data.level, 5);
+    assertEq("it paid the amount the ledger had pinned",
+      data.pointsAwarded, LEVEL_UP_POINTS[5]);
+    assertEq("it reports the new balance", data.totalPoints, LEVEL_UP_POINTS[5]);
+    assertEq("nothing is left in the queue", data.pendingLevels, []);
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("the stars really reached the balance",
+      snap.get("points"), LEVEL_UP_POINTS[5]);
+    assertEq("the queue is empty on the document too",
+      snap.get("pendingLevelRewards"), []);
+
+    const event = (await getLedgerEvents(user.uid)).find((e) => e.source === "LEVEL_UP");
+    assertEq("the ledger entry is applied now", event?.status, "applied");
+    assertEq("...and counts as a star movement", event?.affectsPoints, true);
+    // The moment it was EARNED is kept, so the audit trail still says when
+    // the level was crossed even though createdAt now dates the payment.
+    assertEq("the lock time was preserved", event?.lockedAt !== undefined, true);
+
+    // A second call has nothing to give. Not an error - a stale screen or a
+    // double tap - so it answers rather than throwing, and pays nothing.
+    const again = await claimLevelReward({});
+    const againData = again.data as {claimed: boolean; reason: string};
+    assertEq("a second claim releases nothing", againData.claimed, false);
+    assertEq("...and says why", againData.reason, "nothing_pending");
+    assertEq(
+      "a second claim does not pay twice",
+      (await db.collection("users").doc(user.uid).get()).get("points"),
+      LEVEL_UP_POINTS[5]
+    );
+  }
+
+  // --- levels keep climbing while rewards go unclaimed ---------------------
+  //
+  // The rule the feature is built around: XP still levels you up immediately,
+  // the STARS queue behind ads, and the queue is drained lowest first. So a
+  // player who climbs from 1 to 4 without claiming holds three promises and
+  // has to work up through 2 and 3 to reach the level-4 one.
+  {
+    const user = await makeUser("levelqueue");
+    // 49 xp, so the first capped game run (60 xp) lands on 109 - past both
+    // the level-2 threshold (50) and the level-3 one (109) in one award.
+    await seedUserDoc(user.uid, "LEVELQUEUE", {xp: 49, level: 1});
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const claimLevelReward = httpsCallable(clientFunctions, "claimLevelReward");
+
+    const session1 = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, session1, 60_000);
+    const first = await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 100, sessionId: session1,
+    });
+    assertEq("one award can cross two levels",
+      (first.data as {milestoneLevels: number[]}).milestoneLevels, [2, 3]);
+
+    // 109 -> 169 -> 229, crossing the level-4 threshold of 179 on the second
+    // of these. Two runs rather than one because the per-session XP cap is 60
+    // and the level-3 to level-4 span is 70.
+    for (const _ of [0, 1]) {
+      const session = await openGameSession("floppy_bird");
+      await backdateSession(user.uid, session, 60_000);
+      await claimReward({
+        rewardType: "game", gameId: "floppy_bird", score: 100, sessionId: session,
+      });
+    }
+
+    const climbed = await db.collection("users").doc(user.uid).get();
+    assertEq("the level still rises with nothing claimed", climbed.get("level"), 4);
+    assertEq("all three levels are queued",
+      climbed.get("pendingLevelRewards"), [2, 3, 4]);
+    assertEq("and not one star has been paid", climbed.get("points"), 0);
+
+    // The client never names a level; the server always takes the lowest.
+    // Passing one here is the check that it is ignored.
+    const claim2 = await claimLevelReward({level: 4});
+    assertEq("the first claim releases level 2, not the level asked for",
+      (claim2.data as {level: number}).level, 2);
+    assertEq("...paying the level-2 amount",
+      (claim2.data as {pointsAwarded: number}).pointsAwarded, LEVEL_UP_POINTS[2]);
+    assertEq("...and leaving the rest queued",
+      (claim2.data as {pendingLevels: number[]}).pendingLevels, [3, 4]);
+
+    const claim3 = await claimLevelReward({});
+    assertEq("the second claim releases level 3",
+      (claim3.data as {level: number}).level, 3);
+
+    const claim4 = await claimLevelReward({});
+    assertEq("the third claim releases level 4",
+      (claim4.data as {level: number}).level, 4);
+    assertEq("...and empties the queue",
+      (claim4.data as {pendingLevels: number[]}).pendingLevels, []);
+
+    const settled = await db.collection("users").doc(user.uid).get();
+    assertEq(
+      "three ads paid exactly the three levels' worth",
+      settled.get("points"),
+      LEVEL_UP_POINTS[2] + LEVEL_UP_POINTS[3] + LEVEL_UP_POINTS[4]
+    );
+    assertEq("the queue is empty", settled.get("pendingLevelRewards"), []);
+
+    const levelUps = (await getLedgerEvents(user.uid))
+      .filter((e) => e.source === "LEVEL_UP");
+    assertEq("one ledger entry per level, no more", levelUps.length, 3);
+    assertEq(
+      "every one of them is applied",
+      levelUps.every((e) => e.status === "applied"),
+      true
+    );
+
+    const fourth = await claimLevelReward({});
+    assertEq("a fourth ad releases nothing",
+      (fourth.data as {claimed: boolean}).claimed, false);
+  }
+
+  // --- a claim with no account, and a queue with no ledger entry -----------
+  {
+    const user = await makeUser("levelclaimedge");
+    // Queued by hand with no matching levelup: entry - the state a document
+    // edited outside this code would be in. The amount must come from the
+    // entry, so with none there is nothing safe to pay: the level is dropped
+    // rather than guessed at from the table.
+    await seedUserDoc(user.uid, "LEVELEDGE", {
+      xp: 300, level: 5, points: 12, pendingLevelRewards: [3],
+    });
+    const claimLevelReward = httpsCallable(clientFunctions, "claimLevelReward");
+
+    const res = await claimLevelReward({});
+    const data = res.data as {claimed: boolean; reason: string; pendingLevels: number[]};
+    assertEq("a queued level with no locked entry pays nothing", data.claimed, false);
+    assertEq("...and says so", data.reason, "already_claimed");
+    assertEq("...and is dropped rather than retried forever",
+      data.pendingLevels, []);
+
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("the balance is untouched", snap.get("points"), 12);
+    assertEq("the queue is cleared", snap.get("pendingLevelRewards"), []);
   }
 
   // --- a drifted level is repaired on the next award ---
@@ -324,15 +495,27 @@ async function run() {
     });
     const data = res.data as {level: number; milestonePoints: number};
     assertEq("levelled up to 2", data.level, 2);
-    assertEq("level 2 pays its listed bonus", data.milestonePoints, LEVEL_UP_POINTS[2]);
+    assertEq("level 2 locks its listed bonus", data.milestonePoints, LEVEL_UP_POINTS[2]);
 
     const snap = await db.collection("users").doc(user.uid).get();
-    assertEq("the level-2 bonus reaches the balance",
-      snap.get("points"), LEVEL_UP_POINTS[2]);
+    // Locked, not paid - the claim is what moves it. What this block is
+    // about is that the SMALLEST level-up on the curve still promises its
+    // listed amount rather than nothing at all.
+    assertEq("the level-2 bonus is queued", snap.get("pendingLevelRewards"), [2]);
+    assertEq("the level-2 bonus is not in the balance yet", snap.get("points"), 0);
     assertEq(
       "one LEVEL_UP ledger entry for the level crossed",
       (await getLedgerEvents(user.uid)).filter((e) => e.source === "LEVEL_UP").length,
       1
+    );
+
+    const claimed = await httpsCallable(clientFunctions, "claimLevelReward")({});
+    assertEq("...and one ad releases it",
+      (claimed.data as {pointsAwarded: number}).pointsAwarded, LEVEL_UP_POINTS[2]);
+    assertEq(
+      "the level-2 bonus reaches the balance",
+      (await db.collection("users").doc(user.uid).get()).get("points"),
+      LEVEL_UP_POINTS[2]
     );
   }
 

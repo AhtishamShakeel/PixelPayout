@@ -252,6 +252,13 @@ class MainViewModel(
         userRepository.claimDailyStreak(adWatched)
 
     /**
+     * Releases the lowest locked level bonus. No level parameter by design -
+     * see UserRepository.claimLevelReward.
+     */
+    suspend fun claimLevelReward(): UserRepository.LevelRewardResult =
+        userRepository.claimLevelReward()
+
+    /**
      * Today's goals, derived rather than fetched.
      *
      * This used to be a callable on every return to Home - the single most
@@ -567,7 +574,17 @@ class MainViewModel(
          * "N XP to Level M" - never as "claim 0 stars", which would be a
          * promise the server does not keep.
          */
-        val nextLevelReward: Int = 0
+        val nextLevelReward: Int = 0,
+        /**
+         * Levels already reached whose star bonus is still locked behind an
+         * ad, lowest first. Empty is the normal state.
+         *
+         * Carried on LevelProgress rather than read separately because every
+         * screen that draws the level already observes this - the Home card
+         * turns its "Level rewards" link into a claim prompt from it, and the
+         * ladder tags its rungs from it.
+         */
+        val pendingLevelRewards: List<Int> = emptyList()
     )
 
     val levelProgress: LiveData<LevelProgress> = MediatorLiveData<LevelProgress>().apply {
@@ -582,7 +599,8 @@ class MainViewModel(
                     xpIntoLevel = 0,
                     xpForNextLevel = 0,
                     isMaxLevel = false,
-                    totalXp = user.xp
+                    totalXp = user.xp,
+                    pendingLevelRewards = user.pendingLevelRewards
                 )
                 return
             }
@@ -597,7 +615,8 @@ class MainViewModel(
                 isMaxLevel = isMax,
                 totalXp = user.xp,
                 nextLevelReward =
-                    if (isMax) 0 else curve.levelRewards[user.level + 1] ?: 0
+                    if (isMax) 0 else curve.levelRewards[user.level + 1] ?: 0,
+                pendingLevelRewards = user.pendingLevelRewards
             )
         }
 

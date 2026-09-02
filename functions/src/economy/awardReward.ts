@@ -36,8 +36,19 @@ export interface RewardEventDoc {
   levelAfterEvent: number;
   createdAt: FieldValue;
   metadata: Record<string, unknown>;
-  /** "reversed" marks an entry undone by a later refund, for the audit trail. */
-  status: "applied" | "reversed";
+  /**
+   * "reversed" marks an entry undone by a later refund, for the audit trail.
+   *
+   * "locked" marks an entry that RECORDS a reward without having paid it:
+   * only level-up milestones are written this way, because the stars they
+   * promise are now released by watching a rewarded ad rather than by
+   * crossing the level. The amount is fixed at lock time - `finalPoints`
+   * holds it - so retuning the table in the console never changes what an
+   * already-earned level was promised. claimLevelReward flips it to
+   * "applied" in the same transaction that credits the balance, which is
+   * also what stops one level paying twice.
+   */
+  status: "applied" | "reversed" | "locked";
   /**
    * Whether this entry moved Points, as opposed to XP alone.
    *
@@ -98,6 +109,19 @@ export interface AwardResult {
  * A one-time bonus for reaching a milestone level. Built directly rather than
  * through buildAward, because the level here is the milestone that was just
  * reached - not something to recompute from an XP gain (this awards no XP).
+ *
+ * WRITTEN LOCKED, NOT PAID. Crossing the level earns the reward; watching a
+ * rewarded ad releases it (see claimLevelReward). So this entry is the
+ * PROMISE - it records the level, the amount and the moment it was earned -
+ * and the claim is what turns it into a balance movement. Two consequences
+ * follow from that and both are deliberate:
+ *
+ *   * `affectsPoints` is false while locked, so the Stars activity list does
+ *     not show a line for money that has not moved. The claim sets it true.
+ *   * `finalPoints` is the amount as it stood WHEN THE LEVEL WAS CROSSED, and
+ *     the claim pays that figure rather than re-reading the table. A console
+ *     retune moves what future levels are worth, never what a player was
+ *     already promised.
  */
 export function buildMilestoneEvent(level: number, points: number): RewardEventDoc {
   return {
@@ -114,8 +138,9 @@ export function buildMilestoneEvent(level: number, points: number): RewardEventD
     levelAfterEvent: level,
     createdAt: FieldValue.serverTimestamp(),
     metadata: {milestoneLevel: level},
-    status: "applied",
-    affectsPoints: points !== 0,
+    status: "locked",
+    // Nothing moved yet - see the note above.
+    affectsPoints: false,
   };
 }
 

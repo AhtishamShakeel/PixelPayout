@@ -387,10 +387,16 @@ assertEq(
   });
   assertEq("a refund is a star movement", refund.ledgerDoc.affectsPoints, true);
 
-  assertEq("a milestone bonus is a star movement",
-    buildMilestoneEvent(10, 50).affectsPoints, true);
-  assertEq("a zero-point milestone is not",
-    buildMilestoneEvent(11, 0).affectsPoints, false);
+  // A milestone is the exception, and deliberately so: it is written LOCKED,
+  // so at the moment it exists no stars have moved and the activity list must
+  // not carry a line for it. claimLevelReward sets both of these when the ad
+  // is watched and the balance actually changes.
+  assertEq("a locked milestone is not a star movement yet",
+    buildMilestoneEvent(10, 50).affectsPoints, false);
+  assertEq("...and it says so in its status",
+    buildMilestoneEvent(10, 50).status, "locked");
+  assertEq("...while still recording what it will pay",
+    buildMilestoneEvent(10, 50).finalPoints, 50);
 }
 
 // --- Bonus attempts ---------------------------------------------------------

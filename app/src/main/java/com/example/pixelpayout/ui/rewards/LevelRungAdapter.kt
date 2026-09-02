@@ -53,7 +53,11 @@ class LevelRungAdapter : ListAdapter<LevelLadder.Rung, LevelRungAdapter.ViewHold
         private val inflater = LayoutInflater.from(binding.root.context)
 
         fun bind(rung: LevelLadder.Rung, isLast: Boolean) {
-            val reached = rung.state == LevelLadder.State.REACHED
+            val unclaimed = rung.state == LevelLadder.State.UNCLAIMED
+            // Unclaimed is a reached level throughout - the climb is done and
+            // the perks are real - so everywhere the rung asks "have I got
+            // here", the answer stays yes. Only the tag distinguishes them.
+            val reached = rung.state == LevelLadder.State.REACHED || unclaimed
             val next = rung.state == LevelLadder.State.NEXT
 
             binding.rungBadge.apply {
@@ -83,7 +87,10 @@ class LevelRungAdapter : ListAdapter<LevelLadder.Rung, LevelRungAdapter.ViewHold
 
             binding.rungCard.setBackgroundResource(
                 when {
-                    next -> R.drawable.bg_first_redeem_card
+                    // The rung with something to collect gets the same
+                    // highlight the next level does: those are the only two
+                    // rows on the screen that are about to change.
+                    unclaimed || next -> R.drawable.bg_first_redeem_card
                     reached -> R.drawable.bg_summary_card
                     else -> R.drawable.bg_rung_locked
                 }
@@ -99,6 +106,22 @@ class LevelRungAdapter : ListAdapter<LevelLadder.Rung, LevelRungAdapter.ViewHold
 
             binding.rungTag.apply {
                 when {
+                    // Two different sentences, because the queue is drained
+                    // lowest-first: one rung can be collected now and the
+                    // others are behind it. Saying "claim" on all of them
+                    // would promise a choice the server does not offer.
+                    unclaimed && rung.isNextClaim -> {
+                        setText(R.string.level_rewards_tag_claim)
+                        setBackgroundResource(R.drawable.bg_tag_next)
+                        setTextColor(color(R.color.stars_accent))
+                    }
+
+                    unclaimed -> {
+                        setText(R.string.level_rewards_tag_queued)
+                        setBackgroundResource(R.drawable.bg_tag_locked)
+                        setTextColor(color(R.color.text_dim))
+                    }
+
                     reached -> {
                         setText(R.string.level_rewards_tag_reached)
                         setBackgroundResource(R.drawable.bg_status_done)

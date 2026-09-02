@@ -175,65 +175,18 @@ class HomeFragment : Fragment() {
 
             // The way into the ladder becomes an errand while stars are owed.
             // Level bonuses are released by a rewarded ad now (see
-            // claimLevelReward), and a level-up happens on a results screen
-            // two taps from here - so without this the only sign that
-            // something is waiting would be a toast the user already dismissed.
+            // claimLevelReward), and a level-up happens inside a game or quiz
+            // that has since closed - so without this the only sign that
+            // something is waiting would be a toast the player has dismissed.
             val owed = progress.pendingLevelRewards.size
-            binding.levelRewardsButton.text = if (owed > 0) {
-                resources.getQuantityString(
-                    R.plurals.level_rewards_button_claim, owed, owed
-                )
-            } else {
-                getString(R.string.level_rewards_button)
-            }
+            renderLevelRewardsButton(progress, owed)
 
-            when {
-                progress.isMaxLevel -> {
-                    // No next level to fill toward. A full bar says "nothing
-                    // left to earn here", which is the truth; an empty one
-                    // would read as no progress at all.
-                    binding.levelProgressBar.progress = 100
-                    binding.levelReward.setText(R.string.level_reached_max)
-                    binding.levelXpCurrent.text = ""
-                    binding.levelXpRequired.text = ""
-                }
-
-                // The curve is fetched once per session and can still be in
-                // flight, or have failed. Level is known either way; the XP
-                // figures are not, so they are left blank rather than shown
-                // as 0 / 0.
-                progress.xpForNextLevel <= 0 -> {
-                    binding.levelProgressBar.progress = 0
-                    binding.levelReward.text = ""
-                    binding.levelXpCurrent.text = ""
-                    binding.levelXpRequired.text = ""
-                }
-
-                else -> {
-                    binding.levelProgressBar.progress =
-                        (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
-
-                    // One line where there were two, and it leads with what
-                    // the next level PAYS rather than only how far it is -
-                    // the question the level number invites is "worth what?".
-                    // Levels the published curve pays nothing for fall back
-                    // to the distance alone; "claim 0 stars" would be a
-                    // promise the server never makes.
-                    val xpToGo = progress.xpForNextLevel - progress.xpIntoLevel
-                    if (progress.nextLevelReward > 0) {
-                        val reward = formatCount(progress.nextLevelReward)
-                        binding.levelReward.setStarText(
-                            getString(R.string.level_reward_next, xpToGo, reward),
-                            emphasise = reward
-                        )
-                    } else {
-                        binding.levelReward.text =
-                            getString(R.string.level_to_next, xpToGo, progress.level + 1)
-                    }
-                    binding.levelXpCurrent.text = formatCount(progress.xpIntoLevel)
-                    binding.levelXpRequired.text = formatCount(progress.xpForNextLevel)
-                }
-            }
+            // The bar always describes the climb; only the CAPTION changes.
+            // Splitting them is what lets an unclaimed reward take the line
+            // without also having to decide what the bar should show at max
+            // level or before the curve has landed.
+            renderLevelBar(progress)
+            renderLevelCaption(progress, owed)
         }
 
         // The badge only appears while a buff is running; the countdown is
@@ -399,6 +352,128 @@ class HomeFragment : Fragment() {
             levelRewardsButton.setOnClickListener { openLevelRewards() }
 
             btnPayout.setOnClickListener { navigateToRedemption()}
+        }
+    }
+
+    /**
+     * The way into the ladder, which becomes a claim button while stars are
+     * owed: solid gold, quoting the total waiting, against the quiet outline
+     * it wears the rest of the time.
+     *
+     * Every property is set in BOTH directions. This view is rebound on every
+     * emission, so a one-way change would leave the card gold for the rest of
+     * the session after the queue emptied.
+     */
+    private fun renderLevelRewardsButton(
+        progress: MainViewModel.LevelProgress,
+        owed: Int
+    ) {
+        val button = binding.levelRewardsButton
+
+        if (owed == 0) {
+            button.setBackgroundResource(R.drawable.bg_button_xp_outline)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.xp_accent))
+            button.text = getString(R.string.level_rewards_button)
+            return
+        }
+
+        // The stars owed, not the number of levels: the figure that makes
+        // somebody tap is what they get, not how many taps it takes. It comes
+        // from the same published table the server pinned each reward from,
+        // and is left at the plain label until that table lands rather than
+        // quoting a total of zero.
+        val rewards = mainViewModel.levelCurve.value?.levelRewards.orEmpty()
+        val stars = progress.pendingLevelRewards.sumOf { rewards[it] ?: 0 }
+
+        button.setBackgroundResource(R.drawable.bg_button_stars_filled)
+        // Ink on gold. The accent colours every other button uses are all
+        // light, and any of them on this fill would be unreadable.
+        button.setTextColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
+        if (stars > 0) {
+            button.setStarText(
+                getString(R.string.level_rewards_button_claim, stars),
+                starColor = R.color.background_dark
+            )
+        } else {
+            button.text = getString(R.string.level_rewards_button)
+        }
+    }
+
+    /** The bar and the two XP figures under it. */
+    private fun renderLevelBar(progress: MainViewModel.LevelProgress) {
+        when {
+            progress.isMaxLevel -> {
+                // No next level to fill toward. A full bar says "nothing left
+                // to earn here", which is the truth; an empty one would read
+                // as no progress at all.
+                binding.levelProgressBar.progress = 100
+                binding.levelXpCurrent.text = ""
+                binding.levelXpRequired.text = ""
+            }
+
+            // The curve is fetched once per session and can still be in
+            // flight, or have failed. Level is known either way; the XP
+            // figures are not, so they are left blank rather than shown as
+            // 0 / 0.
+            progress.xpForNextLevel <= 0 -> {
+                binding.levelProgressBar.progress = 0
+                binding.levelXpCurrent.text = ""
+                binding.levelXpRequired.text = ""
+            }
+
+            else -> {
+                binding.levelProgressBar.progress =
+                    (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
+                binding.levelXpCurrent.text = formatCount(progress.xpIntoLevel)
+                binding.levelXpRequired.text = formatCount(progress.xpForNextLevel)
+            }
+        }
+    }
+
+    /**
+     * The one line above the bar.
+     *
+     * [owed] outranks everything else it could say, max level included: an
+     * unclaimed reward is the only state on this card the player can act on,
+     * and the bar below still shows the progress this line would otherwise
+     * have described.
+     */
+    private fun renderLevelCaption(progress: MainViewModel.LevelProgress, owed: Int) {
+        // Set in both directions rather than only when owed - this view is
+        // rebound on every emission, so painting it gold once would leave the
+        // next ordinary render gold too.
+        binding.levelReward.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (owed > 0) R.color.stars_accent else R.color.text_dim
+            )
+        )
+
+        when {
+            owed > 0 -> binding.levelReward.setText(R.string.level_reward_pending)
+
+            progress.isMaxLevel -> binding.levelReward.setText(R.string.level_reached_max)
+
+            progress.xpForNextLevel <= 0 -> binding.levelReward.text = ""
+
+            else -> {
+                // Leads with what the next level PAYS rather than only how
+                // far it is - the question the level number invites is "worth
+                // what?". Levels the published curve pays nothing for fall
+                // back to the distance alone; "claim 0 stars" would be a
+                // promise the server never makes.
+                val xpToGo = progress.xpForNextLevel - progress.xpIntoLevel
+                if (progress.nextLevelReward > 0) {
+                    val reward = formatCount(progress.nextLevelReward)
+                    binding.levelReward.setStarText(
+                        getString(R.string.level_reward_next, xpToGo, reward),
+                        emphasise = reward
+                    )
+                } else {
+                    binding.levelReward.text =
+                        getString(R.string.level_to_next, xpToGo, progress.level + 1)
+                }
+            }
         }
     }
 

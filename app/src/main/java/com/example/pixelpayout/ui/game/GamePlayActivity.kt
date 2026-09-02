@@ -197,10 +197,19 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
-        // Emitted before pointsUpdated, so the toast is queued before this
-        // activity finishes below (a Toast outlives the activity that showed it).
+        // A toast, not an offer. The XP can cross a level mid-run, so this
+        // fires while the player is still in the game - MainActivity makes the
+        // actual claim offer once they are back on a normal screen.
+        //
+        // Emitted before pointsUpdated, so it is queued before this activity
+        // finishes below (a Toast outlives the activity that showed it).
         viewModel.levelUp.observe(this) { event ->
-            event?.let { showLevelUp(it) }
+            event?.let {
+                showLevelUp(it)
+                // Announced once. Without this a rotation re-delivers the
+                // event and toasts it again.
+                viewModel.clearLevelUp()
+            }
         }
 
         viewModel.claimOutcome.observe(this) { outcome ->

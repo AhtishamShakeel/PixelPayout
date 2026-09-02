@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The claim action inside the XP card, and the one button in this app that
+    is allowed to shout.
+
+    Solid gold where bg_button_stars_outline is deliberately outlined. That
+    file's own note explains why the outline is normally right - filled, gold
+    is the loudest thing on the screen by a wide margin - and this is the case
+    that wants exactly that. It is only ever on screen while stars are owed
+    and unclaimed, which is the one state on the level card the player can act
+    on and the one they lose by ignoring. The moment the queue empties, the
+    button goes back to bg_button_xp_outline and the card is quiet again.
+
+    Same 10dp radius as both outlined buttons, so swapping between them does
+    not change the shape of the card.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <shape android:shape="rectangle">
+            <solid android:color="@color/gold_deep" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/stars_accent" />
+            <corners android:radius="10dp" />
+        </shape>
+    </item>
+</selector>

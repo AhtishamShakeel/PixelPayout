@@ -248,6 +248,10 @@
     <string name="level_xp_ratio">%1$d / %2$d XP</string>
     <string name="level_to_next">%1$d XP to Level %2$d</string>
     <string name="level_reward_next">%1$d XP to claim %2$s ★</string>
+    <!-- Replaces the line above while stars are owed. The card stops being a
+         progress readout and becomes the errand, because an unclaimed reward
+         is more use to the player than how far the next level is. -->
+    <string name="level_reward_pending">Reward pending — claim now</string>
     <string name="level_reached_max">Highest level reached</string>
 
     <!-- Level rewards.
@@ -259,10 +263,10 @@
     <string name="level_rewards_button">View rewards</string>
     <!-- Replaces the link's label on Home while anything is owed, so the card
          reads as an errand rather than a page to browse. -->
-    <plurals name="level_rewards_button_claim">
-        <item quantity="one">Claim %1$d reward</item>
-        <item quantity="other">Claim %1$d rewards</item>
-    </plurals>
+    <!-- Quotes the STARS owed rather than the number of levels: the figure
+         that makes somebody tap is what they get, not how many taps it takes.
+         The star is swapped for the real drawable by setStarText. -->
+    <string name="level_rewards_button_claim">Claim %1$d ★ now</string>
     <string name="level_rewards_title">Level rewards</string>
     <string name="level_rewards_lv">Lv</string>
     <string name="level_rewards_lifetime_xp">%1$s lifetime XP</string>
@@ -296,6 +300,20 @@
     </plurals>
     <string name="level_claim_toast">Level %1$d claimed: +%2$d stars</string>
     <string name="level_claim_nothing">That reward was already claimed.</string>
+    <!-- The level-up dialog. It offers the ad at the moment the reward is on
+         the player's mind, which is the only place the old toast could have
+         been dismissed and the stars forgotten about. "Oldest first" is in
+         the message because tapping Later builds a queue, and the next claim
+         pays the bottom of it rather than the level on screen. -->
+    <string name="level_up_dialog_title">Level %1$d reached!</string>
+    <string name="level_up_dialog_message_one">Level %1$d\u2019s reward is waiting. Watch a short ad on the rewards screen to collect it.</string>
+    <!-- A range, not a list: someone who has left this alone can be owed a
+         dozen levels, and naming each one stops being readable long before it
+         stops being accurate. "Oldest first" is stated because the screen
+         releases them in that order. -->
+    <string name="level_up_dialog_message_many">%1$d rewards are waiting, from level %2$d to level %3$d. They are claimed one at a time, oldest first.</string>
+    <string name="level_up_dialog_claim">Claim now</string>
+    <string name="level_up_dialog_later">Later</string>
     <string name="level_claim_ad_unavailable">No ad available right now — your reward is still saved.</string>
     <string name="level_rewards_loading">Level rewards are still loading.</string>
     <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Reaching a level earns its stars; watch a short ad to collect them, one level at a time starting from the lowest you have not claimed. Level 1 is where you start, so it is not on the ladder.</string>

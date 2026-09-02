@@ -3,6 +3,7 @@ package com.example.pixelpayout.utils
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.preferencesOf
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -38,6 +39,32 @@ class UserPreferences(private val context: Context) {
          * redeployed, so showing yesterday's copy for a second is harmless.
          */
         private val STREAK_CYCLE = stringPreferencesKey("streakCycle")
+
+        /**
+         * The highest level whose reward has already been announced.
+         *
+         * A high-water mark rather than a "seen" flag, because the thing being
+         * announced comes back: every level-up owes a new reward, and the
+         * dialog has to appear again for it. Comparing against the current
+         * level means one announcement per climb, however many screens the
+         * player passes through afterwards - and tapping Later does not bring
+         * it back on the next return to Home, which is the difference between
+         * a prompt and a nag.
+         *
+         * On this device only. Firestore holds what is OWED; this holds
+         * whether we have mentioned it, which is a property of the screen
+         * rather than of the account.
+         */
+        private val LAST_ANNOUNCED_LEVEL = intPreferencesKey("lastAnnouncedLevel")
+    }
+
+    val lastAnnouncedLevel: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[LAST_ANNOUNCED_LEVEL] ?: 0 }
+
+    suspend fun setLastAnnouncedLevel(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_ANNOUNCED_LEVEL] = value
+        }
     }
 
     val hasSeenReferralPopup: Flow<Boolean> = context.dataStore.data

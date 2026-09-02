@@ -164,8 +164,12 @@ class QuizActivity : AppCompatActivity() {
             // Handle total points update if needed
         }
 
+        // A toast, not an offer - see the same call in GamePlayActivity.
         viewModel.levelUp.observe(this) { event ->
-            event?.let { showLevelUp(it) }
+            event?.let {
+                showLevelUp(it)
+                viewModel.clearLevelUp()
+            }
         }
     }
 

@@ -36,6 +36,20 @@ class QuizViewModel : ViewModel() {
     private val _levelUp = MutableLiveData<LevelUpEvent?>()
     val levelUp: LiveData<LevelUpEvent?> = _levelUp
 
+    /**
+     * Marks the level-up as announced.
+     *
+     * LiveData re-delivers its last value to a new observer, so without this
+     * a rotation - which recreates the activity and re-subscribes - would put
+     * the level-up dialog back on screen, offering an ad for a reward that may
+     * already have been claimed. Harmless when it was a toast; not harmless
+     * now that it is a modal offer.
+     */
+    fun clearLevelUp() {
+        _levelUp.value = null
+    }
+
+
     /** How the "double it" offer ended. Mirrors the game results screen. */
     sealed class DoubleOutcome {
         data class Paid(val xpAwarded: Int) : DoubleOutcome()
@@ -93,12 +107,15 @@ class QuizViewModel : ViewModel() {
                 doubleableEventId =
                     if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
                 _totalPoints.postValue(result.totalXp)
+                _isQuizComplete.postValue(true)
+                // AFTER the results, deliberately - see the same ordering in
+                // GamePlayViewModel. postValue preserves the order it was
+                // called in, so the dialog lands on top of the results sheet.
                 if (result.leveledUp) {
                     _levelUp.postValue(
                         LevelUpEvent(result.level, result.milestonePoints)
                     )
                 }
-                _isQuizComplete.postValue(true)
             } catch (e: Exception) {
                 doubleableEventId = null
                 _isQuizComplete.postValue(true)

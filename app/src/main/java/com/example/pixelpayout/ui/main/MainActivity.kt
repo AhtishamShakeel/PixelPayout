@@ -21,6 +21,7 @@ import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.utils.showPendingLevelRewards
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.firstOrNull
@@ -41,6 +42,18 @@ class MainActivity : AppCompatActivity() {
     // False until the level ring has painted a real value once; the first
     // paint jumps straight to the value, later ones animate.
     private var hasShownLevelRing = false
+
+    private val TAG_LEVEL_REWARDS = "LevelRewards"
+
+    /**
+     * True while the level-reward celebration is on screen.
+     *
+     * The announcement is driven by a LiveData that emits on every user
+     * snapshot, and the preference that gates it is read asynchronously - so
+     * without this a second emission arriving before the first write landed
+     * would stack a second dialog on the first.
+     */
+    private var announcingLevelRewards = false
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -100,6 +113,114 @@ class MainActivity : AppCompatActivity() {
         setupToolbar()
         setupNavigation()
         observeViewModel()
+        observeLevelRewards()
+    }
+
+    /**
+     * Re-asks whether there are level rewards to announce.
+     *
+     * THREE TRIGGERS, ALL CHEAP, because any one of them alone has a hole in
+     * it. The two observers catch the queue changing while the player is
+     * looking at a tab, and the curve landing after it. onResume catches the
+     * ordinary case - a level crossed inside the game, whose snapshot arrived
+     * while this activity was stopped and its MediatorLiveData detached, so by
+     * the time anyone is watching again there is no emission left to hear.
+     *
+     * Everything it reads is already in memory: the pending queue rides the
+     * user snapshot and the amounts come from the published curve, so asking
+     * repeatedly costs no reads.
+     */
+    private fun maybeAnnounceLevelRewards() {
+        if (announcingLevelRewards) return
+
+        val progress = viewModel.levelProgress.value
+        if (progress == null) {
+            Log.d(TAG_LEVEL_REWARDS, "No level progress yet")
+            return
+        }
+
+        val pending = progress.pendingLevelRewards
+        if (pending.isEmpty()) {
+            Log.d(TAG_LEVEL_REWARDS, "Nothing pending at level ${progress.level}")
+            return
+        }
+
+        val rewards = viewModel.levelCurve.value?.levelRewards.orEmpty()
+        if (rewards.isEmpty()) {
+            // The curve observer below re-asks when it lands.
+            Log.d(TAG_LEVEL_REWARDS, "Curve not loaded; pending=$pending")
+            return
+        }
+
+        // KEYED ON THE QUEUE, NOT ON THE LEVEL. The two usually agree, but not
+        // on an account that crossed levels before any of this existed: those
+        // levels were paid outright and are owed nothing, so a high-water mark
+        // taken from the level number would sit above the first reward that
+        // was ever actually queued and silently swallow its announcement.
+        val top = pending.max()
+
+        lifecycleScope.launch {
+            val announced = userPreferences.lastAnnouncedLevel.firstOrNull() ?: 0
+            if (top <= announced) {
+                Log.d(TAG_LEVEL_REWARDS, "Already announced up to $announced")
+                return@launch
+            }
+            if (announcingLevelRewards || isFinishing) return@launch
+
+            announcingLevelRewards = true
+            val shown = showPendingLevelRewards(
+                level = progress.level,
+                pendingLevels = pending,
+                rewards = rewards,
+                onDismissed = { announcingLevelRewards = false },
+                onClaim = { openLevelRewards() }
+            )
+
+            Log.d(TAG_LEVEL_REWARDS, "pending=$pending shown=$shown")
+
+            if (shown) {
+                // Recorded only on a dialog that really appeared, so a run
+                // that bailed out can still announce later.
+                userPreferences.setLastAnnouncedLevel(top)
+            } else {
+                announcingLevelRewards = false
+            }
+        }
+    }
+
+    private fun observeLevelRewards() {
+        viewModel.levelProgress.observe(this) { maybeAnnounceLevelRewards() }
+        viewModel.levelCurve.observe(this) { maybeAnnounceLevelRewards() }
+    }
+
+    /**
+     * The ladder, from wherever the player happens to be.
+     *
+     * A flat destination in the graph, so this works from any tab - unlike
+     * HomeFragment's own version, which refuses unless Home is on top because
+     * a fragment can only navigate its own controller safely.
+     */
+    private fun openLevelRewards() {
+        val navController = (supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment)
+            ?.navController ?: return
+
+        if (navController.currentDestination?.id == R.id.levelRewardsFragment) return
+
+        try {
+            navController.navigate(
+                R.id.levelRewardsFragment,
+                null,
+                NavOptions.Builder()
+                    .setEnterAnim(R.anim.fade_in)
+                    .setExitAnim(R.anim.fade_out)
+                    .setPopEnterAnim(R.anim.fade_in)
+                    .setPopExitAnim(R.anim.fade_out)
+                    .build()
+            )
+        } catch (e: Exception) {
+            Log.e("Navigation", "Could not open level rewards: ${e.message}")
+        }
     }
 
     /**
@@ -111,6 +232,11 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         updateBlockingDialogState()
+        // Asked here as well as from the observers below, because "the player
+        // is back on a normal screen" is a lifecycle fact rather than a data
+        // one - and the data it depends on usually settled while this activity
+        // was stopped, so there may be no emission left to react to.
+        maybeAnnounceLevelRewards()
     }
 
     private fun setupConnectivityCheck() {

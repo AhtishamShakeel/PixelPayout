@@ -52,6 +52,20 @@ class GamePlayViewModel : ViewModel() {
     private val _levelUp = MutableLiveData<LevelUpEvent?>()
     val levelUp: LiveData<LevelUpEvent?> = _levelUp
 
+    /**
+     * Marks the level-up as announced.
+     *
+     * LiveData re-delivers its last value to a new observer, so without this
+     * a rotation - which recreates the activity and re-subscribes - would put
+     * the level-up dialog back on screen, offering an ad for a reward that may
+     * already have been claimed. Harmless when it was a toast; not harmless
+     * now that it is a modal offer.
+     */
+    fun clearLevelUp() {
+        _levelUp.value = null
+    }
+
+
     private val _sessionReady = MutableLiveData<Boolean>()
     val sessionReady: LiveData<Boolean> = _sessionReady
 
@@ -103,15 +117,18 @@ class GamePlayViewModel : ViewModel() {
                 // A session is single-use: drop it so a second completion in
                 // the same activity can't attempt to reuse it.
                 sessionId = null
-                if (result.leveledUp) {
-                    _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
-                }
                 // Only a run that paid something can be doubled - the server
                 // refuses a zero anyway, and offering an ad in exchange for
                 // twice nothing is worse than not offering one.
                 doubleableEventId =
                     if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
                 _claimOutcome.value = ClaimOutcome.Paid(result.xpAwarded)
+                // AFTER the results, deliberately. The level-up is a dialog
+                // now rather than a toast, so it lands on top of the results
+                // panel instead of over a screen that has not drawn it yet.
+                if (result.leveledUp) {
+                    _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
+                }
             } catch (e: Exception) {
                 // The session is burned by the server on a rejection, so it is
                 // dropped here too - retrying it could only fail again.

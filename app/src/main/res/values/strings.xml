@@ -20,6 +20,7 @@
     <string name="error_loading_quizzes">Error loading quizzes</string>
     <string name="points_value">%d </string>
     <string name="submit_answer">Submit Answer</string>
+    <string name="quiz_submitting">Checking\u2026</string>
     <string name="select_answer">Please select an answer</string>
     <!-- The unit moved out of the number: the Ring-led design puts the
          seconds figure at 30sp inside the ring with "SECONDS" underneath it,

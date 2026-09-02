@@ -246,7 +246,36 @@ class QuizActivity : AppCompatActivity() {
         if (answerSubmitted) return
         answerSubmitted = true
         timer?.cancel()
+        lockAnswering()
         viewModel.submitAnswer(answerIndex)
+    }
+
+    /**
+     * Freezes the question the moment an answer is in.
+     *
+     * Called from here rather than from the button handler so that it covers
+     * the timer path too - a question that ran out of time was leaving every
+     * option live and the button still reading "Submit Answer".
+     *
+     * The options matter more than they look: their click listeners call
+     * resetOptions(), so a tap after submitting used to WIPE the green and red
+     * marking of the answer the player had just been shown.
+     *
+     * The label change is the other half. Grading is a network call, and on a
+     * cold-started function it takes a couple of seconds; a button that only
+     * greys out reads as a dead screen, while one that says what it is doing
+     * reads as work in progress.
+     */
+    private fun lockAnswering() {
+        binding.submitButton.isEnabled = false
+        binding.submitButton.setText(R.string.quiz_submitting)
+
+        for (i in 0 until binding.optionsContainer.childCount) {
+            binding.optionsContainer.getChildAt(i).apply {
+                isClickable = false
+                isFocusable = false
+            }
+        }
     }
 
     private fun startTimer() {

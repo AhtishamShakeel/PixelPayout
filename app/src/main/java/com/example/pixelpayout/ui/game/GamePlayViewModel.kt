@@ -8,9 +8,16 @@ import com.example.pixelpayout.data.model.LevelUpEvent
 import com.example.pixelpayout.data.repository.UserRepository
 import com.google.firebase.functions.FirebaseFunctionsException
 import com.pixelpayout.R
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class GamePlayViewModel : ViewModel() {
+    private companion object {
+        /** How long a finished run waits for an in-flight session. */
+        const val SESSION_WAIT_MILLIS = 10_000L
+    }
+
     private val userRepository = UserRepository()
 
     /**
@@ -69,7 +76,30 @@ class GamePlayViewModel : ViewModel() {
     private val _sessionReady = MutableLiveData<Boolean>()
     val sessionReady: LiveData<Boolean> = _sessionReady
 
+    /**
+     * True while a finished run is being paid for.
+     *
+     * The claim is a network call, and on a cold-started function it can take
+     * a few seconds. Without something on screen for that stretch the game
+     * simply sits on its last frame, which reads as a crash rather than as
+     * work in progress.
+     */
+    private val _claiming = MutableLiveData(false)
+    val claiming: LiveData<Boolean> = _claiming
+
     private var sessionId: String? = null
+
+    /**
+     * The in-flight [startSession], so a claim can wait for it.
+     *
+     * A cold-started startGameSession can take a couple of seconds, and a
+     * short run can be over before it answers. Waiting on this is what stops
+     * that run being refused for want of a session that was on its way.
+     */
+    private var sessionJob: Job? = null
+
+    /** A session pays once, however many times the game says it finished. */
+    private var claimInFlight = false
 
     /**
      * The ledger entry a paid run can still be doubled against.
@@ -91,7 +121,7 @@ class GamePlayViewModel : ViewModel() {
      * a real play session rather than a bare claim.
      */
     fun startSession(gameId: String) {
-        viewModelScope.launch {
+        sessionJob = viewModelScope.launch {
             try {
                 sessionId = userRepository.startGameSession(gameId)
                 _sessionReady.value = true
@@ -102,39 +132,81 @@ class GamePlayViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Pays for a finished run.
+     *
+     * EVERY LINE OF THIS RUNS INSIDE THE COROUTINE, and that is the whole
+     * point of the shape. This is called from GameJavaScriptInterface, whose
+     * @JavascriptInterface methods the WebView invokes on its own JavaBridge
+     * thread - never the main thread. The early `sessionId == null` return
+     * used to touch LiveData directly, before any coroutine, so it called
+     * setValue off the main thread and threw IllegalStateException. That
+     * exception died inside the JS bridge, so the results panel never
+     * appeared and no error was shown either: the game sat on its last frame
+     * forever, still animating, which is exactly what a hang looks like.
+     * viewModelScope is Dispatchers.Main.immediate, so launching first hops to
+     * the main thread and everything below is safe.
+     */
     fun claimGameReward(gameId: String, score: Int) {
-        val currentSession = sessionId
-        if (currentSession == null) {
-            // No session means startSession failed or this run was already
-            // claimed. Either way there is nothing left to pay.
-            _claimOutcome.value = ClaimOutcome.Refused(R.string.game_claim_no_session)
-            return
-        }
-
         viewModelScope.launch {
+            // Games announce game-over more than once often enough to matter,
+            // and a session pays exactly once.
+            if (claimInFlight) return@launch
+            claimInFlight = true
+            _claiming.value = true
+
             try {
-                val result = userRepository.claimGameReward(gameId, score, currentSession)
-                // A session is single-use: drop it so a second completion in
-                // the same activity can't attempt to reuse it.
-                sessionId = null
-                // Only a run that paid something can be doubled - the server
-                // refuses a zero anyway, and offering an ad in exchange for
-                // twice nothing is worse than not offering one.
-                doubleableEventId =
-                    if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
-                _claimOutcome.value = ClaimOutcome.Paid(result.xpAwarded)
-                // AFTER the results, deliberately. The level-up is a dialog
-                // now rather than a toast, so it lands on top of the results
-                // panel instead of over a screen that has not drawn it yet.
-                if (result.leveledUp) {
-                    _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
+                // The run can be over before a cold-started startSession has
+                // answered. Waiting is the difference between paying for that
+                // run and refusing it for want of a session already on its
+                // way; join() returns immediately once it has landed, which is
+                // every case after the first.
+                //
+                // BOUNDED, because startGameSession sets no timeout of its own
+                // and the callable SDK's default is a full minute. A cold
+                // start measures 1.4-2.9s, so this is generous for the case it
+                // exists to cover while refusing to hold a spinner on screen
+                // for anything like as long as the SDK would.
+                withTimeoutOrNull(SESSION_WAIT_MILLIS) { sessionJob?.join() }
+
+                val currentSession = sessionId
+                if (currentSession == null) {
+                    // startSession genuinely failed, or this run was already
+                    // claimed. Either way there is nothing left to pay.
+                    _claimOutcome.value =
+                        ClaimOutcome.Refused(R.string.game_claim_no_session)
+                    return@launch
                 }
-            } catch (e: Exception) {
-                // The session is burned by the server on a rejection, so it is
-                // dropped here too - retrying it could only fail again.
-                sessionId = null
-                doubleableEventId = null
-                _claimOutcome.value = ClaimOutcome.Refused(reasonFor(e))
+
+                try {
+                    val result = userRepository.claimGameReward(gameId, score, currentSession)
+                    // A session is single-use: drop it so a second completion
+                    // in the same activity can't attempt to reuse it.
+                    sessionId = null
+                    // Only a run that paid something can be doubled - the
+                    // server refuses a zero anyway, and offering an ad in
+                    // exchange for twice nothing is worse than not offering
+                    // one.
+                    doubleableEventId =
+                        if (result.xpAwarded > 0 && result.eventId.isNotEmpty()) result.eventId else null
+                    _claimOutcome.value = ClaimOutcome.Paid(result.xpAwarded)
+                    // AFTER the results, deliberately. The level-up is a
+                    // dialog now rather than a toast, so it lands on top of
+                    // the results panel instead of over a screen that has not
+                    // drawn it yet.
+                    if (result.leveledUp) {
+                        _levelUp.value = LevelUpEvent(result.level, result.milestonePoints)
+                    }
+                } catch (e: Exception) {
+                    // The session is burned by the server on a rejection, so
+                    // it is dropped here too - retrying it could only fail
+                    // again.
+                    sessionId = null
+                    doubleableEventId = null
+                    _claimOutcome.value = ClaimOutcome.Refused(reasonFor(e))
+                }
+            } finally {
+                _claiming.value = false
             }
         }
     }

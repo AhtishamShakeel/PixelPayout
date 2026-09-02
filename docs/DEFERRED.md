@@ -105,6 +105,15 @@ paged one-off fetch for Orders history when that tab is actually opened.
 
 **Deferred:** 2026-09-01. User plans to add a splash screen first, then revisit.
 
+**Update 2026-09-03 — the symptoms are handled, the latency is not.** The cold
+start used to surface as two UI faults, both now fixed: the quiz froze on a
+live-looking question with no feedback, and the game hung outright (a LiveData
+`setValue` from the WebView's JavaBridge thread, thrown away inside the
+bridge). A finished run also now waits up to 10s for an in-flight session
+rather than being refused for want of one still on its way. So a cold start is
+a spinner and a couple of seconds now, not a hang or a lost run — which lowers
+the urgency here but does not remove it.
+
 "First attempt is slow, the rest are swift" is **Cloud Run cold start**,
 measured at ~1.4–2.9s from `firebase functions:log`. Not the function bodies,
 not the answer-key fetch, not App Check. The log signature is

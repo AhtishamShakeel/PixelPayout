@@ -212,6 +212,15 @@ class GamePlayActivity : AppCompatActivity() {
             }
         }
 
+        // The spinner covers the claim, which is a network call and on a
+        // cold-started function takes a few seconds. Before this the game
+        // simply sat on its last frame for that stretch, with nothing saying
+        // the run was still being paid for.
+        viewModel.claiming.observe(this) { claiming ->
+            binding.loadingIndicator.visibility =
+                if (claiming) View.VISIBLE else View.GONE
+        }
+
         viewModel.claimOutcome.observe(this) { outcome ->
             when (outcome) {
                 is GamePlayViewModel.ClaimOutcome.Paid -> showResults(outcome.xpAwarded)

@@ -425,6 +425,16 @@ class AdManager private constructor() {
         topUp()
 
         cached.ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            /**
+             * The one place every rewarded ad passes through, which is why
+             * the cadence is told here rather than at the call sites - and
+             * why it is told on display rather than on the reward. See
+             * AdCadence.noteRewardedShown.
+             */
+            override fun onAdShowedFullScreenContent() {
+                AdCadence.noteRewardedShown(activity)
+            }
+
             override fun onAdDismissedFullScreenContent() {
                 onAdClosed()
             }

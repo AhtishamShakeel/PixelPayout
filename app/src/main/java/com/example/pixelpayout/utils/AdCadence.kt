@@ -1,6 +1,7 @@
 package com.example.pixelpayout.utils
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.util.Log
 
 /**
@@ -27,6 +28,19 @@ import android.util.Log
  *      skip. Somebody who doubles every single run sees no interstitials at
  *      all, which is the correct outcome: they are already watching more ads
  *      than anyone.
+ *
+ *      ASKED TWO WAYS, because the caller's answer alone was not enough. The
+ *      `rewardedShown` flag is a field on the activity that finished, and it
+ *      only knows about ads that activity itself showed. It therefore missed
+ *      every rewarded ad watched at the same transition from somewhere else -
+ *      a bonus attempt bought on the games list seconds before the run, a
+ *      level reward released on the way back - and it was lost outright
+ *      whenever the activity was recreated behind the ad, which a full-screen
+ *      ad can easily cause. Both produced exactly what this rule exists to
+ *      prevent: an interstitial immediately after a rewarded ad. So the
+ *      timestamp written by [noteRewardedShown] is consulted as well, and it
+ *      is persisted in the same place as the rest of the cadence, which is
+ *      what makes it survive the recreation the flag does not.
  *   2. The first few completions on a fresh install are free. Early retention
  *      is worth more than three impressions.
  *   3. Otherwise every [EVERY_N_COMPLETIONS] completions, and never inside
@@ -53,6 +67,7 @@ object AdCadence {
     private const val KEY_LIFETIME = "lifetime_completions"
     private const val KEY_SINCE_LAST = "completions_since_interstitial"
     private const val KEY_LAST_SHOWN_AT = "last_interstitial_at"
+    private const val KEY_LAST_REWARDED_AT = "last_rewarded_at"
 
     /**
      * Show one every second activity finished.
@@ -73,6 +88,18 @@ object AdCadence {
     private const val GRACE_COMPLETIONS = 3
 
     /**
+     * How long a rewarded ad keeps an interstitial off the screen.
+     *
+     * Deliberately [MIN_GAP_MS], not a number of its own. A rewarded ad is a
+     * full-screen ad, and the floor already says how close together two of
+     * those may be - the only reason interstitials were being measured solely
+     * against each other is that rewarded ads were not being recorded at all.
+     * Measuring both against one floor is the same rule the player already
+     * experiences, applied to every ad rather than to one kind of it.
+     */
+    private const val REWARDED_SUPPRESS_MS = MIN_GAP_MS
+
+    /**
      * How far ahead [InterstitialAdManager] is asked to look when deciding
      * whether a slot is worth pausing for. Matches AdHold's hold, because
      * that is exactly the time a request would have to land in.
@@ -90,13 +117,14 @@ object AdCadence {
      * revenue split.
      *
      * @param rewardedShown whether the player watched a rewarded ad as part
-     *   of finishing this activity. Suppresses the interstitial outright.
+     *   of finishing this activity. Suppresses the interstitial outright, as
+     *   does a recent [noteRewardedShown] - see rule 1 above for why both.
      */
     fun onActivityCompleted(context: Context, rewardedShown: Boolean): Boolean {
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-        if (rewardedShown) {
+        if (rewardedShown || watchedRewardedRecently(prefs)) {
             Log.d(TAG, "Rewarded ad shown - interstitial suppressed, counter held")
             return false
         }
@@ -140,6 +168,47 @@ object AdCadence {
         }
 
         return true
+    }
+
+    /**
+     * Records that a rewarded ad was put on screen.
+     *
+     * Called from AdManager's onAdShowedFullScreenContent rather than from
+     * the seven places that ask for a rewarded ad, so a control added later
+     * cannot forget to declare itself and end up followed by an interstitial.
+     *
+     * ON DISPLAY, NOT ON THE REWARD, and the difference cuts both ways. An ad
+     * closed after two seconds is still a rendered impression and is still
+     * paid for, so treating it as though no ad happened understates what that
+     * transition already earned. It is also still a full-screen ad the player
+     * has just shut, which is the worst moment available to open another one:
+     * their finger is already moving toward a close button, and that is
+     * precisely the stray tap AdHold's pause exists to prevent.
+     *
+     * The counter is untouched. This suppresses, it does not consume; the
+     * slot stays open for the next completion, exactly as `rewardedShown`
+     * already did.
+     */
+    fun noteRewardedShown(context: Context) {
+        context.applicationContext
+            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putLong(KEY_LAST_REWARDED_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    /**
+     * Whether a rewarded ad landed close enough to count as this transition.
+     *
+     * A stamp in the future means the device clock moved backwards, and is
+     * read as "not recent" rather than blocking interstitials until real time
+     * catches up. The cost of that is at most one extra interstitial, and the
+     * caller's own `rewardedShown` still covers the case this exists for.
+     */
+    private fun watchedRewardedRecently(prefs: SharedPreferences): Boolean {
+        val at = prefs.getLong(KEY_LAST_REWARDED_AT, 0L)
+        if (at == 0L) return false
+        return (System.currentTimeMillis() - at) in 0 until REWARDED_SUPPRESS_MS
     }
 
     /**

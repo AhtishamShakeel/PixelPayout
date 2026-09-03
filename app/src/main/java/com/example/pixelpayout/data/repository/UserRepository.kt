@@ -759,7 +759,7 @@ class UserRepository {
      * own SERVER round trip for a document that only changes when somebody
      * edits the console. Worse, that round trip was on the path of the Level
      * rewards ladder - the first-redeem rung could not be placed until the
-     * network answered, so the whole ladder was built once without it and
+     * network answered, so the whole ladder was built once without it and`
      * again with it.
      *
      * The refresh below keeps "briefly stale" from becoming "permanently

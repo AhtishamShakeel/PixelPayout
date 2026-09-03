@@ -1,0 +1,554 @@
+<title>Fraud, Funnel and Build Order</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  :root {
+    --ground:#FBFAF7; --surface:#FFFFFF; --surface-alt:#F3F1EA;
+    --ink:#1C2B2D; --ink-soft:#3B4E50; --muted:#5E7274; --faint:#8A9B9C;
+    --hairline:#E3E1D9; --hairline-2:#D2D0C6;
+    --gold:#96691C; --gold-wash:#F7EFDD;
+    --teal:#245C58; --teal-wash:#E6EEEC;
+    --stop:#8C3A2B; --stop-wash:#F6E8E4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:#12191A; --surface:#182122; --surface-alt:#1D2728;
+      --ink:#E8E9E4; --ink-soft:#C6CCC9; --muted:#93A3A3; --faint:#6E8081;
+      --hairline:#26312F; --hairline-2:#35423F;
+      --gold:#D9A648; --gold-wash:#2A2416;
+      --teal:#63B0A9; --teal-wash:#142624;
+      --stop:#D98973; --stop-wash:#2B1B16;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#12191A; --surface:#182122; --surface-alt:#1D2728;
+    --ink:#E8E9E4; --ink-soft:#C6CCC9; --muted:#93A3A3; --faint:#6E8081;
+    --hairline:#26312F; --hairline-2:#35423F;
+    --gold:#D9A648; --gold-wash:#2A2416;
+    --teal:#63B0A9; --teal-wash:#142624;
+    --stop:#D98973; --stop-wash:#2B1B16;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px; line-height: 1.6; margin: 0; padding: 0 20px 90px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  .masthead { padding: 60px 0 28px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(34px, 6vw, 50px); font-weight: 500;
+    line-height: 1.05; letter-spacing: -0.02em; text-wrap: balance; margin: 0 0 18px;
+  }
+  .standfirst {
+    font-family: Newsreader, Georgia, serif; font-size: 19px; line-height: 1.5;
+    color: var(--ink-soft); max-width: 62ch; margin: 0;
+  }
+
+  section { padding-top: 50px; }
+  h2 {
+    font-family: Newsreader, Georgia, serif; font-size: 28px; font-weight: 500;
+    line-height: 1.15; letter-spacing: -0.01em; text-wrap: balance;
+    margin: 0 0 6px; padding-bottom: 12px; border-bottom: 1px solid var(--hairline-2);
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  h2 .sec {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px; font-weight: 700; color: var(--gold); letter-spacing: 0.1em; flex: none;
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 30px 0 10px; }
+  h4 {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--muted); margin: 26px 0 8px;
+  }
+  .lede { color: var(--muted); font-size: 15px; margin: 12px 0 22px; max-width: 66ch; }
+  p { margin: 0 0 15px; max-width: 68ch; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 0.86em;
+    background: var(--surface-alt); border: 1px solid var(--hairline);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  ul, ol { margin: 0 0 15px; padding-left: 20px; max-width: 68ch; }
+  li { margin-bottom: 7px; padding-left: 3px; }
+  li::marker { color: var(--faint); }
+
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 600px; }
+  th {
+    text-align: left; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em; text-transform: uppercase;
+    color: var(--muted); padding: 0 14px 10px 0; border-bottom: 1px solid var(--ink);
+    vertical-align: bottom;
+  }
+  td { padding: 13px 14px 13px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td:last-child, th:last-child { padding-right: 0; }
+  .num { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .item { font-weight: 600; }
+  .why { color: var(--muted); font-size: 13.5px; display: block; margin-top: 3px; max-width: 50ch; }
+
+  .chip {
+    display: inline-block; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+    padding: 3px 7px; border-radius: 2px; white-space: nowrap; border: 1px solid;
+  }
+  .chip.now  { color: var(--stop); background: var(--stop-wash); border-color: var(--stop); }
+  .chip.next { color: var(--gold); background: var(--gold-wash); border-color: var(--gold); }
+  .chip.hold { color: var(--teal); background: var(--teal-wash); border-color: var(--teal); }
+  .chip.no   { color: var(--muted); background: var(--surface-alt); border-color: var(--hairline-2); }
+
+  .note {
+    background: var(--surface-alt); border: 1px solid var(--hairline);
+    border-radius: 3px; padding: 16px 20px; margin: 22px 0; font-size: 14.5px;
+  }
+  .note p:last-child, .note ul:last-child, .note ol:last-child { margin-bottom: 0; }
+  .note.warn { background: var(--stop-wash); border-color: var(--stop); }
+  .note.warn .note-label { color: var(--stop); }
+  .note.key { background: var(--gold-wash); border-color: var(--gold); }
+  .note.key .note-label { color: var(--gold); }
+  .note.good { background: var(--teal-wash); border-color: var(--teal); }
+  .note.good .note-label { color: var(--teal); }
+  .note-label {
+    display: block; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; margin-bottom: 7px; color: var(--muted);
+  }
+
+  /* layered defence */
+  .layer {
+    display: grid; grid-template-columns: 70px 1fr; gap: 18px;
+    padding: 18px 0; border-bottom: 1px solid var(--hairline);
+  }
+  .layer .lv {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--gold); padding-top: 3px;
+  }
+  .layer h3 { margin: 0 0 6px; font-size: 15.5px; }
+  .layer p { margin: 0 0 8px; font-size: 14.5px; }
+  .layer p:last-child { margin-bottom: 0; }
+
+  .qa { border-left: 3px solid var(--hairline-2); padding-left: 20px; margin: 26px 0; }
+  .qa .q {
+    font-family: Newsreader, Georgia, serif; font-size: 19px; font-weight: 500;
+    color: var(--ink); margin: 0 0 10px; line-height: 1.35;
+  }
+
+  pre {
+    background: var(--surface); border: 1px solid var(--hairline-2); border-radius: 3px;
+    padding: 14px 16px; overflow-x: auto; font-size: 13px; line-height: 1.55;
+    font-family: "JetBrains Mono", ui-monospace, monospace; margin: 0 0 16px;
+  }
+  pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink);
+    font-size: 13.5px; color: var(--muted);
+  }
+  footer p { max-width: 68ch; }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">PixelPayout · answers to the open questions · build order</p>
+  <h1>Fraud, funnel, and what to build first</h1>
+  <p class="standfirst">Direct answers to everything you raised, the consolidated idea list, and the order I would build them in. Companion to the growth review — that document says what is wrong; this one says what to do on Monday.</p>
+</header>
+
+<section>
+  <h2><span class="sec">01</span> Where we now disagree, and where we don't</h2>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:30%">Point</th><th style="width:14%">Verdict</th><th>Detail</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Level stars vs the journey</td><td><span class="chip no">You're right</span></td><td>I framed it as "one ad for 150 stars". It isn't — it's 150 stars for 60–120 days of accumulated play and ads. Sloppy on my part. What survives is only the total: ~2,570★ minted over 90 days against ~$2.15 earned, a 65–72% payout ratio. High, not fatal, and tuning the level table down is the right fix.</td></tr>
+      <tr><td class="item">Cheap first redeem = breakage without killing trust</td><td><span class="chip no">You're right</span></td><td>Smallest denomination, discounted, ~30 days; standard redeem at 60 UC full price. That's a better answer than anything in my first draft. My "where it breaks" section assumed a face-value catalogue — it doesn't apply to your design.</td></tr>
+      <tr><td class="item">Paid-entry leaderboard</td><td><span class="chip no">You're right</span></td><td>Self-funding and a genuine sink. 150 entrants × 20★ = 3,000★ in against a 2,450★ pool. Keep the minimum-entry guard your own register specifies, or at 30 entrants every entrant profits.</td></tr>
+      <tr><td class="item">Mediation over single-network</td><td><span class="chip no">Agreed</span></td><td>Correct and important. Never let AdMob be a single point of failure.</td></tr>
+      <tr><td class="item">Fulfilment scaling plan</td><td><span class="chip no">Mostly right</span></td><td>Solo to ~100 redeems/day is optimistic — at 2 min each that's 3.3 hours daily. Call it 50/day solo before it eats your build time. The rest of the plan (hire, then negotiate distribution) is exactly right.</td></tr>
+      <tr><td class="item">Second redeem cliff</td><td><span class="chip next">New concern</span></td><td>First pack: 30 days, discounted, celebrated. Second: 60 days, full price, no novelty. <strong>Twice the wait for the same reward.</strong> That is where a user who now trusts you quits — and they leave saying the app is real but not worth it, which spreads further than "it's fake".</td></tr>
+      <tr><td class="item">Retail sourcing has no margin</td><td><span class="chip next">Watch it</span></td><td>Midasbuy/Codashop at retail is the right call for ban risk, and it means <strong>zero margin on every early payout</strong>. The 2–4% distributor discount only arrives with volume. Budget first-year payouts at full retail.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note good">
+    <span class="note-label">Trademark — settled</span>
+    <p>"UC" and "Diamonds" as currency names are far lower risk than game names or logos, and you're right that many apps use them. Keep three rules: never put a game name, logo or character in your title, icon or feature graphic; add "not affiliated with or endorsed by any game publisher" to the listing and the redeem screen; and source only through official channels, which you're already doing. That combination is what the compliant apps in this space actually do. The account-ban risk I flagged is resolved by official sourcing.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">02</span> The fraud problem, layered</h2>
+  <p class="lede">Your question: "everyone will just create new accounts and get UC after UC." Correct instinct, and the answer is six cheap layers rather than one expensive system. Roughly four days of work total.</p>
+
+  <div class="layer">
+    <div class="lv">Layer 0</div>
+    <div>
+      <h3>Make the prize not worth a human's time</h3>
+      <p>This is the strongest defence and it is free — you already have it. First pack ≈ $0.90, requiring ~30 days × 20 minutes of real play. That is roughly <strong>10 hours of human labour for 90 cents</strong>, about $0.09/hour. Manual farming is already uneconomic in every country on earth.</p>
+      <p>Which means <strong>only automation actually threatens you</strong>, and that narrows the whole problem. Everything below exists to stop machines, not people.</p>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="lv">Layer 1</div>
+    <div>
+      <h3>Player-ID linking — already built, and your best asset</h3>
+      <p><code>playerLinks</code> binds one game account to one app account. A farmer with 50 app accounts needs 50 <em>PUBG</em> accounts to receive into, and fifty accounts holding 60 UC each are far less sellable than one holding 3,000.</p>
+      <p><strong>This is why refusing cash is an anti-fraud feature, not just a policy decision.</strong> Cash is fungible and farmable; 60 UC scattered across 50 throwaway game accounts is close to worthless. Say this out loud in your marketing — it is both true and reassuring.</p>
+      <p>One addition: require the linked player ID to be <strong>unchanged for 14 days</strong> before a first redeem. Blocks the create-throwaway-redeem-sell cycle at almost no cost to honest users, who set their ID once and never touch it.</p>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="lv">Layer 2</div>
+    <div>
+      <h3>Play Integrity on the redemption call only</h3>
+      <p>Kills emulator farms, which are the only economically viable way to attack you. Full detail in section 03.</p>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="lv">Layer 3</div>
+    <div>
+      <h3>Time gates, not just action gates</h3>
+      <p>Minimum <strong>21 days account age</strong> and <strong>activity on ≥15 distinct days</strong> before the first redeem. A farmer can parallelise accounts but cannot parallelise the calendar — 100 accounts still means waiting three weeks, during which your velocity rules can see the cluster form.</p>
+      <p>Store it as a count of distinct UTC days with activity. You already stamp <code>FIELD_LAST_RESET_TIME</code> per day; this is a counter alongside it, not new infrastructure.</p>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="lv">Layer 4</div>
+    <div>
+      <h3>Cluster review at approval time</h3>
+      <p>You approve manually anyway. Before approving a first redeem, check four things: same IP prefix, same device model plus install within the same hour, referral graph shape (one referrer whose twenty referees all redeem on day 21), and identical play timing patterns.</p>
+      <p>This is an admin query, not a machine-learning system. <strong>Do not buy a fraud vendor and do not build a model.</strong> At your scale a sorted list is better than either.</p>
+    </div>
+  </div>
+
+  <div class="layer">
+    <div class="lv">Layer 5</div>
+    <div>
+      <h3>Hold the first payout 24–48 hours</h3>
+      <p>Kills instant-gratification farming and costs honest users nothing <em>if you tell them</em>: "checked by hand, sent within 48 hours." Manual review sounds like a weakness; framed as a person verifying every payout, it is a trust feature. It also buys the window in which a cluster becomes visible.</p>
+    </div>
+  </div>
+
+  <div class="note warn">
+    <span class="note-label">What you will get wrong if you're not careful</span>
+    <p><strong>Never hard-block on any single signal.</strong> Play Integrity fails legitimately on old devices, devices without Play Services, some Chinese ROMs and custom Android builds. Users in exactly your target markets. Route failures to <em>manual review</em>, never to an outright refusal — a false rejection on a real user's first payout is the most expensive mistake in this whole document, because that user tells everyone.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">03</span> Play Integrity, in full</h2>
+  <p class="lede">You asked what it is, how to implement it, the benefits, the loopholes and the policy requirements. All five.</p>
+
+  <h3>What it is</h3>
+  <p>Google Play's anti-abuse attestation. Your server asks "is this genuinely my unmodified app, from Play, on a real Android device?" and receives a verdict cryptographically signed by Google. Three verdicts matter:</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:32%">Verdict</th><th>What it tells you</th></tr></thead>
+    <tbody>
+      <tr><td class="item"><code>appRecognitionVerdict</code></td><td><code>PLAY_RECOGNIZED</code> means the APK is yours, unmodified, from Play. <strong>This is the one that kills your repackaged-APK problem</strong> — the client lying about <code>adWatched</code> that your own comments already flag.</td></tr>
+      <tr><td class="item"><code>deviceRecognitionVerdict</code></td><td><code>MEETS_DEVICE_INTEGRITY</code> means a genuine Android device, not an emulator. Require this for payouts. <code>MEETS_BASIC_INTEGRITY</code> is weaker and passes on some modified devices — do not accept it alone.</td></tr>
+      <tr><td class="item"><code>appLicensingVerdict</code></td><td><code>LICENSED</code> means this Google account obtained the app from Play. A soft account-uniqueness signal, useful as a review input.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>How to implement</h3>
+  <ol>
+    <li>Add the dependency: <code>com.google.android.play:integrity</code>.</li>
+    <li>Server generates a random <strong>nonce</strong> and returns it to the client. This is what stops token replay — skip it and the whole thing is decorative.</li>
+    <li>Client requests a token via <code>IntegrityManager.requestIntegrityToken(...)</code> with that nonce and your cloud project number.</li>
+    <li>Client sends the token to your Cloud Function.</li>
+    <li>Server decodes it through the Play Integrity API and checks: the nonce matches the one it issued, <code>requestPackageName</code> is yours, the timestamp is fresh (a minute or two), and the verdicts are acceptable.</li>
+  </ol>
+
+  <div class="note key">
+    <span class="note-label">The quota rule that decides your architecture</span>
+    <p>Standard requests are <strong>free up to about 10,000 per day</strong>. That sounds generous until you call it per quiz — 1,000 DAU × 26 activities is 26,000 calls and you are over on day one. <strong>Call it on redemption and referral payout only.</strong> At 100 redeems a day you use 1% of the free tier, and those are the only two events where money actually moves.</p>
+  </div>
+
+  <h3>Loopholes — be honest about these</h3>
+  <ul>
+    <li><strong>It does not stop a real person with five cheap real phones.</strong> Nothing does, cheaply. Layer 0 is what makes that unprofitable.</li>
+    <li><strong>It gives you no stable device identifier.</strong> Deliberately, for privacy. It is not a replacement for <code>ANDROID_ID</code>; it is a different question answered well.</li>
+    <li><strong>It produces false negatives on real users</strong> — see the warning above.</li>
+    <li><strong>Without nonce checking it is trivially replayable.</strong> Do not skip step 2.</li>
+  </ul>
+
+  <h3>Policy and cost</h3>
+  <p>No special Play approval is required; it is a first-party API and it is free. You must declare the device signals it processes in your Play <strong>Data Safety</strong> form. Implementation including server verification: <strong>two to three days.</strong></p>
+</section>
+
+<section>
+  <h2><span class="sec">04</span> Funnel answers</h2>
+
+  <div class="qa">
+    <p class="q">"First launch is standard — how can we do it differently without changing the whole app?"</p>
+    <p>You don't redesign, you reorder. Three changes, none architectural:</p>
+    <ol>
+      <li><strong>Guest sign-in</strong> — removes the wall entirely (below).</li>
+      <li><strong>Onboarding slide 3</strong> — replace the generic "Cash Out" promise with a real payout screenshot, a redacted receipt, and "X players paid this week". Same slide, different content.</li>
+      <li><strong>Land on Play, not Home.</strong> First run should have them in a game inside 30 seconds. Home is a dashboard, and a dashboard means nothing before you have anything on it.</li>
+    </ol>
+  </div>
+
+  <div class="qa">
+    <p class="q">"How difficult is guest sign-in in our current app?"</p>
+    <p><strong>Two to three days, and it is the highest-ROI funnel change available to you.</strong> Your instinct about Google accounts is exactly right — people will not hand a random app their Google account, and guest sign-in is the direct answer to that objection.</p>
+    <p>Firebase Anonymous Auth gives a real UID immediately; <code>linkWithCredential</code> later upgrades <em>the same UID</em>, so nothing is lost. Concretely in your app:</p>
+    <ul>
+      <li>Enable Anonymous in the Firebase console.</li>
+      <li><code>OnboardingActivity</code> signs in anonymously instead of routing to <code>Auth</code>.</li>
+      <li><code>buildNewUserProfile</code> must run for anonymous users too — you already have <code>economy/signup.ts</code> for this.</li>
+      <li>Gate redemption, referral submission and leaderboard entry on <code>!user.isAnonymous</code>.</li>
+      <li>Prompt the upgrade <strong>at the moment they try to redeem</strong> — peak trust, peak motivation.</li>
+      <li>Move the <code>androidId</code> duplicate check from account creation to the link step.</li>
+    </ul>
+    <p><strong>The one genuinely fiddly case:</strong> an anonymous user links a Google account that already exists. Standard resolution is to warn, then sign into the existing account and discard the anonymous progress. Decide it deliberately or it will surprise you in production.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"First earn gives XP not stars — how would you fix that without changing the whole app?"</p>
+    <p>Nothing architectural. Level 2 is 50 XP — five correct quizzes or one decent game run, i.e. minutes away — and it already pays 5★. <strong>The design is fine; nobody told the user about it.</strong></p>
+    <p>One dialog after the first completed activity:</p>
+    <div class="note">
+      <p style="margin:0"><strong>+10 XP.</strong> XP levels you up — and every level pays ★ Stars. Level 2 is 40 XP away and pays 5★.</p>
+    </div>
+    <p>Then make the level-2 moment loud; you already have <code>LevelUpNotifier</code>. One string, one dialog, no refactor.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Currency confusion — what sentence?"</p>
+    <p>Better as a strip than a sentence. One row on Home, tiny:</p>
+    <pre><code>Play  →  XP  →  Level  →  ★ Stars  →  UC</code></pre>
+    <p>And the string, used in the redeem sheet and the level-rewards note:</p>
+    <div class="note">
+      <p style="margin:0">Games and quizzes pay XP. Levels, streaks and goals pay ★. Stars buy UC.</p>
+    </div>
+    <p>Three clauses, three currencies, no ambiguity about which one the loop actually gives you.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Payout feed at the top — Home is already congested."</p>
+    <p>Fair, and you're right that a full card is too much. Don't add a card — add a <strong>single-line ticker under the points header</strong>, roughly 40dp, rotating every four seconds: "Joh****23 received 60 UC · 8 min ago". You already have <code>payoutFeedRow</code> and <code>sheet_payout_feed.xml</code>; this is a move plus a marquee, not new code.</p>
+    <p>Second free win: put the lifetime paid counter <em>inside</em> the existing stars card as a subtitle. Zero extra vertical space, and it is the single most persuasive number you will ever display.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"The countdown needs daily XP tracking — can we just say 100 diamonds in 90 days at 20 min/day?"</p>
+    <p><strong>Yes, and it's the better trade.</strong> A personalised countdown needs rate tracking and a projection model, and it will be wrong for most users anyway. A static, conservative, honest claim costs one string and does more work:</p>
+    <ul>
+      <li>Put it in the <strong>Play listing</strong>, where it filters out badly-matched users <em>before</em> they install and one-star you.</li>
+      <li>Put it <strong>per pack</strong> on the redeem sheet: "about 30 days at 20 minutes a day".</li>
+      <li><strong>Under-promise deliberately.</strong> A user who arrives in 26 days when you said 30 becomes an advocate. One who arrives in 34 when you said 30 writes a review.</li>
+    </ul>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Cold start — is minInstances worth the cost?"</p>
+    <p>Do the free thing first. A fire-and-forget warm ping at app open, with a <code>warm: true</code> early return before any side effects, covers most of it at roughly 6% of the free invocation tier. Only if that proves insufficient, set <code>minInstances: 1</code> on exactly two functions — <code>startGameSession</code> and <code>claimReward</code> — and never broadly, given the CPU quota failure your own <code>setGlobalOptions</code> comment already records.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Reset the interstitial counter when a rewarded ad loads rather than suppressing after it?"</p>
+    <p>Functionally close to what <code>noteRewardedShown</code> already does, and either is defensible. Keep the current rule — it measures both ad types against one floor, which is the version the player actually experiences. Not worth the change.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">05</span> Referral, squads and the numbers</h2>
+
+  <div class="qa">
+    <p class="q">"10★ on signup, 50★ at level 10, 300★ at first redeem — does that put us in loss, given first redeem is already break-even?"</p>
+    <p><strong>No. It's a 3× return, and you're reading the wrong ledger.</strong></p>
+    <p>The first-redeem pack being break-even is a fact about <em>that transaction</em>. The referral bonus is paid against the referred user's <em>whole revenue history</em>, and by the time they redeem they have already generated it:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th style="width:44%">Line</th><th class="num">Stars</th><th class="num">Cost</th></tr></thead>
+      <tbody>
+        <tr><td>Referrer, at referee level 10</td><td class="num">50★</td><td class="num">$0.030</td></tr>
+        <tr><td>Referrer, at referee first redeem</td><td class="num">300★</td><td class="num">$0.180</td></tr>
+        <tr><td style="border-top:1px solid var(--ink)"><strong>Total acquisition cost</strong></td><td class="num" style="border-top:1px solid var(--ink)"><strong>350★</strong></td><td class="num" style="border-top:1px solid var(--ink)"><strong>$0.21</strong></td></tr>
+        <tr><td>Ad revenue that referee already generated (30 engaged days)</td><td class="num">—</td><td class="num" style="color:var(--teal);font-weight:600">$0.72</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>You pay 30% of revenue already banked, <em>after</em> it is banked, for a user who retains better than any bought install. Compare buying that install: $0.05–0.15 in cash, upfront, with no guarantee they ever open the app twice.</p>
+    <div class="note key">
+      <span class="note-label">The one change</span>
+      <p><strong>Cut the referrer's signup bonus to zero.</strong> Signup is free to fake and proves nothing. Give the <em>referee</em> a small grant on signup — it is a genuine activation lever — and pay the referrer only at level 10 and first redeem, both of which are expensive to fake.</p>
+    </div>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Milestone ladder — does it trigger on signup, level 10 or first redeem? Signup can be farmed."</p>
+    <p>Never signup, for exactly the reason you gave. Key every milestone on <strong>referee first redeem</strong> — the event that proves the referee was a real, engaged human.</p>
+    <p>And pay the milestones in things that cost XP and caps rather than stars, which is your own VIP reasoning applied one level out:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th style="width:22%">Completed referrals</th><th>Unlocks</th><th style="width:26%">What it costs you</th></tr></thead>
+      <tbody>
+        <tr><td class="num">3</td><td>+1 permanent daily game attempt and +1 quiz attempt</td><td>Nothing. <strong>Revenue-positive</strong> — more attempts means more ads.</td></tr>
+        <tr><td class="num">5</td><td>Vanity referral code</td><td>Nothing.</td></tr>
+        <tr><td class="num">10</td><td>Permanent leaderboard bracket upgrade, or a standing 10% discount on every pack</td><td>Small, and only on redemption.</td></tr>
+        <tr><td class="num">25</td><td>Creator tier: dashboard, custom code, direct line to you</td><td>Your time — and these are the people worth it.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>The trick is in row one: <strong>paying your best referrers in raised caps makes them watch more ads.</strong> The reward and the revenue point the same way.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Squad redemption — I don't understand it. Explain."</p>
+    <p>Three to five players form a squad. Each contributes stars into a shared pot. When the pot reaches a pack price, <strong>one member receives the pack</strong>; the pot resets and the next member is in line.</p>
+    <h4>Why it is the strongest viral mechanic available to you</h4>
+    <ul>
+      <li><strong>The grind divides.</strong> A 780★ pack takes one person 30 days. A four-person squad fills it in about eight. The first payout inside that squad happens in a week — and three people watch it happen.</li>
+      <li><strong>Social obligation replaces motivation.</strong> You don't skip a day when three friends are waiting on the pot. This is a far stronger retention force than any streak.</li>
+      <li><strong>The inviter gets a real reason to recruit.</strong> Not "get 100 stars" — "I need a fourth". Completely different ask.</li>
+      <li><strong>It mirrors the product.</strong> PUBG is a squad game. The mechanic is already the user's mental model.</li>
+      <li><strong>Every payout gets three witnesses</strong> instead of one, so proof spreads with no share button at all.</li>
+    </ul>
+    <h4>Fraud, and the obvious attack</h4>
+    <p>One person makes four accounts and pools into themselves. Mitigations: every member needs ≥10 active days and a passing integrity check; the pot only pays a member who personally contributed ≥20% of it; members must have distinct device attestations; one squad payout per member per 30 days.</p>
+    <div class="note">
+      <span class="note-label">Honest cost</span>
+      <p>A <code>squads</code> collection, membership management, a contribution ledger, payout election and the UI for all of it. <strong>Two to three weeks solo.</strong> This is the mechanic that takes you from 5,000 users to 50,000 — not the one that takes you from 0 to 1,000. Build it after first payouts are proven, not before.</p>
+    </div>
+  </div>
+
+  <div class="qa">
+    <p class="q">"K-factor — what is this?"</p>
+    <p>How many new users each existing user brings you.</p>
+    <pre><code>K = (invites sent per user) × (install rate per invite)</code></pre>
+    <p>Each user sends 3 invites, 20% install → K = 0.6. The compounding multiplier on every other channel is <code>1 / (1 − K)</code>, so at K = 0.6 every 100 users you acquire eventually become 250.</p>
+    <ul>
+      <li><strong>K &gt; 1</strong> — self-sustaining exponential growth. Very rare, and not a plan.</li>
+      <li><strong>K ≈ 0.4</strong> — excellent. Every channel is worth 1.67× face value.</li>
+      <li><strong>K &lt; 0.15</strong> — referral is a feature, not a channel.</li>
+    </ul>
+    <p><strong>Measuring it:</strong> referral codes successfully redeemed in a period, divided by new users in that period. You can compute it today from <code>referredBy</code> — no new instrumentation needed.</p>
+  </div>
+
+  <div class="qa">
+    <p class="q">"Midasbuy receipts through Firebase — worth the time per redeem?"</p>
+    <p>Yes, with three conditions. It is the most credible trust object you can produce, and <em>no reward app does it</em>.</p>
+    <ol>
+      <li><strong>Redact first.</strong> The receipt shows your buyer account. Crop to transaction line, player ID, amount, date — or you are publishing your own purchase account to every user.</li>
+      <li><strong>Store it against the redemption and show it in Orders.</strong> Don't push it at them; let them find it and screenshot it. That's the artefact, and it's better shared by them than by you.</li>
+      <li><strong>Time-box it.</strong> ~15 seconds per redeem, so 12 minutes a day at 50/day. Worth it now. Automate or drop above ~100/day.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">06</span> Metrics — what each actually costs to build</h2>
+  <p class="lede">You asked how hard these are to measure. Most are nearly free; the whole dashboard is about three days.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:30%">Metric</th><th style="width:15%">Effort</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td class="item">D1 / D7 / D30, DAU, session length</td><td><span class="chip hold">1 day</span></td><td>Firebase Analytics gives these automatically once the SDK is in. Retention reports are built in — you do not compute them.</td></tr>
+      <tr><td class="item">Activation, first redeem, referral accepted</td><td><span class="chip hold">½ day</span></td><td>Four custom <code>logEvent</code> calls. Put <code>days_since_install</code> as a parameter on the first-redeem event and time-to-first-payout falls out for free.</td></tr>
+      <tr><td class="item">ARPDAU</td><td><span class="chip hold">free</span></td><td>AdMob console revenue ÷ Analytics DAU. Weekly, by hand, in a spreadsheet.</td></tr>
+      <tr><td class="item">Redeem rate, fraud rate</td><td><span class="chip hold">free</span></td><td>Two Firestore queries against <code>redemptions</code>. Add them to your admin tool.</td></tr>
+      <tr><td class="item">K-factor</td><td><span class="chip hold">free</span></td><td>Count <code>referredBy</code> set in period ÷ new users in period.</td></tr>
+      <tr><td class="item">Star velocity — minted vs redeemed</td><td><span class="chip next">1 day</span></td><td><strong>The one worth building.</strong> A daily scheduled function summing your ledger by <code>RewardSource</code> into <code>metrics/{date}</code>. You already have the ledger and the source vocabulary; this is an aggregation over data you're keeping anyway. It is the only metric that tells you whether the economy is drifting <em>before</em> it costs you money.</td></tr>
+      <tr><td class="item">Adless streak claims</td><td><span class="chip hold">done</span></td><td>Already logged via <code>adlessStreakClaims</code>.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note key">
+    <span class="note-label">Do this before the first video, not after</span>
+    <p>You are about to send thousands of people through a funnel you cannot see. Three days of instrumentation now converts that traffic into answers; skipping it converts it into a number in the Play Console and nothing else. This is the cheapest high-value work on the entire list.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">07</span> Every idea from this conversation, ranked</h2>
+  <p class="lede">You asked for the consolidated list. Ordered by impact ÷ effort, with a verdict on each.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:26%">Idea</th><th style="width:13%">Effort</th><th style="width:13%">Verdict</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Real AdMob IDs + mediation</td><td class="num">2 days</td><td><span class="chip now">Do now</span></td><td>Blocks all revenue. Mediation from day one so no single network can end you.</td></tr>
+      <tr><td class="item">Analytics + star-velocity rollup</td><td class="num">3 days</td><td><span class="chip now">Do now</span></td><td>Before any traffic. Section 06.</td></tr>
+      <tr><td class="item">Offerwall + S2S postback</td><td class="num">1–2 wks</td><td><span class="chip now">Do now</span></td><td>The only revenue that funds real payouts. No <code>onRequest</code> function exists yet.</td></tr>
+      <tr><td class="item">Guest sign-in</td><td class="num">2–3 days</td><td><span class="chip now">Do now</span></td><td>Highest-ROI funnel change. Answers the Google-account trust objection directly.</td></tr>
+      <tr><td class="item">"XP → Level → ★ → UC" strip + first-earn dialog</td><td class="num">½ day</td><td><span class="chip now">Do now</span></td><td>Two strings. Fixes the bait-and-switch read.</td></tr>
+      <tr><td class="item">Payout ticker + lifetime paid counter</td><td class="num">1 day</td><td><span class="chip now">Do now</span></td><td>40dp of Home for your best trust signal.</td></tr>
+      <tr><td class="item">Static honest timeline per pack</td><td class="num">½ day</td><td><span class="chip now">Do now</span></td><td>In the listing and on the redeem sheet. Under-promise.</td></tr>
+      <tr><td class="item">Play Integrity on redeem + referral</td><td class="num">2–3 days</td><td><span class="chip next">Before payouts</span></td><td>Section 03. Never hard-block.</td></tr>
+      <tr><td class="item">Time gates: 21 days, 15 active days</td><td class="num">½ day</td><td><span class="chip next">Before payouts</span></td><td>Farmers can't parallelise a calendar.</td></tr>
+      <tr><td class="item">Player-ID unchanged 14 days</td><td class="num">½ day</td><td><span class="chip next">Before payouts</span></td><td>Blocks throwaway-account redemption.</td></tr>
+      <tr><td class="item">Cluster review query in admin tool</td><td class="num">1 day</td><td><span class="chip next">Before payouts</span></td><td>A sorted list, not a model.</td></tr>
+      <tr><td class="item">Redacted receipt stored on the redemption</td><td class="num">1–2 days</td><td><span class="chip next">Before launch</span></td><td>Nobody else does this. Redact properly.</td></tr>
+      <tr><td class="item">Tune level reward table down</td><td class="num">1 hr</td><td><span class="chip next">Before launch</span></td><td>Your own call, and correct. Target ~55% payout ratio.</td></tr>
+      <tr><td class="item">Referral rebuild: 0 / 50 / 300, milestone ladder</td><td class="num">3–4 days</td><td><span class="chip next">Week 6+</span></td><td>Cut the signup bonus. Pay in caps, not stars.</td></tr>
+      <tr><td class="item">Error alerting on money paths</td><td class="num">1 day</td><td><span class="chip next">Week 6+</span></td><td><code>claimReward</code>, redemption, settlement. Already in your docs.</td></tr>
+      <tr><td class="item">Bracketed leaderboard by level</td><td class="num">2–3 days</td><td><span class="chip next">Week 8+</span></td><td>Top-30-of-everyone stops motivating fast.</td></tr>
+      <tr><td class="item">Paid-entry tournament + min-entry guard</td><td class="num">1 wk</td><td><span class="chip next">Week 10+</span></td><td>Your idea, and a good one. Self-funding sink.</td></tr>
+      <tr><td class="item">Client warm ping</td><td class="num">1 day</td><td><span class="chip hold">When it bites</span></td><td>Before <code>minInstances</code>, always.</td></tr>
+      <tr><td class="item">Squad redemption</td><td class="num">2–3 wks</td><td><span class="chip hold">After 1,000 users</span></td><td>Best viral mechanic here. Wrong stage today.</td></tr>
+      <tr><td class="item">Share bonus on paid payout</td><td class="num">2 days</td><td><span class="chip hold">After 1,000 users</span></td><td>Already designed in DEFERRED.md. Cap is the security.</td></tr>
+      <tr><td class="item">Spins, chests, VIP, streak insurance</td><td class="num">—</td><td><span class="chip no">Not yet</span></td><td>Sinks solve a liability problem you don't have yet.</td></tr>
+      <tr><td class="item">Panel playbook, both tracks</td><td class="num">—</td><td><span class="chip no">Not this year</span></td><td>Gated at 2,000 and 10,000 DAU by your own analysis.</td></tr>
+      <tr><td class="item">Paid installs</td><td class="num">—</td><td><span class="chip no">Not while you own a channel</span></td><td>Revisit as a capped week-10 experiment only.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">08</span> The order</h2>
+  <p class="lede">Six phases. Each one is worthless before the one above it, and the channel does not fire until phase four.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:9%">Phase</th><th style="width:26%">What</th><th>Gate to move on</th></tr></thead>
+    <tbody>
+      <tr><td class="item num">1<span class="why">~2 wks</span></td><td>Real ad IDs + mediation. Analytics + star-velocity rollup. Offerwall and the S2S endpoint.</td><td>An offerwall conversion credits a star, end to end, on your own account. You can read a retention chart.</td></tr>
+      <tr><td class="item num">2<span class="why">~1 wk</span></td><td>Guest sign-in. Currency strip and first-earn dialog. Payout ticker. Static timelines. Level table tuned down.</td><td>A stranger can install, play and understand what stars are without asking you.</td></tr>
+      <tr><td class="item num">3<span class="why">~1 wk</span></td><td>Play Integrity. Time gates. Player-ID hold. Cluster query. Receipt capture.</td><td>You could survive 200 accounts trying to farm the first pack and would notice within a day.</td></tr>
+      <tr><td class="item num">4<span class="why">~3 wks</span></td><td><strong>100 hand-recruited users.</strong> Facebook and Discord gaming groups, not your channel. Pay 20 of them in public. Fix what breaks.</td><td><strong>20 completed real payouts and D7 above 10%.</strong> This is the gate that protects the channel — do not skip it.</td></tr>
+      <tr><td class="item num">5<span class="why">~4 wks</span></td><td><strong>The channel.</strong> Long-form founder story first, shorts after. Telegram proof channel. Referral rebuild ships alongside.</td><td>K-factor above 0.15, payout ratio under 60%, no fraud cluster you missed.</td></tr>
+      <tr><td class="item num">6<span class="why">ongoing</span></td><td>Bracketed leaderboard. Paid tournaments. Micro-creators. Squad redemption. Fulfilment help.</td><td>Profit per DAU crosses zero.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="note-label">The one sequencing rule that matters more than the rest</span>
+    <p><strong>Phase 4 comes before phase 5, always.</strong> Your channel is a one-shot asset — 150,000 people who trust you, built over years, and it does not regenerate. A hundred hand-held users and twenty completed payouts is a three-week price for finding out whether the app pays reliably. Firing the channel first and discovering the answer in public costs you the channel, the app, and the reputation you would need for the next attempt.</p>
+    <p>Everything else in these two documents is a preference. This one is not.</p>
+  </div>
+
+  <h3>On the founder-story video</h3>
+  <p>"Tired of fake earning apps, so I built my own — from one broke gamer to another" is the right angle and you should lead with it. Two notes. Put the <strong>timeline honesty in the video itself</strong> — "it takes about a month, I'm not going to lie to you" — because it filters the audience that would otherwise churn and review you badly, and because conceding the weak point is what makes the rest believable. And <strong>show the receipts on camera</strong>, redacted, with real player IDs you have paid. That single shot is worth more than the entire script around it.</p>
+</section>
+
+<footer>
+  <p>Answers to the questions raised on the growth review. Star costs use $0.0006 per star, the undiscounted rate implied by your own placeholder; revenue uses the $1.40 blended rewarded eCPM from the revised review. Both are assumptions to replace with measurements in phase 1 — the direction of every recommendation here holds regardless, the magnitudes do not.</p>
+  <p>Effort estimates assume you, solo, working in this codebase, and are the figure I would hold myself to rather than a best case.</p>
+</footer>
+
+</div>

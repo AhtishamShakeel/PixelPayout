@@ -1,0 +1,937 @@
+<title>The PixelPayout Verdict</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  :root {
+    --ground:      #FBFAF7;
+    --surface:     #FFFFFF;
+    --surface-alt: #F3F1EA;
+    --ink:         #1C2B2D;
+    --ink-soft:    #3B4E50;
+    --muted:       #5E7274;
+    --faint:       #8A9B9C;
+    --hairline:    #E3E1D9;
+    --hairline-2:  #D2D0C6;
+    --gold:        #96691C;
+    --gold-wash:   #F7EFDD;
+    --teal:        #245C58;
+    --teal-wash:   #E6EEEC;
+    --stop:        #8C3A2B;
+    --stop-wash:   #F6E8E4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #12191A;
+      --surface:     #182122;
+      --surface-alt: #1D2728;
+      --ink:         #E8E9E4;
+      --ink-soft:    #C6CCC9;
+      --muted:       #93A3A3;
+      --faint:       #6E8081;
+      --hairline:    #26312F;
+      --hairline-2:  #35423F;
+      --gold:        #D9A648;
+      --gold-wash:   #2A2416;
+      --teal:        #63B0A9;
+      --teal-wash:   #142624;
+      --stop:        #D98973;
+      --stop-wash:   #2B1B16;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:      #12191A;
+    --surface:     #182122;
+    --surface-alt: #1D2728;
+    --ink:         #E8E9E4;
+    --ink-soft:    #C6CCC9;
+    --muted:       #93A3A3;
+    --faint:       #6E8081;
+    --hairline:    #26312F;
+    --hairline-2:  #35423F;
+    --gold:        #D9A648;
+    --gold-wash:   #2A2416;
+    --teal:        #63B0A9;
+    --teal-wash:   #142624;
+    --stop:        #D98973;
+    --stop-wash:   #2B1B16;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Public Sans", "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 20px 90px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* ---------- masthead ---------- */
+  .masthead { padding: 64px 0 30px; border-bottom: 2px solid var(--ink); }
+  .eyebrow {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 500; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 18px;
+  }
+  h1 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: clamp(36px, 6.5vw, 56px);
+    font-weight: 500; line-height: 1.03; letter-spacing: -0.02em;
+    text-wrap: balance; margin: 0 0 20px;
+  }
+  .standfirst {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 19px; line-height: 1.5; color: var(--ink-soft);
+    max-width: 62ch; margin: 0;
+  }
+
+  /* ---------- sections ---------- */
+  section { padding-top: 52px; }
+  h2 {
+    font-family: Newsreader, Georgia, serif;
+    font-size: 29px; font-weight: 500; line-height: 1.15;
+    letter-spacing: -0.01em; text-wrap: balance;
+    margin: 0 0 6px; padding-bottom: 12px;
+    border-bottom: 1px solid var(--hairline-2);
+    display: flex; align-items: baseline; gap: 14px;
+  }
+  h2 .sec {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px; font-weight: 700; color: var(--gold);
+    letter-spacing: 0.1em; flex: none;
+  }
+  h3 {
+    font-family: "Public Sans", system-ui, sans-serif;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.01em;
+    margin: 32px 0 10px; color: var(--ink);
+  }
+  h4 {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--muted);
+    margin: 26px 0 8px;
+  }
+  .lede { color: var(--muted); font-size: 15px; margin: 12px 0 22px; max-width: 64ch; }
+  p { margin: 0 0 15px; max-width: 66ch; }
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+  a { color: var(--teal); text-underline-offset: 2px; }
+
+  code {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 0.86em; background: var(--surface-alt);
+    border: 1px solid var(--hairline); border-radius: 2px; padding: 1px 5px;
+  }
+
+  /* ---------- tables ---------- */
+  .table-scroll { overflow-x: auto; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; min-width: 580px; }
+  th {
+    text-align: left;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 0 14px 10px 0; border-bottom: 1px solid var(--ink);
+    vertical-align: bottom;
+  }
+  td { padding: 13px 14px 13px 0; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+  td:last-child, th:last-child { padding-right: 0; }
+  .num {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+  .item { font-weight: 600; }
+  .why { color: var(--muted); font-size: 13.5px; display: block; margin-top: 3px; max-width: 54ch; }
+  .neg { color: var(--stop); font-weight: 600; }
+  .pos { color: var(--teal); font-weight: 600; }
+
+  /* ---------- chips ---------- */
+  .chip {
+    display: inline-block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.11em;
+    text-transform: uppercase; padding: 3px 7px;
+    border-radius: 2px; white-space: nowrap; border: 1px solid;
+  }
+  .chip.crit { color: var(--stop); background: var(--stop-wash); border-color: var(--stop); }
+  .chip.high { color: var(--gold); background: var(--gold-wash); border-color: var(--gold); }
+  .chip.med  { color: var(--teal); background: var(--teal-wash); border-color: var(--teal); }
+  .chip.low  { color: var(--muted); background: var(--surface-alt); border-color: var(--hairline-2); }
+  .chip.fact { color: var(--teal); background: var(--teal-wash); border-color: var(--teal); }
+  .chip.assm { color: var(--gold); background: var(--gold-wash); border-color: var(--gold); }
+
+  /* ---------- callouts ---------- */
+  .note {
+    background: var(--surface-alt); border: 1px solid var(--hairline);
+    border-radius: 3px; padding: 16px 20px; margin: 24px 0; font-size: 14.5px;
+  }
+  .note p:last-child { margin-bottom: 0; }
+  .note.warn { background: var(--stop-wash); border-color: var(--stop); }
+  .note.warn .note-label { color: var(--stop); }
+  .note.key { background: var(--gold-wash); border-color: var(--gold); }
+  .note.key .note-label { color: var(--gold); }
+  .note.good { background: var(--teal-wash); border-color: var(--teal); }
+  .note.good .note-label { color: var(--teal); }
+  .note-label {
+    display: block; font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; margin-bottom: 7px; color: var(--muted);
+  }
+
+  ul, ol { margin: 0 0 15px; padding-left: 20px; max-width: 66ch; }
+  li { margin-bottom: 7px; padding-left: 3px; }
+  li::marker { color: var(--faint); }
+
+  /* ---------- the ledger block: revenue vs cost ---------- */
+  .ledger {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0; border: 1px solid var(--hairline-2); border-radius: 3px;
+    overflow: hidden; margin: 26px 0;
+  }
+  .ledger > div { padding: 20px 22px; background: var(--surface); border-right: 1px solid var(--hairline); }
+  .ledger > div:last-child { border-right: 0; }
+  .ledger .cap {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--muted); margin: 0 0 10px;
+  }
+  .ledger .big {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 30px; font-weight: 700; letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums; line-height: 1; margin: 0 0 6px;
+  }
+  .ledger .sub { font-size: 13px; color: var(--muted); margin: 0; max-width: none; }
+
+  /* ---------- scorecard ---------- */
+  .score-row {
+    display: grid; grid-template-columns: 1fr auto 120px;
+    gap: 16px; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid var(--hairline);
+  }
+  .score-row .label { font-weight: 600; font-size: 15px; }
+  .score-row .val {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px;
+  }
+  .meter { height: 7px; background: var(--surface-alt); border: 1px solid var(--hairline); border-radius: 1px; overflow: hidden; }
+  .meter span { display: block; height: 100%; background: var(--teal); }
+  .meter.warn span { background: var(--gold); }
+  .meter.bad span  { background: var(--stop); }
+
+  /* ---------- funnel / stage cards ---------- */
+  .stage {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-left: 3px solid var(--gold);
+    border-radius: 3px; padding: 22px 24px; margin: 20px 0;
+  }
+  .stage-head {
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+    margin: 0 0 4px;
+  }
+  .stage-head .n {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.13em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .stage-head h3 { margin: 0; font-size: 19px; font-family: Newsreader, Georgia, serif; font-weight: 500; }
+  .stage .meta {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; color: var(--muted); margin: 6px 0 14px;
+    letter-spacing: 0.03em;
+  }
+  .stage p:last-child, .stage ul:last-child { margin-bottom: 0; }
+
+  /* ---------- hook list ---------- */
+  .hooks { list-style: none; padding-left: 0; counter-reset: hook; }
+  .hooks li {
+    counter-increment: hook; position: relative;
+    padding: 12px 0 12px 40px; margin: 0;
+    border-bottom: 1px solid var(--hairline);
+    font-family: Newsreader, Georgia, serif; font-size: 19px; line-height: 1.35;
+    max-width: none;
+  }
+  .hooks li::before {
+    content: counter(hook, decimal-leading-zero);
+    position: absolute; left: 0; top: 16px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; font-weight: 700; color: var(--faint);
+  }
+  .hooks li .gloss {
+    display: block; font-family: "Public Sans", system-ui, sans-serif;
+    font-size: 13.5px; color: var(--muted); margin-top: 5px; line-height: 1.5;
+  }
+
+  .script {
+    background: var(--surface); border: 1px solid var(--hairline);
+    border-radius: 3px; padding: 18px 22px; margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .script .t {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.11em;
+    text-transform: uppercase; color: var(--gold); margin: 0 0 8px;
+  }
+  .script p { margin: 0 0 8px; max-width: none; }
+  .script p:last-child { margin-bottom: 0; }
+  .script .beat {
+    display: grid; grid-template-columns: 62px 1fr; gap: 12px;
+    padding: 5px 0; border-top: 1px solid var(--hairline);
+  }
+  .script .beat:first-of-type { border-top: 0; }
+  .script .beat .tc {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums;
+    padding-top: 2px;
+  }
+
+  hr { border: 0; border-top: 1px solid var(--hairline); margin: 46px 0 0; }
+  footer {
+    margin-top: 56px; padding-top: 20px; border-top: 2px solid var(--ink);
+    font-size: 13.5px; color: var(--muted);
+  }
+  footer p { max-width: 66ch; }
+
+  @media (max-width: 620px) {
+    .score-row { grid-template-columns: 1fr auto; }
+    .score-row .meter { display: none; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">PixelPayout · growth review · revised after founder correction</p>
+  <h1>Everything turns on numbers you have not measured yet</h1>
+  <p class="standfirst">The app is well built — better built than almost anything in its category. Whether its economy works is not a question of design taste; it is a question of two figures nobody has measured, and every strong claim below is conditional on them.</p>
+</header>
+
+<div class="note key" style="margin-top:34px">
+  <span class="note-label">Revised — what changed and why</span>
+  <p>The first version of this review was built on two premises I inferred from the code and your own documents, and both were wrong.</p>
+  <p><strong>Premise 1: Pakistan-only.</strong> You have since retargeted globally, skewed low-tier. That moves blended rewarded eCPM from roughly $0.40 to roughly $1.40 — <strong>a 3.5× swing that runs through every figure in section 02</strong>. My headline finding ("one ad buys two-thirds of a star") was an artefact of the narrower market. At a global blend one ad buys about 2.3 stars, and the economy goes from structurally broken to <em>high but survivable</em>.</p>
+  <p><strong>Premise 2: no distribution.</strong> You have a 100k-subscriber gaming channel plus ~50k across other platforms. Section 05 was written as though you were starting from zero, which was the single biggest error in the document.</p>
+  <p>What survives both corrections: the faucet is not pegged to measured revenue, you have no analytics, and nothing has shipped. Those were never premise-dependent.</p>
+</div>
+
+<section>
+  <h2><span class="sec">01</span> What you actually have</h2>
+  <p class="lede">Reconstructed from the codebase on <code>economy-refactor-ui</code>, not from a pitch. Facts are marked; my inferences are marked separately.</p>
+
+  <h4>Facts, read from the code</h4>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:34%">Element</th><th>What the code says</th></tr></thead>
+    <tbody>
+      <tr><td class="item">The loop</td><td>Play a hosted web game or answer one quiz question → earn <strong>XP only</strong> → XP raises a level → crossing a level earns <strong>stars</strong>, released by watching a rewarded ad.</td></tr>
+      <tr><td class="item">Daily ceiling</td><td>10 quizzes + 10 games, each extendable by 3 via rewarded ad. Hard cap of 26 activities a day.</td></tr>
+      <tr><td class="item">Star sources</td><td>Level-ups (1,282 stars across all 30 levels), daily-goal bonus (live value 10/day), streak (30 per 7-day cycle), referrals (50 referee / 100 referrer), weekly leaderboard (2,450 stars split across top 30).</td></tr>
+      <tr><td class="item">Star sinks</td><td>Exactly one: redemption for game currency — UC, Diamonds — delivered to a player ID. Prices live in Firestore, not the repo.</td></tr>
+      <tr><td class="item">Level curve</td><td>33,444 XP to reach level 30. Level 10 — the first-redeem discount gate — is 954 XP.</td></tr>
+      <tr><td class="item">Content</td><td>Two games (Floppy Bird, a tower stacker) and a quiz bank served as JSON, one question per attempt.</td></tr>
+      <tr><td class="item">Revenue wired</td><td>AdMob rewarded, interstitial (every 2nd completion, 45s floor, 3-completion grace), banner in-game. Tapjoy offerwall is initialised and opens, but <strong>credits nobody</strong> — <code>onRewardRequest</code> only logs.</td></tr>
+      <tr><td class="item">Revenue not wired</td><td>No <code>onRequest</code> function exists anywhere. There is no server-to-server postback endpoint, so no offerwall <em>can</em> pay.</td></tr>
+      <tr><td class="item">Every ad unit</td><td>Google's public test ID. Shipping today earns exactly zero while looking completely normal.</td></tr>
+      <tr><td class="item">Trust surface built</td><td>Masked public payout feed, pending-payout row on Home, order history, level-reward ladder, weekly leaderboard, declined-redemption dialog, paid-payout takeover.</td></tr>
+      <tr><td class="item">Anti-fraud</td><td>Server-side answer keys, server-created game sessions, server-priced redemptions, one player ID per account (<code>playerLinks</code>), per-day counters on the server. Identity is <code>Settings.Secure.ANDROID_ID</code>.</td></tr>
+      <tr><td class="item">Release state</td><td><code>versionCode 1</code>. Never published.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h4>Corrected premises</h4>
+  <ul>
+    <li><strong>Global, skewed low-tier.</strong> Cash rails (Easypaisa, easyload) are deliberately out — a policy decision, revisited later via a separate web property. Payout is game currency only, worldwide.</li>
+    <li><strong>1 star ≈ Rs 0.17 is a placeholder</strong>, to be set from measured data. See section 02 for the formula that should set it.</li>
+    <li><strong>Ad rates, blended:</strong> rewarded $1.40 eCPM, interstitial $0.80, banner $0.20, 85% fill. Built from a 60/30/10 split of tier-3 / tier-2 / tier-1 traffic. <em>This mix is the assumption most worth checking early</em> — it swings the whole model.</li>
+    <li><strong>The user is a teenage mobile gamer</strong>, confirmed. A catalogue of nothing but UC and Diamonds, gated on level and a player ID, describes one person very precisely.</li>
+    <li><strong>Distribution exists:</strong> a 100k-subscriber Delta Force channel, ~50k across other platforms, shorts reliably clearing 10k views.</li>
+  </ul>
+
+  <div class="note key">
+    <span class="note-label">The one number I could not read, and everything depends on it</span>
+    <p>The <code>redemptionOptions</code> catalogue lives in Firestore. I cannot see what the cheapest pack costs in stars, or what <code>firstRedeemCost</code> discounts it to. That number sets <strong>time-to-first-payout</strong>, which is the single most consequential figure in this business — it decides your trust, your review score, your referral rate and your real liability simultaneously. Tell me it and I will redo the arithmetic properly.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">02</span> The economy, and why it is upside down</h2>
+  <p class="lede">Doing this before user acquisition, because acquisition strategy is downstream of whether a user is worth acquiring. Here, they are not — yet.</p>
+
+  <h3>What a rewarded ad is worth</h3>
+  <p>At a global blend of $1.40 eCPM, one rewarded impression pays about $0.0014 — <strong>Rs 0.39</strong>. At a placeholder Rs 0.17 per star, one ad funds roughly <strong>2.3 stars</strong>. In a Pakistan-only mix it funded 0.66, which is why the first draft of this section read as a death sentence and this one does not.</p>
+
+  <h3>An engaged user, per day</h3>
+  <p class="lede">Twelve rewarded views a day, not the 26 the caps technically allow. Reward apps see a fraction of their theoretical ad ceiling, and planning against the ceiling is how these models flatter themselves.</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:46%">Line</th><th class="num">Units/day</th><th class="num">Value</th></tr></thead>
+    <tbody>
+      <tr><td>Rewarded (streak, goals, level claims, bonus attempts, XP doubles)</td><td class="num">~12</td><td class="num pos">$0.0143</td></tr>
+      <tr><td>Interstitials (every 2nd completion, 45s floor)</td><td class="num">~8</td><td class="num pos">$0.0054</td></tr>
+      <tr><td>In-game banner</td><td class="num">~20</td><td class="num pos">$0.0040</td></tr>
+      <tr><td style="border-top:1px solid var(--ink)"><strong>Revenue</strong></td><td class="num" style="border-top:1px solid var(--ink)"></td><td class="num pos" style="border-top:1px solid var(--ink)"><strong>$0.0237</strong></td></tr>
+      <tr><td>Daily-goal bonus</td><td class="num">10 ★</td><td class="num neg">$0.0060</td></tr>
+      <tr><td>Streak (30 per 7-day cycle)</td><td class="num">4.3 ★</td><td class="num neg">$0.0026</td></tr>
+      <tr><td>Level rewards (1,282 ★ over ~105 days)</td><td class="num">~12 ★</td><td class="num neg">$0.0073</td></tr>
+      <tr><td style="border-top:1px solid var(--ink)"><strong>Stars minted</strong></td><td class="num" style="border-top:1px solid var(--ink)"><strong>~26 ★</strong></td><td class="num neg" style="border-top:1px solid var(--ink)"><strong>$0.0159</strong></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="ledger">
+    <div>
+      <p class="cap">Revenue, engaged day</p>
+      <p class="big pos">$0.024</p>
+      <p class="sub">40 impressions across three formats</p>
+    </div>
+    <div>
+      <p class="cap">Stars minted</p>
+      <p class="big" style="color:var(--gold)">$0.016</p>
+      <p class="sub">A liability, not yet a cost</p>
+    </div>
+    <div>
+      <p class="cap">Payout ratio</p>
+      <p class="big" style="color:var(--gold)">65%</p>
+      <p class="sub">Industry norm is 40–60%. High, not fatal.</p>
+    </div>
+  </div>
+
+  <p>This is the corrected picture, and it is a completely different business from the one in the first draft. <strong>65% of gross revenue promised back to users is roughly 10 points too generous, not four times too generous.</strong> That is a tuning problem, and you already intend to tune the level table down. Do that and it lands inside normal.</p>
+
+  <p>Two caveats that decide whether the 65% is real. <strong>The traffic mix</strong> — at 90% tier-3 rather than 60%, blended eCPM falls to about $0.70 and the ratio goes back above 100%. And <strong>the 12 rewarded views</strong> — your argument that leaderboard competition and double-XP will push heavy users toward the 26-view ceiling is plausible and, if right, improves the ratio further. Both are measurable in week one and neither is knowable now.</p>
+
+  <div class="note key">
+    <span class="note-label">How to actually set the star price — the formula, not a guess</span>
+    <p>Do not price stars against a currency. Price them against the <strong>first pack and a target grind length</strong>, and let the rupee figure fall out:</p>
+    <p style="font-family:'JetBrains Mono',monospace;font-size:14px;background:var(--surface);border:1px solid var(--hairline-2);padding:12px 14px;border-radius:2px"><strong>star price = pack wholesale cost ÷ (daily stars earned × target days)</strong></p>
+    <p>Worked: a 60 UC pack costs you ~$0.90. You want the first one at 30 days. An engaged user earns ~26★/day. So the first pack is 780★ and one star is worth $0.00115. Undiscounted, at 60 days, the same pack is 1,560★ and a star is $0.00058 — which is almost exactly your Rs 0.17 placeholder. <strong>Your placeholder is already self-consistent with a 30-day discounted first redeem and a 60-day standard one.</strong> That is a better starting position than you probably realised.</p>
+  </div>
+
+  <h3>The thing that is currently saving you: breakage</h3>
+  <p>A star only costs money when it is <em>redeemed</em>. Everything above is a liability, not a loss. If a UC pack costs several thousand stars and a user quits at 400, you paid nothing at all.</p>
+  <p>This is real and it is how every points economy survives. It is also a trap, because <strong>breakage and trust are the same dial turned in opposite directions</strong>. High breakage means most people never got paid, which means your Play Store reviews say "fake app, I played 2 months and got nothing", which means acquisition dies. You cannot bank on breakage and build a trusted brand at the same time. Pick deliberately, and know which one you picked.</p>
+
+  <div class="note good">
+    <span class="note-label">"Where it breaks" — you already solved this, so here is what I actually meant</span>
+    <p>My three scenarios assumed a catalogue priced at face value, where the cheapest thing on it was 325 UC at ~8,000★ — a payout ~285 days away that arithmetically never lands. <strong>Your design does not do that</strong>, and the confusion is mine for not saying which catalogue I was modelling. A discounted smallest-denomination first pack at ~30 days is precisely the right answer and it retires the concern.</p>
+    <p><strong>The real cliff is the second redeem.</strong> First pack: 30 days, discounted, celebrated. Second pack: 60 days at full price, no discount, no novelty — <em>twice the wait for the same reward</em>. That is where a user who now trusts you decides you are not worth it, and they leave as a believer rather than a sceptic, which is worse because they tell people the app is real but not worth the grind. Watch retention in the fortnight <em>after</em> first payout more closely than any other window.</p>
+  </div>
+
+  <h3>Lifetime value, and what it permits</h3>
+  <p>Across 1,000 installs over 90 days — decent D1, brutal D30, roughly 3,500 active user-days weighted toward light users — ad revenue lands near <strong>$42 per 1,000 installs</strong>. LTV is about <strong>$0.04 per install</strong>, four times my Pakistan-only figure.</p>
+
+  <div class="note">
+    <span class="note-label">Revised: paid acquisition is marginal, not impossible</span>
+    <p>At $0.04 LTV, tier-3 CPI at $0.05–0.15 is close enough to argue about rather than absurd. It is still the wrong place for your money — <strong>you own a channel that delivers installs at zero marginal cost</strong>, and buying installs while an owned audience sits unused is the definition of a bad trade. But the earlier claim that paid UA is <em>categorically</em> unavailable was a Pakistan artefact. Treat a small paid test as a legitimate week-10 experiment, capped at a few hundred dollars, run only after the channel numbers are in and only to answer whether bought users behave like organic ones. They usually do not.</p>
+  </div>
+
+  <h3>What has to change</h3>
+  <ol>
+    <li><strong>Build the offerwall, or accept the app cannot pay anyone.</strong> Offerwall RPM is 20–100× rewarded video. It is the only line item that can fund real payouts. It needs the S2S postback endpoint that does not exist. Everything else on your roadmap is decoration until this ships.</li>
+    <li><strong>Every star minted should trace to an impression or a conversion.</strong> Level rewards are already ad-gated — good instinct — but a 150-star level claim gated on one ad is 200× underwater. Either scale the reward toward what an ad pays, or make the big rewards offerwall-funded.</li>
+    <li><strong>Cut the fixed faucets.</strong> The daily-goal bonus at 10/day and the 2,450-star weekly leaderboard are outgoings that do not flex with revenue. The leaderboard at least shrinks per-user as you grow; the goal bonus does not.</li>
+    <li><strong>Stop treating the heavy player as the good user.</strong> They are your most expensive user by a wide margin, and under the current design they are the one you optimise for hardest.</li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="sec">03</span> The reframe: you are not building an earning app</h2>
+  <p class="lede">This is the most valuable thing in the document. Everything about acquisition, hooks and trust changes depending on which sentence you believe.</p>
+
+  <p>Read as an <strong>earning app</strong>, PixelPayout is one of thousands, in the least trusted category on the Play Store, chasing users who want cash, in the market with the worst ad rates on earth. There is no version of that fight you win.</p>
+
+  <p>Read as what the code actually describes — a catalogue containing nothing but UC and Diamonds, a level gate, a player-ID link, a discounted first redeem — it is something much narrower:</p>
+
+  <div class="note good">
+    <span class="note-label">What you have actually built</span>
+    <p><strong>A way for a fifteen-year-old with no debit card to get UC without asking his parents for money.</strong></p>
+  </div>
+
+  <p>That user is not "someone who wants to earn". He is a PUBG or Free Fire player who watches his squad buy skins, cannot ask for Rs 1,400, and has no payment instrument even if he could — Easypaisa and JazzCash want a CNIC and eighteen years. Midasbuy is official, instant and trusted, and completely unreachable to him. That is a real, unserved, emotionally loaded gap, and it is the only defensible position on your board.</p>
+
+  <p>Everything follows from the switch:</p>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:22%"></th><th>As an earning app</th><th>As a UC route</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Where you post</td><td>"Online Earning in Pakistan" groups</td><td>PUBG/Free Fire clans, gaming TikTok, squad WhatsApp groups</td></tr>
+      <tr><td class="item">Who arrives</td><td>Adults farming every reward app at once, highest fraud propensity, zero loyalty</td><td>Teenagers who play daily anyway and talk to each other constantly</td></tr>
+      <tr><td class="item">The proof shot</td><td>A wallet balance — unverifiable, looks like every scam</td><td>UC landing in the game, on screen, in one take</td></tr>
+      <tr><td class="item">Referral</td><td>A stranger's code on a forum</td><td>A squadmate who watched it work</td></tr>
+      <tr><td class="item">Competitor</td><td>Every reward app on earth</td><td>The friend's older brother with a card</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">
+    <span class="note-label">Two things to check before you commit to this</span>
+    <p><strong>Trademark and Play policy.</strong> You cannot put "PUBG" or "Free Fire" in your store title, icon or ad creative. Approach the position obliquely — "game credit, no card needed" — and never imply endorsement.</p>
+    <p><strong>Supply legitimacy.</strong> Where do you source the UC? If it comes from grey-market resellers, a topped-up account can be banned by Krafton or Garena. One banned account posted in a clan group ends the business overnight. Get this answered before you scale — a distributor relationship or official reseller route is worth more than any feature on your roadmap.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">04</span> Walking in as a new user</h2>
+  <p class="lede">Where I would drop off, in order.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:20%">Stage</th><th>The friction</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Store listing</td><td>Nothing on it can distinguish you from the fakes. Every competitor also shows coins, also says "withdraw instantly". <strong>The listing has to lead with a payout, not a feature.</strong></td></tr>
+      <tr><td class="item">First launch</td><td>Onboarding is three auto-scrolling slides and then a wall: <strong>you demand an account before showing anything</strong>. This is the largest single leak in the funnel. Let people play one game and earn first; ask for the account when they have something to lose.</td></tr>
+      <tr><td class="item">Signup</td><td>Name, email, password, confirm password. On a teenager's phone this is four fields too many. Google sign-in exists — make it the primary and the email path the fallback.</td></tr>
+      <tr><td class="item">First earn</td><td>They finish a game and receive <strong>XP</strong>, not stars. The one thing the app promises is the one thing the core loop never gives. This is a design decision I understand and agree with economically, and it is going to read as a bait-and-switch unless the first screen after the first run shows the star ladder and the exact level where stars start.</td></tr>
+      <tr><td class="item">First cold start</td><td>1.4–2.9 seconds of spinner on the first quiz or game, on a low-end device, on a first session. You have already fixed the hang; the latency remains and it lands at the worst possible moment.</td></tr>
+      <tr><td class="item">Ads</td><td>An interstitial every second completion. On a 26-completion day that is ~13 full-screen ads on top of every rewarded one. The 45-second floor is doing the real work here, and it is doing it alone.</td></tr>
+      <tr><td class="item">First withdrawal</td><td><strong>The moment the business is decided.</strong> If this is weeks away with no visible countdown, they leave and tell people you are fake. If it happens in days and the UC visibly lands, you have a referrer for life.</td></tr>
+      <tr><td class="item">Day 2</td><td>Streak, goals and level progress are all in place and genuinely good. This part of the app is not the problem.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note key">
+    <span class="note-label">The single highest-leverage product change in this document</span>
+    <p><strong>Put a real, small payout inside the first week</strong> — a 60 UC pack, an Rs 50 easyload, whatever costs you Rs 50–80. Not because the economics of it work; they don't. Because it converts one user into a screenshot, and a screenshot is the only acquisition asset you can afford. Treat it as a marketing line, not an economy line. Rs 60 per activated user is a rounding error next to a CPI you cannot pay anyway.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">05</span> How I would actually get users</h2>
+  <p class="lede">Constrained by section 02: no paid installs, ever, at current LTV. Every channel below is organic, barter, or founder labour.</p>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">First 10</span><h3>Your own squad</h3></div>
+    <p class="meta">Cost Rs 0 · Difficulty trivial · Quality highest you will ever have · Scalability none</p>
+    <p>People you can phone. The job is not growth, it is watching ten humans hit the account wall, the cold start and the XP-not-stars moment while you sit next to them. Ship nothing else until you have watched all ten.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">First 100</span><h3>Hand-recruited from gaming Facebook groups</h3></div>
+    <p class="meta">Cost ~Rs 5,000 in real payouts · Difficulty low · Conversion high · Quality high · Risk: group admins delete promo posts</p>
+    <p>Pakistani PUBG and Free Fire Facebook groups run 50k–500k members. Do not post an ad. Post as a person: <em>"I built an app that gets you UC without a card. I'll pay the first 20 people who actually test it and tell me what's broken."</em> Then pay all twenty, publicly, in the thread, with screenshots.</p>
+    <p>The thread itself is the asset. It is dated, public, has real names in it, and it is the thing you link to for the next two years. Do the same in three or four Discord servers and any clan WhatsApp group you can get into — Pakistan runs on WhatsApp, and a forward inside a clan group outperforms every ad network on earth.</p>
+  </div>
+
+  <div class="note good">
+    <span class="note-label">Correction — you are not starting from zero</span>
+    <p>A 100k-subscriber Delta Force channel, ~50k across other platforms, shorts reliably clearing 10k views. <strong>This is the single most valuable asset in the business</strong>, worth more than the codebase, and the first draft of this section did not know it existed.</p>
+    <p>Rough arithmetic: 36 shorts over a quarter at 10k views and a 0.5–2% install rate is <strong>2,000–7,000 installs at zero cash cost</strong>, before a single long-form video or community post. That covers the entire "first 1,000" and most of "first 10,000" below, so read those stages as descriptions of quality control rather than of volume.</p>
+    <p><strong>Two things to be careful about.</strong> Delta Force is a tactical shooter audience; PUBG Mobile UC buyers overlap but are not the same people — test one short before assuming the audience converts. And the channel is a one-shot asset: if the app takes payouts and does not deliver, you do not lose an acquisition channel, <strong>you lose the channel</strong>. That risk belongs in section 14 above almost everything else in it.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">First 1,000</span><h3>Your own channel, then micro-creators paid in UC</h3></div>
+    <p class="meta">Cost Rs 20–60k or equivalent in UC · Difficulty medium · Conversion medium-high · Quality medium · Risk: one bad creator frames you as a scam</p>
+    <p>Not the 500k-subscriber channels — they cost real money and their audience is broad. Target Pakistani gaming channels and TikTok accounts at <strong>5k–50k followers</strong>, where the audience is a clan rather than a demographic. Twenty of them at 50 installs each is your thousand.</p>
+    <p><strong>Pay them in UC and a revenue share, not cash.</strong> They want UC more than they want Rs 3,000, it costs you your discounted rate rather than face value, and a creator who is earning through their own code keeps posting without being asked. Give every one a vanity code and show them their own dashboard.</p>
+    <p>Run your own TikTok in parallel from day one. It costs nothing but your time and it is the only channel here that can produce an outlier.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">First 10,000</span><h3>Referral becomes the product</h3></div>
+    <p class="meta">Cost ~Rs 25 per install in stars · Difficulty high · Quality high · Scalability good · Risk: farming</p>
+    <p>Do the arithmetic on what you already have: your referrer bonus is 100 stars — <strong>Rs 17</strong> — and the referee gets 50. Total acquisition cost around <strong>Rs 25, in currency you mint</strong>, versus Rs 28–56 in cash for a low-quality bought install. <em>Your referral program already beats paid UA and you are underpaying it.</em></p>
+    <p>Three changes: raise the referrer reward to 300–500 stars; move the unlock from 100 XP to <strong>the referee's first successful redemption</strong>, so you only pay for users who reached the moment that matters; and add Play Integrity before you do either, because at 500 stars a fake account becomes worth manufacturing.</p>
+    <p>The mechanic that actually spreads, though, is not the bonus. It is <strong>squad redemption</strong>: let four players pool stars into one pack for one member. It converts a solitary grind into a group project, it makes the inviter socially accountable, and no reward app in this market does it. That is section 09 in full.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">First 100,000</span><h3>Store search, plus the payout feed as public record</h3></div>
+    <p class="meta">Cost near zero · Difficulty high · Risk: policy rejection, reputation collapse</p>
+    <p>At this scale organic Play search is the engine, and it is won by <strong>review score and payout proof</strong>, not by ASO tricks. Your masked payout feed is already the right instinct — take it further and publish it outside the app, as a public page with a running total. "Rs 340,000 paid to 4,100 players" on a live page is the only marketing that works in a category defined by lying.</p>
+    <p>Be honest that this stage is conditional. It only arrives if the offerwall funds real payouts and the reviews hold above 4.2. Below that, growth stops regardless of channel.</p>
+  </div>
+
+  <div class="note warn">
+    <span class="note-label">Channels I would refuse</span>
+    <p><strong>"Online earning" YouTube channels.</strong> The obvious channel in Pakistan, and a trap. Their audience installs every app mentioned, farms it, and churns in 72 hours. You get an install spike, a collapsing D7, an AdMob invalid-traffic flag, and reviewers who have already reviewed forty apps exactly like yours.</p>
+    <p><strong>Any CPI network.</strong> See section 02. At $0.01 LTV this is buying banknotes for a dollar each.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">06</span> The hook</h2>
+  <p class="lede">Written for a teenage PUBG player scrolling TikTok, not for an investor. The strongest ones counter-position against the category's own reputation rather than competing with it.</p>
+
+  <ol class="hooks">
+    <li>We never send you cash. Cash apps are lying to you.<span class="gloss">The strongest line available. Every scam promises money; refusing to promise it is the most credible thing you can say, and it happens to be true of your architecture.</span></li>
+    <li>Rs 1,400, or twenty minutes a day for three weeks. Your call.<span class="gloss">Honest about the price in time. Makes the reader do the maths themselves, which is far more persuasive than doing it for them.</span></li>
+    <li>No card. No Easypaisa. No asking anyone.<span class="gloss">Names the three walls in nine words. Every under-18 in Pakistan has hit all three.</span></li>
+    <li>It takes nineteen days. We'll show you the counter.<span class="gloss">Radical honesty as positioning. Nobody in this category admits a timeline, which is exactly why stating one is believable.</span></li>
+    <li>The UC goes into your account. Not into a wallet you can't withdraw from.<span class="gloss">Attacks the specific mechanism every fake app uses to never pay: the unreachable minimum withdrawal.</span></li>
+    <li>Your parents will never know where the UC came from.<span class="gloss">The actual emotional job. Use with judgement — it's the truest line here and the one most likely to draw complaints.</span></li>
+    <li>I've been playing four months and haven't paid for UC since.<span class="gloss">Creator testimonial framing. Only works from a real face with a real account history.</span></li>
+    <li>Every "free UC" app is fake. So we built one that's slow instead.<span class="gloss">Concedes the category's reputation and turns the concession into the differentiator.</span></li>
+    <li>You're already playing two hours a day. This one pays the top-up.<span class="gloss">Reframes the ask as zero additional time, which for this user is almost true.</span></li>
+    <li>4,100 players. Rs 340,000 in UC. Here's the list.<span class="gloss">The endgame hook — unusable until it's true, and unbeatable once it is.</span></li>
+  </ol>
+
+  <h3>Five short-form concepts</h3>
+
+  <div class="script">
+    <p class="t">01 · The Receipt</p>
+    <div class="beat"><span class="tc">0:00</span><span>Split screen. Left: Midasbuy checkout, 325 UC, Rs 1,390. Right: your app, star balance climbing.</span></div>
+    <div class="beat"><span class="tc">0:03</span><span>VO (Urdu): "Rs 1,390. Ya nineteen din."</span></div>
+    <div class="beat"><span class="tc">0:06</span><span>Hard cut to the in-game UC balance updating. Hold on it. No music sting, no zoom — the plainness is the proof.</span></div>
+    <div class="beat"><span class="tc">0:09</span><span>Caption only: "Nineteen days. No card."</span></div>
+  </div>
+
+  <div class="script">
+    <p class="t">02 · Day 1 / Day 19 — a serial</p>
+    <p>Same kid, same room, same shirt, a day counter in the corner. Fifteen seconds each. Most get a few hundred views; the payoff video is the one that runs. The earlier posts stop being content and become <strong>evidence</strong> — a public, dated record that the timeline was real. Comment sections do the selling on their own once people realise the series is genuine.</p>
+  </div>
+
+  <div class="script">
+    <p class="t">03 · I tried seven "free UC" apps</p>
+    <p>Six fail on camera: infinite loading, "minimum withdrawal $50", an offerwall with no offers, a redeem button that does nothing. Deadpan, no commentary. The seventh works. You are not claiming to be good — you are letting six competitors demonstrate the category's problem for you, which is a claim viewers can verify.</p>
+  </div>
+
+  <div class="script">
+    <p class="t">04 · Ammi ne paise nahi diye</p>
+    <p>Comedy skit, 20 seconds. Kid asks for UC money at dinner. Gets the look every Pakistani teenager knows. Cut to him playing on the app under the covers. Punchline is the UC arriving. It is the emotional truth of the actual user and it travels through exactly the group chats you need.</p>
+  </div>
+
+  <div class="script">
+    <p class="t">05 · Reading my own one-star reviews</p>
+    <p>Founder on camera, face visible, reading real complaints and answering them honestly — including "this takes too long", which you concede. In a category where no operator has ever shown their face, this converts harder than any feature demo. It also builds the asset you will need at 10,000 users, when something goes wrong publicly and you need somewhere to speak from.</p>
+  </div>
+
+  <h3>Play Store positioning</h3>
+  <ul>
+    <li><strong>Screenshot 1 is a payout</strong>, not a feature. UC landing in a game account, with the date on it. Most apps waste this slot on a logo.</li>
+    <li><strong>Put the timeline in the description's first line.</strong> "Most players redeem their first pack in 2–3 weeks." Nobody does this. It filters out the users who would have left a one-star review, which is worth more than the installs it costs.</li>
+    <li><strong>Lead the short description with the barrier, not the reward:</strong> "Game credit without a card."</li>
+    <li><strong>A "Paid this week" counter in the listing images</strong>, updated on every release.</li>
+    <li><strong>Never write "free UC" or a trademarked game name.</strong> It is a takedown and a suspension waiting to happen, and it is the exact phrase every fake app uses — you would be buying their reputation.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="sec">07</span> Competition, and whether you have a moat</h2>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:26%">Who</th><th>Why someone picks them over you</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Midasbuy / official top-up</td><td>Instant, official, zero ban risk. Beats you on everything except the one thing that matters: it needs a payment method your user does not have.</td></tr>
+      <tr><td class="item">Facebook UC resellers</td><td>Your real competitor. Sell UC at 10–20% off for Easypaisa, deliver in minutes. Beat you on speed by weeks. Lose to you only on trust and on needing money at all.</td></tr>
+      <tr><td class="item">Global reward apps (Mistplay, Cash'em All)</td><td>Bigger catalogues, real brands, working offerwalls. Mostly weak or absent in Pakistan, which is your window — and a window because the market is poor, not because they missed it.</td></tr>
+      <tr><td class="item">Reading/video apps (Buzzbreak, Cashzine)</td><td>Established in South Asia, pay small amounts reliably, require no skill. Lower effort per rupee than your games.</td></tr>
+      <tr><td class="item">Outright fakes</td><td>Better screenshots, bigger promises, no delivery. They set the category's reputation, and you inherit it on install.</td></tr>
+      <tr><td class="item">Nothing at all</td><td>The most common outcome. He shrugs and plays without the skin.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>What is actually defensible</h3>
+  <p>Being blunt: <strong>none of your features are a moat.</strong> The level curve, streak, goals, leaderboard and payout feed are two weeks of work for a competent team. The server-side answer keys and session-bound game rewards are genuinely good engineering, and they are invisible to users and copyable by anyone.</p>
+  <p>Three things could become moats, none of them code:</p>
+  <ol>
+    <li><strong>A public, unbroken payout record.</strong> Slow to build, impossible to fake, and it compounds. In a category where trust is the binding constraint, this is the whole game. Start the public ledger with payout number one.</li>
+    <li><strong>Supply.</strong> A real distributor relationship for UC and easyload at 2–4% off face is margin nobody can copy without doing the same paperwork — and it is the difference between paying Rs 1,390 and Rs 1,340 on every redemption, forever.</li>
+    <li><strong>The panel.</strong> Your Panel Revenue Playbook is right about this: a retained, verified panel of Pakistani gamers is the one asset that is hard to assemble. It is also, correctly, parked until ~2,000 DAU.</li>
+  </ol>
+  <p>Note what all three share: they are earned over time, not built in a sprint. Which means your competitive position at launch is <em>zero</em>, and your job for ninety days is to start the clock on all three rather than to add features.</p>
+</section>
+
+<section>
+  <h2><span class="sec">08</span> The whale is not who you think</h2>
+  <p>In a normal game the whale spends money. Here nobody has money — your own register nails this: <em>"an earn app selects for users who have time and no money."</em> So the heaviest player is not your best user. <strong>They are your single largest cost centre</strong>, at roughly Rs 2.60/day of unfunded liability, and the current design optimises for them harder than for anyone else.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:30%">Candidate</th><th class="num">Net/month</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td class="item">The completionist<span class="why">26 activities a day, every day</span></td><td class="num neg">−Rs 78</td><td>Costs the most, generates the least per minute. Cap them, don't court them.</td></tr>
+      <tr><td class="item">The referrer<span class="why">Brings 10 friends a month</span></td><td class="num pos">+Rs 280 equiv.</td><td><strong>Your actual whale.</strong> Acquires at Rs 25 in minted currency against Rs 28–56 cash. Pay them far more.</td></tr>
+      <tr><td class="item">The offerwall converter<span class="why">Completes 2–3 offers a month</span></td><td class="num pos">+Rs 60–200</td><td>The only user who generates real revenue. Rare in this market. Worth building the whole rewards tab around.</td></tr>
+      <tr><td class="item">The creator<span class="why">Posts about the app</span></td><td class="num pos">+Rs 1,000s equiv.</td><td>Worth 100× any player. Find the ones already inside your user base and give them a code and a dashboard.</td></tr>
+      <tr><td class="item">The lurker<span class="why">Plays 10 days, never redeems</span></td><td class="num pos">+Rs 12</td><td>Quietly funds everyone else. Do not "fix" them — but do not build a business on hoping for them either.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>Design implication:</strong> the app currently has a level ladder, a streak, goals and a leaderboard all pointed at the completionist, and one referral field pointed at the referrer. That ratio is backwards. The referral and squad mechanics deserve the treatment the level curve got.</p>
+</section>
+
+<section>
+  <h2><span class="sec">09</span> Retention, day by day</h2>
+  <p class="lede">Your retention mechanics are the strongest part of the app. This section is mostly about which ones to cut.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:12%">Day</th><th>What has to happen</th></tr></thead>
+    <tbody>
+      <tr><td class="item">0</td><td>Play before signup. One game, XP, and a screen that shows exactly which level pays stars and how far away it is. The promise has to be made concrete inside 90 seconds.</td></tr>
+      <tr><td class="item">1</td><td>Streak day 2 and the goal set. Both exist and both work. Add one push notification — you have none — timed to their own play hour, not to a global slot.</td></tr>
+      <tr><td class="item">3</td><td>First real star balance from level rewards, and the first countdown to a specific redeemable pack. <strong>Show a date.</strong> "Free Fire 100 Diamonds — about 11 days at your pace" beats any progress bar.</td></tr>
+      <tr><td class="item">7</td><td>Streak day 7 pays 20 stars, and the first payout should land here if you take the section 04 recommendation. This is the day that decides whether they ever refer anyone.</td></tr>
+      <tr><td class="item">30</td><td>Level ~18–20, and the leaderboard has to be doing work. It currently pays only the top 30 of everyone — at 5,000 DAU that is 0.6% of players and the other 99.4% learn to ignore it. <strong>Bracket it</strong> by level band so a mid-table player can win their own bracket.</td></tr>
+      <tr><td class="item">90</td><td>Nothing currently exists here. Level 30 is the cap, the ladder ends, and the app runs out of progression exactly when the user is most valuable. Prestige, seasons or a second currency — but something has to be there before your first cohort arrives.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Keep, and cut</h3>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:30%">Mechanic</th><th style="width:14%">Verdict</th><th>Reason</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Streak</td><td><span class="chip med">Keep</span></td><td>Cheapest retention per rupee you have — 30 stars a week, mostly XP. The ad-optional design (streak advances even if no ad loads) is exactly right.</td></tr>
+      <tr><td class="item">Level curve + rewards</td><td><span class="chip med">Keep</span></td><td>The spine of the app. Every level paying was the correct call.</td></tr>
+      <tr><td class="item">Daily goals</td><td><span class="chip high">Retune</span></td><td>Targets of 7–10 activities are not "ten minutes" — they are most of the daily cap. Your memory note says the tightness is deliberate ad funnel; fine, but it means the goals are near-unachievable for casual users, so they retain nobody except the completionist you are losing money on.</td></tr>
+      <tr><td class="item">Leaderboard</td><td><span class="chip high">Retune</span></td><td>Top-30-of-everyone stops motivating almost immediately. Bracket it.</td></tr>
+      <tr><td class="item">Referral</td><td><span class="chip crit">Rebuild</span></td><td>Underpaid by 3–5× relative to its true value, and unlocked on the wrong event.</td></tr>
+      <tr><td class="item">Two games</td><td><span class="chip crit">Thin</span></td><td>Floppy Bird and a tower stacker will not hold anyone for 90 days. But adding games is not the fix either — see section 12.</td></tr>
+      <tr><td class="item">Quizzes</td><td><span class="chip low">Fine</span></td><td>One question per attempt is oddly small but cheap and harmless.</td></tr>
+      <tr><td class="item">Buff system</td><td><span class="chip low">Cut for now</span></td><td>Built, wired into the UI, and nothing is eligible for it. Complexity earning nothing today.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">10</span> Referral, done properly</h2>
+  <p class="lede">Given that paid acquisition is unavailable, this is not a feature. It is your marketing department.</p>
+
+  <h3>The economics you already have</h3>
+  <p>Referrer 100 stars + referee 50 stars = <strong>Rs 25 per acquired user</strong>, in currency you mint and which only costs you on redemption. Compare a bought install at Rs 28–56 in cash with worse retention. You are running the cheaper channel and funding it like an afterthought.</p>
+  <p>At 400 stars to the referrer you would pay Rs 76 per install — <em>still</em> competitive, because the user arrives pre-trusted by a friend and retains several times better. The headroom here is enormous and completely unused.</p>
+
+  <h3>The redesign</h3>
+  <ol>
+    <li><strong>Inviter gets 400 stars, unlocked on the referee's first successful redemption.</strong> Not 100 XP. You should pay for outcomes you can see, and a referee who redeemed is a referee who is real, engaged and now has their own screenshot.</li>
+    <li><strong>Referee gets a shortcut, not stars.</strong> An invited user's first-redeem discount is deeper, or their level-10 gate drops to level 6. It costs less than stars, it is worth more to them, and it makes accepting an invite meaningfully better than installing cold.</li>
+    <li><strong>Squad redemption.</strong> Four accounts pool stars into one pack for one member, taking turns. This is the mechanic that would actually spread: it turns a solitary grind into a group obligation, it gives the inviter a reason to chase their friends daily, and it maps exactly onto how PUBG is played. Nobody in this market has it.</li>
+    <li><strong>Milestone ladder, not a flat rate.</strong> 3 referrals unlocks a bracketed leaderboard tier; 10 unlocks a permanent daily-cap raise. Caps cost XP, not stars — you already know this from the VIP analysis.</li>
+  </ol>
+
+  <h3>Fraud, honestly</h3>
+  <p>At 400 stars a fake account becomes worth manufacturing, and <code>Settings.Secure.ANDROID_ID</code> resets on a factory reset. Your own register already flags this. <strong>Play Integrity has to ship before the reward rises</strong>, not after. Then: unlock on first redemption (a farmed account must complete a real redemption to pay out, which is expensive to fake), one payout per device attestation, and a manual review queue above a referral count you set. The redemption approval step is already manual — that is your backstop, and it is a genuinely good one.</p>
+
+  <div class="note">
+    <span class="note-label">Does it pay for itself</span>
+    <p>Only if the referred user's lifetime revenue exceeds Rs 76. At $0.01 LTV — Rs 2.80 — <strong>it does not</strong>. Nothing does. This is worth saying plainly: at current revenue per user, no acquisition channel is profitable, including this one. The referral is the <em>cheapest way to lose money per user</em>, which is the correct thing to optimise for only while you are buying information rather than growth. It becomes genuinely profitable the moment the offerwall works and not one day before.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">11</span> Trust</h2>
+  <p class="lede">Your user has been lied to by this category before. Assume it and design for the assumption.</p>
+
+  <p>You have already built more of this than most: masked payout feed, pending-payout row, order history, a declined-redemption dialog that explains itself, a paid-payout takeover. The instinct is right. What is missing is that <strong>the trust evidence is buried behind the loop instead of in front of it</strong>.</p>
+
+  <h3>What Home should show, in order</h3>
+  <ol>
+    <li><strong>The payout feed at the top, not the bottom.</strong> Three live lines, above the star card. It is the first thing a suspicious new user should see, and right now it sits below the fold under goals and streak.</li>
+    <li><strong>A dated countdown to a specific named pack.</strong> "100 Diamonds — 11 days at your pace." Concrete, falsifiable, and the opposite of every fake app's infinite progress bar.</li>
+    <li><strong>A lifetime paid counter.</strong> "Rs 340,000 paid to 4,100 players." Update it from the same write that fills the payout feed.</li>
+    <li><strong>The exact earning rate, stated.</strong> "A quiz pays 10 XP. Quizzes and games pay no stars — stars come from levels, goals and streaks." You already say this in the level-rewards note; move it somewhere it will be read.</li>
+    <li><strong>A visible fulfilment window.</strong> "Payouts are checked by hand and sent within 24 hours." Manual approval sounds like a weakness; framed as a human checking every payout, it is a feature.</li>
+  </ol>
+
+  <h3>Elsewhere</h3>
+  <ul>
+    <li><strong>A face.</strong> One founder photo and a real name in the app and on the store listing. No fake app has ever done this, because they can't.</li>
+    <li><strong>A support channel that answers.</strong> A WhatsApp number that replies within a day beats any in-app ticket system in this market.</li>
+    <li><strong>Publish the odds and the rates</strong> before anyone asks. Free to do, and it removes the question permanently.</li>
+    <li><strong>Never promise cash.</strong> Architecturally you don't, and marketing that limitation as a deliberate anti-scam stance is the strongest trust position available to you.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="sec">12</span> Stop building these</h2>
+  <p class="lede">Your own Economy Decision Register is a genuinely excellent document — better reasoning than most funded startups produce. It is also a list of eighteen things to build when your problem is that one thing does not exist.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:28%">On your roadmap</th><th style="width:14%"></th><th>Why stop</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Spins and chests</td><td><span class="chip crit">Stop</span></td><td>Register defends them as a star <em>sink</em>. Sinks matter when you have a liability problem; you have a <em>revenue</em> problem, and they are not the same. They also add a chance mechanic to an under-18 audience — a Play policy surface you do not need. Revisit when redemptions are actually straining the float.</td></tr>
+      <tr><td class="item">VIP, streak insurance, paid tournaments</td><td><span class="chip crit">Stop</span></td><td>Your own register's closing line is that user payments will always be a thin slice from a small segment. It is right. These are weeks of work aimed at the users who by definition have no money.</td></tr>
+      <tr><td class="item">Panel Revenue Playbook (both tracks)</td><td><span class="chip crit">Stop</span></td><td>Gated at 2,000 and 10,000 DAU, which you correctly wrote down. You have zero. The thinking is sound and premature — the document itself was the deliverable; do not open it again this year.</td></tr>
+      <tr><td class="item">More games and quiz categories</td><td><span class="chip high">Hold</span></td><td>The instinct is right and the timing is wrong. You do not yet know whether people churn from boredom, distrust, or the payout timeline. Adding content to fix an unmeasured cause is guessing at cost.</td></tr>
+      <tr><td class="item">Points buff system</td><td><span class="chip high">Hold</span></td><td>Built, wired to a Home card, and every source is <code>false</code>. Dead weight until offerwall exists.</td></tr>
+      <tr><td class="item">Leaderboard prize settlement</td><td><span class="chip med">Retune</span></td><td>2,450 stars/week is a fixed outgoing paid disproportionately to your most expensive users. Keep the board, bracket the prizes.</td></tr>
+      <tr><td class="item">Cold-start warm ping</td><td><span class="chip med">Later</span></td><td>Correctly deferred. Two seconds on first play is not what is killing you.</td></tr>
+      <tr><td class="item">Redemptions listener pagination</td><td><span class="chip low">Later</span></td><td>Bites at ~400 heavy users. You are not there.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note key">
+    <span class="note-label">The pattern</span>
+    <p>You are an unusually strong engineer with an unusually good grasp of your own economy, and you are spending both on <strong>depth in a product nobody has used yet</strong>. The register, the playbook, the deferred-work file and the comment density in <code>rewardConfig.ts</code> are all evidence of the same habit: building the version of this business that exists at 10,000 DAU. Everything in section 17 is about getting to 100 real users instead.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">13</span> Where the flywheel breaks</h2>
+  <p>The intended loop is: discover → install → earn → redeem → tell a friend → repeat. Yours breaks in three places, and they compound.</p>
+
+  <ol>
+    <li><strong>Earn → redeem.</strong> If first payout is weeks away, the loop never completes even once. Nothing downstream can run. <em>Fix: a real payout in week one.</em></li>
+    <li><strong>Redeem → tell a friend.</strong> A payout that produces no artefact produces no referral. UC landing in a game account <em>is</em> the artefact — but the app currently does nothing to help capture it. <em>Fix: the paid-payout takeover should generate a shareable image, and the deferred five-star share bonus should ship with it.</em></li>
+    <li><strong>More activity → more revenue → better rewards.</strong> This link is <strong>severed</strong>. More activity currently means more cost, because the marginal activity mints stars and the marginal ad pays a fraction of one. Until the offerwall exists, your flywheel spins backwards under load: <em>growth makes the loss bigger.</em></li>
+  </ol>
+
+  <p>The third is the one that matters. It is not a UX problem or a funnel problem; it is arithmetic, and it is why the offerwall sits at the top of the priority list in section 17 despite being the least interesting thing to build.</p>
+</section>
+
+<section>
+  <h2><span class="sec">14</span> Twenty ways this dies</h2>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:5%">#</th><th style="width:9%">Rank</th><th style="width:27%">Problem</th><th>Why it happens → impact → fix</th></tr></thead>
+    <tbody>
+      <tr><td class="num">1</td><td><span class="chip crit">Critical</span></td><td class="item">The channel is spent on an unproven app</td><td><em>New, and now the top risk.</em> 150k followers built over years, pointed at an app that has never completed a real payout. A failed launch does not cost you a channel, it costs you <strong>the</strong> channel, and no amount of money rebuilds it. <strong>Fix:</strong> 100 hand-held users and 20 completed payouts <em>before</em> the first video.</td></tr>
+      <tr><td class="num">2</td><td><span class="chip high">High</span></td><td class="item">Payout ratio at 65%</td><td>Reward table set by feel rather than against measured revenue. Survivable, ~10 points above comfortable, and it goes above 100% if traffic skews harder to tier-3 than assumed. <strong>Fix:</strong> tune the level table down as you intend, then re-peg to measured ARPDAU once the offerwall reports.</td></tr>
+      <tr><td class="num">3</td><td><span class="chip crit">Critical</span></td><td class="item">Test AdMob IDs ship</td><td>Deliberate during testing, easy to forget, invisible when wrong. Revenue is exactly zero while everything looks normal. <strong>Fix:</strong> <code>buildConfigField</code> per build type, verified on a release build. Already on your blocking list.</td></tr>
+      <tr><td class="num">4</td><td><span class="chip crit">Critical</span></td><td class="item">Time-to-first-payout too long</td><td>Catalogue priced at or near face value against a slow star faucet. Reads as a scam even when honest; one-star reviews end organic growth permanently. <strong>Fix:</strong> a cheap first pack redeemable inside a week, with a visible countdown.</td></tr>
+      <tr><td class="num">5</td><td><span class="chip crit">Critical</span></td><td class="item">Grey-market top-up bans accounts</td><td>Third-party UC delivery outside official channels violates publisher ToS. One banned account in a clan group is unrecoverable. <strong>Fix:</strong> settle your supply route <em>before</em> launch. Official reseller or authorised distributor only.</td></tr>
+      <tr><td class="num">6</td><td><span class="chip crit">Critical</span></td><td class="item">AdMob suspension</td><td>Reward apps are a top category for invalid-traffic enforcement, and incentivised viewing patterns look anomalous by construction. All revenue vanishes overnight with no appeal in practice. <strong>Fix:</strong> mediate across two or three networks from day one; never make AdMob a single point of failure.</td></tr>
+      <tr><td class="num">7</td><td><span class="chip crit">Critical</span></td><td class="item">Manual fulfilment doesn't scale</td><td>Every redemption is approved and purchased by one person. At 50/day it consumes the founder; at 500/day it stops. <strong>Fix:</strong> fine now and a genuine constraint by 2,000 DAU. Line up an API-based top-up supplier before you need it.</td></tr>
+      <tr><td class="num">8</td><td><span class="chip high">High</span></td><td class="item">Offerwall not built</td><td>No <code>onRequest</code> endpoint exists; Tapjoy is wired but credits nobody. The only revenue line that can fund payouts is absent. <strong>Fix:</strong> S2S postback with signature verification and idempotency on the network transaction id.</td></tr>
+      <tr><td class="num">9</td><td><span class="chip high">High</span></td><td class="item">Client-asserted ad watches</td><td>Streak, goal and level claims trust <code>adWatched</code> from the client. A repackaged APK mints stars freely. Your own comments acknowledge this. <strong>Fix:</strong> AdMob SSV on the claims that pay the most; the ad-optional streak design already limits the damage.</td></tr>
+      <tr><td class="num">10</td><td><span class="chip high">High</span></td><td class="item">Android ID as identity</td><td>Resets on factory reset, trivially spoofed. Multi-accounting and referral farming become worth doing the moment stars are worth something. <strong>Fix:</strong> Play Integrity before referral rewards rise.</td></tr>
+      <tr><td class="num">11</td><td><span class="chip high">High</span></td><td class="item">Play policy / trademark</td><td>"Free UC", game names or logos in listing or creative. Takedown, suspension, or a Krafton complaint. <strong>Fix:</strong> position on the barrier ("no card needed"), never on the brand.</td></tr>
+      <tr><td class="num">12</td><td><span class="chip high">High</span></td><td class="item">Signup wall before value</td><td>Account demanded before a single game is played. Kills the top of the funnel where it is widest. <strong>Fix:</strong> anonymous auth, play first, upgrade the account at first star.</td></tr>
+      <tr><td class="num">13</td><td><span class="chip high">High</span></td><td class="item">Content depth</td><td>Two games, one question per quiz attempt. Nothing holds a 90-day user. <strong>Fix:</strong> measure the churn reason first — do not add content blind.</td></tr>
+      <tr><td class="num">14</td><td><span class="chip high">High</span></td><td class="item">No analytics</td><td>No funnel instrumentation found. You cannot tell distrust from boredom from a broken screen. <strong>Fix:</strong> section 15, before launch, not after.</td></tr>
+      <tr><td class="num">15</td><td><span class="chip high">High</span></td><td class="item">Solo founder, 21 Cloud Functions</td><td>Real operational surface, no monitoring, one person. An outage during your first creator push wastes the push. <strong>Fix:</strong> error alerting on the money paths — <code>claimReward</code>, redemption, settlement.</td></tr>
+      <tr><td class="num">16</td><td><span class="chip med">Medium</span></td><td class="item">Interstitial load</td><td>Every second completion, up to ~13/day. Justified by revenue that barely exists. <strong>Fix:</strong> measure retention against cadence before defending it.</td></tr>
+      <tr><td class="num">17</td><td><span class="chip med">Medium</span></td><td class="item">Currency confusion</td><td>Stars, XP, points and levels, where the loop pays one and the promise is another. <strong>Fix:</strong> one sentence on Home, permanently.</td></tr>
+      <tr><td class="num">18</td><td><span class="chip med">Medium</span></td><td class="item">WebView SSL bypass</td><td><code>handler.proceed()</code> on SSL errors. Security hole and a plausible Play rejection. <strong>Fix:</strong> cancel in release builds. Small change, still open.</td></tr>
+      <tr><td class="num">19</td><td><span class="chip med">Medium</span></td><td class="item">Firebase cost curve</td><td>Unbounded redemptions listener, per-launch full history reads, 21 separate Cloud Run services. <strong>Fix:</strong> already documented and correctly deferred; revisit at 400 heavy users.</td></tr>
+      <tr><td class="num">20</td><td><span class="chip low">Low</span></td><td class="item">Leaderboard ties and code collisions</td><td>Both known, both bounded, both correctly reasoned about in comments. <strong>Fix:</strong> leave them.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">15</span> The numbers to watch</h2>
+  <p class="lede">You currently have none of these. Instrument before launch — a cohort you cannot measure is a cohort wasted.</p>
+
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th style="width:22%">Metric</th><th style="width:19%">Healthy</th><th style="width:17%">Warning</th><th>Action if warning</th></tr></thead>
+    <tbody>
+      <tr><td class="item">Time to first payout<span class="why">Median days, install → UC received</span></td><td class="num pos">&lt; 10 days</td><td class="num neg">&gt; 21 days</td><td>Cut first-pack price. The most important number you have.</td></tr>
+      <tr><td class="item">Redeem rate<span class="why">% of installs that ever redeem</span></td><td class="num pos">&gt; 5%</td><td class="num neg">&lt; 2%</td><td>Below 2% you are running on breakage and your reviews will say so.</td></tr>
+      <tr><td class="item">Activation<span class="why">% completing signup + first game</span></td><td class="num pos">&gt; 60%</td><td class="num neg">&lt; 40%</td><td>Move the signup wall behind first play.</td></tr>
+      <tr><td class="item">D1 retention</td><td class="num pos">&gt; 35%</td><td class="num neg">&lt; 20%</td><td>Onboarding or first-session clarity.</td></tr>
+      <tr><td class="item">D7 retention</td><td class="num pos">&gt; 15%</td><td class="num neg">&lt; 8%</td><td>The payout timeline is not believed. Show the countdown.</td></tr>
+      <tr><td class="item">D30 retention</td><td class="num pos">&gt; 6%</td><td class="num neg">&lt; 3%</td><td>Content depth or ad load.</td></tr>
+      <tr><td class="item">ARPDAU</td><td class="num pos">&gt; $0.008</td><td class="num neg">&lt; $0.003</td><td>Check fill rate and mediation before blaming cadence.</td></tr>
+      <tr><td class="item">Ad impressions / DAU</td><td class="num pos">12–25</td><td class="num neg">&lt; 8 or &gt; 35</td><td>Low means fill failure; high means you are burning retention for pennies.</td></tr>
+      <tr><td class="item">Reward cost / DAU<span class="why">Stars <em>redeemed</em>, not minted</span></td><td class="num pos">&lt; 50% of ARPDAU</td><td class="num neg">&gt; 80%</td><td>Retune the faucet. Track minted separately as a liability.</td></tr>
+      <tr><td class="item">Star velocity<span class="why">Minted ÷ redeemed, running</span></td><td class="num pos">3–10×</td><td class="num neg">&lt; 2×</td><td>Under 2× your breakage assumption has failed and the float is real money.</td></tr>
+      <tr><td class="item">Referral rate<span class="why">Invites sent per redeeming user</span></td><td class="num pos">&gt; 1.5</td><td class="num neg">&lt; 0.5</td><td>Under 0.5 there is no viral loop and growth is capped at your own posting.</td></tr>
+      <tr><td class="item">K-factor</td><td class="num pos">&gt; 0.4</td><td class="num neg">&lt; 0.15</td><td>Below 0.15 referral is a feature, not a channel. Rebuild per section 10.</td></tr>
+      <tr><td class="item">Fraud rate<span class="why">Redemptions manually rejected</span></td><td class="num pos">&lt; 3%</td><td class="num neg">&gt; 10%</td><td>Ship Play Integrity immediately.</td></tr>
+      <tr><td class="item">Adless streak claims<span class="why">You already log this</span></td><td class="num pos">&lt; 15%</td><td class="num neg">&gt; 30%</td><td>Either fill is broken or clients are lying. Both matter; distinguish them.</td></tr>
+      <tr><td class="item">Profit / DAU</td><td class="num pos">&gt; $0</td><td class="num neg">any negative</td><td>The one that decides whether growth is good news.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">16</span> Ninety days</h2>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">Weeks 1–3</span><h3>Make it earn, and make it measurable</h3></div>
+    <p><strong>Product:</strong> real AdMob IDs behind a build-type flag. One offerwall (ayeT-Studios or Torox — drop Tapjoy) with the S2S postback endpoint. Firebase Analytics on the whole funnel. Signup wall moved behind first play. SSL bypass fixed.</p>
+    <p><strong>Growth:</strong> nothing. You have nothing worth showing yet.</p>
+    <p><strong>Measure:</strong> that an offerwall conversion actually credits a star, end to end, with your own account.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">Weeks 4–5</span><h3>Ten people, watched closely</h3></div>
+    <p><strong>Product:</strong> price a first pack redeemable in under a week. Payout countdown on Home. Payout feed above the fold.</p>
+    <p><strong>Growth:</strong> closed test with 10 people you can phone. Sit next to at least three of them.</p>
+    <p><strong>Measure:</strong> activation, and where they stop. Expect to find five things you did not predict.</p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">Weeks 6–9</span><h3>One hundred, and the first public payouts</h3></div>
+    <p><strong>Growth:</strong> the Facebook-group recruitment post from section 05. Pay 20 people publicly. Budget Rs 5,000. Start your own TikTok — three posts a week, the Receipt and Day-N formats.</p>
+    <p><strong>Product:</strong> only what the first hundred break.</p>
+    <p><strong>Measure:</strong> D1, D7, time-to-first-payout, ARPDAU. <strong>Gate: D7 above 10% and at least 10 real redemptions, or stop and fix rather than pushing on.</strong></p>
+  </div>
+
+  <div class="stage">
+    <div class="stage-head"><span class="n">Weeks 10–13</span><h3>Creators, and the referral rebuild</h3></div>
+    <p><strong>Product:</strong> Play Integrity. Referral rebuilt per section 10. Share-image generation on the paid-payout takeover.</p>
+    <p><strong>Growth:</strong> 10–20 micro-creators paid in UC and revenue share. Public payout ledger page.</p>
+    <p><strong>Measure:</strong> K-factor, star velocity, profit/DAU. <strong>Gate: K &gt; 0.15 and profit/DAU trending toward zero, or the model needs changing rather than scaling.</strong></p>
+  </div>
+
+  <div class="note warn">
+    <span class="note-label">Kill criteria — write these down now, while it is cheap to be honest</span>
+    <ul style="margin-bottom:0">
+      <li>Day 60: D7 below 8%, or fewer than 10 real redemptions. → The loop does not hold. Stop acquiring.</li>
+      <li>Day 90: ARPDAU below $0.003 with the offerwall live. → The market cannot fund this product. Reposition or move markets.</li>
+      <li>Day 90: K-factor below 0.15. → No viral channel, and you cannot buy one. This is the ceiling.</li>
+      <li>Any point: a user's game account is banned because of your top-up. → Stop payouts that day and fix supply before anything else.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2><span class="sec">17</span> If it were my money</h2>
+  <p class="lede">Seven things, in order. Not a backlog — a sequence, where each one is worthless before the one above it.</p>
+
+  <ol>
+    <li><strong>Answer the catalogue question.</strong> What does the cheapest pack cost in stars, and how many days is that at a real play rate? If the answer is over three weeks, nothing else on this list matters. One hour of work.</li>
+    <li><strong>Real ad IDs, one offerwall, the S2S endpoint.</strong> The only revenue that can fund payouts. Two weeks. Dull, and it is the whole business.</li>
+    <li><strong>Instrument the funnel.</strong> Analytics before users, not after. You are about to spend ninety days generating information you currently cannot read. Three days.</li>
+    <li><strong>Move the signup wall and put a payout inside week one.</strong> The two largest funnel leaks, both cheap to fix. One week.</li>
+    <li><strong>Get 100 real users out of gaming groups and pay 20 of them in public.</strong> Not "launch" — recruit. Rs 5,000 and two weeks of your own posting.</li>
+    <li><strong>Rebuild referral as the growth engine, behind Play Integrity.</strong> It is already cheaper than any bought install and you are funding it like an afterthought. Two weeks.</li>
+    <li><strong>Then decide, on data, whether Pakistan is the market.</strong> The same code with a tier-1 audience faces 20–50× the eCPM. It also faces real competitors and $2+ CPIs. That is a genuine fork, and you should reach it holding numbers rather than opinions.</li>
+  </ol>
+
+  <p><strong>What I would not do:</strong> spins, chests, VIP, tournaments, the panel playbook, more games, more quiz categories, or another design document. Every one of them is work you are capable of doing well, aimed at a company that does not exist yet.</p>
+</section>
+
+<section>
+  <h2><span class="sec">18</span> Verdict</h2>
+
+  <p class="lede">Revised scores. Every one that moved, moved because of the two corrected premises, not because I softened.</p>
+
+  <div class="score-row"><span class="label">Business potential <span class="chip low" style="margin-left:6px">3 → 5</span></span><span class="val">5 / 10</span><span class="meter warn"><span style="width:50%"></span></span></div>
+  <div class="score-row"><span class="label">Product potential</span><span class="val">7 / 10</span><span class="meter"><span style="width:70%"></span></span></div>
+  <div class="score-row"><span class="label">Growth potential <span class="chip low" style="margin-left:6px">4 → 7</span></span><span class="val">7 / 10</span><span class="meter"><span style="width:70%"></span></span></div>
+  <div class="score-row"><span class="label">Monetization potential <span class="chip low" style="margin-left:6px">3 → 5</span></span><span class="val">5 / 10</span><span class="meter warn"><span style="width:50%"></span></span></div>
+  <div class="score-row"><span class="label">Retention potential</span><span class="val">6 / 10</span><span class="meter warn"><span style="width:60%"></span></span></div>
+  <div class="score-row"><span class="label">Competitive advantage <span class="chip low" style="margin-left:6px">2 → 4</span></span><span class="val">4 / 10</span><span class="meter warn"><span style="width:40%"></span></span></div>
+  <div class="score-row"><span class="label">Risk <span class="chip low" style="margin-left:6px">8 → 7</span></span><span class="val">7 / 10</span><span class="meter bad"><span style="width:70%"></span></span></div>
+
+  <h3>Would I bet $5,000 and three months of my own money?</h3>
+
+  <div class="note good">
+    <span class="note-label">Yes — but not on installs</span>
+    <p>The first draft said no, and it said no because at $0.01 LTV with no channel there was nothing for money to do. Both halves of that changed. <strong>I would now put the $5,000 in</strong>, split roughly: <strong>$1,500 in real payouts and fulfilment float</strong> (the thing that generates proof), <strong>$1,500 in UC to micro-creators</strong>, <strong>$500 on a developer account, entity paperwork and monitoring</strong>, and <strong>$1,500 held back</strong> for the fulfilment crunch that arrives if the channel works.</p>
+    <p><strong>Zero on paid installs</strong> until the owned channel's numbers are in. Buying traffic while 150k people follow you already is paying for something you have.</p>
+  </div>
+
+  <h3>What I would actually say to you</h3>
+  <p>The engineering here is <em>well</em> above what this category produces. The economy reasoning in your own register is better than most funded startups manage, and the comment in <code>rewardConfig.ts</code> explaining why the bonus-attempt cap <em>is</em> the security is the kind of thinking that takes people years. Your replies on the first draft were mostly right and mostly ahead of me — the cheap-first-pack breakage design, the level-reward-versus-journey argument, the self-funding paid leaderboard, mediation over single-network dependence. I was wrong on the geography and the geography was doing most of the work.</p>
+  <p>What has not changed: <strong>you have not put it in front of anybody.</strong> There is no <code>versionCode 2</code>. Every artefact in the repo is depth — a decision register, a revenue playbook for 10,000 DAU, a deferred-work file with cost-of-delay analysis — and none of it is contact with a user. That was the real finding in the first draft and it survives every correction, because it was never about the numbers.</p>
+  <p>The new top risk is one neither of us listed before. <strong>You are about to point a 150,000-person audience you spent years building at an app that has never processed a single real payout.</strong> That audience is not a channel you can re-buy. Every recommendation in this document about small first payouts, visible receipts, honest timelines and manual review exists to protect it — not to protect the economy, which will survive a bad quarter, but to protect the one asset that will not.</p>
+  <p>Three months from now the useful thing to have is not a better app. It is a hundred people who used it, twenty who got paid, and a number telling you whether any of them told a friend.</p>
+</section>
+
+<footer>
+  <p>Reconstructed from the <code>economy-refactor-ui</code> branch: <code>functions/src/economy/</code>, <code>AdCadence.kt</code>, <code>rewardConfig.ts</code>, <code>levelCurve.ts</code>, the redemption flow, and your own Economy Decision Register, Panel Revenue Playbook and DEFERRED.md.</p>
+  <p>Every rupee figure inherits the Rs 0.17/star estimate from your own register, which is unvalidated. Ad rates are assumptions in the range your documents state, not measured values. The catalogue prices — the numbers that matter most — live in Firestore and were not readable from the repo. Treat the direction of every conclusion as firm and the magnitudes as provisional until those two are measured.</p>
+</footer>
+
+</div>

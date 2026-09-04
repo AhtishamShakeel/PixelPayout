@@ -717,6 +717,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="offerwall_empty_body">Offers come and go depending on what is available in your country. Check back soon — meanwhile, games and quizzes still earn XP.</string>
 
     <string name="offerwall_connecting">Still connecting. Try again in a moment.</string>
+    <string name="offerwall_loading">Loading offers…</string>
     <string name="offerwall_unavailable">No offers available here right now.</string>
 
 </resources>

@@ -135,6 +135,7 @@ class RewardsFragment : Fragment() {
                     requireContext(),
                     when (reason) {
                         TapjoyOfferwall.REASON_CONNECTING -> getString(R.string.offerwall_connecting)
+                        TapjoyOfferwall.REASON_LOADING -> getString(R.string.offerwall_loading)
                         else -> getString(R.string.offerwall_unavailable)
                     },
                     Toast.LENGTH_SHORT

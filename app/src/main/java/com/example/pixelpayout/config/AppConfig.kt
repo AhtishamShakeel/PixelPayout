@@ -1,7 +1,7 @@
 package com.example.pixelpayout.config
 
 object AppConfig {
-    const val TAPJOY_SDK_KEY = "ouc7hbV7TwOZCHX3YYtQIQECcCkzfjwMerEDDZNQ32kCdsznWomW_spBpqbx"
+    const val TAPJOY_SDK_KEY = "8mQLvXA7SwSNhj9N8wQ3GQECBj9IennVxwkaSVhfF58OJr1P8DVIMsMcB_Va"
     const val TAPJOY_OFFERWALL_PLACEMENT = "offerwall"
 
     const val ADMOB_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"

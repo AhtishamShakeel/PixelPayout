@@ -62,6 +62,19 @@ object TapjoyOfferwall {
     private var placement: TJPlacement? = null
 
     /**
+     * Whether a content request is on the wire.
+     *
+     * Tapjoy refuses a second request for a placement it is already fetching,
+     * and refuses it by discarding the request rather than by calling back -
+     * so without this flag, taps during a fetch produce complete silence.
+     */
+    @Volatile
+    private var requesting = false
+
+    /** Callbacks arrive off the main thread; UI work has to be posted back. */
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
      * Connects at app start, before any screen asks for a wall.
      *
      * Safe to call when Tapjoy is unconfigured or unreachable - a failure
@@ -139,17 +152,20 @@ object TapjoyOfferwall {
                 requestAndShow(activity, onUnavailable)
             }
 
+            // Both failure paths post back to the main thread for the same
+            // reason the placement callbacks do: these arrive on a Tapjoy
+            // thread, and a toast raised there never appears.
             override fun onSetUserIDFailure(message: String?) {
                 // Refuse rather than open anyway. A wall opened without the
                 // right user id lets somebody complete an offer that credits
                 // nobody, which is worse than not opening it.
                 Log.e(TAG, "setUserID failed: $message")
-                onUnavailable(REASON_USER_ID)
+                main.post { onUnavailable(REASON_USER_ID) }
             }
 
             override fun onSetUserIDFailure(code: Int, message: String?) {
                 Log.e(TAG, "setUserID failed: $code $message")
-                onUnavailable(REASON_USER_ID)
+                main.post { onUnavailable(REASON_USER_ID) }
             }
         })
     }
@@ -160,25 +176,57 @@ object TapjoyOfferwall {
             return
         }
 
+        // A REQUEST ALREADY IN FLIGHT IS NOT A REASON TO START ANOTHER.
+        //
+        // Without this the second tap builds a second TJPlacement for the
+        // same name, Tapjoy answers "Placement offerwall is already
+        // requesting content" and drops it - and because it dropped the
+        // REQUEST, no callback ever fires for it. So every tap after the
+        // first was silent by construction: no wall, no message, nothing in
+        // the log but a refusal. Telling the user it is still loading is
+        // both true and the only honest thing available.
+        if (requesting) {
+            onUnavailable(REASON_LOADING)
+            return
+        }
+
+        // Callbacks arrive on a Tapjoy background thread. Everything the
+        // caller does with them touches the UI - a toast, a dialog - and a
+        // toast posted off the main thread simply never appears, which is
+        // why the "no offers" case looked like nothing happening at all.
+        val report: (String) -> Unit = { reason ->
+            main.post { onUnavailable(reason) }
+        }
+
         val listener = object : TJPlacementListener {
             override fun onRequestSuccess(p: TJPlacement?) {
                 // NOT requestContent() again - that is the re-entrancy bug
                 // the old version had. Success here only means the request
                 // was accepted; readiness arrives at onContentReady.
                 if (p?.isContentAvailable != true) {
-                    Log.w(TAG, "No content available")
-                    onUnavailable(REASON_NO_CONTENT)
+                    // A 204 from Tapjoy: the request worked, there is simply
+                    // nothing to show. Common on a new app with no traffic.
+                    Log.w(TAG, "No content available (no fill)")
+                    requesting = false
+                    // Dropped so the next tap asks again rather than reusing
+                    // a placement that has already been told there is
+                    // nothing. Fill changes minute to minute.
+                    placement = null
+                    report(REASON_NO_CONTENT)
                 }
             }
 
             override fun onRequestFailure(p: TJPlacement?, error: TJError?) {
                 Log.e(TAG, "Request failed: ${error?.message}")
-                onUnavailable(REASON_NO_CONTENT)
+                requesting = false
+                placement = null
+                report(REASON_NO_CONTENT)
             }
 
             override fun onContentReady(p: TJPlacement?) {
+                requesting = false
                 if (activity.isFinishing || activity.isDestroyed) return
-                p?.showContent()
+                main.post { p?.showContent() }
             }
 
             override fun onContentShow(p: TJPlacement?) = Unit
@@ -186,6 +234,7 @@ object TapjoyOfferwall {
             override fun onContentDismiss(p: TJPlacement?) {
                 // Dropped on dismiss so the next open fetches a fresh wall
                 // rather than redisplaying a stale one.
+                requesting = false
                 placement = null
             }
 
@@ -216,6 +265,7 @@ object TapjoyOfferwall {
         // single one of them, and holding an Activity here is how the old
         // version leaked across rotation. setActivity above is what tells
         // Tapjoy where to draw.
+        requesting = true
         placement = TJPlacement(
             activity.applicationContext,
             AppConfig.TAPJOY_OFFERWALL_PLACEMENT,
@@ -224,6 +274,7 @@ object TapjoyOfferwall {
     }
 
     const val REASON_CONNECTING = "connecting"
+    const val REASON_LOADING = "loading"
     const val REASON_USER_ID = "user_id"
     const val REASON_NO_CONTENT = "no_content"
 }

@@ -1,28 +1,66 @@
-<?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<?xml version="1.0" encoding="utf-8"?><!--
+    The offerwall list.
+
+    Three states, and the empty one is the interesting case: until a network
+    approves us there are no walls at all, and a screen that says "coming
+    soon" next to a dead button is both a bad first impression and a
+    plausible Play review rejection. So the list simply explains itself and
+    offers nothing to tap.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:background="@color/background_dark">
 
-    <TextView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/offerwallList"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:paddingStart="16dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="24dp"
+        tools:listitem="@layout/item_offerwall" />
+
+    <ProgressBar
+        android:id="@+id/offerwallLoading"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Rewards Coming Soon!"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/offerwallButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Show Offerwall"
         android:layout_gravity="center"
-        android:padding="12dp"/>
+        android:indeterminateTint="@color/primary" />
 
+    <LinearLayout
+        android:id="@+id/offerwallEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:paddingStart="40dp"
+        android:paddingEnd="40dp"
+        android:visibility="gone"
+        tools:visibility="visible">
 
-</androidx.constraintlayout.widget.ConstraintLayout> 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/offerwall_empty_title"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/offerwall_empty_body"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+    </LinearLayout>
+
+</FrameLayout>

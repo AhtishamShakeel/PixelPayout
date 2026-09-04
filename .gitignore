@@ -23,3 +23,16 @@ pubsub-debug.log
 database-debug.log
 .firebase/
 firebase-export-*/
+
+# Google service-account keys. NEVER commit one.
+#
+# This repo is public (see functions/.gitignore), and a key with Firestore
+# write access in a public repo is a total compromise of the economy: anyone
+# who finds it can set any balance, approve any payout, and read every user
+# document. The patterns are broad on purpose - a key saved under a name
+# nobody predicted is exactly how this goes wrong.
+*serviceaccount*.json
+*service-account*.json
+*serviceAccount*.json
+*-adminsdk-*.json
+gcloud-key.json

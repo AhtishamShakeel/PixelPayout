@@ -17,6 +17,13 @@ import {
 } from "./economy/gameSession";
 import {buildAward, buildMilestoneEvent} from "./economy/awardReward";
 import {
+  offerwallTransactionId,
+  validatePostback,
+  OFFERWALL_SECRETS_COLLECTION,
+  OFFERWALL_SECRETS_DOC,
+  OFFERWALL_TRANSACTIONS_COLLECTION,
+} from "./economy/offerwall";
+import {
   maskDisplayName,
   PAYOUT_FEED_COLLECTION,
 } from "./economy/payoutFeed";
@@ -2880,3 +2887,218 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
 
   return {status: "success"};
 });
+
+/**
+ * The server-to-server postback endpoint.
+ *
+ * THE FIRST onRequest FUNCTION IN THIS CODEBASE, and deliberately generic.
+ * Offerwalls, survey routers, the sponsored-app track and any future
+ * affiliate integration all settle the same way - an unauthenticated HTTPS
+ * call from a partner, signed with a shared secret - so this is written once
+ * against a config-driven notion of "network" rather than once per partner.
+ * Adding ayeT-Studios beside Torox is a document, not a deploy.
+ *
+ * It is the only path in the app that credits Points on the word of somebody
+ * outside it, which shapes every decision below:
+ *
+ *   * The signature is checked BEFORE the amount is read, and an unsigned
+ *     request never reaches the code that decides what to pay.
+ *   * The transaction id is spent exactly once, through a deterministic
+ *     document id inside the award transaction - not a query beforehand,
+ *     which two simultaneous retries would both pass.
+ *   * The amount is capped twice: by the network's own configured ceiling
+ *     and by MAX_POINTS_PER_POSTBACK in code. A leaked secret is then a
+ *     bounded loss rather than a mint.
+ *
+ * ON RETRIES AND STATUS CODES. Networks retry anything that is not a 200,
+ * often for hours, so the reply is chosen by whether retrying could ever
+ * help. A duplicate is answered 200 - the work is already done, and a second
+ * payment is exactly what must not happen. A bad signature is 403 and a
+ * malformed request is 400, because those are the partner's bug to fix and
+ * silence would hide it. An unknown uid is answered 200 and RECORDED as
+ * rejected: retrying cannot conjure the account, so the useful outcome is an
+ * audit row somebody can settle by hand rather than a week of retries.
+ */
+export const offerwallCallback = functions.https.onRequest(
+  {cors: false},
+  async (request, response) => {
+    // Query AND body, merged.
+    //
+    // Most networks in this tier send a GET, and an earlier version of this
+    // read only `request.query` on that basis. That is an assumption about
+    // somebody else's product, and the failure it produces is bad: a
+    // POST-only network gets `missing_parameters`, retries for hours, and
+    // the integration looks broken on our side with nothing in the logs to
+    // say why. Reading both costs one loop.
+    //
+    // Query wins on a collision, because `network` is in the URL we hand the
+    // partner and must not be overridable by whatever they post.
+    const query: Record<string, string> = {};
+    const collect = (source: unknown) => {
+      if (!source || typeof source !== "object") return;
+      for (const [key, value] of Object.entries(source as Record<string, unknown>)) {
+        if (value === null || value === undefined) continue;
+        if (typeof value === "object" && !Array.isArray(value)) continue;
+        query[key] = Array.isArray(value) ? String(value[0]) : String(value);
+      }
+    };
+    collect(request.body);
+    collect(request.query);
+
+    const network = (query.network || "").trim().toLowerCase();
+    if (!network) {
+      response.status(400).send("missing network");
+      return;
+    }
+
+    // The first proxy hop is the partner; anything after it is ours. Taking
+    // the last entry instead would read our own load balancer's address and
+    // make every allowlist match nothing.
+    const forwarded = String(request.headers["x-forwarded-for"] || "");
+    const sourceIp = forwarded.split(",")[0]?.trim() || request.ip || null;
+
+    const firestore = getFirestore();
+    // serverConfig, not config: this document holds the shared secrets, and
+    // every document in `config` is readable by any signed-in user.
+    const configSnapshot = await firestore
+      .collection(OFFERWALL_SECRETS_COLLECTION)
+      .doc(OFFERWALL_SECRETS_DOC)
+      .get();
+
+    const validation = validatePostback({
+      network,
+      query,
+      sourceIp,
+      config: configSnapshot.exists ? configSnapshot.data() : null,
+    });
+
+    if (!validation.ok) {
+      // Logged with the network and the reason, never with the query - a
+      // rejected request is exactly the one whose parameters are least
+      // trustworthy to write anywhere.
+      console.error("Offerwall postback rejected", {
+        network,
+        rejection: validation.rejection,
+        sourceIp,
+      });
+
+      const status =
+        validation.rejection === "bad_signature" ||
+        validation.rejection === "ip_not_allowed" ?
+          403 :
+          validation.rejection === "unknown_network" ||
+          validation.rejection === "network_disabled" ||
+          validation.rejection === "network_misconfigured" ?
+            404 :
+            400;
+      response.status(status).send(validation.rejection);
+      return;
+    }
+
+    const {parsed} = validation;
+    const userRef = firestore.collection(USERS_COLLECTION).doc(parsed.uid);
+    const txRef = firestore
+      .collection(OFFERWALL_TRANSACTIONS_COLLECTION)
+      .doc(offerwallTransactionId(network, parsed.transactionId));
+
+    try {
+      const result = await firestore.runTransaction(async (transaction) => {
+        const [txDoc, userDoc] = await Promise.all([
+          transaction.get(txRef),
+          transaction.get(userRef),
+        ]);
+
+        // Already settled. Not an error - it is the normal shape of a
+        // network retrying a call whose response it never received.
+        if (txDoc.exists) {
+          return {outcome: "duplicate" as const, pointsAwarded: 0};
+        }
+
+        if (!userDoc.exists) {
+          transaction.set(txRef, {
+            network,
+            transactionId: parsed.transactionId,
+            uid: parsed.uid,
+            points: 0,
+            status: "rejected_unknown_user",
+            raw: parsed.raw,
+            createdAt: FieldValue.serverTimestamp(),
+          });
+          return {outcome: "unknown_user" as const, pointsAwarded: 0};
+        }
+
+        const award = buildAward(
+          Number(userDoc.get(FIELD_POINTS) || 0),
+          Number(userDoc.get(FIELD_XP) || 0),
+          {
+            source: "OFFERWALL",
+            basePoints: parsed.points,
+            baseXp: 0,
+            metadata: {
+              network,
+              transactionId: parsed.transactionId,
+              chargeback: parsed.isChargeback,
+            },
+            storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
+            // OFFERWALL is one of the few MULTIPLIER_ELIGIBLE sources, so
+            // the user's active Points buff is passed through here - this is
+            // the earning path that buff was designed for. buildAward still
+            // decides eligibility from the source, not from this value.
+            activeMultiplier: activeMultiplier(
+              userDoc.get(FIELD_ACTIVE_BUFF) as PointsBuff | undefined,
+              Date.now()
+            ),
+          }
+        );
+
+        // A chargeback can take a balance negative, and that is correct.
+        // Clamping at zero would let somebody redeem against a completion
+        // and keep the stars when the advertiser reversed it - the reversal
+        // has to land somewhere, and the account that banked the credit is
+        // the honest place for it.
+        writeAward(
+          transaction,
+          userRef,
+          userRef
+            .collection(REWARD_EVENTS_SUBCOLLECTION)
+            .doc(`offerwall:${network}:${parsed.transactionId}`),
+          award
+        );
+
+        transaction.set(txRef, {
+          network,
+          transactionId: parsed.transactionId,
+          uid: parsed.uid,
+          points: award.pointsAwarded,
+          status: parsed.isChargeback ? "chargeback" : "applied",
+          raw: parsed.raw,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        return {outcome: "applied" as const, pointsAwarded: award.pointsAwarded};
+      });
+
+      console.log("Offerwall postback", {
+        network,
+        uid: parsed.uid,
+        transactionId: parsed.transactionId,
+        ...result,
+      });
+
+      // Every outcome here is final, so all three are answered with the body
+      // the network treats as success. Retrying could not improve any of
+      // them, and the audit row is what makes the rejected case recoverable.
+      response.status(200).send(validation.successBody);
+    } catch (error) {
+      // The only case worth a retry: the write itself failed. A 500 is what
+      // makes the network try again, which is the behaviour we want.
+      console.error("Offerwall postback failed", {
+        network,
+        uid: parsed.uid,
+        transactionId: parsed.transactionId,
+        error: String(error),
+      });
+      response.status(500).send("error");
+    }
+  }
+);

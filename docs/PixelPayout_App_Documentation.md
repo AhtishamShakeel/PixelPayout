@@ -1,5 +1,23 @@
 # PixelPayout App Documentation
 
+> **STALE — do not trust this document without checking the code.**
+>
+> Last reviewed from code: 2026-06-25. The economy has been rebuilt since:
+> quizzes and games now award **XP, not points**, and stars come from levels,
+> streaks, daily goals and the weekly leaderboard. Rewards are server-issued
+> through `claimReward`, redemption spends stars on game top-ups, and the
+> Tapjoy offerwall described in section 13 has been replaced.
+>
+> Current sources of truth:
+> - Economy values — `functions/src/economy/rewardConfig.ts`
+> - Offerwalls — [OFFERWALL.md](OFFERWALL.md)
+> - Deferred work — [DEFERRED.md](DEFERRED.md)
+> - Strategy — [PixelPayout-Growth-Review.html](PixelPayout-Growth-Review.html),
+>   [PixelPayout-Build-Answers.html](PixelPayout-Build-Answers.html)
+>
+> Sections 1-12 are broadly still true about navigation, auth and caching.
+> Sections 13, 19 and 20 are known to be wrong.
+
 Last reviewed from code: 2026-06-25
 
 This document describes the PixelPayout Android app based on the current codebase. It covers the visible product behavior, data flow, Firebase usage, points, referrals, quizzes, games, rewards, caching, and known implementation notes.

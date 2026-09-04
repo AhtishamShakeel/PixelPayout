@@ -9,12 +9,13 @@
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
-    "test:unit": "npm run build && node lib/test/levelCurve.test.js && node lib/test/economy.test.js && node lib/test/awardReward.test.js && node lib/test/pointsBuff.test.js && node lib/test/streak.test.js && node lib/test/payoutFeed.test.js && node lib/test/dailyGoals.test.js && node lib/test/leaderboard.test.js && node lib/test/redemption.test.js",
+    "test:unit": "npm run build && node lib/test/levelCurve.test.js && node lib/test/economy.test.js && node lib/test/awardReward.test.js && node lib/test/pointsBuff.test.js && node lib/test/streak.test.js && node lib/test/payoutFeed.test.js && node lib/test/dailyGoals.test.js && node lib/test/leaderboard.test.js && node lib/test/redemption.test.js && node lib/test/offerwall.test.js",
     "test:smoke": "npm run build && cd .. && firebase emulators:exec --only auth,firestore,functions \"node functions/lib/test/smoke.js\"",
     "test:rules": "npm run build && cd .. && firebase emulators:exec --only firestore \"node functions/lib/test/rules.test.js\"",
     "test:all": "npm run test:unit && cd .. && firebase emulators:exec --only auth,firestore,functions \"node functions/lib/test/smoke.js && node functions/lib/test/rules.test.js\"",
     "seed:options": "npm run build && node lib/tools/seedRedemptionOptions.js",
-    "repair:gameattempts": "npm run build && echo \"Built. Now run: node lib/tools/repairStuckGameAttempts.js <projectId> [--apply]\""
+    "repair:gameattempts": "npm run build && echo \"Built. Now run: node lib/tools/repairStuckGameAttempts.js <projectId> [--apply]\"",
+    "seed:offerwall": "npm run build && node lib/tools/seedOfferwall.js"
   },
   "engines": {
     "node": "22"

@@ -28,6 +28,7 @@ accidentally undo the reasoning that deferred it.
 | 3 | Cloud Functions cold start on first game/quiz | Latency | No |
 | 4 | 5-star reward for sharing a paid payout | Feature | No |
 | 5 | `play-services-ads` version | Open question | No |
+| 6 | Offerwall analytics | Measurement | No |
 
 ---
 
@@ -181,6 +182,32 @@ raised at some point but the motivation is not recorded.
 **Before acting:** establish what the actual symptom was. Downgrading an ads
 SDK on a hunch is a bad trade — newer versions carry mediation and policy
 fixes. If nothing is currently broken, close this item rather than doing it.
+
+---
+
+## 6. No analytics on offerwall opens or completions
+
+**Deferred:** 2026-09-04, at the point the offerwall integration landed.
+
+The wall list and the postback endpoint are both live in code
+([`OFFERWALL.md`](OFFERWALL.md)), and neither records anything to Analytics. No
+`offerwall_opened`, no `offerwall_credited`, nothing per network.
+
+**Cost of leaving it:** the whole reason to run two or three walls at once is
+that fill and payout differ wildly between them - and without per-network
+events there is no way to tell which one earns. The decision the data informs
+(drop the worst, promote the best) is the main lever on the only revenue line
+that can fund real payouts, so this is measurement that pays for itself the
+week a second network goes live.
+
+**Doing it:** two events. `offerwall_opened` with the wall id, fired in
+[`RewardsFragment.open()`](../app/src/main/java/com/example/pixelpayout/ui/rewards/RewardsFragment.kt);
+and a server-side count of credited postbacks per network, which the daily
+metrics rollup should pick up from `offerwallTransactions` rather than needing
+its own write path.
+
+**Not urgent until a second network is live.** With one wall there is nothing
+to compare it against.
 
 ---
 

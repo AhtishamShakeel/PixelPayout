@@ -6,6 +6,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import com.example.pixelpayout.utils.AdManager
+import com.example.pixelpayout.utils.TapjoyOfferwall
 import com.example.pixelpayout.utils.InterstitialAdManager
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp
@@ -44,6 +45,13 @@ class PixelPayoutApp : Application() {
                 InterstitialAdManager.getInstance().load(this)
             }, INTERSTITIAL_WARMUP_DELAY_MS)
         }
+
+        // Connect ONCE per process. Connecting is process-wide, so the old
+        // per-fragment call was reconnecting behind a live session every
+        // time the Rewards tab opened. Failure here is swallowed inside -
+        // the offerwall is one tab, and the rest of the app must not depend
+        // on a third-party SDK coming up.
+        TapjoyOfferwall.connect(this)
 
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
     }

@@ -81,6 +81,19 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Secrets. NOTHING here is ever client-readable.
+    //
+    // A separate collection from `config` precisely because that one grants
+    // every signed-in user read access - which is right for the level curve
+    // and the goal bonus, and catastrophic for an offerwall's shared secret,
+    // since anyone holding it can forge a postback and mint stars. Denying
+    // the whole collection rather than naming documents means the next
+    // secret added here is safe by default rather than safe only if somebody
+    // remembers to extend a rule.
+    match /serverConfig/{docId} {
+      allow read, write: if false;
+    }
+
     match /redemptionOptions/{optionId} {
       allow read: if request.auth != null;
       allow write: if false;
@@ -92,6 +105,16 @@ service cloud.firestore {
     // working around the one-account-per-ID rule it exists to enforce.
     // redeemReward reads and writes it through the Admin SDK.
     match /playerLinks/{linkId} {
+      allow read, write: if false;
+    }
+
+    // Settled offerwall postbacks, one document per network transaction.
+    // Server-only, and denied explicitly rather than left to the catch-all
+    // because this is the record that stops a transaction paying twice: a
+    // client able to write here could erase its own idempotency marker and
+    // replay a completion, and one able to read it could enumerate other
+    // users' uids alongside the amounts they earned.
+    match /offerwallTransactions/{transactionId} {
       allow read, write: if false;
     }
 

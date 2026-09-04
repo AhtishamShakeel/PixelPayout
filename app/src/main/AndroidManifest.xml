@@ -4,7 +4,27 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
+    <!--
+        The advertising ID, KEPT.
+
+        This was previously removed with tools:node="remove", which quietly
+        broke the two things this app makes its money from. Without the ad ID
+        AdMob can only serve non-personalised ads - materially lower eCPM on
+        every impression - and every offerwall loses the identifier it
+        attributes completions with, so offers can be finished and never
+        credited. It is also how Tapjoy and the rest match a test device, so
+        integration testing fails in a way that looks like a broken SDK.
+
+        Declaring it carries an obligation: the Play Data Safety form must
+        say the advertising ID is collected and used for advertising. That is
+        the ordinary declaration for an ad-supported app.
+
+        It must NOT be reinstated if this app ever targets children under
+        Play Families policy - the ad ID is prohibited there. That is not the
+        case today: the audience is teenage and adult gamers and the app runs
+        rewarded ads against a real-value economy.
+    -->
+    <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <application
         android:name="com.pixelpayout.PixelPayoutApp"
@@ -45,6 +65,21 @@
             android:name="com.example.pixelpayout.ui.game.GamePlayActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.PixelPayout"
+            tools:ignore="MissingClass" />
+
+        <!--
+            The offerwall WebView host.
+
+            adjustResize because walls carry survey and sign-up forms, and
+            without it the keyboard covers the field being typed into - the
+            single most common way a hosted wall becomes unusable on a small
+            screen.
+        -->
+        <activity
+            android:name="com.example.pixelpayout.ui.rewards.OfferwallActivity"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.PixelPayout"
+            android:windowSoftInputMode="adjustResize"
             tools:ignore="MissingClass" />
 
 

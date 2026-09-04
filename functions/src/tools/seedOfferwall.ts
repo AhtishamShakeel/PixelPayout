@@ -48,8 +48,99 @@ const TEST_CONFIG = {
   successBody: "1",
 };
 
+/**
+ * Tapjoy's self-managed currency callback, as configuration.
+ *
+ * Their verifier is MD5 of id, snuid, currency and the secret key joined by
+ * colons, which the generic template scheme expresses without a line of
+ * Tapjoy-specific code - the whole point of doing it this way.
+ *
+ * `pointsPerUnit` stays 1 because the star-per-unit ratio is set in the
+ * Tapjoy dashboard, not here. Setting it in both places is how the two end
+ * up disagreeing.
+ */
+function tapjoyConfig(secret: string) {
+  return {
+    enabled: true,
+    secret,
+    scheme: "md5",
+    signatureTemplate: "{id}:{snuid}:{currency}:{secret}",
+    paramNames: {
+      uid: "snuid",
+      transactionId: "id",
+      amount: "currency",
+      signature: "verifier",
+    },
+    pointsPerUnit: 1,
+    maxPoints: 5000,
+    successBody: "1",
+  };
+}
+
+/** The catalogue row that puts Tapjoy on the Rewards screen. */
+const TAPJOY_WALL = {
+  enabled: true,
+  type: "tapjoy",
+  name: "Tapjoy Offers",
+  subtitle: "Apps, games and surveys",
+  sortOrder: 1,
+  minLevel: 1,
+};
+
+/**
+ * Writes the Tapjoy secret and its catalogue row together.
+ *
+ * TOGETHER ON PURPOSE. A wall enabled without its secret is the worst of
+ * both: the tile appears, the offerwall opens, the user completes an offer -
+ * and the postback is rejected as an unknown network, so they are never
+ * paid. Writing one without the other is a state worth making impossible.
+ */
+async function seedTapjoy(
+  db: FirebaseFirestore.Firestore,
+  secretsRef: FirebaseFirestore.DocumentReference,
+  secret: string
+) {
+  const batch = db.batch();
+  batch.set(secretsRef, {tapjoy: tapjoyConfig(secret)}, {merge: true});
+  batch.set(
+    db.collection("config").doc(OFFERWALL_WALLS_DOC),
+    {walls: {tapjoy: TAPJOY_WALL}},
+    {merge: true}
+  );
+  await batch.commit();
+
+  console.log(`  ${OFFERWALL_SECRETS_COLLECTION}/${OFFERWALL_SECRETS_DOC}  ->  tapjoy (secret written)`);
+  console.log(`  config/${OFFERWALL_WALLS_DOC}  ->  tapjoy tile enabled`);
+  console.log([
+    "",
+    "Now in the Tapjoy dashboard, confirm all three:",
+    "  1. A placement named exactly:  offerwall",
+    "  2. Currency mode:              self-managed",
+    "     (Tapjoy-managed keeps the balance on their side and your",
+    "      server never hears about a completion.)",
+    "  3. Callback URL:",
+    "     https://us-central1-pixelpayout-check.cloudfunctions.net/offerwallCallback?network=tapjoy",
+    "",
+    "Then rebuild and REINSTALL the app - the AD_ID permission is new, and",
+    "without it Tapjoy will not match your test device.",
+    "",
+    "Watch it with:  adb logcat -s TapjoyOfferwall:V Tapjoy:V",
+    "",
+  ].join("\n"));
+}
+
 async function main() {
   const remove = process.argv.includes("--remove");
+  const tapjoy = process.argv.includes("--tapjoy");
+
+  // Env var first, so the secret need not appear in shell history at all.
+  const tapjoySecret =
+    process.env.TAPJOY_SECRET ||
+    process.argv
+      .find((a) => a.startsWith("--tapjoy-secret="))
+      ?.split("=")
+      .slice(1)
+      .join("=");
   const explicitProjectId =
     process.env.GCLOUD_PROJECT ||
     process.env.FIREBASE_PROJECT ||
@@ -73,6 +164,24 @@ async function main() {
   const secretsRef = db
     .collection(OFFERWALL_SECRETS_COLLECTION)
     .doc(OFFERWALL_SECRETS_DOC);
+
+  if (tapjoy) {
+    if (!tapjoySecret) {
+      console.error([
+        "",
+        "No Tapjoy secret. Get it from the Tapjoy dashboard (it is NOT the",
+        "SDK key - that one is public and lives in AppConfig.kt; this one",
+        "signs the callback and must never reach the app or this repo).",
+        "",
+        "  TAPJOY_SECRET=<secret> npm run seed:offerwall -- pixelpayout-check --tapjoy",
+        "",
+      ].join("\n"));
+      process.exit(1);
+    }
+    console.log(`Configuring Tapjoy in "${projectId}"\n`);
+    await seedTapjoy(db, secretsRef, tapjoySecret);
+    return;
+  }
 
   if (remove) {
     await secretsRef.set(

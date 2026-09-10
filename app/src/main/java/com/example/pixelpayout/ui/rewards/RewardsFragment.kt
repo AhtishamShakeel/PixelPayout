@@ -8,16 +8,13 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.model.OfferwallEntry
+import com.example.pixelpayout.data.repository.OfferwallCatalogStore
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.TapjoyOfferwall
-import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentRewardsBinding
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 
 /**
  * The offerwall list.
@@ -60,34 +57,30 @@ class RewardsFragment : Fragment() {
         // and would throw under the linear manager this list uses.
         binding.offerwallList.layoutManager = LinearLayoutManager(requireContext())
 
-        loadWalls()
+        observeWalls()
     }
 
-    private fun loadWalls() {
+    /**
+     * Follows the shared catalogue rather than fetching one of its own.
+     *
+     * The bottom bar decides whether this tab exists from the same
+     * LiveData - see MainViewModel.offerwallAvailable - and a second,
+     * independent read here is how the two would come to disagree: the bar
+     * says Earn exists, this screen's own fetch fails, and the user lands on
+     * an empty list. One source, one answer.
+     *
+     * An unreadable catalogue and an empty one look the same to the user on
+     * purpose. There is nothing for them to retry - no wall exists either
+     * way - and an error state here would read as "the earning screen is
+     * broken", which is a worse and less accurate thing to say than
+     * "nothing yet".
+     */
+    private fun observeWalls() {
         showLoading()
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            val walls = try {
-                val snapshot = FirebaseFirestore.getInstance()
-                    .collection(CONFIG_COLLECTION)
-                    .document(WALLS_DOC)
-                    .get()
-                    .await()
-
-                OfferwallEntry.parseAll(snapshot.data, currentLevel())
-            } catch (e: Exception) {
-                // An unreadable catalogue and an empty one look the same to
-                // the user on purpose. There is nothing for them to retry -
-                // no wall exists either way - and an error state here would
-                // read as "the earning screen is broken", which is a worse
-                // and less accurate thing to say than "nothing yet".
-                Log.e(TAG, "Could not read the offerwall catalogue: ${e.message}")
-                emptyList()
-            }
-
-            // The view can be gone by the time Firestore answers.
-            if (_binding == null) return@launch
-            render(walls)
+        OfferwallCatalogStore.walls.observe(viewLifecycleOwner) { walls ->
+            if (_binding == null) return@observe
+            render(OfferwallEntry.visibleTo(walls, currentLevel()))
         }
     }
 
@@ -160,7 +153,5 @@ class RewardsFragment : Fragment() {
 
     companion object {
         private const val TAG = "Offerwall"
-        private const val CONFIG_COLLECTION = "config"
-        private const val WALLS_DOC = "offerwallWalls"
     }
 }

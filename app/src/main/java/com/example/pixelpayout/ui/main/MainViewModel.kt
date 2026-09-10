@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.map  // Add this import
 import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
+import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.repository.DailyGoalEngine
 import com.example.pixelpayout.data.repository.UserRepository
@@ -70,6 +71,42 @@ class MainViewModel(
 
     val level: LiveData<Int> = userRepository.userData.map { userData ->
         userData.level
+    }
+
+    /**
+     * Whether the Earn tab has anything behind it.
+     *
+     * Both halves matter and both can change while the app is open: a wall
+     * is switched on in the console, or the user levels past a wall's gate.
+     * Combining them here rather than in each screen is what keeps the tab,
+     * the Home tile and the Earn list from ever disagreeing about whether
+     * offerwalls exist - a bar advertising a screen that renders empty is
+     * the specific failure this is built to avoid.
+     *
+     * EMITS NOTHING UNTIL THE CATALOGUE HAS ACTUALLY ANSWERED. That is what
+     * the null check below is: an unanswered catalogue is not the same as an
+     * empty one, and treating it as empty would publish a false that the
+     * bottom bar would act on - hiding the Earn tab on every launch and
+     * restoring it a beat later, for every user who has walls. Staying
+     * silent leaves the bar on the shape it remembered, which is right far
+     * more often than "no tab" is.
+     *
+     * The level is allowed to be missing, though, and defaults to 1: an
+     * unknown level should see the ungated walls, not silently unlock the
+     * gated ones.
+     */
+    val offerwallAvailable: LiveData<Boolean> = MediatorLiveData<Boolean>().apply {
+        fun recompute() {
+            val walls = userRepository.offerwallWalls.value ?: return
+            val available =
+                OfferwallEntry.visibleTo(walls, level.value ?: 1).isNotEmpty()
+            // Only on a real change: this has two sources and the level one
+            // re-emits on every user snapshot, which is often.
+            if (value != available) value = available
+        }
+
+        addSource(userRepository.offerwallWalls) { recompute() }
+        addSource(level) { recompute() }
     }
 
     val activeBuff: LiveData<UserRepository.TimedBuff?> =

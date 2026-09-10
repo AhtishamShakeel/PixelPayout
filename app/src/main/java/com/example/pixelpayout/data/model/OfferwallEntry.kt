@@ -105,16 +105,17 @@ data class OfferwallEntry(
         }
 
         /**
-         * The catalogue, filtered to what this user may see and ordered for
-         * display.
+         * Every enabled wall in the document, ordered for display and NOT
+         * filtered by level.
          *
-         * Level-gated entries are dropped rather than shown locked. A locked
-         * offerwall teaches nothing - the user cannot influence it from this
-         * screen and there is no progress bar to watch - so it would be a
-         * row of dead weight on the one screen that has to look like it
-         * pays.
+         * The level filter is [visibleTo] rather than a parameter here
+         * because two callers need the two halves separately: the Earn list
+         * wants the walls this user may open, while the bottom bar wants to
+         * know whether any exist at all. Parsing once and filtering twice
+         * keeps a single definition of "enabled" - if the two drifted, the
+         * tab could advertise a screen that renders empty.
          */
-        fun parseAll(raw: Map<*, *>?, userLevel: Int): List<OfferwallEntry> {
+        fun parseAll(raw: Map<*, *>?): List<OfferwallEntry> {
             val walls = raw?.get("walls") as? Map<*, *> ?: return emptyList()
             return walls.entries
                 .mapNotNull { (key, value) ->
@@ -122,8 +123,19 @@ data class OfferwallEntry(
                     val map = value as? Map<*, *> ?: return@mapNotNull null
                     from(id, map)
                 }
-                .filter { userLevel >= it.minLevel }
                 .sortedWith(compareBy({ it.sortOrder }, { it.name }))
         }
+
+        /**
+         * The subset [userLevel] may actually open.
+         *
+         * Level-gated entries are dropped rather than shown locked. A locked
+         * offerwall teaches nothing - the user cannot influence it from this
+         * screen and there is no progress bar to watch - so it would be a
+         * row of dead weight on the one screen that has to look like it
+         * pays.
+         */
+        fun visibleTo(walls: List<OfferwallEntry>, userLevel: Int): List<OfferwallEntry> =
+            walls.filter { userLevel >= it.minLevel }
     }
 }

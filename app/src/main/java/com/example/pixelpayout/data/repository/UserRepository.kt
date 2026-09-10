@@ -11,6 +11,7 @@ import kotlinx.coroutines.tasks.await
 import java.util.concurrent.TimeUnit
 import com.google.firebase.functions.FirebaseFunctions
 import com.google.firebase.functions.FirebaseFunctionsException
+import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.ui.redemption.RedemptionResult
@@ -76,6 +77,10 @@ class UserRepository {
                 // never open Wallet - so it waits until something actually
                 // shows the catalogue.
                 RedemptionOptionsStore.seedFromCache()
+                // This one DOES listen from sign-in: it is a single
+                // document, so it is one read, and the bottom bar needs the
+                // answer before the user taps anything.
+                OfferwallCatalogStore.start()
             }
         }
     }
@@ -599,6 +604,16 @@ class UserRepository {
 
     /** Fills the catalogue from disk without opening a listener. */
     fun seedRedemptionGames() = RedemptionOptionsStore.seedFromCache()
+
+    /**
+     * The offerwall catalogue, unfiltered by level.
+     *
+     * Already live by the time anything reads it - the listener opens at
+     * sign-in, since the bottom bar needs to know whether Earn exists before
+     * the user has tapped anything. See [OfferwallCatalogStore] for why that
+     * differs from the redemption catalogue's seed-from-disk approach.
+     */
+    val offerwallWalls: LiveData<List<OfferwallEntry>> = OfferwallCatalogStore.walls
 
     /**
      * Spends points on one pack of one game.

@@ -1,5 +1,6 @@
 package com.example.pixelpayout.ui.main
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -7,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import com.airbnb.lottie.LottieComposition
@@ -424,7 +426,73 @@ class MainActivity : AppCompatActivity() {
         navController.addOnDestinationChangedListener { _, destination, _ ->
             binding.bottomNav.setSelectedItemIdSilently(destination.id)
         }
+
+        setupOfferwallTab(navController)
     }
+
+    /**
+     * Earn is a tab only while an offerwall is switched on.
+     *
+     * The catalogue lives in `config/offerwallWalls` and every entry has an
+     * `enabled` flag, so a network is turned on the hour it approves us and
+     * off the hour it breaks - no release either way. What was missing was
+     * the other end of that switch: with everything off, the tab still sat
+     * in the bar, raised on its accent disc, promising an empty screen.
+     *
+     * TWO READS, and the reason for both:
+     *
+     *   * The remembered flag paints the bar at launch. Without it the tab
+     *     pops in a beat after Firestore answers - on every single launch,
+     *     for every user who has walls - which is visible and looks broken.
+     *   * The observer is the truth, and corrects the remembered flag when
+     *     the console has changed since last time.
+     *
+     * The remembered flag is deliberately allowed to be wrong for that beat.
+     * The direction it can be wrong in matters: it is only ever set from an
+     * answer we actually received, so a fresh install shows no tab until one
+     * is confirmed, and the retraction case - flag says yes, catalogue now
+     * says no - is a tab that vanishes shortly after launch, which only
+     * happens on the launch after somebody switched the last wall off.
+     */
+    private fun setupOfferwallTab(navController: NavController) {
+        binding.bottomNav.setItemVisible(R.id.navigation_rewards, rememberedOfferwallTab())
+
+        viewModel.offerwallAvailable.observe(this) { available ->
+            binding.bottomNav.setItemVisible(R.id.navigation_rewards, available)
+            rememberOfferwallTab(available)
+
+            // Somebody can be standing on the screen when the last wall goes
+            // away - they were already there, or they levelled and lost the
+            // only wall they qualified for. Hiding the tab under them would
+            // leave them on a destination the bar no longer admits to, with
+            // system back as the only way out.
+            if (!available && navController.currentDestination?.id == R.id.navigation_rewards) {
+                try {
+                    navController.navigate(R.id.navigation_home, null, defaultNavOptions())
+                } catch (e: Exception) {
+                    Log.e("Navigation", "Could not leave the empty Earn tab: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun rememberedOfferwallTab(): Boolean =
+        getSharedPreferences(OFFERWALL_PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_OFFERWALL_TAB, false)
+
+    private fun rememberOfferwallTab(visible: Boolean) {
+        getSharedPreferences(OFFERWALL_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_OFFERWALL_TAB, visible)
+            .apply()
+    }
+
+    private fun defaultNavOptions(): NavOptions = NavOptions.Builder()
+        .setEnterAnim(R.anim.fade_in)
+        .setExitAnim(R.anim.fade_out)
+        .setPopEnterAnim(R.anim.fade_in)
+        .setPopExitAnim(R.anim.fade_out)
+        .build()
 
     private fun observeViewModel() {
         viewModel.points.observe(this) { points ->
@@ -493,6 +561,17 @@ class MainActivity : AppCompatActivity() {
 
     // Add this method to be called from other activities
     companion object {
+        /**
+         * Where the last known answer to "does Earn exist" is kept.
+         *
+         * SharedPreferences rather than the app's UserPreferences DataStore
+         * because this is read during onCreate to paint the bar, and a
+         * DataStore read is a suspending one - which would put the pop-in
+         * back.
+         */
+        private const val OFFERWALL_PREFS = "offerwall_ui"
+        private const val KEY_OFFERWALL_TAB = "earn_tab_visible"
+
         fun handleInternetDisconnection(activity: AppCompatActivity) {
             if (activity !is MainActivity) {
                 activity.runOnUiThread {

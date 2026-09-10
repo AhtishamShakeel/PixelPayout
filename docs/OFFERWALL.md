@@ -82,6 +82,31 @@ A malformed entry is **dropped rather than shown**. One missing tile beats a
 list that refuses to draw — but it also means a typo is invisible, so check the
 wall actually appears after editing.
 
+#### The switch reaches the bottom bar
+
+`enabled` is not only a per-row toggle. **If no wall survives parsing and the
+level filter, the Earn tab disappears from the bottom navigation** — along with
+the gold offer tile and the "View all" link in Home's *Quick ways to earn*. Turn
+one back on and they return, without a release and without a restart: the client
+follows `config/offerwallWalls` with a snapshot listener opened at sign-in.
+
+That is the intended way to run the feature before any network has approved you.
+Ship with every wall `enabled: false`, and the app has no Earn tab at all rather
+than one that opens an empty screen — which reads as broken rather than as
+absent. The hour a network approves you, flip its flag and every install grows
+the tab.
+
+Two details worth knowing when testing this:
+
+* The tab's last known state is remembered in SharedPreferences (`offerwall_ui`),
+  purely so it paints at launch instead of popping in a beat later. A fresh
+  install therefore has no Earn tab until Firestore confirms one, and the very
+  first launch after you switch the last wall off will still show the tab for
+  that beat before retracting it.
+* A user standing on the Earn screen when the last wall is switched off is
+  navigated back to Home, rather than being left on a destination the bar no
+  longer admits to.
+
 ### 2. The postback — `serverConfig/offerwall`
 
 ```json

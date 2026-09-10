@@ -84,6 +84,37 @@ class PixelBottomNav @JvmOverloads constructor(
     }
 
     /**
+     * Shows or hides one tab.
+     *
+     * Exists for Earn, which is only a destination while at least one
+     * offerwall is switched on in `config/offerwallWalls`. A tab leading to
+     * a screen with nothing on it is worse than no tab: it reads as the
+     * feature being broken rather than absent, and it is the one tab whose
+     * whole promise is that there is money behind it.
+     *
+     * The items are weighted 0dp columns, so a hidden one is not a gap - the
+     * remaining four redistribute into a four-up bar. What does stay behind
+     * is the 16dp of transparent room above the painted bar that the raised
+     * Earn disc overhangs into; it is empty space rather than a visible
+     * hole, and reclaiming it would mean re-measuring every screen that
+     * pads for the bar's height.
+     *
+     * If the hidden tab was the selected one the highlight falls back to
+     * Home, silently. Navigating away is the caller's job - see MainActivity
+     * - but leaving the bar pointing at a tab nobody can see is not.
+     */
+    fun setItemVisible(itemId: Int, visible: Boolean) {
+        val item = items.firstOrNull { it.id == itemId } ?: return
+        val target = if (visible) VISIBLE else GONE
+        if (item.row.visibility == target) return
+
+        item.row.visibility = target
+        if (!visible && selectedItemId == itemId) {
+            setSelectedItemIdSilently(R.id.navigation_home)
+        }
+    }
+
+    /**
      * Moves the highlight without navigating - used when the destination
      * changed on its own (system back, a deep link) and the bar has to catch up.
      */

@@ -1185,6 +1185,16 @@
                     The old "Earn stars" action row, now the section's link.
                     Same destination, and it reads as what it is.
                 -->
+                <!--
+                    Hidden until the offerwall catalogue confirms a wall
+                    exists - it and the gold tile below both land on Earn,
+                    which is a screen only while something is enabled in
+                    config/offerwallWalls. Starting hidden rather than
+                    visible so the wait resolves by revealing rather than by
+                    retracting; a tile that appears alongside the rest of
+                    Home's asynchronous content is unremarkable, one that
+                    vanishes is not.
+                -->
                 <LinearLayout
                     android:id="@+id/earnAction"
                     android:layout_width="wrap_content"
@@ -1197,7 +1207,9 @@
                     android:paddingStart="6dp"
                     android:paddingTop="4dp"
                     android:paddingEnd="2dp"
-                    android:paddingBottom="4dp">
+                    android:paddingBottom="4dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -1370,6 +1382,7 @@
 
                 </LinearLayout>
 
+                <!-- Hidden until a wall is confirmed - see earnAction above. -->
                 <LinearLayout
                     android:id="@+id/offerCard"
                     android:layout_width="0dp"
@@ -1380,7 +1393,9 @@
                     android:clickable="true"
                     android:focusable="true"
                     android:orientation="vertical"
-                    android:padding="12dp">
+                    android:padding="12dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
 
                     <LinearLayout
                         android:layout_width="match_parent"

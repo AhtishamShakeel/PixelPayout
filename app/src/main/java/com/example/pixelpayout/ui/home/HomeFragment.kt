@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.core.os.bundleOf
+import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
@@ -216,6 +217,20 @@ class HomeFragment : Fragment() {
         // the Quizzes card offered them one.
         mainViewModel.quizAllowance.observe(viewLifecycleOwner) {
             updateQuizStatusText()
+        }
+
+        // Both of these land on Earn, so both follow the same switch the
+        // bottom bar does. Leaving a tile here that opens an empty screen
+        // would undo the point of hiding the tab, and this one is worse than
+        // the tab: it is the gold tile, the most promising thing in the row.
+        //
+        // The section survives - Play and Quizzes still earn - so only the
+        // offer tile and the "View all" link that points past it go. The row
+        // is weighted columns, so two tiles simply fill it.
+        mainViewModel.offerwallAvailable.observe(viewLifecycleOwner) { available ->
+            val binding = _binding ?: return@observe
+            binding.offerCard.isVisible = available
+            binding.earnAction.isVisible = available
         }
     }
     

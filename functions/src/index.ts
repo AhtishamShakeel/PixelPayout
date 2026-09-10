@@ -2945,7 +2945,25 @@ export const offerwallCallback = functions.https.onRequest(
     collect(request.body);
     collect(request.query);
 
-    const network = (query.network || "").trim().toLowerCase();
+    // Network from the PATH first, query second.
+    //
+    // The query form (?network=ayet) is simpler, and it collides with
+    // networks that sign the sorted query string: they hash the parameters
+    // THEY sent, so a parameter we appended to the callback URL is not in
+    // their digest and its presence in ours fails every callback. The path
+    // form carries the same information outside the query entirely, which
+    // sidesteps that; excludeFromSignature covers whoever still uses the
+    // query form.
+    const pathNetwork = (request.path || "")
+      .split("/")
+      .filter((segment) => segment.length > 0)
+      .pop();
+    const network = (
+      pathNetwork && pathNetwork.toLowerCase() !== "offerwallcallback" ?
+        pathNetwork :
+        String(query.network || "")
+    ).trim().toLowerCase();
+
     if (!network) {
       response.status(400).send("missing network");
       return;
@@ -2965,10 +2983,25 @@ export const offerwallCallback = functions.https.onRequest(
       .doc(OFFERWALL_SECRETS_DOC)
       .get();
 
+    // Header names are lower-cased by Node, but normalise anyway so a
+    // config that names "X-Ayetstudios-Security-Hash" in its dashboard
+    // casing still resolves.
+    const headers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(request.headers)) {
+      if (typeof value === "string") headers[key.toLowerCase()] = value;
+      else if (Array.isArray(value)) headers[key.toLowerCase()] = String(value[0]);
+    }
+
+    // The query string exactly as received. request.url keeps the original
+    // encoding, which is the whole point for sorted-query signing.
+    const rawQuery = String(request.url || "").split("?")[1] ?? "";
+
     const validation = validatePostback({
       network,
       query,
       sourceIp,
+      headers,
+      rawQuery,
       config: configSnapshot.exists ? configSnapshot.data() : null,
     });
 

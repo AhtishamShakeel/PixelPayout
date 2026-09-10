@@ -9,6 +9,7 @@
 import {createHash, createHmac} from "crypto";
 import {
   buildSignature,
+  sortedQueryFor,
   offerwallTransactionId,
   resolveNetwork,
   signaturesMatch,
@@ -319,6 +320,125 @@ function run(
     result.ok && result.parsed.raw.echoed, "[redacted]");
   assertEq("ordinary parameters are kept for the audit trail",
     result.ok && result.parsed.raw.uid, "user-1");
+}
+
+// --- ayeT-Studios: header signature over a sorted query ----------------------
+{
+  const API_KEY = "publisher-api-key";
+
+  /** ayeT's shape: header-signed, sorted-query HMAC, no template at all. */
+  const ayet = {
+    ayet: {
+      enabled: true,
+      secret: API_KEY,
+      scheme: "hmac_sha256_sorted_query",
+      signatureHeader: "X-Ayetstudios-Security-Hash",
+      paramNames: {
+        uid: "external_identifier",
+        transactionId: "transaction_id",
+        amount: "currency_amount",
+        signature: "",
+        status: "is_chargeback",
+      },
+      chargebackValues: ["1"],
+      successBody: "ok",
+    },
+  };
+
+  // The ordering example from ayeT's own documentation.
+  assertEq("params are sorted alphabetically by key",
+    sortedQueryFor(
+      "user_id=testuser123456&amount=0.10&payout=1.50&click_id=1234abcd5678021",
+      []
+    ),
+    "amount=0.10&click_id=1234abcd5678021&payout=1.50&user_id=testuser123456");
+
+  assertEq("a leading question mark is ignored",
+    sortedQueryFor("?b=2&a=1", []), "a=1&b=2");
+
+  assertEq("excluded keys are dropped before hashing",
+    sortedQueryFor("network=ayet&b=2&a=1", ["network"]), "a=1&b=2");
+
+  // Re-encoding is the classic way to break this: "+" and "%20" decode alike
+  // and hash differently, and only the bytes they signed will verify.
+  assertEq("raw encoding is preserved, never normalised",
+    sortedQueryFor("offer_name=TEST+OFFER&a=1", []),
+    "a=1&offer_name=TEST+OFFER");
+
+  const rawQuery =
+    "network=ayet&external_identifier=user-9&transaction_id=tx-77" +
+    "&currency_amount=40&is_chargeback=0";
+  const hash = createHmac("sha256", API_KEY)
+    .update(sortedQueryFor(rawQuery, ["network"]))
+    .digest("hex");
+
+  const query: Record<string, string> = {
+    network: "ayet",
+    external_identifier: "user-9",
+    transaction_id: "tx-77",
+    currency_amount: "40",
+    is_chargeback: "0",
+  };
+
+  const runAyet = (
+    headers: Record<string, string>,
+    q: Record<string, string> = query,
+    raw = rawQuery
+  ) => validatePostback({
+    network: "ayet", query: q, sourceIp: null, config: ayet, headers,
+    rawQuery: raw,
+  });
+
+  assertEq("buildSignature reproduces the documented HMAC",
+    buildSignature(query, resolveNetwork(ayet, "ayet") as NetworkConfig, rawQuery),
+    hash);
+
+  const good = runAyet({"x-ayetstudios-security-hash": hash});
+  assertEq("a header-signed callback validates", good.ok, true);
+  assertEq("external_identifier is read as the uid",
+    good.ok && good.parsed.uid, "user-9");
+  assertEq("currency_amount is read as the award",
+    good.ok && good.parsed.points, 40);
+  assertEq("successBody comes from config", good.ok && good.successBody, "ok");
+
+  assertEq("no header at all is missing_parameters, not bad_signature",
+    runAyet({}), {ok: false, rejection: "missing_parameters"});
+
+  assertEq("a wrong header hash is refused",
+    runAyet({"x-ayetstudios-security-hash": "0".repeat(64)}),
+    {ok: false, rejection: "bad_signature"});
+
+  // The whole reason excludeFromSignature exists: hashing our own `network`
+  // parameter would fail every real ayeT callback.
+  assertEq("including our own network param would break it",
+    createHmac("sha256", API_KEY)
+      .update(sortedQueryFor(rawQuery, []))
+      .digest("hex") !== hash,
+    true);
+
+  const reversedRaw = rawQuery.replace("is_chargeback=0", "is_chargeback=1");
+  const reversal = runAyet(
+    {
+      "x-ayetstudios-security-hash": createHmac("sha256", API_KEY)
+        .update(sortedQueryFor(reversedRaw, ["network"]))
+        .digest("hex"),
+    },
+    {...query, is_chargeback: "1"},
+    reversedRaw
+  );
+  assertEq("is_chargeback=1 reverses the award",
+    reversal.ok && reversal.parsed.points, -40);
+
+  assertEq("a header-signed network parses without a signature param",
+    resolveNetwork(ayet, "ayet") !== null, true);
+
+  // Neither a header nor a parameter means nothing can be verified, and a
+  // network that cannot be verified must never pay.
+  const neither = JSON.parse(JSON.stringify(ayet));
+  delete neither.ayet.signatureHeader;
+  delete neither.ayet.paramNames.signature;
+  assertEq("no header and no signature param is rejected whole",
+    resolveNetwork(neither, "ayet"), null);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

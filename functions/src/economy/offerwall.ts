@@ -86,7 +86,22 @@ export const MAX_POINTS_PER_POSTBACK = 20000;
  * driven by a template so the ORDER of the fields - which is the part that
  * actually differs between networks - is data rather than code.
  */
-export type SignatureScheme = "md5" | "sha256" | "hmac_sha256";
+export type SignatureScheme =
+  | "md5"
+  | "sha256"
+  | "hmac_sha256"
+  /**
+   * HMAC-SHA256 over the request's own query string, sorted alphabetically
+   * by key - NOT over a template naming fields explicitly.
+   *
+   * ayeT-Studios signs this way, and it is a genuinely different shape: the
+   * set of fields is whatever they chose to send, so there is nothing to
+   * name in a template. Hashing the raw pairs rather than re-encoding a
+   * parsed map is deliberate - "TEST+OFFER" and "TEST%20OFFER" are the same
+   * value and different bytes, and re-encoding is how a verifier ends up
+   * rejecting perfectly good callbacks.
+   */
+  | "hmac_sha256_sorted_query";
 
 /** What one network's document in config/offerwall holds. */
 export interface NetworkConfig {
@@ -104,11 +119,27 @@ export interface NetworkConfig {
    * template and paramNames below are read from the same vocabulary.
    */
   signatureTemplate: string;
+  /**
+   * Header carrying the signature, when the network sends one there rather
+   * than as a query parameter. ayeT-Studios uses
+   * `X-Ayetstudios-Security-Hash`. When set, paramNames.signature is unused.
+   */
+  signatureHeader?: string;
+  /**
+   * Parameters to leave OUT of a sorted-query signature.
+   *
+   * The network hashes the parameters IT sent. Anything we added to the
+   * callback URL ourselves - `network`, most obviously - was never part of
+   * that, so including it guarantees a mismatch on every single callback.
+   * Defaults to ["network"], which is the only one this app adds.
+   */
+  excludeFromSignature?: string[];
   /** Which query parameter carries each thing we need. */
   paramNames: {
     uid: string;
     transactionId: string;
     amount: string;
+    /** Ignored when signatureHeader is set. */
     signature: string;
     /** Optional: some networks flag reversals with a field rather than a
      *  negative amount. */
@@ -191,34 +222,54 @@ export function resolveNetwork(
   if (typeof config.secret !== "string" || config.secret.length === 0) {
     return null;
   }
-  if (typeof config.signatureTemplate !== "string") return null;
+  const scheme = config.scheme;
   if (
-    config.scheme !== "md5" &&
-    config.scheme !== "sha256" &&
-    config.scheme !== "hmac_sha256"
+    scheme !== "md5" &&
+    scheme !== "sha256" &&
+    scheme !== "hmac_sha256" &&
+    scheme !== "hmac_sha256_sorted_query"
   ) {
+    return null;
+  }
+  // The sorted-query scheme hashes whatever the network sent, so there is no
+  // template to require. Every other scheme is unverifiable without one.
+  const sortedQueryScheme = scheme === "hmac_sha256_sorted_query";
+  if (!sortedQueryScheme && typeof config.signatureTemplate !== "string") {
     return null;
   }
   if (!names || typeof names !== "object") return null;
   if (
     typeof names.uid !== "string" ||
     typeof names.transactionId !== "string" ||
-    typeof names.amount !== "string" ||
-    typeof names.signature !== "string"
+    typeof names.amount !== "string"
   ) {
     return null;
   }
+  // A signature has to arrive SOMEWHERE. Either a header names it or a query
+  // parameter does; neither means nothing can be verified, and a network
+  // that cannot be verified must not pay.
+  const signatureHeader = typeof config.signatureHeader === "string" &&
+    config.signatureHeader.length > 0 ?
+    config.signatureHeader :
+    undefined;
+  if (!signatureHeader && typeof names.signature !== "string") return null;
 
   return {
     enabled: config.enabled === true,
     secret: config.secret,
-    scheme: config.scheme,
-    signatureTemplate: config.signatureTemplate,
+    scheme,
+    signatureTemplate: config.signatureTemplate ?? "",
+    signatureHeader,
+    excludeFromSignature: Array.isArray(config.excludeFromSignature) ?
+      config.excludeFromSignature.filter(
+        (v): v is string => typeof v === "string"
+      ) :
+      ["network"],
     paramNames: {
       uid: names.uid,
       transactionId: names.transactionId,
       amount: names.amount,
-      signature: names.signature,
+      signature: typeof names.signature === "string" ? names.signature : "",
       status: typeof names.status === "string" ? names.status : undefined,
     },
     chargebackValues: Array.isArray(config.chargebackValues) ?
@@ -249,10 +300,46 @@ export function resolveNetwork(
  * MISMATCH - a clean 403 and a log line - rather than a 500 that the network
  * will retry against for hours.
  */
+/**
+ * The exact bytes a sorted-query network signed.
+ *
+ * Built from the RAW pairs, not from a parsed map. Re-encoding is where this
+ * goes wrong: "TEST+OFFER" and "TEST%20OFFER" decode to the same string and
+ * hash to different digests, so a verifier that parses and re-encodes will
+ * reject callbacks that were signed perfectly correctly. Splitting on "&"
+ * and reordering the pairs untouched sidesteps the question entirely.
+ *
+ * Excluded keys are dropped because the network hashed only what IT sent -
+ * `network` is ours, added to the callback URL, and including it would fail
+ * every single callback.
+ */
+export function sortedQueryFor(rawQuery: string, exclude: string[]): string {
+  return (rawQuery || "")
+    .replace(/^\?/, "")
+    .split("&")
+    .filter((pair) => pair.length > 0)
+    .filter((pair) => !exclude.includes(pair.split("=")[0]))
+    .sort((a, b) => {
+      const ka = a.split("=")[0];
+      const kb = b.split("=")[0];
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    })
+    .join("&");
+}
+
 export function buildSignature(
   query: Record<string, string>,
-  config: NetworkConfig
+  config: NetworkConfig,
+  rawQuery = ""
 ): string {
+  if (config.scheme === "hmac_sha256_sorted_query") {
+    const sorted = sortedQueryFor(
+      rawQuery,
+      config.excludeFromSignature ?? ["network"]
+    );
+    return createHmac("sha256", config.secret).update(sorted).digest("hex");
+  }
+
   const filled = config.signatureTemplate.replace(
     /\{(\w+)\}/g,
     (_match, key: string) =>
@@ -293,6 +380,12 @@ export function validatePostback(input: {
   query: Record<string, string>;
   sourceIp: string | null;
   config: unknown;
+  /** Lower-cased header names to values. Only read when a network signs in
+   *  a header rather than a parameter. */
+  headers?: Record<string, string>;
+  /** The request's query string exactly as received, for sorted-query
+   *  signing. Unused by template schemes. */
+  rawQuery?: string;
 }): PostbackValidation {
   const network = resolveNetwork(input.config, input.network);
   if (!network) {
@@ -317,13 +410,19 @@ export function validatePostback(input: {
   const {query} = input;
   const uid = (query[network.paramNames.uid] || "").trim();
   const transactionId = (query[network.paramNames.transactionId] || "").trim();
-  const signature = (query[network.paramNames.signature] || "").trim();
+
+  // A header-signed network puts nothing in the query for us to read, so the
+  // signature is looked up wherever this network actually sends it.
+  const signature = network.signatureHeader ?
+    ((input.headers ?? {})[network.signatureHeader.toLowerCase()] || "").trim() :
+    (query[network.paramNames.signature] || "").trim();
 
   if (!uid || !transactionId || !signature) {
     return {ok: false, rejection: "missing_parameters"};
   }
 
-  if (!signaturesMatch(buildSignature(query, network), signature)) {
+  const expected = buildSignature(query, network, input.rawQuery ?? "");
+  if (!signaturesMatch(expected, signature)) {
     return {ok: false, rejection: "bad_signature"};
   }
 

@@ -129,9 +129,98 @@ async function seedTapjoy(
   ].join("\n"));
 }
 
+/**
+ * ayeT-Studios, which is the network that broke the original config shape.
+ *
+ * They sign in an HTTP HEADER rather than a parameter, and they HMAC the
+ * request's own query string sorted alphabetically rather than a fixed
+ * template - so there is no signatureTemplate here at all. Both were added
+ * to the validator for this network; see hmac_sha256_sorted_query.
+ *
+ * `excludeFromSignature` matters more than it looks: they hash the
+ * parameters THEY sent, so the `network` we add to the callback URL is not
+ * in their digest. Leaving it in ours would fail every single callback.
+ */
+function ayetConfig(apiKey: string) {
+  return {
+    enabled: true,
+    secret: apiKey,
+    scheme: "hmac_sha256_sorted_query",
+    signatureHeader: "X-Ayetstudios-Security-Hash",
+    excludeFromSignature: ["network"],
+    paramNames: {
+      uid: "external_identifier",
+      transactionId: "transaction_id",
+      amount: "currency_amount",
+      signature: "",
+      status: "is_chargeback",
+    },
+    // Reversals arrive as is_chargeback=1 with a positive amount, and carry
+    // an "r-" prefixed transaction id - so a reversal is idempotent against
+    // its own id and can never collide with the conversion it reverses.
+    chargebackValues: ["1"],
+    pointsPerUnit: 1,
+    maxPoints: 5000,
+    // They require HTTP 200; the body itself is not checked.
+    successBody: "ok",
+  };
+}
+
+async function seedAyet(
+  db: FirebaseFirestore.Firestore,
+  secretsRef: FirebaseFirestore.DocumentReference,
+  apiKey: string,
+  wallUrl: string
+) {
+  const batch = db.batch();
+  batch.set(secretsRef, {ayet: ayetConfig(apiKey)}, {merge: true});
+  batch.set(
+    db.collection("config").doc(OFFERWALL_WALLS_DOC),
+    {
+      walls: {
+        ayet: {
+          enabled: true,
+          type: "web",
+          name: "ayeT Offers",
+          subtitle: "Apps, surveys and sign-ups",
+          urlTemplate: wallUrl,
+          sortOrder: 2,
+          minLevel: 1,
+        },
+      },
+    },
+    {merge: true}
+  );
+  await batch.commit();
+
+  console.log(`  ${OFFERWALL_SECRETS_COLLECTION}/${OFFERWALL_SECRETS_DOC}  ->  ayet (api key written)`);
+  console.log(`  config/${OFFERWALL_WALLS_DOC}  ->  ayeT tile enabled`);
+  console.log([
+    "",
+    "In the ayeT-Studios dashboard, set the offerwall callback to:",
+    "",
+    "  https://us-central1-pixelpayout-check.cloudfunctions.net/offerwallCallback/ayet",
+    "",
+    "NOTE THE PATH FORM - /ayet on the end, not ?network=ayet.",
+    "ayeT hashes the query string it sends, so a parameter we add to the",
+    "query would not be in their digest and every callback would fail. The",
+    "path carries it outside the query entirely.",
+    "",
+    "Package name for the dashboard:  com.pixelpayout",
+    "",
+    "Then use their Callback Tester to fire a test conversion before",
+    "trusting any of this.",
+    "",
+  ].join("\n"));
+}
+
 async function main() {
   const remove = process.argv.includes("--remove");
   const tapjoy = process.argv.includes("--tapjoy");
+  const ayet = process.argv.includes("--ayet");
+
+  const ayetKey = process.env.AYET_API_KEY;
+  const ayetUrl = process.env.AYET_WALL_URL;
 
   // Env var first, so the secret need not appear in shell history at all.
   const tapjoySecret =
@@ -164,6 +253,41 @@ async function main() {
   const secretsRef = db
     .collection(OFFERWALL_SECRETS_COLLECTION)
     .doc(OFFERWALL_SECRETS_DOC);
+
+  if (ayet) {
+    if (!ayetKey || !ayetUrl) {
+      console.error([
+        "",
+        "Needs both, from your ayeT-Studios dashboard:",
+        "",
+        "  AYET_API_KEY   - Settings > API key. Signs the callback; never",
+        "                   goes in the app or this repo.",
+        "  AYET_WALL_URL  - your offerwall link, with {uid} where the user",
+        "                   identifier belongs. It must be https and must",
+        "                   contain the literal {uid}.",
+        "",
+        "  AYET_API_KEY=... AYET_WALL_URL='https://...&external_identifier={uid}' \\",
+        "    npm run seed:offerwall -- pixelpayout-check --ayet",
+        "",
+      ].join("\n"));
+      process.exit(1);
+    }
+    if (!ayetUrl.startsWith("https://") || !ayetUrl.includes("{uid}")) {
+      console.error([
+        "",
+        "AYET_WALL_URL must be https and must contain {uid}.",
+        "",
+        "The app drops any wall failing either check, so a bad one would",
+        "simply never appear rather than appearing and opening nothing.",
+        "",
+      ].join("\n"));
+      process.exit(1);
+    }
+    console.log(`Configuring ayeT-Studios in "${projectId}"
+`);
+    await seedAyet(db, secretsRef, ayetKey, ayetUrl);
+    return;
+  }
 
   if (tapjoy) {
     if (!tapjoySecret) {

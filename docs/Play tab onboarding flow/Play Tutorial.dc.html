@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-c0fa1c51-4886-4ad3-95c8-923b5b0ae42b/styles.css">
+<script src="_ds/nocturne-c0fa1c51-4886-4ad3-95c8-923b5b0ae42b/_ds_bundle.js"></script>
+<style>
+@font-face{font-family:Jakarta;src:url("fonts/jakarta_medium.ttf");font-weight:500}
+@font-face{font-family:Jakarta;src:url("fonts/jakarta_semibold.ttf");font-weight:600}
+@font-face{font-family:Jakarta;src:url("fonts/jakarta_bold.ttf");font-weight:700}
+@font-face{font-family:Jakarta;src:url("fonts/jakarta_extrabold.ttf");font-weight:800}
+@font-face{font-family:Lexend;src:url("fonts/lexend_regular.ttf");font-weight:400}
+@font-face{font-family:Lexend;src:url("fonts/lexend_bold.ttf");font-weight:700}
+@font-face{font-family:PPMono;src:url("fonts/mono_medium.ttf");font-weight:500}
+@font-face{font-family:PPMono;src:url("fonts/mono_bold.ttf");font-weight:700}
+html,body{margin:0;padding:0;background:#08070E}
+a{color:#A48CFF;text-decoration:none}
+a:hover{color:#C0AEFF}
+@keyframes ppPulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes ppRise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:#08070E;display:flex;flex-direction:column;align-items:center;gap:18px;padding:28px 20px 40px;font-family:Jakarta,sans-serif;box-sizing:border-box">
+
+  <div style="display:flex;align-items:baseline;gap:14px;width:393px;max-width:100%">
+    <div style="color:rgba(255,255,255,.90);font-weight:700;font-size:14px;letter-spacing:-.01em">Play tab — first-run tutorial</div>
+    <div style="flex:1"></div>
+    <div onClick="{{ restart }}" style="cursor:pointer;font-size:11.5px;font-weight:600;color:#A48CFF;border:1px solid rgba(124,92,255,.35);border-radius:50px;padding:6px 12px" style-hover="background:rgba(124,92,255,.16)">Restart</div>
+  </div>
+
+  <!-- ===================== PHONE ===================== -->
+  <div ref="{{ refPhone }}" style="position:relative;width:393px;height:852px;background:#0A0814;border-radius:34px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.08),0 40px 90px -30px rgba(0,0,0,.9);flex:none">
+
+    <!-- status bar (system) -->
+    <div style="height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;color:rgba(255,255,255,.75);font-size:11px;font-weight:600;font-family:PPMono,monospace">
+      <span>9:41</span>
+      <span style="letter-spacing:.06em">▮▮ ▲ ▰</span>
+    </div>
+
+    <!-- ============ Tab-screen chrome: toolbar ============ -->
+    <sc-if value="{{ inTabs }}" hint-placeholder-val="{{ true }}">
+      <div style="height:72px;background:#0A0814;display:flex;align-items:center;padding-left:6px;padding-right:16px;box-sizing:border-box">
+        <div style="position:relative;width:52px;height:52px;flex:none">
+          <svg viewBox="0 0 52 52" style="position:absolute;inset:0;width:52px;height:52px">
+            <circle cx="26" cy="26" r="22.75" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="2.5"></circle>
+            <circle cx="26" cy="26" r="22.75" fill="none" stroke="#7C5CFF" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="143" stroke-dashoffset="107" transform="rotate(-90 26 26)"></circle>
+          </svg>
+          <div style="position:absolute;left:6px;top:6px;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#3A2F6B,#1A1730);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:rgba(255,255,255,.45)"><path d="M8.5,8.2 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"></path><path d="M5.4,20 A6.6,6.6 0 0 1 18.6,20 Z"></path></svg>
+          </div>
+          <div style="position:absolute;right:-2px;bottom:-1px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#7C5CFF;border:2px solid #0A0814;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;font-family:PPMono,monospace;font-weight:700;font-size:11px">1</div>
+        </div>
+        <div style="margin-left:8px;display:flex;flex-direction:column;gap:2px">
+          <div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:-.012em">Hey, Rohit</div>
+          <div style="color:rgba(255,255,255,.45);font-size:12px;font-weight:500">Welcome back</div>
+        </div>
+        <div style="flex:1"></div>
+        <div style="display:flex;align-items:center;gap:6px;padding:7px 13px 7px 11px;border-radius:100px;background:rgba(255,210,74,.16);border:1px solid rgba(255,210,74,.18)">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:#FFD24A"><path d="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"></path></svg>
+          <span style="color:#fff;font-family:PPMono,monospace;font-weight:700;font-size:14px">40</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PLAY: tab bar ============ -->
+    <sc-if value="{{ inPlay }}" hint-placeholder-val="{{ true }}">
+      <div style="height:48px;background:#0A0814;display:flex">
+        <div onClick="{{ goGames }}" style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <span style="font-family:Lexend,sans-serif;font-size:14px;letter-spacing:.02em;color:{{ gamesTabColor }}">Games</span>
+          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:64px;height:3px;border-radius:2px;background:{{ gamesTabBar }}"></div>
+        </div>
+        <div onClick="{{ goQuizzes }}" ref="{{ refQuizTab }}" style="flex:1;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer">
+          <span style="font-family:Lexend,sans-serif;font-size:14px;letter-spacing:.02em;color:{{ quizTabColor }}">Quizzes</span>
+          <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:64px;height:3px;border-radius:2px;background:{{ quizTabBar }}"></div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PLAY > GAMES ============ -->
+    <sc-if value="{{ showGames }}" hint-placeholder-val="{{ true }}">
+      <div style="padding:8px 17px 24px;display:flex;flex-direction:column;box-sizing:border-box">
+
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px 14px;box-sizing:border-box">
+          <div style="display:flex;align-items:center;height:20px">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:rgba(255,255,255,.45);flex:none"><path d="M21,6L3,6c-1.1,0 -2,0.9 -2,2v8c0,1.1 0.9,2 2,2h18c1.1,0 2,-0.9 2,-2L23,8c0,-1.1 -0.9,-2 -2,-2zM11,13L8,13v3L6,16v-3L3,13v-2h3L6,8h2v3h3v2zM15.5,15c-0.83,0 -1.5,-0.67 -1.5,-1.5s0.67,-1.5 1.5,-1.5 1.5,0.67 1.5,1.5 -0.67,1.5 -1.5,1.5zM19.5,12c-0.83,0 -1.5,-0.67 -1.5,-1.5S18.67,9 19.5,9s1.5,0.67 1.5,1.5 -0.67,1.5 -1.5,1.5z"></path></svg>
+            <span style="margin-left:8px;flex:1;color:rgba(255,255,255,.75);font-size:13px;font-weight:500">10 of 10 plays left today</span>
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:rgba(255,255,255,.40);flex:none"><path d="M12,3A9,9 0 1,1 3,12h2a7,7 0 1,0 7,-7Z"></path><path d="M11.2,7h1.6v5.3l3.6,2.1l-0.8,1.4l-4.4,-2.6Z"></path></svg>
+            <span style="margin-left:6px;color:#A48CFF;font-family:PPMono,monospace;font-weight:500;font-size:14px;letter-spacing:.02em">04:12:38</span>
+          </div>
+          <div style="display:flex;gap:3px;height:3px;margin-top:11px">
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:baseline;margin:17px 0 8px;height:20px">
+          <div style="flex:1;color:rgba(255,255,255,.90);font-size:15px;font-weight:700">Games</div>
+          <div style="color:rgba(255,255,255,.40);font-size:12px;font-weight:500">2 available</div>
+        </div>
+
+        <div ref="{{ refGames }}" style="display:flex;flex-direction:column;gap:8px">
+        <div onClick="{{ tapGame }}" style="display:flex;align-items:center;gap:14px;background:#17171F;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:14px;box-sizing:border-box;cursor:pointer" style-hover="border-color:#4A2FC9">
+          <div style="width:68px;height:68px;flex:none;border-radius:8px;border:1px solid rgba(255,255,255,.07);background:linear-gradient(135deg,rgba(124,92,255,.25),#15131F);display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:#A48CFF"><path d="M10,6.5C13.04,6.5 15.5,8.96 15.5,12C15.5,15.04 13.04,17.5 10,17.5C6.96,17.5 4.5,15.04 4.5,12C4.5,8.96 6.96,6.5 10,6.5Z"></path><path d="M7,11.2C8.6,10.4 10.4,10.4 12,11.2C10.4,12.9 8.6,12.9 7,11.2Z" opacity=".55"></path><path d="M15,10.7L20.5,12L15,13.3Z"></path></svg>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <div style="color:rgba(255,255,255,.90);font-size:16px;font-weight:500;font-family:Lexend,sans-serif">Neon Flap</div>
+            <div style="margin-top:5px;color:rgba(255,255,255,.40);font-size:11px;font-weight:500">Tap to fly. One point for every pipe you clear.</div>
+            <div style="margin-top:7px;align-self:flex-start;display:flex;align-items:center;gap:3px;padding:3px 7px;border-radius:4px;background:rgba(124,92,255,.14);border:1px solid #4A2FC9">
+              <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:#A48CFF"><path d="M13.2,2L5.4,13.4h5.3l-1.1,7.8l7.9,-10.9h-5.4L13.2,2z"></path></svg>
+              <span style="color:#A48CFF;font-size:11px;font-weight:500">Up to 12 XP/min</span>
+            </div>
+          </div>
+          <div style="width:36px;height:36px;flex:none;border-radius:50%;background:rgba(124,92,255,.14);border:1px solid #7C5CFF;display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#A48CFF"><path d="M8.4,5.2C8.4,4.4 9.3,3.9 10,4.3l9.1,6.3a1,1 0 0,1 0,1.7L10,19.7c-0.7,0.4 -1.6,-0.1 -1.6,-0.9Z"></path></svg>
+          </div>
+        </div>
+
+        <div onClick="{{ tapGame }}" style="display:flex;align-items:center;gap:14px;background:#17171F;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:14px;box-sizing:border-box;cursor:pointer" style-hover="border-color:#4A2FC9">
+          <div style="width:68px;height:68px;flex:none;border-radius:8px;border:1px solid rgba(255,255,255,.07);background:linear-gradient(135deg,rgba(124,92,255,.25),#15131F);display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <svg viewBox="0 0 24 24" style="width:30px;height:30px;fill:#A48CFF"><path d="M11.6,2.5h0.8v4.2h-0.8Z" opacity=".6"></path><path d="M9,6.7h6a0.7,0.7 0 0,1 0.7,0.7v2.4a0.7,0.7 0 0,1 -0.7,0.7h-6a0.7,0.7 0 0,1 -0.7,-0.7v-2.4a0.7,0.7 0 0,1 0.7,-0.7Z"></path><path d="M7.6,11.9h8.8a0.7,0.7 0 0,1 0.7,0.7v2.4a0.7,0.7 0 0,1 -0.7,0.7h-8.8a0.7,0.7 0 0,1 -0.7,-0.7v-2.4a0.7,0.7 0 0,1 0.7,-0.7Z"></path><path d="M5.6,17.1h12.8a0.7,0.7 0 0,1 0.7,0.7v2.4a0.7,0.7 0 0,1 -0.7,0.7h-12.8a0.7,0.7 0 0,1 -0.7,-0.7v-2.4a0.7,0.7 0 0,1 0.7,-0.7Z"></path></svg>
+          </div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+            <div style="color:rgba(255,255,255,.90);font-size:16px;font-weight:500;font-family:Lexend,sans-serif">Tower Building</div>
+            <div style="margin-top:5px;color:rgba(255,255,255,.40);font-size:11px;font-weight:500">Stack the blocks. Perfect drops are worth more.</div>
+            <div style="margin-top:7px;align-self:flex-start;display:flex;align-items:center;gap:3px;padding:3px 7px;border-radius:4px;background:rgba(124,92,255,.14);border:1px solid #4A2FC9">
+              <svg viewBox="0 0 24 24" style="width:10px;height:10px;fill:#A48CFF"><path d="M13.2,2L5.4,13.4h5.3l-1.1,7.8l7.9,-10.9h-5.4L13.2,2z"></path></svg>
+              <span style="color:#A48CFF;font-size:11px;font-weight:500">Up to 12 XP/min</span>
+            </div>
+          </div>
+          <div style="width:36px;height:36px;flex:none;border-radius:50%;background:rgba(124,92,255,.14);border:1px solid #7C5CFF;display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:#A48CFF"><path d="M8.4,5.2C8.4,4.4 9.3,3.9 10,4.3l9.1,6.3a1,1 0 0,1 0,1.7L10,19.7c-0.7,0.4 -1.6,-0.1 -1.6,-0.9Z"></path></svg>
+          </div>
+        </div>
+
+        </div>
+
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;padding:11px;border:1px dashed rgba(255,255,255,.07);border-radius:8px;box-sizing:border-box">
+          <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#4A2FC9"><path d="M12,3a9,9 0 1,0 0,18a9,9 0 0,0 0,-18ZM12,5a7,7 0 1,1 0,14a7,7 0 0,1 0,-14Z"></path><path d="M11.15,7.8h1.7v3.35h3.35v1.7h-3.35v3.35h-1.7v-3.35h-3.35v-1.7h3.35Z"></path></svg>
+          <span style="color:rgba(255,255,255,.40);font-size:12px;font-weight:500">More games coming</span>
+        </div>
+
+        <div style="margin-top:14px;color:rgba(255,255,255,.40);font-size:11px;font-weight:500;line-height:1.5">Plays are shared across both games and reset at 00:00 UTC. The better you play, the more XP you earn.</div>
+      </div>
+    </sc-if>
+
+    <!-- ============ PLAY > QUIZZES ============ -->
+    <sc-if value="{{ showQuizzes }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:8px 0 0;box-sizing:border-box">
+        <div style="margin:0 16px;background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px 14px;box-sizing:border-box">
+          <div style="display:flex;align-items:center;height:20px">
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:rgba(255,255,255,.45);flex:none"><path d="M11,18h2v-2h-2v2zM12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8zM12,6c-2.21,0 -4,1.79 -4,4h2c0,-1.1 0.9,-2 2,-2s2,0.9 2,2c0,2 -3,1.75 -3,5h2c0,-2.25 3,-2.5 3,-5 0,-2.21 -1.79,-4 -4,-4z"></path></svg>
+            <span style="margin-left:8px;flex:1;color:rgba(255,255,255,.75);font-size:13px;font-weight:500">{{ quizzesLeftLine }}</span>
+            <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:rgba(255,255,255,.40);flex:none"><path d="M12,3A9,9 0 1,1 3,12h2a7,7 0 1,0 7,-7Z"></path><path d="M11.2,7h1.6v5.3l3.6,2.1l-0.8,1.4l-4.4,-2.6Z"></path></svg>
+            <span style="margin-left:6px;color:#A48CFF;font-family:PPMono,monospace;font-weight:500;font-size:14px;letter-spacing:.02em">04:12:38</span>
+          </div>
+          <div style="display:flex;gap:3px;height:3px;margin-top:11px">
+            <div style="flex:1;border-radius:2px;background:{{ pip1 }}"></div>
+            <div style="flex:1;border-radius:2px;background:{{ pip2 }}"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+            <div style="flex:1;border-radius:2px;background:rgba(124,92,255,.45)"></div>
+          </div>
+        </div>
+
+        <div style="margin-top:8px;padding:8px;display:grid;grid-template-columns:1fr 1fr;box-sizing:border-box">
+          <div onClick="{{ tapQuiz }}" ref="{{ refCat }}" style="margin:8px;padding:16px;border-radius:16px;background:rgba(124,92,255,.20);border:1px solid rgba(255,255,255,.07);box-sizing:border-box;cursor:pointer">
+            <div style="font-family:Lexend,sans-serif;font-weight:700;font-size:22px;color:rgba(255,255,255,.90)">Animals</div>
+            <div style="margin-top:8px;height:120px;border-radius:12px;border:1px dashed rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center">
+              <span style="font-size:9.5px;font-weight:600;letter-spacing:.1em;color:rgba(255,255,255,.28);text-transform:uppercase">Lottie</span>
+            </div>
+          </div>
+          <div onClick="{{ tapQuiz }}" style="margin:8px;padding:16px;border-radius:16px;background:rgba(124,92,255,.20);border:1px solid rgba(255,255,255,.07);box-sizing:border-box;cursor:pointer">
+            <div style="font-family:Lexend,sans-serif;font-weight:700;font-size:22px;color:rgba(255,255,255,.90)">Sports</div>
+            <div style="margin-top:8px;height:120px;border-radius:12px;border:1px dashed rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center">
+              <span style="font-size:9.5px;font-weight:600;letter-spacing:.1em;color:rgba(255,255,255,.28);text-transform:uppercase">Lottie</span>
+            </div>
+          </div>
+          <div onClick="{{ tapQuiz }}" style="margin:8px;padding:16px;border-radius:16px;background:rgba(124,92,255,.20);border:1px solid rgba(255,255,255,.07);box-sizing:border-box;cursor:pointer">
+            <div style="font-family:Lexend,sans-serif;font-weight:700;font-size:22px;color:rgba(255,255,255,.90)">Science</div>
+            <div style="margin-top:8px;height:120px;border-radius:12px;border:1px dashed rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center">
+              <span style="font-size:9.5px;font-weight:600;letter-spacing:.1em;color:rgba(255,255,255,.28);text-transform:uppercase">Lottie</span>
+            </div>
+          </div>
+          <div onClick="{{ tapQuiz }}" style="margin:8px;padding:16px;border-radius:16px;background:rgba(124,92,255,.20);border:1px solid rgba(255,255,255,.07);box-sizing:border-box;cursor:pointer">
+            <div style="font-family:Lexend,sans-serif;font-weight:700;font-size:22px;color:rgba(255,255,255,.90)">Riddles</div>
+            <div style="margin-top:8px;height:120px;border-radius:12px;border:1px dashed rgba(255,255,255,.10);display:flex;align-items:center;justify-content:center">
+              <span style="font-size:9.5px;font-weight:600;letter-spacing:.1em;color:rgba(255,255,255,.28);text-transform:uppercase">Lottie</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ HOME ============ -->
+    <sc-if value="{{ showHome }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px;display:flex;flex-direction:column;gap:8px;box-sizing:border-box">
+        <div style="display:flex;gap:10px;align-items:stretch">
+          <div style="flex:1;background:#15131F;border:1px solid rgba(255,210,74,.18);border-radius:18px;padding:14px;box-sizing:border-box;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:24px;height:24px;border-radius:10px;background:rgba(255,210,74,.16);display:flex;align-items:center;justify-content:center;flex:none">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:#FFD24A"><path d="M12,17.27L18.18,21l-1.64,-7.03L22,9.24l-7.19,-0.61L12,2 9.19,8.63 2,9.24l5.46,4.73L5.82,21z"></path></svg>
+              </div>
+              <div style="color:#FFD24A;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase">Stars</div>
+            </div>
+            <div style="margin-top:10px;display:flex;align-items:flex-end;gap:6px">
+              <span style="color:#fff;font-size:24px;font-weight:800;letter-spacing:-.04em">40</span>
+              <span style="color:rgba(255,255,255,.45);font-size:11px;font-weight:600;padding-bottom:3px">stars</span>
+            </div>
+            <div style="margin-top:12px;color:rgba(255,255,255,.75);font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">30 UC at 600 stars</div>
+            <div style="margin-top:8px;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden">
+              <div style="width:7%;height:100%;border-radius:99px;background:linear-gradient(90deg,#FFA82A,#FFD24A)"></div>
+            </div>
+            <div style="margin-top:6px;display:flex;font-family:PPMono,monospace;font-size:9.5px;font-weight:500;color:rgba(255,255,255,.45)">
+              <span style="flex:1">40</span><span>600</span>
+            </div>
+            <div style="flex:1;min-height:12px"></div>
+            <div style="margin-top:12px;text-align:center;padding:10px 8px;border:1px solid rgba(255,210,74,.18);border-radius:10px;color:#FFD24A;font-size:12px;font-weight:700;cursor:pointer" style-hover="background:rgba(255,210,74,.16)">Redeem rewards</div>
+          </div>
+
+          <div style="flex:1;background:#15131F;border:1px solid rgba(124,92,255,.35);border-radius:18px;padding:14px;box-sizing:border-box;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:24px;height:24px;border-radius:10px;background:rgba(124,92,255,.20);display:flex;align-items:center;justify-content:center;flex:none">
+                <svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:#A48CFF"><path d="M13.2,2L5.4,13.4h5.3l-1.1,7.8l7.9,-10.9h-5.4L13.2,2z"></path></svg>
+              </div>
+              <div style="color:#A48CFF;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase">XP &amp; level</div>
+            </div>
+            <div style="margin-top:10px;color:#fff;font-size:24px;font-weight:800;letter-spacing:-.03em">Level 2</div>
+            <div style="margin-top:12px;color:rgba(255,255,255,.75);font-size:10.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">10 Stars ready to claim</div>
+            <div style="margin-top:8px;height:6px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden">
+              <div style="width:22%;height:100%;border-radius:99px;background:linear-gradient(90deg,#7C5CFF,#A48CFF)"></div>
+            </div>
+            <div style="margin-top:6px;display:flex;font-family:PPMono,monospace;font-size:9.5px;font-weight:500;color:rgba(255,255,255,.45)">
+              <span style="flex:1">13</span><span>59</span>
+            </div>
+            <div style="flex:1;min-height:12px"></div>
+            <div style="margin-top:12px;text-align:center;padding:10px 8px;border:1px solid rgba(124,92,255,.35);border-radius:10px;color:#A48CFF;font-size:12px;font-weight:700;cursor:pointer" style-hover="background:rgba(124,92,255,.20)">Claim 10 ★ now</div>
+          </div>
+        </div>
+
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:18px;padding:8px 16px 14px;box-sizing:border-box">
+          <div style="display:flex;align-items:center;min-height:36px;gap:7px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:rgba(255,255,255,.90);font-size:13px;font-weight:700">1 day streak</div>
+            <div style="padding:8px 16px;border-radius:10px;background:#7C5CFF;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Claim</div>
+          </div>
+          <div style="display:flex;gap:5px;margin-top:8px">
+            <div style="flex:1;height:34px;border-radius:10px;background:#7C5CFF;display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:#fff">+5★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+8★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+10★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+12★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+15★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+20★</div>
+            <div style="flex:1;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:center;font-family:PPMono,monospace;font-weight:700;font-size:9px;color:rgba(255,255,255,.45)">+30★</div>
+          </div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:11px;font-weight:500">Tomorrow: +8 ★</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ============ GAME STAND-IN (own activity) ============ -->
+    <sc-if value="{{ showGame }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:#0A0814;display:flex;flex-direction:column;z-index:30">
+        <div style="height:28px"></div>
+        <div style="padding:14px 20px;display:flex;align-items:center;gap:10px">
+          <span style="font-family:Lexend,sans-serif;font-size:14px;color:rgba(255,255,255,.90)">Neon Flap</span>
+          <div style="flex:1"></div>
+          <span style="font-family:PPMono,monospace;font-size:13px;font-weight:700;color:#A48CFF">{{ scoreLabel }}</span>
+        </div>
+        <div onClick="{{ flap }}" style="flex:1;margin:0 20px 20px;border-radius:16px;border:1px solid rgba(255,255,255,.07);background:linear-gradient(160deg,rgba(124,92,255,.14),#0A0814 60%);position:relative;overflow:hidden;cursor:pointer">
+          <div style="position:absolute;left:0;right:0;top:{{ birdTop }};display:flex;justify-content:center;transition:top .18s ease-out">
+            <svg viewBox="0 0 24 24" style="width:34px;height:34px;fill:#A48CFF"><path d="M10,6.5C13.04,6.5 15.5,8.96 15.5,12C15.5,15.04 13.04,17.5 10,17.5C6.96,17.5 4.5,15.04 4.5,12C4.5,8.96 6.96,6.5 10,6.5Z"></path><path d="M15,10.7L20.5,12L15,13.3Z"></path></svg>
+          </div>
+          <div style="position:absolute;left:0;right:0;bottom:26px;text-align:center;color:rgba(255,255,255,.40);font-size:12px;font-weight:600;animation:ppPulse 1.8s ease-in-out infinite">Tap to fly — clear 3 gates</div>
+          <div style="position:absolute;left:0;right:0;top:0;bottom:0;border-radius:16px;box-shadow:inset 0 0 90px rgba(124,92,255,.10);pointer-events:none"></div>
+        </div>
+
+        <sc-if value="{{ gameDone }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:rgba(6,5,12,.94);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+            <div style="width:100%;background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:20px;display:flex;flex-direction:column;align-items:center;padding:24px;box-sizing:border-box;animation:ppRise .22s ease-out">
+              <div style="color:#B1B1B1;font-size:14px;letter-spacing:.08em">RUN COMPLETE</div>
+              <div style="margin-top:8px;color:#A48CFF;font-size:34px;font-weight:700">+24 XP</div>
+              <div style="width:100%;margin-top:20px;padding:14px 0;border-radius:50px;background:#7C5CFF;color:#fff;font-size:16px;font-weight:700;text-align:center;cursor:pointer">Double it — watch an ad</div>
+              <div onClick="{{ finishGame }}" style="width:100%;margin-top:4px;padding:12px 0;color:#B1B1B1;font-size:15px;text-align:center;cursor:pointer" style-hover="color:#fff">Continue</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ============ QUIZ STAND-IN (own activity) ============ -->
+    <sc-if value="{{ showQuiz }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:#0A0814;padding:16px 20px;display:flex;flex-direction:column;box-sizing:border-box;z-index:30">
+        <div style="height:28px"></div>
+        <div style="min-height:36px;display:flex;align-items:center;justify-content:flex-end">
+          <span style="font-size:10.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45)">Animals</span>
+        </div>
+        <div style="align-self:center;position:relative;width:104px;height:104px;margin-top:26px">
+          <svg viewBox="0 0 104 104" style="position:absolute;inset:0;width:104px;height:104px;transform:rotate(-90deg)">
+            <circle cx="52" cy="52" r="49" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="6"></circle>
+            <circle cx="52" cy="52" r="49" fill="none" stroke="#7C5CFF" stroke-width="6" stroke-linecap="round" stroke-dasharray="308" stroke-dashoffset="62"></circle>
+          </svg>
+          <div style="position:absolute;left:6px;top:6px;width:92px;height:92px;border-radius:50%;background:#0A0814;display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-family:PPMono,monospace;font-weight:700;font-size:30px;color:#fff;letter-spacing:-.03em">24</div>
+            <div style="margin-top:3px;font-size:9px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.40)">Seconds</div>
+          </div>
+        </div>
+        <div style="align-self:center;margin-top:14px;display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:#A48CFF"><path d="M13.2,2L5.4,13.4h5.3l-1.1,7.8l7.9,-10.9h-5.4L13.2,2z"></path></svg>
+          <span style="font-family:PPMono,monospace;font-weight:700;font-size:12.5px;color:#A48CFF">+10 XP if correct</span>
+        </div>
+        <div style="margin-top:30px;color:#fff;font-size:23px;font-weight:700;letter-spacing:-.02em;line-height:1.32;text-wrap:pretty">Which animal has the strongest bite?</div>
+
+        <div style="margin-top:26px;display:flex;flex-direction:column">
+          <sc-for list="{{ options }}" as="opt" hint-placeholder-count="4">
+            <div onClick="{{ opt.pick }}" style="position:relative;border-top:1px solid rgba(255,255,255,.07);padding:16px 4px 16px 23px;cursor:pointer">
+              <div style="position:absolute;left:4px;top:8px;bottom:8px;width:5px;border-radius:3px;background:{{ opt.rail }}"></div>
+              <span style="color:rgba(255,255,255,.85);font-size:15.5px;font-weight:500;line-height:1.3">{{ opt.label }}</span>
+            </div>
+          </sc-for>
+          <div style="border-top:1px solid rgba(255,255,255,.07)"></div>
+        </div>
+
+        <div style="flex:1"></div>
+        <div onClick="{{ submitQuiz }}" style="height:52px;border-radius:12px;border:1.5px solid #7C5CFF;display:flex;align-items:center;justify-content:center;color:#A48CFF;font-size:14.5px;font-weight:700;cursor:pointer" style-hover="background:rgba(124,92,255,.14)">Submit Answer</div>
+        <div style="margin-top:10px;text-align:center;color:rgba(255,255,255,.40);font-size:11px;font-weight:500">Leaving or minimising the app will use this attempt</div>
+
+        <sc-if value="{{ quizDone }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;inset:0;background:rgba(6,5,12,.94);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+            <div style="width:100%;background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:20px;display:flex;flex-direction:column;align-items:center;padding:24px;box-sizing:border-box;animation:ppRise .22s ease-out">
+              <div style="color:#B1B1B1;font-size:14px;letter-spacing:.08em">QUIZ COMPLETE</div>
+              <div style="margin-top:8px;color:#A48CFF;font-size:34px;font-weight:700">+10 XP</div>
+              <div style="width:100%;margin-top:20px;padding:14px 0;border-radius:50px;background:#7C5CFF;color:#fff;font-size:16px;font-weight:700;text-align:center;cursor:pointer">Double it — watch an ad</div>
+              <div onClick="{{ finishQuiz }}" style="width:100%;margin-top:4px;padding:12px 0;color:#B1B1B1;font-size:15px;text-align:center;cursor:pointer" style-hover="color:#fff">Continue</div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <!-- ============ BOTTOM NAV ============ -->
+    <sc-if value="{{ inTabs }}" hint-placeholder-val="{{ true }}">
+      <div style="position:absolute;left:0;right:0;bottom:0;height:82px;z-index:20">
+        <div style="position:absolute;left:0;right:0;bottom:0;height:66px;background:#1E1E1E;border-top:1px solid #2A2A2A"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-end">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:14px;gap:4px;cursor:pointer">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:{{ homeColor }}"><path d="M4,10.6 L12,4 L20,10.6 L20,20 A1,1 0 0 1 19,21 L14.5,21 L14.5,15 L9.5,15 L9.5,21 L5,21 A1,1 0 0 1 4,20 Z"></path></svg>
+            <span style="font-family:Lexend,sans-serif;font-size:11px;color:{{ homeColor }}">Home</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:14px;gap:4px;cursor:pointer">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:none;stroke:{{ playColor }};stroke-width:1.7"><path d="M7,7 L17,7 A4.2,4.2 0 0 1 21.2,11.2 L21.2,13.8 A4.2,4.2 0 0 1 17,18 L7,18 A4.2,4.2 0 0 1 2.8,13.8 L2.8,11.2 A4.2,4.2 0 0 1 7,7 Z"></path><path d="M8,11 L8,14" stroke-linecap="round"></path><path d="M6.5,12.5 L9.5,12.5" stroke-linecap="round"></path><path d="M15.05,11.6 a1.15,1.15 0 1,0 2.3,0 a1.15,1.15 0 1,0 -2.3,0" fill="{{ playColor }}" stroke="none"></path><path d="M16.85,14 a1.15,1.15 0 1,0 2.3,0 a1.15,1.15 0 1,0 -2.3,0" fill="{{ playColor }}" stroke="none"></path></svg>
+            <span style="font-family:Lexend,sans-serif;font-size:11px;color:{{ playColor }}">Play</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;cursor:pointer">
+            <div style="width:62px;height:62px;border-radius:50%;background:#1E1E1E;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:4px">
+              <div style="width:100%;height:100%;border-radius:50%;background:#7C5CFF;display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" style="width:25px;height:25px;fill:none;stroke:#fff;stroke-width:1.8"><path d="M5,6.6 a7,2.9 0 1,0 14,0 a7,2.9 0 1,0 -14,0"></path><path d="M5,6.6 L5,11 C5,12.6 8.1,13.9 12,13.9 C15.9,13.9 19,12.6 19,11 L19,6.6" stroke-linecap="round"></path><path d="M5,11 L5,15.4 C5,17 8.1,18.3 12,18.3 C15.9,18.3 19,17 19,15.4 L19,11" stroke-linecap="round"></path></svg>
+              </div>
+            </div>
+            <span style="margin-top:5px;font-family:Lexend,sans-serif;font-weight:700;font-size:11px;color:rgba(255,255,255,.75)">Earn</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:14px;gap:4px;cursor:pointer">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:none;stroke:rgba(255,255,255,.45);stroke-width:1.7"><path d="M3,8.5 A2.5,2.5 0 0 1 5.5,6 L18.5,6 A2.5,2.5 0 0 1 21,8.5 L21,17.5 A2.5,2.5 0 0 1 18.5,20 L5.5,20 A2.5,2.5 0 0 1 3,17.5 Z" stroke-linejoin="round"></path><path d="M3,10.4 L21,10.4"></path><path d="M15.7,15 a1.3,1.3 0 1,0 2.6,0 a1.3,1.3 0 1,0 -2.6,0" fill="rgba(255,255,255,.45)" stroke="none"></path></svg>
+            <span style="font-family:Lexend,sans-serif;font-size:11px;color:rgba(255,255,255,.45)">Wallet</span>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;padding-bottom:14px;gap:4px;cursor:pointer">
+            <svg viewBox="0 0 24 24" style="width:24px;height:24px;fill:none;stroke:rgba(255,255,255,.45);stroke-width:1.7"><path d="M8.5,8.2 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"></path><path d="M5.4,20 A6.6,6.6 0 0 1 18.6,20" stroke-linecap="round"></path></svg>
+            <span style="font-family:Lexend,sans-serif;font-size:11px;color:rgba(255,255,255,.45)">Profile</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ===================== TUTORIAL OVERLAY ===================== -->
+
+    <!-- 1 of 5 — welcome -->
+    <sc-if value="{{ stepWelcome }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ advance }}" style="position:absolute;inset:0;z-index:70;background:rgba(6,5,12,.90);display:flex;align-items:center;justify-content:center;padding:28px;box-sizing:border-box;cursor:pointer">
+        <div style="width:100%;background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:22px 22px 18px;box-sizing:border-box;animation:ppRise .24s ease-out">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:17px;font-weight:700">Welcome to PixelPayout</div>
+          </div>
+          <div style="margin-top:12px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.35;text-wrap:pretty">Two minutes and you will have earned your first stars. Games and quizzes both pay XP — XP is what levels you up, and every level unlocks stars you can redeem.</div>
+          <div style="margin-top:20px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">1 of 5</span>
+            </sc-if>
+            <div style="padding:12px 20px;border-radius:12px;background:#7C5CFF;color:#fff;font-size:13px;font-weight:700">Show me</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 2 of 5 — games spotlit -->
+    <sc-if value="{{ spotlightOn }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ advance }}" style="position:absolute;inset:0;z-index:70;cursor:pointer">
+        <div style="{{ holeStyle }}"></div>
+        <div style="{{ calloutStyle }}">
+        <sc-if value="{{ stepGames }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;box-sizing:border-box;animation:ppRise .24s ease-out">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:16px;font-weight:700">Play games to start earning</div>
+          </div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.35;text-wrap:pretty">Pick either game. You get 10 plays a day, shared between the two, and the better you play the more XP a run is worth.</div>
+          <div style="margin-top:16px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">2 of 5</span>
+            </sc-if>
+            <sc-if value="{{ showTapHint }}" hint-placeholder-val="{{ true }}">
+              <span style="color:#A48CFF;font-size:12px;font-weight:700">Tap to play →</span>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ stepQuizTab }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;box-sizing:border-box;animation:ppRise .24s ease-out">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:16px;font-weight:700">+24 XP. Now try Quizzes</div>
+          </div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.35;text-wrap:pretty">Quizzes sit on the second tab and have their own 10 attempts a day. One correct answer is worth 10 XP.</div>
+          <div style="margin-top:16px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">3 of 5</span>
+            </sc-if>
+            <sc-if value="{{ showTapHint }}" hint-placeholder-val="{{ true }}">
+              <span style="color:#A48CFF;font-size:12px;font-weight:700">Tap Quizzes →</span>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ stepQuizPickA }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;box-sizing:border-box;animation:ppRise .24s ease-out">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:16px;font-weight:700">Pick a category and answer</div>
+          </div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.35;text-wrap:pretty">Answer two quizzes and you will have enough XP for your first level. Once a quiz opens the attempt is spent, so stay on the screen.</div>
+          <div style="margin-top:16px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">4 of 5</span>
+            </sc-if>
+            <sc-if value="{{ showTapHint }}" hint-placeholder-val="{{ true }}">
+              <span style="color:#A48CFF;font-size:12px;font-weight:700">Tap a category →</span>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ stepQuizPickB }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;box-sizing:border-box;animation:ppRise .24s ease-out">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#7C5CFF;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:16px;font-weight:700">One more and you level up</div>
+          </div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.35;text-wrap:pretty">You are 10 XP short of Level 2. Any category counts — you have 8 attempts left today.</div>
+          <div style="margin-top:16px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">4 of 5</span>
+            </sc-if>
+            <sc-if value="{{ showTapHint }}" hint-placeholder-val="{{ true }}">
+              <span style="color:#A48CFF;font-size:12px;font-weight:700">Tap a category →</span>
+            </sc-if>
+          </div>
+        </div>
+        </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- 5 of 5 — level up -->
+    <sc-if value="{{ stepLevelUp }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;z-index:70;background:rgba(10,8,20,.94);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+        <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(124,92,255,.35),rgba(124,92,255,0) 70%);pointer-events:none"></div>
+        <div style="position:relative;width:100%;background:#15131F;border:1px solid rgba(255,255,255,.07);border-radius:20px;padding:26px 22px 18px;box-sizing:border-box;animation:ppRise .26s ease-out">
+          <div style="display:flex;justify-content:center">
+            <div style="position:relative;width:76px;height:76px">
+              <div style="position:absolute;inset:-14px;border-radius:50%;background:radial-gradient(circle,rgba(124,92,255,.35),rgba(124,92,255,0) 70%)"></div>
+              <div style="position:absolute;inset:0;border-radius:50%;border:1px solid rgba(124,92,255,.35);background:linear-gradient(135deg,rgba(124,92,255,.25),#15131F);display:flex;align-items:center;justify-content:center;box-sizing:border-box">
+                <div style="font-family:PPMono,monospace;font-weight:700;font-size:30px;color:#fff;letter-spacing:-.03em">2</div>
+              </div>
+              <div style="position:absolute;right:-4px;bottom:-2px;padding:0 6px;height:22px;border-radius:11px;background:#7C5CFF;border:2px solid #15131F;box-sizing:border-box;display:flex;align-items:center;justify-content:center">
+                <svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:#fff"><path d="M13.2,2L5.4,13.4h5.3l-1.1,7.8l7.9,-10.9h-5.4L13.2,2z"></path></svg>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:18px;display:flex;align-items:center;gap:8px">
+            <div style="width:7px;height:7px;border-radius:50%;background:#FFD24A;flex:none"></div>
+            <div style="flex:1;color:#fff;font-size:17px;font-weight:700">Level 2 reached!</div>
+          </div>
+          <div style="margin-top:14px;font-family:PPMono,monospace;font-weight:700;font-size:30px;letter-spacing:-.03em;color:#FFD24A">+10 ★</div>
+          <div style="margin-top:10px;color:rgba(255,255,255,.45);font-size:13px;font-weight:500;line-height:1.25;text-wrap:pretty">Level 2’s reward is waiting. Watch a short ad on the rewards screen to collect it.</div>
+          <div style="margin-top:20px;display:flex;align-items:center">
+            <sc-if value="{{ showCounter }}" hint-placeholder-val="{{ true }}">
+              <span style="flex:1;font-family:PPMono,monospace;font-size:11px;font-weight:500;color:rgba(255,255,255,.40)">5 of 5</span>
+            </sc-if>
+            <div onClick="{{ goHome }}" style="padding:12px 20px;border-radius:12px;background:#7C5CFF;color:#fff;font-size:13px;font-weight:700;cursor:pointer" style-hover="background:#8E72FF">Claim now</div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <div style="width:393px;max-width:100%;color:rgba(255,255,255,.32);font-size:11.5px;font-weight:500;line-height:1.5">Tap the phone to move through the tutorial. The Games and Quizzes tabs, the header, the bottom nav and the level-up card are recreated from the app’s own layouts and tokens; the game field and quiz answering screen are simplified stand-ins so the flow is clickable end to end.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:1000},&quot;showStepCounter&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tutorial&quot;},&quot;showTapHint&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Tutorial&quot;},&quot;quizzesRequired&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2,&quot;min&quot;:1,&quot;max&quot;:3,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Tutorial&quot;}}">
+class Component extends DCLogic {
+  state = { step: 0, screen: 'games', quizzes: 0, taps: 0, gameDone: false, picked: null, quizDone: false };
+
+  refPhone = React.createRef();
+  refGames = React.createRef();
+  refQuizTab = React.createRef();
+  refCat = React.createRef();
+
+  get required() { return this.props.quizzesRequired ?? 2; }
+
+  targetRef(step) {
+    if (step === 1) return this.refGames;
+    if (step === 2) return this.refQuizTab;
+    if (step === 3) return this.refCat;
+    return null;
+  }
+
+  // The spotlight hole is measured from the real target rather than pinned to
+  // hardcoded coordinates: the callout copy and the game rows both reflow, and
+  // a hole that does not follow them cuts a card in half.
+  measure = () => {
+    const ref = this.targetRef(this.state.step);
+    const el = ref && ref.current;
+    const host = this.refPhone.current;
+    if (!el || !host) return;
+    const a = el.getBoundingClientRect();
+    const b = host.getBoundingClientRect();
+    const pad = 6;
+    const rect = {
+      left: Math.round(a.left - b.left - pad),
+      top: Math.round(a.top - b.top - pad),
+      w: Math.round(a.width + pad * 2),
+      h: Math.round(a.height + pad * 2)
+    };
+    const p = this.state.rect;
+    if (!p || p.left !== rect.left || p.top !== rect.top || p.w !== rect.w || p.h !== rect.h) {
+      this.setState({ rect });
+    }
+  };
+
+  componentDidMount() { this.measure(); window.addEventListener('resize', this.measure); }
+  componentDidUpdate() { this.measure(); }
+  componentWillUnmount() { window.removeEventListener('resize', this.measure); }
+
+  set(patch) { this.setState(patch); }
+
+  renderVals() {
+    const s = this.state;
+    const onTabs = s.screen === 'games' || s.screen === 'quizzes' || s.screen === 'home';
+    const inPlay = s.screen === 'games' || s.screen === 'quizzes';
+    const violetLight = '#A48CFF';
+    const dim = 'rgba(255,255,255,.45)';
+    const options = ['Saltwater crocodile', 'Hippopotamus', 'Great white shark', 'Jaguar'].map((label, i) => ({
+      label,
+      rail: s.picked === i ? (i === 0 ? '#4ADE80' : '#7C5CFF') : 'rgba(255,255,255,.09)',
+      pick: () => this.set({ picked: i })
+    }));
+
+    const advance = () => {
+      if (s.step === 0) return this.set({ step: 1 });
+      if (s.step === 1) return this.set({ screen: 'game', taps: 0, gameDone: false });
+      if (s.step === 2) return this.set({ screen: 'quizzes', step: 3 });
+      if (s.step === 3) return this.set({ screen: 'quiz', picked: null, quizDone: false });
+    };
+
+    const spotStep = s.step >= 1 && s.step <= 3;
+    const spotlightOn = spotStep && (s.screen === 'games' || s.screen === 'quizzes') && !!s.rect;
+    const r = s.rect || { left: 0, top: 0, w: 0, h: 0 };
+    const radius = s.step === 1 ? 12 : s.step === 2 ? 10 : 20;
+    const holeStyle = {
+      position: 'absolute', left: r.left + 'px', top: r.top + 'px',
+      width: r.w + 'px', height: r.h + 'px', borderRadius: radius + 'px',
+      boxShadow: '0 0 0 9999px rgba(6,5,12,.90)',
+      border: '1.5px solid rgba(164,140,255,.55)',
+      boxSizing: 'border-box', pointerEvents: 'none'
+    };
+    const below = r.top + r.h + 18;
+    const calloutStyle = below + 190 > 852
+      ? { position: 'absolute', left: '24px', right: '24px', bottom: (852 - r.top + 18) + 'px' }
+      : { position: 'absolute', left: '24px', right: '24px', top: below + 'px' };
+
+    return {
+      refPhone: this.refPhone,
+      refGames: this.refGames,
+      refQuizTab: this.refQuizTab,
+      refCat: this.refCat,
+      spotlightOn,
+      holeStyle,
+      calloutStyle,
+      inTabs: onTabs,
+      inPlay,
+      showGames: s.screen === 'games',
+      showQuizzes: s.screen === 'quizzes',
+      showHome: s.screen === 'home',
+      showGame: s.screen === 'game',
+      showQuiz: s.screen === 'quiz',
+
+      gamesTabColor: s.screen === 'games' ? '#FFFFFF' : '#B1B1B1',
+      quizTabColor: s.screen === 'quizzes' ? '#FFFFFF' : '#B1B1B1',
+      gamesTabBar: s.screen === 'games' ? '#7C5CFF' : 'transparent',
+      quizTabBar: s.screen === 'quizzes' ? '#7C5CFF' : 'transparent',
+      homeColor: s.screen === 'home' ? violetLight : dim,
+      playColor: inPlay ? violetLight : dim,
+
+      quizzesLeftLine: (10 - s.quizzes) + ' of 10 quizzes left today',
+      pip1: s.quizzes >= 1 ? '#2A2A33' : 'rgba(124,92,255,.45)',
+      pip2: s.quizzes >= 2 ? '#2A2A33' : 'rgba(124,92,255,.45)',
+
+      scoreLabel: s.taps + ' / 3 gates',
+      birdTop: (30 + s.taps * 14) + '%',
+      gameDone: s.gameDone,
+      flap: () => {
+        const n = s.taps + 1;
+        this.set({ taps: n, gameDone: n >= 3 });
+      },
+      finishGame: () => this.set({ screen: 'games', step: 2, gameDone: false }),
+
+      options,
+      quizDone: s.quizDone,
+      submitQuiz: () => { if (s.picked !== null) this.set({ quizDone: true }); },
+      finishQuiz: () => {
+        const n = s.quizzes + 1;
+        this.set({ quizzes: n, quizDone: false, screen: 'quizzes', step: n >= this.required ? 4 : 3 });
+      },
+
+      stepWelcome: s.step === 0 && s.screen === 'games',
+      stepGames: s.step === 1 && s.screen === 'games',
+      stepQuizTab: s.step === 2 && s.screen === 'games',
+      stepQuizPickA: s.step === 3 && s.screen === 'quizzes' && s.quizzes === 0,
+      stepQuizPickB: s.step === 3 && s.screen === 'quizzes' && s.quizzes > 0,
+      stepLevelUp: s.step === 4 && s.screen === 'quizzes',
+
+      showCounter: this.props.showStepCounter ?? true,
+      showTapHint: this.props.showTapHint ?? true,
+
+      advance,
+      goGames: () => { if (s.step >= 5) this.set({ screen: 'games' }); },
+      goQuizzes: () => { if (s.step === 2) advance(); },
+      tapGame: () => { if (s.step >= 5) this.set({ screen: 'game', taps: 0, gameDone: false }); },
+      tapQuiz: () => { if (s.step >= 5) this.set({ screen: 'quiz', picked: null, quizDone: false }); },
+      goHome: () => this.set({ screen: 'home', step: 5 }),
+      restart: () => this.set({ step: 0, screen: 'games', quizzes: 0, taps: 0, gameDone: false, picked: null, quizDone: false })
+    };
+  }
+}
+</script>
+</body>
+</html>

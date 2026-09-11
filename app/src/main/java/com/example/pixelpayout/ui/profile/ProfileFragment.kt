@@ -87,6 +87,25 @@ class ProfileFragment : Fragment() {
         observeViewModel()
 
         mainViewModel.refreshReferralStats()
+
+        if (arguments?.getBoolean(ARG_SCROLL_TO_REFERRAL) == true) {
+            // Consumed once: the tab is a single fragment instance, so an
+            // un-cleared flag would re-scroll every time the user came back
+            // to Profile from anywhere else.
+            arguments?.remove(ARG_SCROLL_TO_REFERRAL)
+            scrollToReferral()
+        }
+    }
+
+    /**
+     * Posted rather than called straight away - at this point the scroll view
+     * has not been laid out, so the invite header has no y to scroll to yet.
+     */
+    private fun scrollToReferral() {
+        binding.profileScroll.post {
+            val b = _binding ?: return@post
+            b.profileScroll.smoothScrollTo(0, b.inviteHeader.top)
+        }
     }
 
     override fun onResume() {
@@ -144,23 +163,40 @@ class ProfileFragment : Fragment() {
      * them per user - so these are three figures the app genuinely holds.
      */
     private fun setupStats() {
+        // The tile layout tints its icon `stars_accent`, which is gold. Only
+        // the Stars tile is about stars, so the other two are repainted to
+        // the brand violet here - left alone they inherit the gold and the
+        // row reads as three currencies that are all the same one.
+        val gold = android.content.res.ColorStateList.valueOf(
+            requireContext().getColor(R.color.gold)
+        )
+        val violet = android.content.res.ColorStateList.valueOf(
+            requireContext().getColor(R.color.brand_violet_light)
+        )
+
         binding.statStars.statLabel.setText(R.string.profile_stat_stars)
         binding.statStars.statIcon.setImageResource(R.drawable.ic_star)
-        binding.statStars.statIcon.imageTintList =
-            android.content.res.ColorStateList.valueOf(requireContext().getColor(R.color.gold))
+        binding.statStars.statIcon.imageTintList = gold
 
         binding.statXp.statLabel.setText(R.string.profile_stat_xp)
         binding.statXp.statIcon.setImageResource(R.drawable.ic_bolt)
+        binding.statXp.statIcon.imageTintList = violet
 
         binding.statStreak.statLabel.setText(R.string.profile_stat_streak)
         binding.statStreak.statIcon.setImageResource(R.drawable.ic_history)
+        binding.statStreak.statIcon.imageTintList = violet
 
+        // Same repaint, same reason: the funnel counts people, not stars, so
+        // none of these three is a gold figure.
         binding.funnelInvited.statLabel.setText(R.string.profile_funnel_invited)
         binding.funnelInvited.statIcon.setImageResource(R.drawable.ic_users)
+        binding.funnelInvited.statIcon.imageTintList = violet
         binding.funnelQualified.statLabel.setText(R.string.profile_funnel_qualified)
         binding.funnelQualified.statIcon.setImageResource(R.drawable.ic_shield_check)
+        binding.funnelQualified.statIcon.imageTintList = violet
         binding.funnelPaid.statLabel.setText(R.string.profile_funnel_paid)
         binding.funnelPaid.statIcon.setImageResource(R.drawable.ic_check)
+        binding.funnelPaid.statIcon.imageTintList = violet
     }
 
     private fun setupList() {
@@ -392,5 +428,11 @@ class ProfileFragment : Fragment() {
 
     companion object {
         private const val SUPPORT_EMAIL = "earningapphelper@gmail.com"
+
+        /**
+         * Set by Home's "Refer and earn" row so the tab opens on the invite
+         * block rather than at the top of the account.
+         */
+        const val ARG_SCROLL_TO_REFERRAL = "scrollToReferral"
     }
 }

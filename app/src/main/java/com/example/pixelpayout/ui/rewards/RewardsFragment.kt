@@ -8,16 +8,34 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.repository.OfferwallCatalogStore
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.TapjoyOfferwall
+import com.example.pixelpayout.utils.setStarText
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentRewardsBinding
+import java.text.NumberFormat
+import java.util.Locale
 
 /**
- * The offerwall list.
+ * Earn: the weekly leaderboard, then the offerwall list.
+ *
+ * THE LEADERBOARD CARD MOVED HERE FROM HOME. It is a way to earn, which is
+ * what this screen is a list of, and on Home it was one card among nine. The
+ * consequence worth knowing about is in MainActivity: this tab used to be
+ * hidden whenever the offerwall catalogue was empty, and it no longer is,
+ * because it now has something behind it that does not depend on a network
+ * approving us.
+ *
+ * The board itself lives in MainViewModel, shared with the leaderboard
+ * screen, so this card and the screen it opens cannot disagree about where
+ * the user stands - and the throttle in refreshLeaderboard means visiting
+ * this tab repeatedly does not re-read thirty user documents each time.
  *
  * REPLACES THE TAPJOY WIRING THAT USED TO LIVE HERE, which was placeholder
  * grade in three ways worth recording rather than quietly deleting:
@@ -40,6 +58,8 @@ class RewardsFragment : Fragment() {
 
     private val userRepository = UserRepository()
 
+    private val mainViewModel: MainViewModel by activityViewModels()
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -57,8 +77,96 @@ class RewardsFragment : Fragment() {
         // and would throw under the linear manager this list uses.
         binding.offerwallList.layoutManager = LinearLayoutManager(requireContext())
 
+        mainViewModel.leaderboard.observe(viewLifecycleOwner) { renderLeaderboard(it) }
         observeWalls()
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Throttled inside the view model, so returning to this tab a dozen
+        // times does not cost a dozen reads of the board.
+        mainViewModel.refreshLeaderboard()
+    }
+
+    /**
+     * The weekly board, as one card above the offers.
+     *
+     * THE CARD IS NEVER HIDDEN. It used to be, until getLeaderboard answered -
+     * and that callable is a Cloud Function which is cold on the first call of
+     * the day, so the tab opened without the card and it dropped in a second
+     * or two later, shoving the offer list down as it landed. The layout now
+     * ships with the card drawn and em dashes where the four figures go; this
+     * only fills them in.
+     *
+     * A null board means "not known yet", which is why the placeholders stay
+     * rather than being replaced with zeroes. "#0" and "0 stars" are claims
+     * about where the user stands, and both are false while we are asking.
+     *
+     * The figure beside "You" is what the rank is WORTH, in Stars, rather
+     * than the weekly XP that produced it. The card is about a prize pool -
+     * the number next to your name is the share of it your rank currently
+     * takes. A ranked user outside the prize zone wins nothing, and "0 stars"
+     * beside their name would read as a payout of zero rather than as a
+     * position that does not pay yet; unranked is a third thing again.
+     */
+    private fun renderLeaderboard(board: UserRepository.Leaderboard?) {
+        val binding = _binding ?: return
+
+        // The card is tappable either way: the screen it opens draws its own
+        // skeleton, so arriving there early costs the user nothing.
+        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
+        if (board == null) return
+
+        val pool = formatCount(board.prizePool)
+        binding.leaderboardSubtitle.setStarText(
+            getString(R.string.leaderboard_subtitle, board.size, pool),
+            emphasise = pool,
+            emphasisColor = R.color.stars_accent
+        )
+
+        binding.leaderboardRank.text = if (board.isRanked) {
+            getString(R.string.leaderboard_rank, formatCount(board.myRank))
+        } else {
+            getString(R.string.leaderboard_play_to_enter)
+        }
+
+        when {
+            !board.isRanked ->
+                binding.leaderboardMyXp.text =
+                    getString(R.string.leaderboard_unranked_xp)
+
+            board.myPrize > 0 -> {
+                val prize = formatCount(board.myPrize)
+                binding.leaderboardMyXp.setStarText(
+                    getString(R.string.leaderboard_my_prize, prize),
+                    emphasise = prize,
+                    emphasisColor = R.color.stars_accent
+                )
+            }
+
+            else -> binding.leaderboardMyXp.text =
+                getString(R.string.leaderboard_my_none)
+        }
+    }
+
+    /**
+     * Opens the leaderboard screen.
+     *
+     * Guarded on the current destination rather than a boolean: navigating is
+     * asynchronous, so a fast thumb could fire this several times before the
+     * first one arrived, and every tap would push another copy of the screen
+     * onto the stack. Asking where we are is the check that cannot race.
+     */
+    private fun openLeaderboard() {
+        val controller = findNavController()
+        if (controller.currentDestination?.id != R.id.navigation_rewards) return
+
+        controller.navigate(R.id.leaderboardFragment)
+    }
+
+    /** Thousands separators - a rank of 24247 is unreadable without them. */
+    private fun formatCount(value: Int): String =
+        NumberFormat.getIntegerInstance(Locale.US).format(value)
 
     /**
      * Follows the shared catalogue rather than fetching one of its own.

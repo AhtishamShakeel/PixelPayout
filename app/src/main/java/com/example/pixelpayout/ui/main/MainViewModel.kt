@@ -74,22 +74,27 @@ class MainViewModel(
     }
 
     /**
-     * Whether the Earn tab has anything behind it.
+     * Whether there are any offerwalls to show.
+     *
+     * NO LONGER DECIDES WHETHER THE EARN TAB EXISTS. Earn is permanent now
+     * that the weekly leaderboard opens it - see MainActivity.
+     * setupOfferwallTab. What this still decides is everything that points
+     * specifically at OFFERS: the shortcut on Home, the "Earn more" button in
+     * the wallet, and the list on Earn itself. A button promising offers that
+     * leads to a screen with none is the failure this is built to avoid.
      *
      * Both halves matter and both can change while the app is open: a wall
      * is switched on in the console, or the user levels past a wall's gate.
-     * Combining them here rather than in each screen is what keeps the tab,
-     * the Home tile and the Earn list from ever disagreeing about whether
-     * offerwalls exist - a bar advertising a screen that renders empty is
-     * the specific failure this is built to avoid.
+     * Combining them here rather than in each screen is what keeps those
+     * three from ever disagreeing about whether offerwalls exist.
      *
      * EMITS NOTHING UNTIL THE CATALOGUE HAS ACTUALLY ANSWERED. That is what
      * the null check below is: an unanswered catalogue is not the same as an
-     * empty one, and treating it as empty would publish a false that the
-     * bottom bar would act on - hiding the Earn tab on every launch and
-     * restoring it a beat later, for every user who has walls. Staying
-     * silent leaves the bar on the shape it remembered, which is right far
-     * more often than "no tab" is.
+     * empty one, and treating it as empty would publish a false that every
+     * observer would act on - hiding the offer shortcuts on every launch and
+     * restoring them a beat later, for every user who has walls. Staying
+     * silent leaves them on the shape they were drawn with, which is right
+     * far more often than "no offers" is.
      *
      * The level is allowed to be missing, though, and defaults to 1: an
      * unknown level should see the ungated walls, not silently unlock the
@@ -378,6 +383,17 @@ class MainViewModel(
      */
     suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult =
         userRepository.claimDailyGoalBonus(adWatched)
+
+    /**
+     * The last weekly prize this account won, straight off the user snapshot.
+     *
+     * Unlike [leaderboard] this needs no fetch and no throttle: the
+     * settlement writes it onto the user document, which is already being
+     * listened to, so it is in memory before any callable answers. MainActivity
+     * turns it into the congratulation.
+     */
+    val leaderboardPrize: LiveData<UserRepository.LeaderboardPrize?> =
+        userRepository.userData.map { it.lastLeaderboardPrize }
 
     private val _leaderboard = MutableLiveData<UserRepository.Leaderboard?>(null)
 

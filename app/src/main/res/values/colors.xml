@@ -144,15 +144,29 @@
          ================================================================== -->
     <color name="silver">#C6CBD8</color>
     <color name="bronze">#E0965A</color>
-    <!-- The podium avatar well: a shade lighter than surface_card so the ring
-         reads as a ring rather than as the edge of the page. -->
-    <color name="surface_podium">#15151F</color>
-    <!-- Text sitting ON a gold/silver/bronze badge. -->
-    <color name="on_podium_badge">#0D0D12</color>
     <!-- The pinned "your rank" card. Deeper than offer_grad_* so the card
          holds its own against the page it floats over. -->
     <color name="rank_card_start">#241C52</color>
     <color name="rank_card_end">#151033</color>
+
+    <!-- The medals at the weights a STANDINGS ROW needs, now that the first
+         three places are rows in the same table rather than a podium above
+         it. A tint for the card, a stroke for its hairline, a heavier tint
+         for the avatar well and the metal at .60 for its ring - the same four
+         steps the violet "me" row is built from, so a medalled row and the
+         caller's own row are recognisably the same idea applied to a
+         different hue. Gold already has three of the four (gold_tint_16,
+         gold_stroke, gold_tint_35) from the prize columns and the level
+         card. -->
+    <color name="gold_60">#99FFD24A</color>
+    <color name="silver_tint_16">#29C6CBD8</color>
+    <color name="silver_tint_35">#59C6CBD8</color>
+    <color name="silver_stroke">#2EC6CBD8</color>
+    <color name="silver_60">#99C6CBD8</color>
+    <color name="bronze_tint_16">#29E0965A</color>
+    <color name="bronze_tint_35">#59E0965A</color>
+    <color name="bronze_stroke">#2EE0965A</color>
+    <color name="bronze_60">#99E0965A</color>
 
     <!-- Violet tints the home palette did not need. -->
     <color name="violet_tint_16">#297C5CFF</color>
@@ -174,6 +188,10 @@
     <color name="text_wisp">#59FFFFFF</color>
     <color name="text_trace">#47FFFFFF</color>
     <color name="stroke_avatar">#1AFFFFFF</color>
+    <!-- Unfilled fields on a loading row. Above stroke_avatar so a skeleton
+         reads as a shape with something coming, and well under text_trace so
+         a screenful of them is never mistaken for content. -->
+    <color name="skeleton_block">#1FFFFFFF</color>
 
     <!-- ==================================================================
          Wallet (gaming-wallet handoff).
@@ -317,13 +335,6 @@
     <!-- For the rare case of text sitting ON a solid Stars fill. -->
     <item name="on_stars" type="color">@color/on_gold</item>
 
-    <!-- First place. Gold, and NOT stars_accent, even though it resolves to
-         the same hex today: a medal and a currency are different facts that
-         happen to share a colour, and the leaderboard shows both at once -
-         a gold "1" beside a gold prize figure. Naming them apart is what
-         lets one of them be repainted later without hunting for which golds
-         on that screen meant money. Silver and bronze sit beside it. -->
-    <item name="podium_gold" type="color">@color/gold</item>
 
     <!-- Home's cards share ONE ground, `surface_card`, and say which
          currency they are about with their BORDER. There is deliberately no

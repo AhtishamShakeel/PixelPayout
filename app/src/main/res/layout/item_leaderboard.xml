@@ -7,7 +7,12 @@
     between rows is carried here as the root's bottom margin.
 
     The first three places wear a laurel instead of a numeral; ic_laurel is
-    tinted to the metal at bind time and the number sits inside it.
+    tinted to the metal at bind time and the number sits inside it. Since the
+    podium was removed they also carry their metal in the card tint and the
+    avatar well, bound in LeaderboardFragment.renderStandings - but NOT in
+    their height. Ranks one to thirty are one table of identical rows, and a
+    taller row for the top three would rebuild in miniature the thing the
+    podium was deleted for.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
@@ -80,7 +85,14 @@
         tools:text="Joh********23" />
 
     <!-- Bare numerals in both money columns: the header says what they are,
-         and repeating "XP" thirty times down a column is noise. -->
+         and repeating "XP" thirty times down a column is noise.
+
+         XP is violet and the prize is gold, which is not decoration - it is
+         the rule the whole app follows (see the stars_accent / xp_accent note
+         in colors.xml). These two columns sit side by side and are the only
+         place in the app where the two currencies are adjacent, so a reader
+         who mixed them up here would be reading the board wrong: one column
+         is what you did, the next is what it pays. Grey said neither. -->
     <TextView
         android:id="@+id/leaderboardItemXp"
         android:layout_width="56dp"
@@ -88,7 +100,7 @@
         android:layout_marginStart="8dp"
         android:fontFamily="@font/mono_medium"
         android:gravity="end"
-        android:textColor="@color/text_faint"
+        android:textColor="@color/xp_accent"
         android:textSize="11.5sp"
         tools:text="31,240" />
 

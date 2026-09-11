@@ -30,8 +30,10 @@
         boost is its own full-width row, visible only while one is running.
       * The featured-offer card became the third tile in Quick ways to earn.
         It was a whole section promising nothing specific.
-      * The leaderboard row became a card that shows where you actually
-        stand, rather than a single line ending in a rank.
+      * The leaderboard row is GONE FROM THIS SCREEN. It moved to Earn, where
+        the other ways to earn already are - see fragment_rewards. Home is
+        what you have; Earn is how to get more, and a weekly prize pool is
+        the second of those.
 
     Two views were REMOVED rather than hidden, because both were saying
     something already on screen twice:
@@ -420,6 +422,189 @@
                     android:textSize="12sp" />
 
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- ================= Recent payouts ================= -->
+        <!--
+            Sits directly under the Stars and XP cards: it is the first
+            thing on the screen that is about somebody else, and it reads
+            as proof that the balance above it actually pays out.
+
+            The green dot marks the line as live - the feed behind it is a
+            Firestore listener, so the row really does change under the
+            user rather than showing whatever was true at launch.
+
+            One line, tappable, opening the full list in a sheet. The card
+            this replaced showed three rows and cost most of a screen to say
+            what fits here in a sentence.
+
+            The avatar cluster is drawn from the feed's own masked names, one
+            initial each - not stock faces. Three circles is why the live
+            listener holds three entries rather than the one the text line
+            needs; see PAYOUT_FEED_ROW_LIMIT for what that costs.
+
+            Hidden until there is something to show, so a new install does not
+            present an empty box as its first impression.
+        -->
+        <LinearLayout
+            android:id="@+id/payoutFeedRow"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_action_row"
+            android:baselineAligned="false"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <FrameLayout
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@drawable/bg_icon_violet">
+
+                <ImageView
+                    android:layout_width="17dp"
+                    android:layout_height="17dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_nav_wallet"
+                    app:tint="@color/brand_violet_light" />
+
+            </FrameLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="11dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:layout_width="7dp"
+                        android:layout_height="7dp"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_dot_success" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="end"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:maxLines="1"
+                        android:text="@string/recent_payouts"
+                        android:textColor="@color/white"
+                        android:textSize="12.5sp" />
+
+                    <TextView
+                        android:id="@+id/payoutFeedTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/mono_medium"
+                        android:textColor="@color/text_ghost"
+                        android:textSize="10.5sp"
+                        tools:text="10m ago" />
+
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/payoutFeedText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:maxLines="1"
+                    android:textColor="@color/text_faint"
+                    android:textSize="11sp"
+                    tools:text="Joh********23 received 1000 UC" />
+
+            </LinearLayout>
+
+            <!--
+                Negative start margins overlap the circles; each carries a 2dp
+                stroke in the card colour, which is what keeps them legible
+                where they cross. Cells with no entry behind them are hidden,
+                so a feed one payout long shows one circle rather than two
+                empty ones.
+            -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:baselineAligned="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/payoutAvatar3"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="A"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/payoutAvatar2"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="-9dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="M"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/payoutAvatar1"
+                    android:layout_width="26dp"
+                    android:layout_height="26dp"
+                    android:layout_marginStart="-9dp"
+                    android:background="@drawable/bg_feed_avatar"
+                    android:fontFamily="@font/jakarta_bold"
+                    android:gravity="center"
+                    android:includeFontPadding="false"
+                    android:textAllCaps="true"
+                    android:textColor="@color/brand_violet_light"
+                    android:textSize="10sp"
+                    android:visibility="gone"
+                    tools:text="J"
+                    tools:visibility="visible" />
+
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_marginStart="8dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_arrow_right"
+                app:tint="@color/text_ghost" />
 
         </LinearLayout>
 
@@ -1505,382 +1690,6 @@
                     app:tint="@color/text_ghost" />
 
             </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- ================= Weekly leaderboard ================= -->
-        <!--
-            Gold hairline rather than the usual one: this is the competitive
-            card, and it is the only place on the screen where what a user
-            gets depends on what everybody else did.
-
-            The whole card is the tap target, not just the link in its header
-            - the link says where it goes, the card is what a thumb hits.
-
-            Hidden until the board has been read, so a slow network shows
-            nothing rather than an empty rank.
-        -->
-        <LinearLayout
-            android:id="@+id/leaderboardRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_leaderboard_row"
-            android:clickable="true"
-            android:focusable="true"
-            android:orientation="vertical"
-            android:padding="14dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
-                    android:background="@drawable/bg_chip_violet">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:layout_gravity="center"
-                        android:importantForAccessibility="no"
-                        android:src="@drawable/ic_trophy"
-                        app:tint="@color/xp_accent" />
-
-                </FrameLayout>
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:maxLines="1"
-                    android:text="@string/leaderboard_title"
-                    android:textColor="@color/white"
-                    android:textSize="13.5sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:fontFamily="@font/jakarta_semibold"
-                    android:text="@string/leaderboard_view"
-                    android:textColor="@color/xp_accent"
-                    android:textSize="11.5sp" />
-
-                <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_marginStart="3dp"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_arrow_right"
-                    app:tint="@color/xp_accent" />
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:baselineAligned="false"
-                android:orientation="horizontal">
-
-                <!--
-                    Your own standing, in the same shape the leaderboard
-                    screen uses for the "me" row - so arriving there from this
-                    card lands on something already recognisable.
-                -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1.7"
-                    android:background="@drawable/bg_row_card_me"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="11dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="11dp"
-                    android:paddingBottom="10dp">
-
-                    <TextView
-                        android:id="@+id/leaderboardRank"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/mono_bold"
-                        android:textColor="@color/text_soft"
-                        android:textSize="11.5sp"
-                        tools:text="#24" />
-
-                    <FrameLayout
-                        android:layout_width="26dp"
-                        android:layout_height="26dp"
-                        android:layout_marginStart="9dp"
-                        android:background="@drawable/bg_row_avatar_me">
-
-                        <ImageView
-                            android:layout_width="15dp"
-                            android:layout_height="15dp"
-                            android:layout_gravity="center"
-                            android:importantForAccessibility="no"
-                            android:src="@drawable/ic_user_avatar"
-                            app:tint="@color/brand_violet_light" />
-
-                    </FrameLayout>
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="9dp"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:maxLines="1"
-                        android:text="@string/leaderboard_you"
-                        android:textColor="@color/white"
-                        android:textSize="12.5sp" />
-
-                    <TextView
-                        android:id="@+id/leaderboardMyXp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="6dp"
-                        android:fontFamily="@font/mono_bold"
-                        android:textColor="@color/text_faint"
-                        android:textSize="11.5sp"
-                        tools:text="120 ★" />
-
-                </LinearLayout>
-
-                <!--
-                    The prize rule. It is what makes the rank beside it worth
-                    reading - a position with no stake attached is trivia.
-                -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/bg_summary_card"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="10dp"
-                    android:paddingTop="10dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="10dp">
-
-                    <FrameLayout
-                        android:layout_width="26dp"
-                        android:layout_height="26dp"
-                        android:background="@drawable/bg_icon_violet">
-
-                        <ImageView
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:layout_gravity="center"
-                            android:importantForAccessibility="no"
-                            android:src="@drawable/ic_users"
-                            app:tint="@color/xp_accent" />
-
-                    </FrameLayout>
-
-                    <TextView
-                        android:id="@+id/leaderboardSubtitle"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:layout_weight="1"
-                        android:fontFamily="@font/jakarta_semibold"
-                        android:lineSpacingMultiplier="1.2"
-                        android:maxLines="2"
-                        android:textColor="@color/text_dim"
-                        android:textSize="10.5sp"
-                        tools:text="Top 30 share 2,450 ★" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- ================= Recent payouts ================= -->
-        <!--
-            Last on the screen, and that is the right place for it: it is
-            social proof, not something the user has to act on.
-
-            One line, tappable, opening the full list in a sheet. The card
-            this replaced showed three rows and cost most of a screen to say
-            what fits here in a sentence.
-
-            The avatar cluster is drawn from the feed's own masked names, one
-            initial each - not stock faces. Three circles is why the live
-            listener holds three entries rather than the one the text line
-            needs; see PAYOUT_FEED_ROW_LIMIT for what that costs.
-
-            Hidden until there is something to show, so a new install does not
-            present an empty box as its first impression.
-        -->
-        <LinearLayout
-            android:id="@+id/payoutFeedRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/bg_action_row"
-            android:baselineAligned="false"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="14dp"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <FrameLayout
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@drawable/bg_icon_violet">
-
-                <ImageView
-                    android:layout_width="17dp"
-                    android:layout_height="17dp"
-                    android:layout_gravity="center"
-                    android:importantForAccessibility="no"
-                    android:src="@drawable/ic_nav_wallet"
-                    app:tint="@color/brand_violet_light" />
-
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="11dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:baselineAligned="false"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:maxLines="1"
-                        android:text="@string/recent_payouts"
-                        android:textColor="@color/white"
-                        android:textSize="12.5sp" />
-
-                    <TextView
-                        android:id="@+id/payoutFeedTime"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="8dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="10.5sp"
-                        tools:text="10m ago" />
-
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/payoutFeedText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:maxLines="1"
-                    android:textColor="@color/text_faint"
-                    android:textSize="11sp"
-                    tools:text="Joh********23 received 1000 UC" />
-
-            </LinearLayout>
-
-            <!--
-                Negative start margins overlap the circles; each carries a 2dp
-                stroke in the card colour, which is what keeps them legible
-                where they cross. Cells with no entry behind them are hidden,
-                so a feed one payout long shows one circle rather than two
-                empty ones.
-            -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/payoutAvatar3"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:background="@drawable/bg_feed_avatar"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:textAllCaps="true"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="10sp"
-                    android:visibility="gone"
-                    tools:text="A"
-                    tools:visibility="visible" />
-
-                <TextView
-                    android:id="@+id/payoutAvatar2"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_marginStart="-9dp"
-                    android:background="@drawable/bg_feed_avatar"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:textAllCaps="true"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="10sp"
-                    android:visibility="gone"
-                    tools:text="M"
-                    tools:visibility="visible" />
-
-                <TextView
-                    android:id="@+id/payoutAvatar1"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
-                    android:layout_marginStart="-9dp"
-                    android:background="@drawable/bg_feed_avatar"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:gravity="center"
-                    android:includeFontPadding="false"
-                    android:textAllCaps="true"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="10sp"
-                    android:visibility="gone"
-                    tools:text="J"
-                    tools:visibility="visible" />
-
-            </LinearLayout>
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginStart="8dp"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_arrow_right"
-                app:tint="@color/text_ghost" />
 
         </LinearLayout>
 

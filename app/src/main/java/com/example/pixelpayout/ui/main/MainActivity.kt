@@ -1,6 +1,5 @@
 package com.example.pixelpayout.ui.main
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -8,7 +7,6 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.NavController
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.NavHostFragment
 import com.airbnb.lottie.LottieComposition
@@ -23,6 +21,8 @@ import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
+import com.example.pixelpayout.utils.ServerClock
+import com.example.pixelpayout.utils.showLeaderboardPrize
 import com.example.pixelpayout.utils.showPendingLevelRewards
 import com.example.pixelpayout.utils.showRedemptionResult
 import com.example.pixelpayout.ui.dialogs.NoInternetDialog
@@ -59,6 +59,9 @@ class MainActivity : AppCompatActivity() {
 
     /** The same guard, for the payout-settled dialog. */
     private var announcingRedemption = false
+
+    /** Guards the weekly prize dialog the same way the two above are guarded. */
+    private var announcingLeaderboardPrize = false
     
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
@@ -120,6 +123,7 @@ class MainActivity : AppCompatActivity() {
         observeViewModel()
         observeLevelRewards()
         observeRedemptionResults()
+        observeLeaderboardPrize()
     }
 
     /**
@@ -258,6 +262,93 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * Congratulates a winner of the weekly tournament.
+     *
+     * THIS IS THE ONLY THING THAT SAYS A PRIZE WAS WON. The settlement runs at
+     * five past midnight on Monday, credits the stars and moves on; before
+     * this, the entire experience of winning a week was a balance that was
+     * larger than it had been. That is a poor return for the one reward in
+     * this app that has to be competed for.
+     *
+     * Two triggers, for the same reason the other two announcements have
+     * them: the observer catches a settlement landing while the app is open -
+     * rare, but it is exactly what happens to somebody playing at midnight on
+     * a Sunday - and onResume catches the ordinary case, where it landed days
+     * ago and there is no emission left to hear by the time anyone is
+     * listening.
+     *
+     * "Once" is the week index rather than a timestamp: weeks are already a
+     * monotonic integer, a settlement writes exactly one per account, and the
+     * comparison never grows.
+     *
+     * A FRESHNESS WINDOW ON TOP OF THAT MARK, which the level and redemption
+     * announcements do not have and do not need. The mark is local, so a
+     * reinstall or a new device resets it to zero - and without the window
+     * that would greet a returning user with a fanfare about a week they
+     * placed in two months ago, which reads as a bug rather than as good
+     * news. Anything settled inside the window is still news; anything older
+     * is adopted silently.
+     */
+    private fun maybeAnnounceLeaderboardPrize() {
+        if (announcingLeaderboardPrize) return
+
+        val prize = viewModel.leaderboardPrize.value ?: return
+
+        lifecycleScope.launch {
+            val announced = userPreferences.lastAnnouncedLeaderboardWeek.firstOrNull() ?: 0
+            if (prize.weekKey <= announced) return@launch
+
+            val age = ServerClock.now() - prize.settledAtMillis
+            if (age > PRIZE_FRESHNESS_MS) {
+                // Old news. Marked as said so it is never reconsidered, but
+                // never actually said.
+                userPreferences.setLastAnnouncedLeaderboardWeek(prize.weekKey)
+                return@launch
+            }
+
+            if (announcingLeaderboardPrize || isFinishing) return@launch
+
+            announcingLeaderboardPrize = true
+            val shown = showLeaderboardPrize(
+                prize = prize,
+                // What the board pays down to, so "#4 of 30 paid" is true
+                // rather than invented. Falls back to the server's own cap
+                // when no board has been fetched on this run.
+                boardSize = viewModel.leaderboard.value?.size ?: DEFAULT_BOARD_SIZE,
+                onViewBoard = { openLeaderboard() },
+                onDismissed = { announcingLeaderboardPrize = false }
+            )
+
+            if (shown) {
+                // Recorded only on a dialog that really appeared, so a run
+                // that bailed out can still announce later.
+                userPreferences.setLastAnnouncedLeaderboardWeek(prize.weekKey)
+            } else {
+                announcingLeaderboardPrize = false
+            }
+        }
+    }
+
+    private fun observeLeaderboardPrize() {
+        viewModel.leaderboardPrize.observe(this) { maybeAnnounceLeaderboardPrize() }
+    }
+
+    /** "See this week's board", from the prize dialog. */
+    private fun openLeaderboard() {
+        val navController = (supportFragmentManager
+            .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment)
+            ?.navController ?: return
+
+        if (navController.currentDestination?.id == R.id.leaderboardFragment) return
+
+        try {
+            navController.navigate(R.id.leaderboardFragment, null, defaultNavOptions())
+        } catch (e: Exception) {
+            Log.e("Navigation", "Could not open the leaderboard: ${e.message}")
+        }
+    }
+
+    /**
      * "Redeem again", from the declined sheet.
      *
      * The tab rather than the sheet: the payout that was turned down is
@@ -314,6 +405,7 @@ class MainActivity : AppCompatActivity() {
         // was stopped, so there may be no emission left to react to.
         maybeAnnounceLevelRewards()
         maybeAnnounceRedemptionResult()
+        maybeAnnounceLeaderboardPrize()
     }
 
     private fun setupConnectivityCheck() {
@@ -427,64 +519,34 @@ class MainActivity : AppCompatActivity() {
             binding.bottomNav.setSelectedItemIdSilently(destination.id)
         }
 
-        setupOfferwallTab(navController)
+        setupOfferwallTab()
     }
 
     /**
-     * Earn is a tab only while an offerwall is switched on.
+     * Earn is now a permanent tab. It used to come and go with the offerwall
+     * catalogue, and this is the record of why it no longer does.
      *
-     * The catalogue lives in `config/offerwallWalls` and every entry has an
-     * `enabled` flag, so a network is turned on the hour it approves us and
-     * off the hour it breaks - no release either way. What was missing was
-     * the other end of that switch: with everything off, the tab still sat
-     * in the bar, raised on its accent disc, promising an empty screen.
+     * The old rule was sound for what the screen was then. The catalogue
+     * lives in `config/offerwallWalls` and every entry has an `enabled` flag,
+     * so a network is turned on the hour it approves us and off the hour it
+     * breaks - no release either way. With everything off, the tab still sat
+     * in the bar, raised on its accent disc, promising an empty screen; so it
+     * was hidden, remembered across launches to stop it popping in a beat
+     * after Firestore answered, and anyone standing on the screen when the
+     * last wall went away was moved off it.
      *
-     * TWO READS, and the reason for both:
+     * What changed is the screen, not the rule: Earn now opens on the weekly
+     * leaderboard, which is always there. Hiding the tab would hide the
+     * tournament along with the offers, and the tournament does not depend on
+     * a network approving us. The flag still decides the LIST - see
+     * RewardsFragment, where an empty catalogue draws its own empty state -
+     * and that is all it decides now.
      *
-     *   * The remembered flag paints the bar at launch. Without it the tab
-     *     pops in a beat after Firestore answers - on every single launch,
-     *     for every user who has walls - which is visible and looks broken.
-     *   * The observer is the truth, and corrects the remembered flag when
-     *     the console has changed since last time.
-     *
-     * The remembered flag is deliberately allowed to be wrong for that beat.
-     * The direction it can be wrong in matters: it is only ever set from an
-     * answer we actually received, so a fresh install shows no tab until one
-     * is confirmed, and the retraction case - flag says yes, catalogue now
-     * says no - is a tab that vanishes shortly after launch, which only
-     * happens on the launch after somebody switched the last wall off.
+     * The remembered flag and the bounce-off-the-empty-tab guard went with
+     * it. Both existed only to manage a tab that could disappear.
      */
-    private fun setupOfferwallTab(navController: NavController) {
-        binding.bottomNav.setItemVisible(R.id.navigation_rewards, rememberedOfferwallTab())
-
-        viewModel.offerwallAvailable.observe(this) { available ->
-            binding.bottomNav.setItemVisible(R.id.navigation_rewards, available)
-            rememberOfferwallTab(available)
-
-            // Somebody can be standing on the screen when the last wall goes
-            // away - they were already there, or they levelled and lost the
-            // only wall they qualified for. Hiding the tab under them would
-            // leave them on a destination the bar no longer admits to, with
-            // system back as the only way out.
-            if (!available && navController.currentDestination?.id == R.id.navigation_rewards) {
-                try {
-                    navController.navigate(R.id.navigation_home, null, defaultNavOptions())
-                } catch (e: Exception) {
-                    Log.e("Navigation", "Could not leave the empty Earn tab: ${e.message}")
-                }
-            }
-        }
-    }
-
-    private fun rememberedOfferwallTab(): Boolean =
-        getSharedPreferences(OFFERWALL_PREFS, Context.MODE_PRIVATE)
-            .getBoolean(KEY_OFFERWALL_TAB, false)
-
-    private fun rememberOfferwallTab(visible: Boolean) {
-        getSharedPreferences(OFFERWALL_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(KEY_OFFERWALL_TAB, visible)
-            .apply()
+    private fun setupOfferwallTab() {
+        binding.bottomNav.setItemVisible(R.id.navigation_rewards, true)
     }
 
     private fun defaultNavOptions(): NavOptions = NavOptions.Builder()
@@ -562,15 +624,24 @@ class MainActivity : AppCompatActivity() {
     // Add this method to be called from other activities
     companion object {
         /**
-         * Where the last known answer to "does Earn exist" is kept.
+         * How recent a settlement has to be to be worth a fanfare.
          *
-         * SharedPreferences rather than the app's UserPreferences DataStore
-         * because this is read during onCreate to paint the bar, and a
-         * DataStore read is a suspending one - which would put the pop-in
-         * back.
+         * Three weeks: long enough that somebody who wins and does not open
+         * the app for a fortnight is still congratulated, short enough that a
+         * reinstall months later does not celebrate a week they have
+         * forgotten. See maybeAnnounceLeaderboardPrize.
          */
-        private const val OFFERWALL_PREFS = "offerwall_ui"
-        private const val KEY_OFFERWALL_TAB = "earn_tab_visible"
+        private const val PRIZE_FRESHNESS_MS = 21L * 24 * 60 * 60 * 1000
+
+        /**
+         * The board size to quote when no board has been fetched this run.
+         *
+         * Matches LEADERBOARD_SIZE in functions/src/economy/leaderboard.ts.
+         * Only ever reached when the dialog beats the first getLeaderboard
+         * call, which is the common case - the prize rides the user snapshot
+         * and arrives well before any callable answers.
+         */
+        private const val DEFAULT_BOARD_SIZE = 30
 
         fun handleInternetDisconnection(activity: AppCompatActivity) {
             if (activity !is MainActivity) {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The avatar well, unfilled. Same 30dp as bg_row_avatar so the name column
+     starts in the same place before and after the data lands. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/skeleton_block" />
+</shape>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One unfilled field on a skeleton row. Rounded to the same idea as the
+     text it stands in for, and faint enough that a screen full of them reads
+     as pending rather than as content. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/skeleton_block" />
+    <corners android:radius="5dp" />
+</shape>

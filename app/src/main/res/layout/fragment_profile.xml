@@ -24,6 +24,7 @@
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/profileScroll"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background_dark"
@@ -38,49 +39,15 @@
         android:paddingEnd="17dp"
         android:paddingBottom="24dp">
 
-        <!-- ================= Header ================= -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/jakarta_semibold"
-                    android:letterSpacing="0.14"
-                    android:text="@string/app_name"
-                    android:textAllCaps="true"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:fontFamily="@font/jakarta_semibold"
-                    android:letterSpacing="-0.01"
-                    android:text="@string/nav_profile"
-                    android:textColor="@color/text_strong"
-                    android:textSize="22sp" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
         <!-- ================= Identity ================= -->
+        <!--
+            First thing on the screen. The app name and the tab name used to
+            sit above it, but the activity toolbar carries both already, so
+            this was the same two words twice on one screen.
+        -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
             android:baselineAligned="false"
             android:gravity="center_vertical"
             android:orientation="horizontal">
@@ -236,7 +203,13 @@
         </LinearLayout>
 
         <!-- ================= Invite friends ================= -->
+        <!--
+            Home's "Refer and earn" row lands here, so the header carries an
+            id: without one the tab opens on the account block and the user
+            has to hunt for the thing they tapped.
+        -->
         <LinearLayout
+            android:id="@+id/inviteHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="22dp"

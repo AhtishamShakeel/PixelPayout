@@ -1,5 +1,7 @@
 package com.example.pixelpayout.ui.leaderboard
 
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.ColorRes
+import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -36,16 +39,25 @@ import java.util.concurrent.TimeUnit
  * past what a sheet is for, and it carried a bug that a destination cannot
  * have: it was shown imperatively, so a fast thumb could stack ten of them.
  *
- * Redrawn on the leaderboard handoff: the stakes and the countdown, a podium,
- * one list that switches between the standings and the prize bands, and the
- * caller's own place pinned above the tab bar where it cannot scroll away.
+ * Redrawn on the leaderboard handoff: the stakes and the countdown, one list
+ * that switches between the standings and the prize bands, and the caller's
+ * own place pinned above the tab bar where it cannot scroll away.
+ *
+ * THE PODIUM HAS BEEN REMOVED. Three plinths spent most of a phone screen
+ * saying what the first three rows of the table say anyway, and pushed the
+ * rest of the board - the segments, the headings, rank four down to thirty -
+ * below the fold on the screen whose entire job is the standings. The first
+ * three places now sit in the same table as the other twenty-seven, at the
+ * same height, distinguished by their metal rather than by their size.
  *
  * Every number on the screen is bound from [UserRepository.Leaderboard] - the
  * pool, the reset, the places, the prizes and the gaps. The prototype's
  * figures (a 5,000 pool, 24,247 players, a top 100) are not repeated anywhere
  * here: what the server pays is what the screen says.
  *
- * The full board is asked for once, here. Home only ever holds the podium.
+ * Reached from the card at the top of Earn. The full board - all thirty
+ * places - is asked for once, here; that card holds only the caller's own
+ * standing, which is all the preview fetch returns.
  */
 class LeaderboardFragment : Fragment() {
 
@@ -66,6 +78,9 @@ class LeaderboardFragment : Fragment() {
      * for nothing. Scheduling on the boundary rather than on a fixed minute
      * keeps it from lagging up to 59 seconds behind the truth.
      */
+    /** The skeleton's breath, held so it can be stopped when data lands. */
+    private var pulse: ObjectAnimator? = null
+
     private val ticker = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() {
@@ -91,9 +106,86 @@ class LeaderboardFragment : Fragment() {
         binding.segmentPrizes.setOnClickListener { selectSegment(SEGMENT_PRIZES) }
         binding.leaderboardClimb.setOnClickListener { openPlay() }
 
+        // Drawn BEFORE the fetch, not after it. getLeaderboard is a callable
+        // on a Cloud Function that is usually cold on the first call of the
+        // day, and this screen used to sit blank for the whole of it - which
+        // is the complaint that "the tournament loads after a delay". The
+        // delay is real and server-side; what is fixed here is that the app
+        // now draws its own furniture immediately and fills it in when the
+        // answer lands, instead of waiting to be told what a leaderboard
+        // looks like.
+        showSkeleton()
+
         // The bands never change between deploys, so they are drawn from what
         // the board reports rather than fetched separately.
         loadBoard()
+    }
+
+    /**
+     * The screen as it looks while the board is in flight.
+     *
+     * Everything that is KNOWN without the server is drawn for real: the
+     * headings, the segmented control, the columns. Everything that is not -
+     * the pool, the countdown, the thirty places, the caller's own rank - is
+     * a placeholder in the exact position its value will occupy, so nothing
+     * moves when the data arrives.
+     *
+     * The placeholder figures are em dashes rather than zeroes. "0 stars" and
+     * "#0" are statements about a user's standing, and both of them are false
+     * while we are still asking.
+     */
+    private fun showSkeleton() {
+        val binding = _binding ?: return
+
+        binding.leaderboardPool.text = PLACEHOLDER
+        binding.leaderboardPoolSplit.text = getString(R.string.leaderboard_pool_loading)
+        binding.leaderboardResets.text = PLACEHOLDER
+        binding.leaderboardResetsAt.visibility = View.GONE
+
+        binding.leaderboardSegments.visibility = View.VISIBLE
+        binding.leaderboardColumns.visibility = View.VISIBLE
+        binding.leaderboardEmpty.visibility = View.GONE
+        binding.leaderboardRules.visibility = View.GONE
+
+        binding.leaderboardBody.removeAllViews()
+        repeat(SKELETON_ROWS) {
+            binding.leaderboardBody.addView(
+                layoutInflater.inflate(
+                    R.layout.item_leaderboard_skeleton, binding.leaderboardBody, false
+                )
+            )
+        }
+
+        // The pinned card, in its unranked shape. It is the one part of the
+        // screen that is never empty, so leaving it blank would read as the
+        // card itself having failed.
+        binding.leaderboardMyRank.text = PLACEHOLDER
+        binding.leaderboardMyRankLabel.setText(R.string.leaderboard_you_label)
+        binding.leaderboardMyXp.setText(R.string.leaderboard_loading_standing)
+        binding.leaderboardMyGap.visibility = View.GONE
+        binding.leaderboardClimbBar.visibility = View.GONE
+        binding.leaderboardClimbCaption.visibility = View.GONE
+        binding.leaderboardClimb.setText(R.string.leaderboard_play)
+
+        // One slow breath across the whole list. Cheap - it animates alpha on
+        // a single parent, not on each of the eight rows - and it is what
+        // separates "still loading" from "loaded, and empty".
+        pulse?.cancel()
+        pulse = ObjectAnimator.ofFloat(
+            binding.leaderboardBody, View.ALPHA, 1f, 0.45f
+        ).apply {
+            duration = SKELETON_PULSE_MS
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
+    }
+
+    /** Stops the pulse and hands the list back its opacity. */
+    private fun clearSkeleton() {
+        pulse?.cancel()
+        pulse = null
+        _binding?.leaderboardBody?.alpha = 1f
     }
 
     override fun onResume() {
@@ -128,9 +220,10 @@ class LeaderboardFragment : Fragment() {
     private fun showLoadFailure() {
         val binding = _binding ?: return
 
-        binding.leaderboardPodium.visibility = View.GONE
+        clearSkeleton()
+        binding.leaderboardPool.text = PLACEHOLDER
+        binding.leaderboardPoolSplit.text = getString(R.string.leaderboard_pool_loading)
         binding.leaderboardSegments.visibility = View.GONE
-        binding.leaderboardListHeader.visibility = View.GONE
         binding.leaderboardColumns.visibility = View.GONE
         binding.leaderboardBody.removeAllViews()
         binding.leaderboardRules.visibility = View.GONE
@@ -139,13 +232,12 @@ class LeaderboardFragment : Fragment() {
     }
 
     private fun render(data: UserRepository.Leaderboard) {
+        clearSkeleton()
         renderPool(data)
         renderResetCountdown()
-        renderPodium(data)
 
         val hasEntries = data.entries.isNotEmpty()
         binding.leaderboardSegments.visibility = if (hasEntries) View.VISIBLE else View.GONE
-        binding.leaderboardListHeader.visibility = if (hasEntries) View.VISIBLE else View.GONE
         binding.leaderboardEmpty.visibility = if (hasEntries) View.GONE else View.VISIBLE
         if (!hasEntries) binding.leaderboardColumns.visibility = View.GONE
 
@@ -181,59 +273,17 @@ class LeaderboardFragment : Fragment() {
         }
     }
 
-    /**
-     * The top three, bottom-aligned and lifted by place.
-     *
-     * Only the places that exist are drawn. A podium padded out with empty
-     * plinths on a quiet week reads as a broken screen rather than a new one.
-     */
-    private fun renderPodium(data: UserRepository.Leaderboard) {
-        val binding = _binding ?: return
-
-        val places = data.entries.take(3)
-        binding.leaderboardPodium.visibility =
-            if (places.isEmpty()) View.GONE else View.VISIBLE
-
-        bindPodium(
-            binding.podium1, binding.podium1Avatar, binding.podium1Name,
-            binding.podium1Xp, binding.podium1Prize, places.getOrNull(0)
-        )
-        bindPodium(
-            binding.podium2, binding.podium2Avatar, binding.podium2Name,
-            binding.podium2Xp, binding.podium2Prize, places.getOrNull(1)
-        )
-        bindPodium(
-            binding.podium3, binding.podium3Avatar, binding.podium3Name,
-            binding.podium3Xp, binding.podium3Prize, places.getOrNull(2)
-        )
-    }
-
-    private fun bindPodium(
-        column: View,
-        avatar: TextView,
-        name: TextView,
-        xp: TextView,
-        prize: TextView,
-        entry: UserRepository.LeaderboardEntry?
-    ) {
-        if (entry == null) {
-            column.visibility = View.GONE
-            return
-        }
-        column.visibility = View.VISIBLE
-
-        val label = displayName(entry)
-        avatar.text = initialOf(label)
-        name.text = label
-        xp.text = getString(R.string.leaderboard_xp, formatCount(entry.xp))
-
-        prize.visibility = if (entry.prize > 0) View.VISIBLE else View.GONE
-        prize.text = getString(R.string.leaderboard_prize_star, formatCount(entry.prize))
-    }
-
     private fun selectSegment(next: Int) {
         if (segment == next) return
         segment = next
+
+        // Restyled BEFORE the board is checked for. The control is on screen
+        // during the skeleton now, so it can be pressed while the fetch is
+        // still out - and a button that does not move when pressed reads as a
+        // dead button. The choice is remembered either way: render() draws
+        // whichever segment is selected when the data lands.
+        styleSegment(binding.segmentStandings, next == SEGMENT_STANDINGS)
+        styleSegment(binding.segmentPrizes, next == SEGMENT_PRIZES)
 
         val data = board ?: return
         renderSegment(data)
@@ -255,17 +305,12 @@ class LeaderboardFragment : Fragment() {
         binding.leaderboardColumns.visibility = if (standings) View.VISIBLE else View.GONE
         binding.leaderboardRules.visibility = if (standings) View.GONE else View.VISIBLE
 
-        if (standings) {
-            binding.leaderboardListTitle.setText(R.string.leaderboard_standings_title)
-            binding.leaderboardListMeta.text =
-                getString(R.string.leaderboard_meta_standings, data.size)
-            renderStandings(data)
-        } else {
-            binding.leaderboardListTitle.setText(R.string.leaderboard_prizes_title)
-            binding.leaderboardListMeta.text =
-                getString(R.string.leaderboard_meta_prizes, formatCount(data.prizePool))
-            renderBands(data)
-        }
+        // No heading is set here any more. There was one, and it repeated the
+        // segment button the user had just pressed - "Standings" under
+        // STANDINGS - with a meta beside it ("top 30", "2,450 a week) that the
+        // prize-pool card at the top of the screen already states. The control
+        // says which list this is; saying it twice more was noise.
+        if (standings) renderStandings(data) else renderBands(data)
     }
 
     private fun styleSegment(view: TextView, selected: Boolean) {
@@ -317,11 +362,30 @@ class LeaderboardFragment : Fragment() {
                 prize.setTextColor(color(R.color.text_trace))
             }
 
-            // The caller's own line, picked out of thirty near-identical ones.
+            // What carries the top three now that the podium does not: the
+            // card tint, the avatar well and the name, all in the metal.
+            //
+            // Only the surfaces change - never the height, the padding or the
+            // font size. The row has to stay one row of the same table, or
+            // this becomes a podium again in a smaller costume.
+            //
+            // Rows are inflated fresh rather than recycled, so there is no
+            // else branch resetting anything: an unmedalled row is whatever
+            // item_leaderboard says it is.
+            if (metal != 0) {
+                row.setBackgroundResource(medalCard(entry.rank))
+                avatar.setBackgroundResource(medalAvatar(entry.rank))
+                avatar.setTextColor(color(metal))
+                name.setTextColor(color(R.color.white))
+            }
+
+            // The caller's own line, picked out of thirty near-identical ones,
+            // and it wins over the metal: a user scanning this list is looking
+            // for themselves first and for the medals second. The numeral
+            // stays in its metal either way - that is the one thing a medalled
+            // row has earned, and violet would take it away.
             if (entry.isMe) {
                 row.setBackgroundResource(R.drawable.bg_row_card_me)
-                // A medalled row keeps its metal; violet would take away the
-                // one thing that row has earned.
                 if (metal == 0) rank.setTextColor(color(R.color.brand_violet_light))
                 name.setTextColor(color(R.color.white))
                 avatar.setBackgroundResource(R.drawable.bg_row_avatar_me)
@@ -580,6 +644,22 @@ class LeaderboardFragment : Fragment() {
         else -> 0
     }
 
+    /** The card a medalled place sits on. Same shape as every other row. */
+    @DrawableRes
+    private fun medalCard(rank: Int): Int = when (rank) {
+        1 -> R.drawable.bg_row_card_gold
+        2 -> R.drawable.bg_row_card_silver
+        else -> R.drawable.bg_row_card_bronze
+    }
+
+    /** Its avatar well, in the same metal. */
+    @DrawableRes
+    private fun medalAvatar(rank: Int): Int = when (rank) {
+        1 -> R.drawable.bg_row_avatar_gold
+        2 -> R.drawable.bg_row_avatar_silver
+        else -> R.drawable.bg_row_avatar_bronze
+    }
+
     private fun displayName(entry: UserRepository.LeaderboardEntry): String =
         if (entry.isMe) getString(R.string.leaderboard_you) else entry.name
 
@@ -596,6 +676,10 @@ class LeaderboardFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         ticker.removeCallbacks(tick)
+        // An INFINITE animator holding a view from a destroyed hierarchy is
+        // the usual way this leaks.
+        pulse?.cancel()
+        pulse = null
         _binding = null
     }
 
@@ -611,6 +695,19 @@ class LeaderboardFragment : Fragment() {
         private const val MIN_BAR_PERCENT = 6
 
         private const val UNRANKED_RANK = "—"
+
+        /**
+         * How many placeholder rows the skeleton draws.
+         *
+         * Eight rather than the full thirty: it fills the first screen, which
+         * is all a skeleton has to do, and inflating thirty views that are
+         * about to be thrown away is work done twice on the slowest devices.
+         */
+        private const val SKELETON_ROWS = 8
+        private const val SKELETON_PULSE_MS = 900L
+
+        /** Stands in for any figure the server has not sent yet. */
+        private const val PLACEHOLDER = "—"
         private const val NO_INITIAL = "?"
 
         private val RESET_AT_FORMAT = SimpleDateFormat("EEEE HH:mm", Locale.getDefault())

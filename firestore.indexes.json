@@ -43,6 +43,20 @@
       ]
     },
     {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "lastWeekKey",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "lastWeeklyXp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "rewardEvents",
       "queryScope": "COLLECTION",
       "fields": [

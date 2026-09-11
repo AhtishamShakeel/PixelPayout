@@ -2,13 +2,25 @@
     The weekly leaderboard, rebuilt on the handoff design.
 
     Shape of the screen, top to bottom: what is at stake and when it resets,
-    the podium, then ONE list that switches between the standings and the
-    prize bands - and, pinned above the tab bar, the caller's own place, which
-    is the thing they came to read and so is the thing that never scrolls
-    away.
+    then ONE list that switches between the standings and the prize bands. The
+    segmented control is the only thing that names which of the two is showing
+    - there was a "Standings"/"Prizes" heading under it saying the same word
+    again, with a "top 30" / "2,450 a week" meta beside it that the prize-pool
+    card at the top of the screen had already said. Both are gone -
+    and, pinned above the tab bar, the caller's own place, which is the thing
+    they came to read and so is the thing that never scrolls away.
 
-    Two departures from the handoff, both because of what the server actually
-    sends:
+    THE PODIUM IS GONE, and that is the whole of this revision. Three plinths
+    for the first three places took most of a phone screen to say what three
+    rows of a table say in a fifth of the height, and everything under it -
+    the segments, the column headings, rank four onwards - started below the
+    fold. The board now opens on the board. Places one to three are rows in
+    the same table as every other place, at the same height, carrying their
+    metal in the tint of the card, the well of the avatar and the numeral
+    itself; see item_leaderboard and bg_row_card_gold.
+
+    Three departures from the handoff, all because of what the server
+    actually sends:
 
       * The "Around you" segment is not here. getLeaderboard returns the top
         LEADERBOARD_SIZE places and the caller's own rank - there is no window
@@ -17,6 +29,7 @@
       * The list meta reads "top 30", not "24,247 players". Nothing counts
         players week to week, and a number nobody computed is a number that
         will one day be wrong on screen.
+      * No podium, for the reason above.
 
     Every figure here is bound from Leaderboard; nothing on this screen is a
     constant dressed up as data.
@@ -191,259 +204,13 @@
 
             </LinearLayout>
 
-            <!-- ================= Podium =================
-                 Three fixed columns rather than an inflated row: each place
-                 has its own avatar size and its own lift off the baseline,
-                 which is the whole point of a podium. -->
-            <LinearLayout
-                android:id="@+id/leaderboardPodium"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="26dp"
-                android:baselineAligned="false"
-                android:gravity="bottom|center_horizontal"
-                android:orientation="horizontal"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp">
-
-                <!-- 2nd place -->
-                <LinearLayout
-                    android:id="@+id/podium2"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginEnd="10dp"
-                    android:layout_weight="1"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:paddingBottom="16dp">
-
-                    <TextView
-                        android:id="@+id/podium2Avatar"
-                        android:layout_width="60dp"
-                        android:layout_height="60dp"
-                        android:background="@drawable/bg_podium_ring_silver"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/silver"
-                        android:textSize="15sp"
-                        tools:text="S" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="-9dp"
-                        android:background="@drawable/bg_podium_badge_silver"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="2"
-                        android:textColor="@color/on_podium_badge"
-                        android:textSize="10sp" />
-
-                    <TextView
-                        android:id="@+id/podium2Name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:maxLines="1"
-                        android:textColor="@color/white"
-                        android:textSize="12sp"
-                        tools:text="sab****91" />
-
-                    <TextView
-                        android:id="@+id/podium2Xp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="10.5sp"
-                        tools:text="1,910 XP" />
-
-                    <TextView
-                        android:id="@+id/podium2Prize"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:background="@drawable/bg_pill_gold"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="10dp"
-                        android:paddingBottom="4dp"
-                        android:textColor="@color/stars_accent"
-                        android:textSize="11sp"
-                        tools:text="200 ★" />
-
-                </LinearLayout>
-
-                <!-- 1st place -->
-                <LinearLayout
-                    android:id="@+id/podium1"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical"
-                    android:paddingBottom="40dp">
-
-                    <TextView
-                        android:id="@+id/podium1Avatar"
-                        android:layout_width="74dp"
-                        android:layout_height="74dp"
-                        android:background="@drawable/bg_podium_ring_gold"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/podium_gold"
-                        android:textSize="15sp"
-                        tools:text="M" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="-9dp"
-                        android:background="@drawable/bg_podium_badge_gold"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="1"
-                        android:textColor="@color/on_podium_badge"
-                        android:textSize="10sp" />
-
-                    <TextView
-                        android:id="@+id/podium1Name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:maxLines="1"
-                        android:textColor="@color/white"
-                        android:textSize="12sp"
-                        tools:text="Mir****K" />
-
-                    <TextView
-                        android:id="@+id/podium1Xp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="10.5sp"
-                        tools:text="2,480 XP" />
-
-                    <TextView
-                        android:id="@+id/podium1Prize"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:background="@drawable/bg_pill_gold"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="10dp"
-                        android:paddingBottom="4dp"
-                        android:textColor="@color/stars_accent"
-                        android:textSize="11sp"
-                        tools:text="350 ★" />
-
-                </LinearLayout>
-
-                <!-- 3rd place -->
-                <LinearLayout
-                    android:id="@+id/podium3"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:gravity="center_horizontal"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/podium3Avatar"
-                        android:layout_width="56dp"
-                        android:layout_height="56dp"
-                        android:background="@drawable/bg_podium_ring_bronze"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:includeFontPadding="false"
-                        android:textColor="@color/bronze"
-                        android:textSize="15sp"
-                        tools:text="D" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="-9dp"
-                        android:background="@drawable/bg_podium_badge_bronze"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="8dp"
-                        android:paddingTop="2dp"
-                        android:paddingEnd="8dp"
-                        android:paddingBottom="2dp"
-                        android:text="3"
-                        android:textColor="@color/on_podium_badge"
-                        android:textSize="10sp" />
-
-                    <TextView
-                        android:id="@+id/podium3Name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:ellipsize="end"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:maxLines="1"
-                        android:textColor="@color/white"
-                        android:textSize="12sp"
-                        tools:text="dun****3" />
-
-                    <TextView
-                        android:id="@+id/podium3Xp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="3dp"
-                        android:fontFamily="@font/mono_medium"
-                        android:textColor="@color/text_ghost"
-                        android:textSize="10.5sp"
-                        tools:text="1,520 XP" />
-
-                    <TextView
-                        android:id="@+id/podium3Prize"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="7dp"
-                        android:background="@drawable/bg_pill_gold"
-                        android:fontFamily="@font/mono_bold"
-                        android:paddingStart="10dp"
-                        android:paddingTop="4dp"
-                        android:paddingEnd="10dp"
-                        android:paddingBottom="4dp"
-                        android:textColor="@color/stars_accent"
-                        android:textSize="11sp"
-                        tools:text="200 ★" />
-
-                </LinearLayout>
-
-            </LinearLayout>
-
             <!-- ================= Segments ================= -->
             <LinearLayout
                 android:id="@+id/leaderboardSegments"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="16dp"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="22dp"
                 android:layout_marginEnd="16dp"
                 android:background="@drawable/bg_segment_bar"
                 android:orientation="horizontal"
@@ -479,39 +246,6 @@
 
             </LinearLayout>
 
-            <!-- ================= List header ================= -->
-            <LinearLayout
-                android:id="@+id/leaderboardListHeader"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="20dp"
-                android:layout_marginTop="20dp"
-                android:layout_marginEnd="20dp"
-                android:layout_marginBottom="10dp"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:id="@+id/leaderboardListTitle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:fontFamily="@font/jakarta_bold"
-                    android:textColor="@color/primary_text"
-                    android:textSize="14sp"
-                    tools:text="Standings" />
-
-                <TextView
-                    android:id="@+id/leaderboardListMeta"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:fontFamily="@font/mono_medium"
-                    android:textColor="@color/text_wisp"
-                    android:textSize="11sp"
-                    tools:text="top 30" />
-
-            </LinearLayout>
-
             <!-- ================= Column header =================
                  Over the standings only; the prize bands are a different
                  table with different columns. The widths and margins here
@@ -523,6 +257,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="28dp"
+                android:layout_marginTop="20dp"
                 android:layout_marginEnd="28dp"
                 android:layout_marginBottom="8dp"
                 android:orientation="horizontal">
@@ -549,6 +284,11 @@
                     android:textColor="@color/text_wisp"
                     android:textSize="9.5sp" />
 
+                <!-- The one heading that is not grey. XP is violet
+                     everywhere else in the app - see the xp_accent note in
+                     colors.xml - and the column under it now is too, so the
+                     heading has to follow or it reads as a different
+                     column. -->
                 <TextView
                     android:layout_width="56dp"
                     android:layout_height="wrap_content"
@@ -558,7 +298,7 @@
                     android:letterSpacing="0.1"
                     android:text="@string/leaderboard_col_xp"
                     android:textAllCaps="true"
-                    android:textColor="@color/text_wisp"
+                    android:textColor="@color/xp_accent"
                     android:textSize="9.5sp" />
 
                 <TextView
@@ -594,7 +334,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="18dp"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="18dp"
                 android:layout_marginEnd="18dp"
                 android:fontFamily="@font/jakarta_medium"
                 android:lineSpacingMultiplier="1.6"

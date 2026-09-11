@@ -26,74 +26,13 @@
     android:layout_height="match_parent"
     android:background="@color/background_dark">
 
-    <!-- ================= Header ================= -->
-    <LinearLayout
-        android:id="@+id/walletHeader"
-        android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:baselineAligned="false"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingStart="17dp"
-        android:paddingTop="11dp"
-        android:paddingEnd="17dp"
-        android:paddingBottom="8dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_semibold"
-                android:letterSpacing="0.14"
-                android:text="@string/app_name"
-                android:textAllCaps="true"
-                android:textColor="@color/text_ghost"
-                android:textSize="11sp" />
-
-            <TextView
-                android:id="@+id/walletHeaderTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:fontFamily="@font/jakarta_semibold"
-                android:letterSpacing="-0.01"
-                android:text="@string/nav_wallet"
-                android:textColor="@color/text_strong"
-                android:textSize="22sp" />
-
-        </LinearLayout>
-
-        <ImageView
-            android:id="@+id/walletOrdersButton"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="@drawable/bg_icon_button"
-            android:contentDescription="@string/wallet_orders"
-            android:padding="10dp"
-            android:src="@drawable/ic_history"
-            app:tint="@color/text_dim" />
-
-        <ImageView
-            android:id="@+id/walletHelpButton"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/bg_icon_button"
-            android:contentDescription="@string/wallet_help"
-            android:padding="10dp"
-            android:src="@drawable/ic_help"
-            app:tint="@color/text_dim" />
-
-    </LinearLayout>
-
+    <!--
+        No header. The activity toolbar already names the app and the tab, so
+        the "PIXELPAYOUT / Wallet" block here was the same words a second
+        time. The icon buttons it carried went with it: Orders is reached by
+        the segmented control and by the button on the balance card, both of
+        which were already there, and neither needed a third way in.
+    -->
     <androidx.core.widget.NestedScrollView
         android:id="@+id/walletScroll"
         android:layout_width="0dp"
@@ -102,13 +41,14 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/walletHeader">
+        app:layout_constraintTop_toTopOf="parent">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="17dp"
+            android:paddingTop="11dp"
             android:paddingEnd="17dp"
             android:paddingBottom="24dp">
 
@@ -274,20 +214,26 @@
                             android:layout_marginTop="17dp"
                             android:orientation="horizontal">
 
+                            <!--
+                                Painted like Home's redeem button, and for the
+                                same reason: this card is about stars, so its
+                                primary action wears the stars accent. In
+                                violet it read as an XP control standing on a
+                                star balance.
+                            -->
                             <TextView
                                 android:id="@+id/walletEarnMore"
                                 android:layout_width="0dp"
                                 android:layout_height="38dp"
                                 android:layout_weight="1"
-                                android:background="@drawable/bg_button_accent_outline"
-                                android:drawablePadding="6dp"
-                                android:fontFamily="@font/jakarta_semibold"
+                                android:background="@drawable/bg_button_stars_outline"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:fontFamily="@font/jakarta_bold"
                                 android:gravity="center"
                                 android:text="@string/wallet_earn_more"
-                                android:textColor="@color/brand_violet_light"
-                                android:textSize="13sp"
-                                app:drawableStartCompat="@drawable/ic_bolt"
-                                app:drawableTint="@color/brand_violet_light" />
+                                android:textColor="@color/stars_accent"
+                                android:textSize="13sp" />
 
                             <TextView
                                 android:id="@+id/walletOrdersShortcut"

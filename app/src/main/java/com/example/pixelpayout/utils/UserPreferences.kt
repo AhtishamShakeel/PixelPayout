@@ -56,6 +56,26 @@ class UserPreferences(private val context: Context) {
          * rather than of the account.
          */
         private val LAST_ANNOUNCED_LEVEL = intPreferencesKey("lastAnnouncedLevel")
+
+        /**
+         * The most recent week whose leaderboard prize has been celebrated.
+         *
+         * Local for the same reason the level mark is: the prize itself lives
+         * on the account, but whether we have shown a dialog about it is a
+         * property of this install. A user with two devices should be
+         * congratulated on both.
+         */
+        private val LAST_ANNOUNCED_LEADERBOARD_WEEK =
+            intPreferencesKey("lastAnnouncedLeaderboardWeek")
+    }
+
+    val lastAnnouncedLeaderboardWeek: Flow<Int> = context.dataStore.data
+        .map { preferences -> preferences[LAST_ANNOUNCED_LEADERBOARD_WEEK] ?: 0 }
+
+    suspend fun setLastAnnouncedLeaderboardWeek(value: Int) {
+        context.dataStore.edit { preferences ->
+            preferences[LAST_ANNOUNCED_LEADERBOARD_WEEK] = value
+        }
     }
 
     val lastAnnouncedLevel: Flow<Int> = context.dataStore.data

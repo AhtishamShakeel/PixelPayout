@@ -25,8 +25,8 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
-import com.example.pixelpayout.ui.dialogs.ReferralDialogFragment
 import com.example.pixelpayout.ui.play.PlayFragment
+import com.example.pixelpayout.ui.profile.ProfileFragment
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.startLoading
@@ -128,11 +128,11 @@ class HomeFragment : Fragment() {
         super.onResume()
         // Start the timer to update the quiz status if needed
         timerHandler.post(timerRunnable)
-        // Goal progress and the standings both live in server state rather than
-        // a snapshot, so coming back from a game or a quiz is the moment to
-        // re-read them.
+        // Goal progress lives in server state rather than in a snapshot, so
+        // coming back from a game or a quiz is the moment to re-read it. The
+        // standings used to be re-read here too; the board moved to Earn, and
+        // that tab now refreshes it.
         mainViewModel.refreshDailyGoals()
-        mainViewModel.refreshLeaderboard()
     }
     
     override fun onPause() {
@@ -205,8 +205,6 @@ class HomeFragment : Fragment() {
         mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
 
         mainViewModel.dailyGoals.observe(viewLifecycleOwner) { renderGoals(it) }
-
-        mainViewModel.leaderboard.observe(viewLifecycleOwner) { renderLeaderboard(it) }
 
         // Attempts come off the user snapshot now, not from a callable. The
         // countdown half needs no observer at all - it is recomputed by the
@@ -351,7 +349,7 @@ class HomeFragment : Fragment() {
             // whole tile was already the larger target.
             earnAction.setOnClickListener { navigateToRewards() }
             offerCard.setOnClickListener { navigateToRewards() }
-            referAction.setOnClickListener { showReferralDialog() }
+            referAction.setOnClickListener { navigateToReferral() }
 
             streakClaimButton.setOnClickListener { confirmStreakClaim() }
             goalsClaimButton.setOnClickListener { confirmGoalClaim() }
@@ -847,86 +845,9 @@ class HomeFragment : Fragment() {
         }
     }
 
-    /**
-     * The weekly leaderboard card.
-     *
-     * Rank zero means no play this week rather than last place, so it reads as
-     * an invitation instead of a position - telling someone they are "#0" or
-     * dead last for not having started is worse than saying nothing.
-     *
-     * The figure beside the rank is WEEKLY XP, which is what the board is
-     * actually sorted on. Showing stars there would be a scoreboard whose
-     * number had nothing to do with its order.
-     */
-    private fun renderLeaderboard(board: UserRepository.Leaderboard?) {
-        val binding = _binding ?: return
-
-        if (board == null) {
-            binding.leaderboardRow.visibility = View.GONE
-            return
-        }
-        binding.leaderboardRow.visibility = View.VISIBLE
-
-        val pool = formatCount(board.prizePool)
-        binding.leaderboardSubtitle.setStarText(
-            getString(R.string.leaderboard_subtitle, board.size, pool),
-            emphasise = pool,
-            emphasisColor = R.color.stars_accent
-        )
-
-        binding.leaderboardRank.text = if (board.isRanked) {
-            getString(R.string.leaderboard_rank, formatCount(board.myRank))
-        } else {
-            getString(R.string.leaderboard_play_to_enter)
-        }
-
-        // What the rank is WORTH, in Stars, rather than the weekly XP that
-        // produced it. The card is about a prize pool - the figure beside
-        // "You" is the share of it this rank currently takes.
-        //
-        // A ranked user outside the prize zone wins nothing, and "0 stars"
-        // beside their name reads as a payout of zero rather than as a
-        // position that does not pay yet. Unranked users have no standing at
-        // all, which is a third thing again.
-        when {
-            !board.isRanked ->
-                binding.leaderboardMyXp.text =
-                    getString(R.string.leaderboard_unranked_xp)
-
-            board.myPrize > 0 -> {
-                val prize = formatCount(board.myPrize)
-                binding.leaderboardMyXp.setStarText(
-                    getString(R.string.leaderboard_my_prize, prize),
-                    emphasise = prize,
-                    emphasisColor = R.color.stars_accent
-                )
-            }
-
-            else -> binding.leaderboardMyXp.text =
-                getString(R.string.leaderboard_my_none)
-        }
-
-        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
-    }
-
     /** Thousands separators - a rank of 24247 is unreadable without them. */
     private fun formatCount(value: Int): String =
         NumberFormat.getIntegerInstance(Locale.US).format(value)
-
-    /**
-     * Opens the leaderboard screen.
-     *
-     * Guarded on the current destination rather than a boolean: navigating is
-     * asynchronous, so a fast thumb could fire this several times before the
-     * first one arrived, and every tap would push another copy of the screen
-     * onto the stack. Asking where we are is the check that cannot race.
-     */
-    private fun openLeaderboard() {
-        val controller = findNavController()
-        if (controller.currentDestination?.id != R.id.navigation_home) return
-
-        controller.navigate(R.id.leaderboardFragment, null, defaultNavOptions())
-    }
 
     /** The level ladder. Guarded the same way, and for the same reason. */
     private fun openLevelRewards() {
@@ -1093,7 +1014,7 @@ class HomeFragment : Fragment() {
      * sensible instead of doing nothing when tapped.
      */
     private fun openGoalTarget(kind: String) {
-        // Guarded like openLeaderboard: two taps in quick succession would
+        // Guarded like openLevelRewards: two taps in quick succession would
         // otherwise push Play onto the stack twice.
         if (findNavController().currentDestination?.id != R.id.navigation_home) return
 
@@ -1401,11 +1322,22 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * Referral has no destination of its own - it is the same dialog the
-     * activity shows on first run, reached here on demand.
+     * Referral lives on Profile, which holds the whole picture: the code, the
+     * share sheet, the invited/qualified/paid funnel and the list of people
+     * who actually joined. The dialog this row used to open carries only the
+     * code, so it was the smaller half of what the row promises.
+     *
+     * The flag asks Profile to scroll down to the invite block rather than
+     * landing on the account header and leaving the user to find it.
      */
-    private fun showReferralDialog() {
-        ReferralDialogFragment().show(parentFragmentManager, "ReferralDialog")
+    private fun navigateToReferral() {
+        try {
+            val args = bundleOf(ProfileFragment.ARG_SCROLL_TO_REFERRAL to true)
+            findNavController().navigate(R.id.navigation_profile, args, defaultNavOptions())
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to referral: ${e.message}")
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_profile
+        }
     }
 
     private fun defaultNavOptions() = NavOptions.Builder()

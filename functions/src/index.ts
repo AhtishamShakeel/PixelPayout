@@ -16,8 +16,11 @@ import {
   validateGameClaim,
 } from "./economy/gameSession";
 import {buildAward, buildMilestoneEvent} from "./economy/awardReward";
+import {createHash} from "crypto";
 import {
+  buildSignature,
   offerwallTransactionId,
+  resolveNetwork,
   validatePostback,
   OFFERWALL_SECRETS_COLLECTION,
   OFFERWALL_SECRETS_DOC,
@@ -29,13 +32,17 @@ import {
 } from "./economy/payoutFeed";
 import {
   buildSettlement,
-  nextWeeklyXp,
+  mergeSettlementBoard,
   prizeForRank,
+  SettlementEntry,
   settlementCost,
   settlementWeekFor,
   totalWeeklyPrizePool,
   utcWeekFor,
   weekEndMillis,
+  weeklyRollover,
+  FIELD_LAST_WEEKLY_XP,
+  FIELD_LAST_WEEK_KEY,
   LEADERBOARD_PREVIEW_SIZE,
   LEADERBOARD_SETTLEMENTS_COLLECTION,
   LEADERBOARD_SIZE,
@@ -153,9 +160,24 @@ const FIELD_ADLESS_STREAK_CLAIMS = "adlessStreakClaims";
 const FIELD_DAILY_STATS = "dailyStats";
 const FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc";
 // The weekly leaderboard. Reset lazily by comparing weekKey rather than by a
-// job that rewrites every user document at the boundary.
+// job that rewrites every user document at the boundary. The closing total is
+// carried into FIELD_LAST_WEEKLY_XP on the way past, since the settlement for
+// a week runs after users have already started playing the next one.
 const FIELD_WEEKLY_XP = "weeklyXp";
 const FIELD_WEEK_KEY = "weekKey";
+// The last weekly prize this user won, for the app to congratulate them with.
+//
+// A SETTLEMENT USED TO BE SILENT. The Points landed, the balance changed, and
+// nothing anywhere said a prize had been won - the one event in this economy
+// that a user competed for all week was the only one that arrived without a
+// word. This is what the client reads to say so.
+//
+// Written inside the transaction that pays, so it cannot exist without the
+// Points having landed and the Points cannot land without it. It carries
+// everything the dialog needs - the rank, the prize, the XP that earned it -
+// because by the time anyone opens the app the live counters have moved on to
+// a new week and none of it could be recovered from them.
+const FIELD_LAST_LEADERBOARD_PRIZE = "lastLeaderboardPrize";
 const FIELD_ACTIVE_BUFF = "activeBuff";
 // Held apart from the Points buff rather than as one field with a kind, so a
 // user can run both at once and neither grant can clobber the other.
@@ -1288,6 +1310,95 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
 });
 
 /**
+ * Decides one week's standings, once, and records them before anything is paid.
+ *
+ * Two queries because last week's total lives in two places by then: on the
+ * live counters of everyone who has not played since it ended, and on the
+ * carried ones of everyone who has. Each is capped at LEADERBOARD_SIZE, which
+ * is safe - the top thirty of the union cannot contain a row that was outside
+ * the top thirty of the list it came from.
+ *
+ * The marker is written `pending` BEFORE the first transaction runs, so the
+ * ranking survives a crash midway through paying it out. A settlement that
+ * dies here, before any prize has moved, simply recomputes on the next run.
+ */
+async function freezeBoard(
+  markerRef: FirebaseFirestore.DocumentReference,
+  weekKey: number
+): Promise<SettlementEntry[]> {
+  const users = getFirestore().collection(USERS_COLLECTION);
+
+  // The first of these is the same query, and the same composite index, the
+  // live board uses - so what was on screen all week is what gets paid.
+  const [live, carried] = await Promise.all([
+    users
+      .where(FIELD_WEEK_KEY, "==", weekKey)
+      .orderBy(FIELD_WEEKLY_XP, "desc")
+      .limit(LEADERBOARD_SIZE)
+      .get(),
+    users
+      .where(FIELD_LAST_WEEK_KEY, "==", weekKey)
+      .orderBy(FIELD_LAST_WEEKLY_XP, "desc")
+      .limit(LEADERBOARD_SIZE)
+      .get(),
+  ]);
+
+  const payouts = buildSettlement(
+    mergeSettlementBoard(
+      live.docs.map((doc) => ({
+        uid: doc.id,
+        weeklyXp: Number(doc.get(FIELD_WEEKLY_XP) || 0),
+      })),
+      carried.docs.map((doc) => ({
+        uid: doc.id,
+        weeklyXp: Number(doc.get(FIELD_LAST_WEEKLY_XP) || 0),
+      }))
+    )
+  );
+
+  console.log("Weekly leaderboard settling", {
+    weekKey,
+    live: live.size,
+    carried: carried.size,
+    winners: payouts.length,
+    cost: settlementCost(payouts),
+  });
+
+  await markerRef.set(
+    {
+      weekKey,
+      status: "pending",
+      frozenAt: FieldValue.serverTimestamp(),
+      winners: payouts.length,
+      cost: settlementCost(payouts),
+      // The whole board as it will be paid, so a query about last week never
+      // has to be answered from user documents that have since moved on - and
+      // so a retry pays the ranking this attempt decided, not a new one.
+      entries: payouts,
+    },
+    {merge: true}
+  );
+
+  return payouts;
+}
+
+/** The ranking a previous attempt froze. Authoritative, empty week included. */
+function frozenBoard(
+  marker: FirebaseFirestore.DocumentSnapshot,
+  weekKey: number
+): SettlementEntry[] {
+  const entries = marker.get("entries");
+  const payouts: SettlementEntry[] = Array.isArray(entries) ? entries : [];
+
+  console.log("Weekly leaderboard resuming a frozen board", {
+    weekKey,
+    winners: payouts.length,
+  });
+
+  return payouts;
+}
+
+/**
  * Pays out one finished week of the leaderboard.
  *
  * The board has been promising prizes since it shipped and nothing has ever
@@ -1310,6 +1421,27 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
  *      for all thirty: a single transaction spanning thirty user documents
  *      contends with live play and gets retried whole, and a failure halfway
  *      through must not roll back prizes that already landed.
+ *   5. THE BOARD IS FROZEN BEFORE A PENNY MOVES. The two problems that come
+ *      from reading a live collection at settlement time, and what answers
+ *      them:
+ *
+ *      THE BOARD MOVES UNDER A RETRY. A first attempt that pays fifteen
+ *      winners and then dies used to leave the rest to a second attempt that
+ *      re-read the collection - by which time the standings had changed, so
+ *      the two halves of one settlement could rank the same week differently
+ *      and hand a prize to somebody the first half had already ranked
+ *      elsewhere. Per-user idempotency cannot see that: it stops a user being
+ *      paid twice, not the week being ranked twice. So the ranking is decided
+ *      once, written to the marker as `pending`, and every later attempt pays
+ *      from that record instead of asking the collection again.
+ *
+ *      THE WINNERS HAVE ALREADY MOVED ON. The live counters are overwritten
+ *      the moment somebody plays in the new week, and this job runs five
+ *      minutes into it - so a query for last week silently omits anyone who
+ *      opened the app after the reset, which is exactly the population most
+ *      likely to have been at the top. The rollover preserves each closing
+ *      total under lastWeekKey/lastWeeklyXp, and the board is the merge of
+ *      both queries. Reading only the live one paid the runner-up.
  */
 async function settleLeaderboardWeek(weekKey: number): Promise<{
   weekKey: number;
@@ -1335,30 +1467,17 @@ async function settleLeaderboardWeek(weekKey: number): Promise<{
     };
   }
 
-  // The same query, and the same composite index, the live board uses - so
-  // what was on screen all week is what gets paid.
-  const snapshot = await firestore
-    .collection(USERS_COLLECTION)
-    .where(FIELD_WEEK_KEY, "==", weekKey)
-    .orderBy(FIELD_WEEKLY_XP, "desc")
-    .limit(LEADERBOARD_SIZE)
-    .get();
-
-  const payouts = buildSettlement(
-    snapshot.docs.map((doc) => ({
-      uid: doc.id,
-      weeklyXp: Number(doc.get(FIELD_WEEKLY_XP) || 0),
-    }))
-  );
-
-  console.log("Weekly leaderboard settling", {
-    weekKey,
-    winners: payouts.length,
-    cost: settlementCost(payouts),
-  });
+  const payouts = marker.get("status") === "pending" ?
+    frozenBoard(marker, weekKey) :
+    await freezeBoard(markerRef, weekKey);
 
   let paid = 0;
   let pointsPaid = 0;
+
+  // One stamp for the whole settlement rather than one per winner, so every
+  // winner's announcement is dated the moment the week was paid - not the
+  // moment their particular transaction happened to commit.
+  const settledAtMillis = Date.now();
 
   for (const payout of payouts) {
     const userRef = firestore.collection(USERS_COLLECTION).doc(payout.uid);
@@ -1395,7 +1514,18 @@ async function settleLeaderboardWeek(weekKey: number): Promise<{
         }
       );
 
-      writeAward(transaction, userRef, ledgerRef, award);
+      // The announcement rides the same write as the payment. There is no
+      // second path that could leave a user congratulated but unpaid, or paid
+      // and never told.
+      writeAward(transaction, userRef, ledgerRef, award, {
+        [FIELD_LAST_LEADERBOARD_PRIZE]: {
+          weekKey,
+          rank: payout.rank,
+          points: payout.points,
+          weeklyXp: payout.weeklyXp,
+          settledAtMillis,
+        },
+      });
       return true;
     });
 
@@ -1405,6 +1535,10 @@ async function settleLeaderboardWeek(weekKey: number): Promise<{
     }
   }
 
+  // `entries` is already on the document - it was written when the board was
+  // frozen - so this only records what became of it. Merged rather than set,
+  // for that reason: rewriting the board here would let a completion overwrite
+  // the very record the retry path depends on.
   await markerRef.set(
     {
       weekKey,
@@ -1413,9 +1547,6 @@ async function settleLeaderboardWeek(weekKey: number): Promise<{
       winners: payouts.length,
       paid,
       pointsPaid,
-      // The whole board as it was paid, so a query about last week never has
-      // to be answered from user documents that have since moved on.
-      entries: payouts,
     },
     {merge: true}
   );
@@ -1893,14 +2024,20 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // Weekly leaderboard. Written here rather than in writeAward so it counts
     // play alone: streak and referral XP go through the same award path, and
     // counting those would let someone place by signing up friends.
-    const weekKey = utcWeekFor(Date.now());
-    extraUpdates[FIELD_WEEKLY_XP] = nextWeeklyXp(
+    const weekly = weeklyRollover(
       userDoc.get(FIELD_WEEK_KEY) as number | undefined,
       userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
-      weekKey,
+      utcWeekFor(Date.now()),
       xpAward
     );
-    extraUpdates[FIELD_WEEK_KEY] = weekKey;
+    extraUpdates[FIELD_WEEKLY_XP] = weekly.weeklyXp;
+    extraUpdates[FIELD_WEEK_KEY] = weekly.weekKey;
+    // Only on the claim that crosses a boundary, and this is the claim that
+    // would otherwise erase a winning week before it had been paid for.
+    if (weekly.lastWeekKey !== undefined) {
+      extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
+      extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+    }
 
     if (rewardSource === "GAME") stats.games += 1;
     if (rewardSource === "QUIZ") {
@@ -2170,25 +2307,31 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
 
     // The weekly leaderboard, and nothing else.
     //
-    // Read through nextWeeklyXp rather than incremented blindly so a week
+    // Read through weeklyRollover rather than incremented blindly so a week
     // that rolls over between the base claim and its double resets the total
-    // instead of carrying last week's into this one. That gap is seconds
-    // wide, but it is exactly as wide as a rewarded ad and the boundary does
-    // not care.
+    // instead of carrying last week's into this one - and preserves the
+    // closing figure on the way past, so the double cannot be what wipes a
+    // winning week out from under the settlement. That gap is seconds wide,
+    // but it is exactly as wide as a rewarded ad and the boundary does not
+    // care.
     //
     // The daily goal counters and the attempt counters stay untouched: this
     // is one attempt being paid twice, not a second attempt, so a double must
     // never advance a goal or spend an allowance.
-    const weekKey = utcWeekFor(Date.now());
+    const weekly = weeklyRollover(
+      userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+      userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+      utcWeekFor(Date.now()),
+      bonusXp
+    );
     const extraUpdates: Record<string, FieldValue | number> = {
-      [FIELD_WEEKLY_XP]: nextWeeklyXp(
-        userDoc.get(FIELD_WEEK_KEY) as number | undefined,
-        userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
-        weekKey,
-        bonusXp
-      ),
-      [FIELD_WEEK_KEY]: weekKey,
+      [FIELD_WEEKLY_XP]: weekly.weeklyXp,
+      [FIELD_WEEK_KEY]: weekly.weekKey,
     };
+    if (weekly.lastWeekKey !== undefined) {
+      extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
+      extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+    }
 
     const {milestonePoints, milestoneLevels} =
       writeAward(transaction, userRef, doubleRef, award, extraUpdates);
@@ -3014,6 +3157,55 @@ export const offerwallCallback = functions.https.onRequest(
         rejection: validation.rejection,
         sourceIp,
       });
+
+      // TEMPORARY - REMOVE ONCE TAPJOY IS CREDITING.
+      //
+      // A bare "bad_signature" cannot tell a wrong secret from a wrong
+      // template, and guessing between the two costs a dashboard round trip
+      // each time. This prints enough to settle it in one callback.
+      //
+      // THE SECRET IS NEVER PRINTED. What goes out is a fingerprint - the
+      // first 8 hex of its SHA-256 - which is enough to compare the stored
+      // value against a known one (is this the SDK key by mistake?) and
+      // useless for signing anything. The rest is what the partner already
+      // sent us in the clear.
+      if (validation.rejection === "bad_signature") {
+        try {
+          const debugConfig = resolveNetwork(
+            configSnapshot.exists ? configSnapshot.data() : null,
+            network
+          );
+          if (debugConfig) {
+            const expected = buildSignature(query, debugConfig, rawQuery);
+            const received = debugConfig.signatureHeader ?
+              headers[debugConfig.signatureHeader.toLowerCase()] :
+              query[debugConfig.paramNames.signature];
+            const template = debugConfig.signatureTemplate.replace(
+              /\{(\w+)\}/g,
+              (_m, key: string) =>
+                key === "secret" ?
+                  "<SECRET>" :
+                  `${key}=${query[key] ?? "<MISSING>"}`
+            );
+            console.error("Offerwall signature debug", {
+              scheme: debugConfig.scheme,
+              template: debugConfig.signatureTemplate,
+              templateFilled: template,
+              expected,
+              received,
+              secretLength: debugConfig.secret.length,
+              secretFingerprint: createHash("sha256")
+                .update(debugConfig.secret)
+                .digest("hex")
+                .slice(0, 8),
+              params: Object.keys(query).sort().join(","),
+              query,
+            });
+          }
+        } catch (error) {
+          console.error("Offerwall signature debug failed", error);
+        }
+      }
 
       const status =
         validation.rejection === "bad_signature" ||

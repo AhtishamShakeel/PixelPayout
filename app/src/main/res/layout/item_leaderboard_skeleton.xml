@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    A standings row with nothing in it yet.
+
+    THE GEOMETRY IS COPIED FROM item_leaderboard ON PURPOSE - same card, same
+    padding, same four column widths, same 6dp gap. The whole value of a
+    skeleton is that the real rows land in the space the placeholders were
+    already holding, so the list does not jump when the callable answers. A
+    loosely-similar placeholder is worse than none: it moves everything the
+    moment the data arrives, which is the exact flicker it was meant to stop.
+
+    Blocks rather than a spinner, because the callable behind this is a cold
+    Cloud Function and the first call of the day can take a couple of seconds
+    (see the cold-start note on getLeaderboard). A spinner says "wait"; this
+    says "a table of thirty places is coming", which is the honest shape of
+    what is loading.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    android:background="@drawable/bg_row_card"
+    android:baselineAligned="false"
+    android:gravity="center_vertical"
+    android:importantForAccessibility="noHideDescendants"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="10dp">
+
+    <!-- Rank. Narrower than the 40dp column it sits in, centred like the
+         numeral it stands in for. -->
+    <FrameLayout
+        android:layout_width="40dp"
+        android:layout_height="wrap_content">
+
+        <View
+            android:layout_width="16dp"
+            android:layout_height="11dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_skeleton_block" />
+
+    </FrameLayout>
+
+    <View
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="4dp"
+        android:background="@drawable/bg_skeleton_circle" />
+
+    <!-- The name. Not full width: a block running the whole column reads as a
+         loading BAR rather than as a name that has not arrived. -->
+    <View
+        android:layout_width="0dp"
+        android:layout_height="11dp"
+        android:layout_marginStart="10dp"
+        android:layout_marginEnd="40dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_skeleton_block" />
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="11dp"
+        android:layout_marginStart="8dp"
+        android:background="@drawable/bg_skeleton_block" />
+
+    <View
+        android:layout_width="34dp"
+        android:layout_height="11dp"
+        android:layout_marginStart="26dp"
+        android:background="@drawable/bg_skeleton_block" />
+
+</LinearLayout>

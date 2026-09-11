@@ -506,13 +506,11 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_back">Back</string>
     <string name="leaderboard_prize_star">%1$s ★</string>
     <string name="leaderboard_no_prize_dash">—</string>
-    <string name="leaderboard_meta_standings">top %1$d</string>
     <!-- Column headings over the standings table. -->
     <string name="leaderboard_col_rank">Rank</string>
     <string name="leaderboard_col_user">User</string>
     <string name="leaderboard_col_xp">XP</string>
     <string name="leaderboard_col_prize">Prize</string>
-    <string name="leaderboard_meta_prizes">%1$s ★ a week</string>
     <string name="leaderboard_prize_zone_ends">Prize zone ends at #%1$d</string>
     <string name="leaderboard_band_one_winner">1 winner</string>
     <string name="leaderboard_band_each">%1$d each</string>
@@ -526,6 +524,28 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_to_next_band">%1$s XP to the next prize band</string>
     <string name="leaderboard_top_of_board">Top of the board</string>
     <string name="leaderboard_zone_target">top %1$d</string>
+    <!-- Shown while the board is in flight. The pool line names no figure
+         because we do not have one yet, and the standing line says what we
+         are doing rather than asserting a rank of zero. -->
+    <string name="leaderboard_pool_loading">Loading the weekly prize pool</string>
+    <string name="leaderboard_loading_standing">Loading your standing…</string>
+    <string name="leaderboard_placeholder">—</string>
+    <string name="leaderboard_subtitle_loading">Weekly prize pool</string>
+
+    <!-- The weekly prize congratulation. Shown once per settled week, on
+         whichever screen the winner opens next. The copy never says "claim"
+         or "collect": the stars were credited by the settlement itself, and
+         this is an announcement, not an offer. -->
+    <string name="leaderboard_prize_eyebrow">Weekly tournament</string>
+    <string name="leaderboard_prize_title">%1$s place</string>
+    <string name="leaderboard_prize_message">Your stars have already been added to your balance.</string>
+    <string name="leaderboard_prize_place_label">Your place</string>
+    <string name="leaderboard_prize_place_value">#%1$d of %2$d paid</string>
+    <string name="leaderboard_prize_xp_label">XP that week</string>
+    <string name="leaderboard_prize_week_label">Week</string>
+    <string name="leaderboard_prize_done">Nice</string>
+    <string name="leaderboard_prize_view_board">See this week’s board</string>
+    <string name="leaderboard_prize_close">Close</string>
 
 
     <!-- ==================================================================
@@ -713,6 +733,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
          approves us there are no walls at all, and this screen still has to
          look like a finished part of the app rather than a dead end. -->
     <string name="offerwall_close">Close</string>
+    <string name="offerwall_section_title">Offers</string>
     <string name="offerwall_empty_title">No offers right now</string>
     <string name="offerwall_empty_body">Offers come and go depending on what is available in your country. Check back soon — meanwhile, games and quizzes still earn XP.</string>
 

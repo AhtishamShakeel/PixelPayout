@@ -85,6 +85,24 @@ export const LEADERBOARD_PRIZES: PrizeBand[] = [
 export const LEADERBOARD_SETTLEMENTS_COLLECTION = "leaderboardSettlements";
 
 /**
+ * Last week's finished total, kept on the user document beside this week's.
+ *
+ * The reason it has to exist: the live counters are overwritten the moment a
+ * user plays in a new week, and the settlement for the week that just ended
+ * runs AFTER that boundary. Anyone who played between midnight on Monday and
+ * the settlement would have had their winning total replaced by a fresh one
+ * and would not have been found by a query for last week at all - the player
+ * most likely to be at the top of the board is exactly the player most likely
+ * to open the app the moment it resets.
+ *
+ * So the rollover copies the closing total across rather than discarding it,
+ * and the settlement reads both. Two fields, written only on the one claim
+ * that crosses a boundary; the lazy reset is otherwise unchanged.
+ */
+export const FIELD_LAST_WEEKLY_XP = "lastWeeklyXp";
+export const FIELD_LAST_WEEK_KEY = "lastWeekKey";
+
+/**
  * The week a settlement running now should pay: the one that has just ended.
  *
  * Derived from the clock rather than from the schedule, so a job that fires
@@ -131,6 +149,46 @@ export interface SettlementEntry {
   rank: number;
   weeklyXp: number;
   points: number;
+}
+
+/**
+ * The board a settlement should pay, from the two places last week can hide.
+ *
+ * `current` is everyone whose live counters still read the settled week -
+ * players who have not touched the app since it ended. `carried` is everyone
+ * who has played since, whose closing total was preserved by the rollover.
+ * Neither list is the board on its own, and the missing half is always the
+ * more active one.
+ *
+ * ORDERED THE WAY FIRESTORE ORDERS IT: by XP descending, then by uid
+ * ascending. Two players on the same XP are separated by document name in the
+ * live board's query, and this merge has to reproduce that or a settlement
+ * would rank ties differently from the screen that promised the prize.
+ *
+ * A uid can only appear in one list - the rollover never writes the same week
+ * into both the live and the carried key - but it is deduplicated anyway,
+ * keeping the higher total, because paying somebody twice for one week is the
+ * failure this whole path exists to avoid.
+ */
+export function mergeSettlementBoard(
+  current: Array<{uid: string; weeklyXp: number}>,
+  carried: Array<{uid: string; weeklyXp: number}>
+): Array<{uid: string; weeklyXp: number}> {
+  const best = new Map<string, number>();
+
+  for (const entry of [...current, ...carried]) {
+    const xp = Math.max(Math.trunc(entry.weeklyXp) || 0, 0);
+    const seen = best.get(entry.uid);
+    if (seen === undefined || xp > seen) best.set(entry.uid, xp);
+  }
+
+  return [...best.entries()]
+    .map(([uid, weeklyXp]) => ({uid, weeklyXp}))
+    .sort((a, b) =>
+      (b.weeklyXp - a.weeklyXp) ||
+      (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)
+    )
+    .slice(0, LEADERBOARD_SIZE);
 }
 
 /**
@@ -191,4 +249,50 @@ export function nextWeeklyXp(
   const gain = Math.max(Math.trunc(xpAwarded) || 0, 0);
   if (storedWeekKey !== currentWeekKey) return gain;
   return Math.max(Math.trunc(storedWeeklyXp as number) || 0, 0) + gain;
+}
+
+/**
+ * Everything a claim has to write to the weekly counters, rollover included.
+ *
+ * [nextWeeklyXp] answers what this week's total becomes; this answers what
+ * the document should look like afterwards, which is a different question on
+ * the one claim in a week that crosses a boundary. On that claim the closing
+ * total of the week being left is copied to [FIELD_LAST_WEEKLY_XP] so the
+ * settlement can still find it.
+ *
+ * The carry fields come back only when there is genuinely a finished week to
+ * preserve - a real stored week, with a real total on it. Returning them on
+ * every claim would rewrite two fields on every reward for nothing, and
+ * writing a zero-XP carry would put users who never scored into a query that
+ * only wants winners.
+ */
+export interface WeeklyRollover {
+  weekKey: number;
+  weeklyXp: number;
+  /** Set only when this claim is the one that crosses into a new week. */
+  lastWeekKey?: number;
+  lastWeeklyXp?: number;
+}
+
+export function weeklyRollover(
+  storedWeekKey: number | null | undefined,
+  storedWeeklyXp: number | null | undefined,
+  currentWeekKey: number,
+  xpAwarded: number
+): WeeklyRollover {
+  const weeklyXp = nextWeeklyXp(
+    storedWeekKey, storedWeeklyXp, currentWeekKey, xpAwarded
+  );
+  const rollover: WeeklyRollover = {weekKey: currentWeekKey, weeklyXp};
+
+  if (typeof storedWeekKey !== "number" || storedWeekKey === currentWeekKey) {
+    return rollover;
+  }
+
+  const closing = Math.max(Math.trunc(storedWeeklyXp as number) || 0, 0);
+  if (closing <= 0) return rollover;
+
+  rollover.lastWeekKey = storedWeekKey;
+  rollover.lastWeeklyXp = closing;
+  return rollover;
 }

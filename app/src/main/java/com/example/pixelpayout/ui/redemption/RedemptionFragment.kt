@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -11,9 +12,12 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.navigation.NavOptions
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.GridSpacingItemDecoration
 import com.google.android.material.snackbar.Snackbar
@@ -126,19 +130,13 @@ class RedemptionFragment : Fragment() {
     private fun setupNavigation() {
         binding.segmentWallet.setOnClickListener { showOrders(false) }
         binding.segmentOrders.setOnClickListener { showOrders(true) }
-        binding.walletOrdersButton.setOnClickListener { showOrders(true) }
         binding.walletOrdersShortcut.setOnClickListener { showOrders(true) }
         binding.walletPendingRow.setOnClickListener { showOrders(true) }
 
-        // Earning happens on the other tabs, so this hands the user back to
-        // the bottom bar rather than opening anything of its own.
-        binding.walletEarnMore.setOnClickListener {
-            requireActivity().findViewById<View>(R.id.navigation_play)?.performClick()
-        }
-
-        binding.walletHelpButton.setOnClickListener {
-            Snackbar.make(binding.root, R.string.sheet_delivery_note, Snackbar.LENGTH_LONG).show()
-        }
+        // Earn, not Play. This card counts stars, and Play pays XP for games
+        // and quizzes - sending somebody who wants a bigger balance to a
+        // screen that grows the other currency is the wrong half of the app.
+        binding.walletEarnMore.setOnClickListener { navigateToEarn() }
 
         binding.firstRedeemButton.setOnClickListener {
             // Disabled while locked, so this can only be a real attempt.
@@ -189,7 +187,41 @@ class RedemptionFragment : Fragment() {
             .show(parentFragmentManager, RedeemSheetFragment.TAG)
     }
 
+    /**
+     * Earn is a tab that comes and goes with the offerwall catalogue, the
+     * same switch the bottom bar follows. Leaving the button up when the tab
+     * is gone would send the user to a destination the bar does not admit to
+     * - so it goes too, and the Orders button beside it takes the full row.
+     */
+    private fun navigateToEarn() {
+        try {
+            val navOptions = NavOptions.Builder()
+                .setEnterAnim(R.anim.fade_in)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.fade_out)
+                .build()
+
+            findNavController().navigate(R.id.navigation_rewards, null, navOptions)
+        } catch (e: Exception) {
+            Log.e("Navigation", "Error navigating to earn: ${e.message}")
+            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_rewards
+        }
+    }
+
     private fun observeViewModel() {
+        mainViewModel.offerwallAvailable.observe(viewLifecycleOwner) { available ->
+            val b = _binding ?: return@observe
+            b.walletEarnMore.isVisible = available
+            // The two buttons are weighted halves of one row; with Earn gone
+            // the margin that separated them would sit against the card edge.
+            (b.walletOrdersShortcut.layoutParams as? android.widget.LinearLayout.LayoutParams)
+                ?.let { params ->
+                    params.marginStart = if (available) dp(8) else 0
+                    b.walletOrdersShortcut.layoutParams = params
+                }
+        }
+
         viewModel.games.observe(viewLifecycleOwner) { games ->
             gamesAdapter.submitList(games)
             binding.walletGamesCount.text = when (games.size) {

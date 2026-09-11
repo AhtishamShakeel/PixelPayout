@@ -4,7 +4,9 @@
  */
 import {
   buildSettlement,
+  mergeSettlementBoard,
   nextWeeklyXp,
+  weeklyRollover,
   prizeForRank,
   settlementCost,
   settlementWeekFor,
@@ -101,6 +103,104 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
     nextWeeklyXp(week, 40, week, -10), 40);
   assertEq("a fractional award is truncated",
     nextWeeklyXp(week, 40, week, 10.9), 50);
+}
+
+// --- the rollover carry ------------------------------------------------------
+//
+// The bug this guards: settlement runs five minutes into the new week, and a
+// claim before then used to overwrite the total it was about to be paid for.
+{
+  const week = 2900;
+
+  const same = weeklyRollover(week, 40, week, 10);
+  assertEq("a claim inside the week carries nothing",
+    same, {weekKey: week, weeklyXp: 50});
+
+  const rolled = weeklyRollover(week - 1, 5000, week, 10);
+  assertEq("the first claim of a new week preserves the closing total",
+    rolled,
+    {weekKey: week, weeklyXp: 10, lastWeekKey: week - 1, lastWeeklyXp: 5000});
+
+  assertEq("a second claim in the new week does not re-carry",
+    weeklyRollover(week, 10, week, 10), {weekKey: week, weeklyXp: 20});
+
+  assertEq("a brand new user has no week to preserve",
+    weeklyRollover(undefined, undefined, week, 10),
+    {weekKey: week, weeklyXp: 10});
+
+  // Nothing to pay, so nothing to find: a zero carry would only add rows to a
+  // query that exists to locate winners.
+  assertEq("a week that scored nothing is not carried",
+    weeklyRollover(week - 1, 0, week, 10), {weekKey: week, weeklyXp: 10});
+
+  assertEq("a corrupt stored total is not carried",
+    weeklyRollover(week - 1, -5, week, 10), {weekKey: week, weeklyXp: 10});
+
+  // The reproduction from the report, end to end: last week's winner plays
+  // right after the reset, and must still be findable as last week's winner.
+  const winner = weeklyRollover(week - 1, 4800, week, 30);
+  assertEq("last week's winner is still payable after playing on Monday",
+    winner.lastWeeklyXp, 4800);
+  assertEq("...and is ranked under last week, not this one",
+    winner.lastWeekKey, week - 1);
+}
+
+// --- merging the two halves of a finished week -------------------------------
+{
+  const merged = mergeSettlementBoard(
+    [{uid: "idle", weeklyXp: 300}],
+    [{uid: "played-on", weeklyXp: 900}]
+  );
+  assertEq("a player who moved on still outranks one who did not",
+    merged, [
+      {uid: "played-on", weeklyXp: 900},
+      {uid: "idle", weeklyXp: 300},
+    ]);
+
+  // Firestore separates equal scores by document name; the merge has to agree
+  // with it or the settlement would rank ties differently from the screen.
+  assertEq("ties break on uid, ascending, as Firestore orders them",
+    mergeSettlementBoard(
+      [{uid: "zoe", weeklyXp: 100}],
+      [{uid: "amy", weeklyXp: 100}]
+    ),
+    [{uid: "amy", weeklyXp: 100}, {uid: "zoe", weeklyXp: 100}]);
+
+  assertEq("a uid in both halves is counted once, at its best total",
+    mergeSettlementBoard(
+      [{uid: "dup", weeklyXp: 100}],
+      [{uid: "dup", weeklyXp: 400}]
+    ),
+    [{uid: "dup", weeklyXp: 400}]);
+
+  // Each half arrives already capped at LEADERBOARD_SIZE, so the union can be
+  // twice that; the board itself must not be.
+  const wide = mergeSettlementBoard(
+    Array.from({length: LEADERBOARD_SIZE}, (_, i) => ({
+      uid: `live-${i}`, weeklyXp: 1000 - i,
+    })),
+    Array.from({length: LEADERBOARD_SIZE}, (_, i) => ({
+      uid: `carried-${i}`, weeklyXp: 2000 - i,
+    }))
+  );
+  assertEq("the merged board is still capped at the board size",
+    wide.length, LEADERBOARD_SIZE);
+  assertEq("and the cap keeps the highest scores",
+    wide[0], {uid: "carried-0", weeklyXp: 2000});
+
+  assertEq("a week nobody played merges to nothing",
+    mergeSettlementBoard([], []), []);
+
+  // The merge feeds buildSettlement, so the whole path has to hold together.
+  const paid = buildSettlement(mergeSettlementBoard(
+    [{uid: "runner-up", weeklyXp: 400}],
+    [{uid: "winner", weeklyXp: 900}]
+  ));
+  assertEq("the winner is paid first prize, not the runner-up",
+    paid, [
+      {uid: "winner", rank: 1, weeklyXp: 900, points: 350},
+      {uid: "runner-up", rank: 2, weeklyXp: 400, points: 200},
+    ]);
 }
 
 // --- the prize table ---------------------------------------------------------

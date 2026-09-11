@@ -199,13 +199,33 @@ class UserRepository {
                                     it.getLong(FIELD_BONUS_GAME_ATTEMPTS)?.toInt() ?: 0,
                                 attemptsStampedAtMillis =
                                     it.getTimestamp(FIELD_LAST_RESET_TIME)
-                                        ?.toDate()?.time
+                                        ?.toDate()?.time,
+                                lastLeaderboardPrize = parseLeaderboardPrize(
+                                    it.get(FIELD_LAST_LEADERBOARD_PRIZE)
+                                )
                             )
                         )
                     }
                 }
         }
     }
+
+    /**
+     * One settled week, as the app has to tell it back to the user.
+     *
+     * Every figure is carried rather than recomputed. By the time a winner
+     * opens the app the week has rolled, their weekly XP has been replaced
+     * and the board shows a different set of names - so nothing here could be
+     * recovered from live state, and a dialog that tried would be describing
+     * the wrong week.
+     */
+    data class LeaderboardPrize(
+        val weekKey: Int,
+        val rank: Int,
+        val points: Int,
+        val weeklyXp: Int,
+        val settledAtMillis: Long
+    )
 
     data class UserData(
         val points: Int,
@@ -266,7 +286,17 @@ class UserRepository {
          * Shared by both counters: the server re-stamps it on whichever
          * activity the user does first on a new day, and zeroes the other.
          */
-        val attemptsStampedAtMillis: Long? = null
+        val attemptsStampedAtMillis: Long? = null,
+        /**
+         * The last weekly leaderboard prize this account won, or null.
+         *
+         * Written by the Monday settlement in the same transaction that pays
+         * the stars, so it is there to be announced whenever the user next
+         * opens the app. It is not cleared by anything: the client decides
+         * what it has already said, the same way it does for level rewards
+         * and settled payouts.
+         */
+        val lastLeaderboardPrize: LeaderboardPrize? = null
     ) {
         /**
          * Attempts used TODAY.
@@ -440,6 +470,36 @@ class UserRepository {
             .filter { it > 1 }
             .distinct()
             .sorted()
+    }
+
+    /**
+     * The settled prize on the user document, if there is one.
+     *
+     * Every field is required, and a map missing any of them parses to null
+     * rather than to a prize with a zero in it. This drives a full-screen
+     * congratulation naming a rank and an amount; a partial read would put a
+     * "#0" or a "0 stars" in front of somebody who really did win something,
+     * which is worse than saying nothing and asking again on the next
+     * snapshot.
+     */
+    private fun parseLeaderboardPrize(raw: Any?): LeaderboardPrize? {
+        val map = raw as? Map<*, *> ?: return null
+        val weekKey = (map["weekKey"] as? Number)?.toInt() ?: return null
+        val rank = (map["rank"] as? Number)?.toInt() ?: return null
+        val points = (map["points"] as? Number)?.toInt() ?: return null
+        val settledAt = (map["settledAtMillis"] as? Number)?.toLong() ?: return null
+        if (rank < 1 || points <= 0) return null
+
+        return LeaderboardPrize(
+            weekKey = weekKey,
+            rank = rank,
+            points = points,
+            // The only optional one: it is context on the dialog, not the
+            // claim it makes, so a missing figure reads as 0 and the line
+            // that shows it is hidden.
+            weeklyXp = (map["weeklyXp"] as? Number)?.toInt() ?: 0,
+            settledAtMillis = settledAt
+        )
     }
 
     data class RewardClaimResult(
@@ -1629,6 +1689,7 @@ class UserRepository {
         private const val FIELD_LEVEL = "level"
         private const val FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards"
         private const val FIELD_LAST_RESET_TIME = "last_reset_time"
+        private const val FIELD_LAST_LEADERBOARD_PRIZE = "lastLeaderboardPrize"
         private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
         private const val FIELD_GAME_ATTEMPTS = "game_attempts"
         private const val FIELD_BONUS_QUIZ_ATTEMPTS = "bonus_quiz_attempts"

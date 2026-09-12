@@ -2,9 +2,9 @@ package com.example.pixelpayout.ui.rewards
 
 import android.view.LayoutInflater
 import android.view.ViewGroup
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pixelpayout.data.model.OfferwallEntry
+import com.pixelpayout.R
 import com.pixelpayout.databinding.ItemOfferwallBinding
 
 /**
@@ -26,11 +26,9 @@ class OfferwallAdapter(
 
         fun bind(wall: OfferwallEntry) {
             binding.offerwallName.text = wall.name
-            binding.offerwallSubtitle.text = wall.subtitle
-            // Collapsed rather than left blank: subtitle is optional in the
-            // catalogue, and an empty line leaves the row taller than its
-            // neighbours for no reason.
-            binding.offerwallSubtitle.isVisible = wall.subtitle.isNotEmpty()
+            binding.offerwallSubtitle.text = wall.subtitle.ifBlank {
+                binding.root.context.getString(R.string.earn_offers_subtitle)
+            }
             binding.root.setOnClickListener { onClick(wall) }
         }
     }

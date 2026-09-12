@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <color name="earn_background">#090D20</color>
+    <color name="earn_accent">#8A42FF</color>
+    <color name="earn_text_secondary">#B9B4E4</color>
+    <string name="earn_weekly">Weekly</string>
+    <string name="earn_tournament">tournament</string>
+    <string name="earn_rank_by_xp">Rank by XP</string>
+    <string name="earn_pool_summary" tools:ignore="PluralsCandidate">Top %1$d share %2$s stars</string>
+    <string name="earn_rank_you">#%1$s · You</string>
+    <string name="earn_unranked_you">Unranked · You</string>
+    <string name="earn_xp">%1$s XP</string>
+    <string name="earn_your_xp">Your tournament XP</string>
+    <string name="earn_prize_pool">Prize pool</string>
+    <string name="earn_pool_value">%1$s ★</string>
+    <string name="earn_pool_share" tools:ignore="PluralsCandidate">Top %1$d share</string>
+    <string name="earn_view_tournament">View tournament</string>
+    <string name="earn_offers_heading">Earn with <font color="#8A42FF">offers</font></string>
+    <string name="earn_offers_subtitle">Complete offers to earn stars</string>
+    <string name="earn_step_choose">Choose offer</string>
+    <string name="earn_step_complete">Complete</string>
+    <string name="earn_step_stars">Get stars</string>
+    <string name="earn_offer_title">Apps, games\n&amp; surveys</string>
+    <string name="earn_explore_offers">Explore offers</string>
+    <style name="EarnBody">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">@font/jakarta_medium</item>
+        <item name="android:textColor">@color/earn_text_secondary</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:includeFontPadding">false</item>
+    </style>
+    <style name="EarnLabel" parent="EarnBody">
+        <item name="android:fontFamily">@font/jakarta_semibold</item>
+        <item name="android:textColor">@color/white</item>
+    </style>
+    <style name="EarnValue" parent="EarnLabel">
+        <item name="android:fontFamily">@font/jakarta_bold</item>
+        <item name="android:textColor">@color/stars_accent</item>
+        <item name="android:textSize">21sp</item>
+    </style>
+    <style name="EarnButton" parent="EarnLabel">
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">38dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/bg_earn_button</item>
+        <item name="android:fontFamily">@font/jakarta_bold</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingBottom">10dp</item>
+    </style>
+</resources>

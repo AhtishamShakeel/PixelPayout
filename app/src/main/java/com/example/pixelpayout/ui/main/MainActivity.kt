@@ -246,15 +246,31 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val lastSeen = userPreferences.lastSeenRedemptionResolvedAt.firstOrNull() ?: 0L
 
-            // First run on this device: adopt the current history silently.
-            // Everything already settled predates the app knowing about it, and
-            // greeting a fresh install with news of a months-old payout would be
-            // worse than saying nothing.
+            // FIRST RUN ON THIS DEVICE, WHICH IS NOT THE SAME AS "NOTHING HAS
+            // HAPPENED YET", and telling the two apart is what the window
+            // below is for.
+            //
+            // The mark is only written when something has actually resolved,
+            // so on a fresh account the first thing ever to resolve was also
+            // the thing that wrote the mark - and adopting unconditionally
+            // meant that settlement was silently swallowed, every time. It
+            // read as "the discounted order never announces", because a
+            // first-redeem order is by definition the first order an account
+            // places, so it was always the one that landed on this branch.
+            //
+            // So: anything OLD is history this install never saw and is
+            // adopted silently; anything recent is news and falls through to
+            // the announcement below, first settlement included.
             if (lastSeen == 0L) {
-                userPreferences.setLastSeenRedemptionResolvedAt(
-                    resolved.maxOf { it.resolvedAtMillis }
-                )
-                return@launch
+                val newestAt = resolved.maxOf { it.resolvedAtMillis }
+                if (ServerClock.now() - newestAt > RESULT_FRESHNESS_MS) {
+                    userPreferences.setLastSeenRedemptionResolvedAt(newestAt)
+                    return@launch
+                }
+                // Falls through with lastSeen still 0, so every resolved entry
+                // counts as unseen - the newest is announced and the rest are
+                // marked with it, which is what the code below already does
+                // when several settle at once.
             }
 
             val unseen = resolved.filter { it.resolvedAtMillis > lastSeen }
@@ -677,6 +693,17 @@ class MainActivity : AppCompatActivity() {
          * forgotten. See maybeAnnounceLeaderboardPrize.
          */
         private const val PRIZE_FRESHNESS_MS = 21L * 24 * 60 * 60 * 1000
+
+        /**
+         * The same question for a settled payout, and the same answer.
+         *
+         * It only ever decides what a FIRST run does - once the mark is set,
+         * age stops mattering and anything past it is announced however long
+         * it took. So the cost of being generous is one stale "reward paid"
+         * after a reinstall, and the cost of being mean is silently eating
+         * news the user was waiting for. See maybeAnnounceRedemptionResult.
+         */
+        private const val RESULT_FRESHNESS_MS = 21L * 24 * 60 * 60 * 1000
 
         /**
          * The board size to quote when no board has been fetched this run.

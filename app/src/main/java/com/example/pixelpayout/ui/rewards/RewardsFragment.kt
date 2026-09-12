@@ -76,6 +76,8 @@ class RewardsFragment : Fragment() {
         // SpacingItemDecoration casts to StaggeredGridLayoutManager.LayoutParams
         // and would throw under the linear manager this list uses.
         binding.offerwallList.layoutManager = LinearLayoutManager(requireContext())
+        binding.viewTournament.setOnClickListener { openLeaderboard() }
+        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
 
         mainViewModel.leaderboard.observe(viewLifecycleOwner) { renderLeaderboard(it) }
         observeWalls()
@@ -102,51 +104,26 @@ class RewardsFragment : Fragment() {
      * rather than being replaced with zeroes. "#0" and "0 stars" are claims
      * about where the user stands, and both are false while we are asking.
      *
-     * The figure beside "You" is what the rank is WORTH, in Stars, rather
-     * than the weekly XP that produced it. The card is about a prize pool -
-     * the number next to your name is the share of it your rank currently
-     * takes. A ranked user outside the prize zone wins nothing, and "0 stars"
-     * beside their name would read as a payout of zero rather than as a
-     * position that does not pay yet; unranked is a third thing again.
+     * The personal panel shows this week's XP; the adjacent panel shows
+     * the total prize pool. Both use the same server snapshot as the board.
      */
     private fun renderLeaderboard(board: UserRepository.Leaderboard?) {
         val binding = _binding ?: return
 
-        // The card is tappable either way: the screen it opens draws its own
-        // skeleton, so arriving there early costs the user nothing.
-        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
         if (board == null) return
 
         val pool = formatCount(board.prizePool)
-        binding.leaderboardSubtitle.setStarText(
-            getString(R.string.leaderboard_subtitle, board.size, pool),
-            emphasise = pool,
-            emphasisColor = R.color.stars_accent
-        )
+        binding.leaderboardSubtitle.text = getString(R.string.earn_pool_summary, board.size, pool)
 
         binding.leaderboardRank.text = if (board.isRanked) {
-            getString(R.string.leaderboard_rank, formatCount(board.myRank))
+            getString(R.string.earn_rank_you, formatCount(board.myRank))
         } else {
-            getString(R.string.leaderboard_play_to_enter)
+            getString(R.string.earn_unranked_you)
         }
 
-        when {
-            !board.isRanked ->
-                binding.leaderboardMyXp.text =
-                    getString(R.string.leaderboard_unranked_xp)
-
-            board.myPrize > 0 -> {
-                val prize = formatCount(board.myPrize)
-                binding.leaderboardMyXp.setStarText(
-                    getString(R.string.leaderboard_my_prize, prize),
-                    emphasise = prize,
-                    emphasisColor = R.color.stars_accent
-                )
-            }
-
-            else -> binding.leaderboardMyXp.text =
-                getString(R.string.leaderboard_my_none)
-        }
+        binding.leaderboardMyXp.text = getString(R.string.earn_xp, formatCount(board.myXp))
+        binding.leaderboardPrizePool.setStarText(getString(R.string.earn_pool_value, pool))
+        binding.leaderboardPrizeShare.text = getString(R.string.earn_pool_share, board.size)
     }
 
     /**

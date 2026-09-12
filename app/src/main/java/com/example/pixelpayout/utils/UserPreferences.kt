@@ -41,21 +41,29 @@ class UserPreferences(private val context: Context) {
         private val STREAK_CYCLE = stringPreferencesKey("streakCycle")
 
         /**
-         * The highest level whose reward has already been announced.
+         * Which pending levels have already been announced, comma-separated.
          *
-         * A high-water mark rather than a "seen" flag, because the thing being
-         * announced comes back: every level-up owes a new reward, and the
-         * dialog has to appear again for it. Comparing against the current
-         * level means one announcement per climb, however many screens the
-         * player passes through afterwards - and tapping Later does not bring
-         * it back on the next return to Home, which is the difference between
-         * a prompt and a nag.
+         * A SET RATHER THAN A HIGH-WATER MARK, which is what this was and
+         * what made the dialog stop appearing. The mark only ever rose, so
+         * any queue whose maximum sat at or below it was silently swallowed
+         * forever - and a queue can perfectly well drop below a level that
+         * has already been mentioned: claiming empties it from the bottom,
+         * and an account whose XP is reset climbs back through levels it has
+         * already been congratulated for. The dialog then never returned on
+         * that install until app data was cleared, while levels, XP and the
+         * ledger all carried on working.
+         *
+         * The set answers the question actually being asked - is there
+         * anything in the queue we have not mentioned yet - and it cannot
+         * grow without bound because it is pruned to the live queue on every
+         * read: a level that is no longer owed is no longer tracked.
          *
          * On this device only. Firestore holds what is OWED; this holds
          * whether we have mentioned it, which is a property of the screen
          * rather than of the account.
          */
-        private val LAST_ANNOUNCED_LEVEL = intPreferencesKey("lastAnnouncedLevel")
+        private val ANNOUNCED_LEVEL_REWARDS =
+            stringPreferencesKey("announcedLevelRewards")
 
         /**
          * The most recent week whose leaderboard prize has been celebrated.
@@ -78,12 +86,23 @@ class UserPreferences(private val context: Context) {
         }
     }
 
-    val lastAnnouncedLevel: Flow<Int> = context.dataStore.data
-        .map { preferences -> preferences[LAST_ANNOUNCED_LEVEL] ?: 0 }
+    /**
+     * The levels already announced. Anything unparseable reads as "none
+     * announced", which costs one extra dialog rather than losing one.
+     */
+    val announcedLevelRewards: Flow<Set<Int>> = context.dataStore.data
+        .map { preferences ->
+            preferences[ANNOUNCED_LEVEL_REWARDS]
+                ?.split(',')
+                ?.mapNotNull { it.trim().toIntOrNull() }
+                ?.toSet()
+                .orEmpty()
+        }
 
-    suspend fun setLastAnnouncedLevel(value: Int) {
+    suspend fun setAnnouncedLevelRewards(levels: Set<Int>) {
         context.dataStore.edit { preferences ->
-            preferences[LAST_ANNOUNCED_LEVEL] = value
+            preferences[ANNOUNCED_LEVEL_REWARDS] =
+                levels.sorted().joinToString(",")
         }
     }
 

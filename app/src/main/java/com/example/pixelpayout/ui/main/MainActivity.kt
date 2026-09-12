@@ -144,25 +144,41 @@ class MainActivity : AppCompatActivity() {
         if (announcingLevelRewards) return
 
         val progress = viewModel.levelProgress.value
-        if (progress == null) return
+        if (progress == null) {
+            Log.d(TAG_LEVEL_ANNOUNCE, "No level progress yet")
+            return
+        }
 
         val pending = progress.pendingLevelRewards
-        if (pending.isEmpty()) return
+        if (pending.isEmpty()) {
+            // Nothing is owed. The normal state, and also what a server that
+            // failed to queue the level looks like - hence the log.
+            Log.d(TAG_LEVEL_ANNOUNCE, "Nothing pending at level ${progress.level}")
+            return
+        }
 
         val rewards = viewModel.levelCurve.value?.levelRewards.orEmpty()
         // The curve observer below re-asks when it lands.
-        if (rewards.isEmpty()) return
-
-        // KEYED ON THE QUEUE, NOT ON THE LEVEL. The two usually agree, but not
-        // on an account that crossed levels before any of this existed: those
-        // levels were paid outright and are owed nothing, so a high-water mark
-        // taken from the level number would sit above the first reward that
-        // was ever actually queued and silently swallow its announcement.
-        val top = pending.max()
+        if (rewards.isEmpty()) {
+            Log.d(TAG_LEVEL_ANNOUNCE, "Curve not loaded; pending=$pending")
+            return
+        }
 
         lifecycleScope.launch {
-            val announced = userPreferences.lastAnnouncedLevel.firstOrNull() ?: 0
-            if (top <= announced) return@launch
+            val announced = userPreferences.announcedLevelRewards.firstOrNull().orEmpty()
+
+            // ANYTHING IN THE QUEUE WE HAVE NOT MENTIONED, rather than a
+            // level compared against a high-water mark. The mark only ever
+            // rose, so a queue whose maximum sat at or below it never spoke
+            // again - which is what happens as soon as a level is claimed
+            // (the queue empties from the bottom) or an account's XP is reset
+            // and climbs back through levels already announced. The set has
+            // no such trapdoor: a level is either owed-and-unmentioned or it
+            // is not.
+            if (pending.all { it in announced }) {
+                Log.d(TAG_LEVEL_ANNOUNCE, "Already announced $pending")
+                return@launch
+            }
             if (announcingLevelRewards || isFinishing) return@launch
 
             announcingLevelRewards = true
@@ -177,8 +193,20 @@ class MainActivity : AppCompatActivity() {
             if (shown) {
                 // Recorded only on a dialog that really appeared, so a run
                 // that bailed out can still announce later.
-                userPreferences.setLastAnnouncedLevel(top)
+                //
+                // The live queue, not a union with what was already there:
+                // that is what prunes levels which have since been claimed
+                // and keeps this from growing for the life of the install.
+                userPreferences.setAnnouncedLevelRewards(pending.toSet())
             } else {
+                // The dialog refused: the published curve pays nothing for
+                // any pending level, so there is no figure to show. Logged
+                // because it is otherwise indistinguishable from the popup
+                // being broken.
+                Log.w(
+                    TAG_LEVEL_ANNOUNCE,
+                    "Dialog declined; pending=$pending rewards=$rewards"
+                )
                 announcingLevelRewards = false
             }
         }
@@ -623,6 +651,13 @@ class MainActivity : AppCompatActivity() {
 
     // Add this method to be called from other activities
     companion object {
+        /**
+         * Every reason the level-reward dialog can decline to appear logs
+         * under one tag, because all of them are silent from the outside and
+         * all of them look identical to the popup being broken.
+         */
+        private const val TAG_LEVEL_ANNOUNCE = "LevelAnnounce"
+
         /**
          * How recent a settlement has to be to be worth a fanfare.
          *

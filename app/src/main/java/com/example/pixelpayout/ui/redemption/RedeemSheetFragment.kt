@@ -18,6 +18,7 @@ import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.utils.GridSpacingItemDecoration
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
@@ -25,6 +26,7 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.ItemSummaryRowBinding
 import com.pixelpayout.databinding.SheetRedeemBinding
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 /**
  * The redeem flow: pick a pack, say where it goes, confirm, done.
@@ -141,6 +143,12 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         }
         binding.giftRecyclerView.adapter = giftAdapter
         binding.giftRecyclerView.layoutManager = GridLayoutManager(requireContext(), GIFT_SPAN)
+        binding.giftRecyclerView.addItemDecoration(
+            GridSpacingItemDecoration(
+                GIFT_SPAN,
+                (GIFT_SPACING_DP * resources.displayMetrics.density).roundToInt()
+            )
+        )
         binding.giftRecyclerView.isNestedScrollingEnabled = false
         giftAdapter.submitList(offers)
         giftAdapter.updateBalance(balance)
@@ -504,6 +512,7 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         private const val ORDER_ID_TAIL = 8
 
         private const val GIFT_SPAN = 2
+        private const val GIFT_SPACING_DP = 10
 
         fun newInstance(game: RedemptionGame) =
             RedeemSheetFragment().apply {

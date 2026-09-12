@@ -103,8 +103,7 @@ class RedemptionFragment : Fragment() {
 
     private fun setupLists() {
         gamesAdapter = RedemptionAdapter { game ->
-            RedeemSheetFragment.newInstance(game)
-                .show(parentFragmentManager, RedeemSheetFragment.TAG)
+            openRedeemSheet { RedeemSheetFragment.newInstance(game) }
         }
         binding.gamesRecyclerView.adapter = gamesAdapter
         binding.gamesRecyclerView.layoutManager = GridLayoutManager(requireContext(), SPAN_COUNT)
@@ -187,12 +186,12 @@ class RedemptionFragment : Fragment() {
         )
         binding.segmentWallet.setTextColor(
             requireContext().getColor(
-                if (orders) R.color.text_faint else R.color.brand_violet_light
+                if (orders) R.color.text_faint else R.color.white
             )
         )
         binding.segmentOrders.setTextColor(
             requireContext().getColor(
-                if (orders) R.color.brand_violet_light else R.color.text_faint
+                if (orders) R.color.white else R.color.text_faint
             )
         )
 
@@ -214,8 +213,20 @@ class RedemptionFragment : Fragment() {
             Snackbar.make(binding.root, R.string.wallet_no_rewards, Snackbar.LENGTH_LONG).show()
             return
         }
-        RedeemSheetFragment.newInstanceFirstRedeem()
-            .show(parentFragmentManager, RedeemSheetFragment.TAG)
+        openRedeemSheet { RedeemSheetFragment.newInstanceFirstRedeem() }
+    }
+
+    private fun openRedeemSheet(createSheet: () -> RedeemSheetFragment) {
+        if (!isAdded || !isResumed) return
+        val manager = parentFragmentManager
+        if (manager.isDestroyed || manager.isStateSaved ||
+            manager.findFragmentByTag(RedeemSheetFragment.TAG) != null
+        ) return
+
+        // show() queues the transaction, leaving a window for another tap to
+        // add a second sheet. Register it now so every subsequent callback
+        // sees the existing sheet, including one restored after rotation.
+        createSheet().showNow(manager, RedeemSheetFragment.TAG)
     }
 
     /**
@@ -362,30 +373,21 @@ class RedemptionFragment : Fragment() {
             (points.toLong() * 100 / target.pointsCost).toInt().coerceIn(0, 100)
     }
 
-    /**
-     * The star pile on the balance card, and the gift on the offer card.
-     *
-     * BOTH COME FROM FIRESTORE, so the artwork on this screen is swapped from
-     * the console rather than in a release - the same rule the game tiles
-     * follow. Neither has a bundled fallback: the cards are designed to read
-     * correctly with the art absent, and a placeholder illustration would be
-     * worse than the space it filled.
-     *
-     * The hero image is carried on the catalogue rather than in its own
-     * document, so this screen still costs no reads of its own. It is taken
-     * from whichever game document defines `walletHeroUrl` - in practice one
-     * of them does and the rest leave it blank.
-     */
+    /** Bundled artwork is always available; catalogue URLs can override it. */
     private fun renderHeroArt(games: List<RedemptionGame>) {
         val binding = _binding ?: return
-
         val hero = games.firstNotNullOfOrNull { it.walletHeroUrl?.takeIf(String::isNotBlank) }
-        binding.walletHeroArt.isVisible = hero != null
-        if (hero != null) binding.walletHeroArt.load(hero) { crossfade(true) }
-
+        binding.walletHeroArt.load(hero ?: R.drawable.wallet_stars_art) {
+            placeholder(R.drawable.wallet_stars_art)
+            error(R.drawable.wallet_stars_art)
+            crossfade(true)
+        }
         val gift = games.firstNotNullOfOrNull { it.firstRedeemArtUrl?.takeIf(String::isNotBlank) }
-        binding.firstRedeemArt.isVisible = gift != null
-        if (gift != null) binding.firstRedeemArt.load(gift) { crossfade(true) }
+        binding.firstRedeemArt.load(gift ?: R.drawable.wallet_gift_art) {
+            placeholder(R.drawable.wallet_gift_art)
+            error(R.drawable.wallet_gift_art)
+            crossfade(true)
+        }
     }
 
     /**

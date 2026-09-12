@@ -1,22 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-    One reward in the Wallet grid.
-
-    IT NAMES THE CURRENCY, NOT THE GAME. This used to print "PUBG Mobile" or
-    "Free Fire" under the artwork, which is someone else's trade mark used to
-    sell something, sitting next to a character drawn to look like theirs.
-    What is on screen now is what the player actually receives - "UC",
-    "Diamonds", "CP" - which is a plain description of the goods. The game
-    name still exists on the document and still reaches the admin tool and the
-    order record, where somebody has to know which game to top up; it simply
-    does not go in front of a user. See RedemptionGame.currencyName.
-
-    The art well shows the game's short code until an imageUrl is set on the
-    document, at which point the artwork covers it. Art is added and swapped
-    from the Firebase console with no release - and until it is, a tile is a
-    labelled well rather than a hole.
--->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/gameCard"
@@ -26,23 +10,11 @@
     android:clickable="true"
     android:focusable="true"
     android:orientation="vertical"
-    android:padding="11dp">
-
-    <!--
-        A fixed height, not a 16:9 ratio.
-
-        The handoff sizes this well by aspect ratio, which needs a
-        ConstraintLayout parent - inside this LinearLayout the ratio attribute
-        is inert and the 0dp height it depends on collapses the well to
-        nothing. 96dp is close to 16:9 of the tile's content width at the
-        two-column grid on a normal phone, and stays a real box everywhere
-        else.
-    -->
+    android:padding="1dp">
     <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="96dp"
+        android:layout_height="120dp"
         android:layout_marginBottom="10dp">
-
         <TextView
             android:id="@+id/gameCode"
             android:layout_width="match_parent"
@@ -54,7 +26,6 @@
             android:textColor="@color/brand_violet"
             android:textSize="16sp"
             tools:text="UC" />
-
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/gameImage"
             android:layout_width="match_parent"
@@ -63,14 +34,7 @@
             android:scaleType="centerCrop"
             android:visibility="gone"
             app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.GameArt" />
-
     </FrameLayout>
-
-    <!--
-        One line, not two. The old tile reserved two lines for a game name;
-        a currency name is a word, and the second line was empty space that
-        made every tile taller than it needed to be.
-    -->
     <TextView
         android:id="@+id/gameName"
         android:layout_width="match_parent"
@@ -79,9 +43,10 @@
         android:fontFamily="@font/jakarta_bold"
         android:maxLines="1"
         android:textColor="@color/white"
-        android:textSize="14.5sp"
-        tools:text="UC" />
-
+        android:textSize="17sp"
+        tools:text="UC"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp" />
     <TextView
         android:id="@+id/gameFrom"
         android:layout_width="match_parent"
@@ -92,20 +57,19 @@
         android:maxLines="1"
         android:textColor="@color/text_ghost"
         android:textSize="11.5sp"
-        tools:text="from 1,200 stars" />
-
-    <!--
-        The tile's own call to action. The whole card is the tap target - this
-        says where the tap goes, which the old "from N pts" line on its own did
-        not.
-    -->
+        tools:text="from 1,200 stars"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp" />
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
         android:layout_marginTop="10dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:layout_marginStart="11dp"
+        android:layout_marginEnd="11dp"
+        android:layout_marginBottom="11dp"
+        android:background="@drawable/bg_button_accent_outline">
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -113,7 +77,6 @@
             android:text="@string/wallet_view_packs"
             android:textColor="@color/brand_violet_light"
             android:textSize="12.5sp" />
-
         <ImageView
             android:layout_width="13dp"
             android:layout_height="13dp"
@@ -121,7 +84,5 @@
             android:contentDescription="@null"
             android:src="@drawable/ic_arrow_right"
             app:tint="@color/brand_violet_light" />
-
     </LinearLayout>
-
 </LinearLayout>

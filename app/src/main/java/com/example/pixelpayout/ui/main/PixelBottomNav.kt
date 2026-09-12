@@ -12,17 +12,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import com.pixelpayout.R
 
-/**
- * The app's bottom navigation, drawn to the home design instead of Material's
- * BottomNavigationView: five destinations with Earn raised out of the bar on
- * an accent disc, which a menu-driven BottomNavigationView cannot express.
- *
- * The item ids are the nav graph destination ids, so callers keep addressing
- * tabs the way they did with the Material view (`selectedItemId = R.id.…`).
- * Profile has no destination yet; it is present because the bar is a five-up
- * grid in the design, and selecting it is rejected by MainActivity until a
- * screen exists behind it.
- */
+/** Five equal navigation tabs with a rounded highlight on the active destination. */
 class PixelBottomNav @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
@@ -33,9 +23,7 @@ class PixelBottomNav @JvmOverloads constructor(
         val id: Int,
         val row: LinearLayout,
         val icon: ImageView,
-        val label: TextView,
-        /** The raised centre item keeps its white-on-accent icon in every state. */
-        val raised: Boolean
+        val label: TextView
     )
 
     private val items: List<Item>
@@ -65,11 +53,11 @@ class PixelBottomNav @JvmOverloads constructor(
         LayoutInflater.from(context).inflate(R.layout.view_bottom_nav, this, true)
 
         items = listOf(
-            Item(R.id.navigation_home, findViewById(R.id.navigation_home), findViewById(R.id.navIconHome), findViewById(R.id.navLabelHome), false),
-            Item(R.id.navigation_play, findViewById(R.id.navigation_play), findViewById(R.id.navIconPlay), findViewById(R.id.navLabelPlay), false),
-            Item(R.id.navigation_rewards, findViewById(R.id.navigation_rewards), findViewById(R.id.navIconEarn), findViewById(R.id.navLabelEarn), true),
-            Item(R.id.navigation_redemption, findViewById(R.id.navigation_redemption), findViewById(R.id.navIconWallet), findViewById(R.id.navLabelWallet), false),
-            Item(R.id.navigation_profile, findViewById(R.id.navigation_profile), findViewById(R.id.navIconProfile), findViewById(R.id.navLabelProfile), false)
+            Item(R.id.navigation_home, findViewById(R.id.navigation_home), findViewById(R.id.navIconHome), findViewById(R.id.navLabelHome)),
+            Item(R.id.navigation_play, findViewById(R.id.navigation_play), findViewById(R.id.navIconPlay), findViewById(R.id.navLabelPlay)),
+            Item(R.id.navigation_rewards, findViewById(R.id.navigation_rewards), findViewById(R.id.navIconEarn), findViewById(R.id.navLabelEarn)),
+            Item(R.id.navigation_redemption, findViewById(R.id.navigation_redemption), findViewById(R.id.navIconWallet), findViewById(R.id.navLabelWallet)),
+            Item(R.id.navigation_profile, findViewById(R.id.navigation_profile), findViewById(R.id.navIconProfile), findViewById(R.id.navLabelProfile))
         )
 
         items.forEach { item ->
@@ -93,11 +81,7 @@ class PixelBottomNav @JvmOverloads constructor(
      * whole promise is that there is money behind it.
      *
      * The items are weighted 0dp columns, so a hidden one is not a gap - the
-     * remaining four redistribute into a four-up bar. What does stay behind
-     * is the 16dp of transparent room above the painted bar that the raised
-     * Earn disc overhangs into; it is empty space rather than a visible
-     * hole, and reclaiming it would mean re-measuring every screen that
-     * pads for the bar's height.
+     * remaining four redistribute into a four-up bar.
      *
      * If the hidden tab was the selected one the highlight falls back to
      * Home, silently. Navigating away is the caller's job - see MainActivity
@@ -130,16 +114,12 @@ class PixelBottomNav @JvmOverloads constructor(
         items.forEach { item ->
             val selected = item.id == selectedItemId
             item.row.isSelected = selected
-            // The raised item reads as an action, not a tab: its label stays
-            // accent and its icon stays white whether or not it is selected.
-            val highlighted = selected || item.raised
+            val highlighted = selected
             item.label.setTextColor(if (highlighted) activeColor else inactiveColor)
             item.label.typeface = if (highlighted) boldFont else regularFont
-            if (!item.raised) {
-                item.icon.imageTintList = ColorStateList.valueOf(
-                    if (selected) activeColor else inactiveColor
-                )
-            }
+            item.icon.imageTintList = ColorStateList.valueOf(
+                if (selected) ContextCompat.getColor(context, R.color.white) else inactiveColor
+            )
         }
     }
 }

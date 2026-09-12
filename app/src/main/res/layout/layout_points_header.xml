@@ -23,11 +23,10 @@
     android:background="@drawable/bg_star_pill">
 
     <ImageView
-        android:layout_width="14dp"
-        android:layout_height="14dp"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
         android:importantForAccessibility="no"
-        android:src="@drawable/ic_star"
-        app:tint="@color/stars_accent" />
+        android:src="@drawable/ic_star_gold" />
 
     <TextView
         android:id="@+id/pointsText"

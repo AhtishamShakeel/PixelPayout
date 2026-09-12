@@ -6,6 +6,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.utils.setStarText
 import com.example.pixelpayout.ui.redemption.WalletFormat
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ItemInviteeBinding
@@ -92,15 +93,23 @@ class InviteeAdapter :
                 )
             }
 
-            binding.inviteeReward.text = context.getString(R.string.profile_invitee_reward, reward)
             binding.inviteeRewardIcon.setImageResource(
                 if (invitee.paid) R.drawable.ic_check else R.drawable.ic_lock
             )
 
-            val rewardColor = context.getColor(
+            // Paid rows read violet and unpaid ones stay ghosted, and the
+            // star takes that colour with them rather than the usual gold:
+            // here the colour is what says whether the reward has landed, so
+            // a gold star on an unpaid row would contradict the lock beside
+            // it.
+            val rewardColorRes =
                 if (invitee.paid) R.color.brand_violet_light else R.color.text_ghost
-            )
+            val rewardColor = context.getColor(rewardColorRes)
             binding.inviteeReward.setTextColor(rewardColor)
+            binding.inviteeReward.setStarText(
+                context.getString(R.string.profile_invitee_reward, reward),
+                starColor = rewardColorRes
+            )
             binding.inviteeRewardIcon.imageTintList =
                 android.content.res.ColorStateList.valueOf(rewardColor)
         }

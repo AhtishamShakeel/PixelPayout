@@ -234,7 +234,7 @@
                 android:fontFamily="@font/jakarta_medium"
                 android:textColor="@color/text_ghost"
                 android:textSize="11.5sp"
-                tools:text="200 pts earned" />
+                tools:text="200 ★ earned" />
 
         </LinearLayout>
 

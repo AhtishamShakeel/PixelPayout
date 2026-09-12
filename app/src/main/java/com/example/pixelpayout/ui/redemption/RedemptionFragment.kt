@@ -124,6 +124,7 @@ class RedemptionFragment : Fragment() {
         binding.activityRecyclerView.adapter = activityAdapter
         binding.activityRecyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.activityRecyclerView.isNestedScrollingEnabled = false
+        binding.activityLoadMore.setOnClickListener { viewModel.loadMoreHistory() }
 
         ordersAdapter = OrdersAdapter { shortId ->
             val clipboard = requireContext()
@@ -312,9 +313,22 @@ class RedemptionFragment : Fragment() {
         }
 
         viewModel.history.observe(viewLifecycleOwner) { history ->
-            activityAdapter.submitList(history.take(ACTIVITY_PREVIEW))
+            // No take() any more: the list holds exactly what was read, and
+            // what was read is exactly what the user has asked to see.
+            activityAdapter.submitList(history)
             binding.activityEmpty.isVisible = history.isEmpty()
             binding.activityRecyclerView.isVisible = history.isNotEmpty()
+        }
+
+        viewModel.historyHasMore.observe(viewLifecycleOwner) { hasMore ->
+            binding.activityLoadMore.isVisible = hasMore
+        }
+
+        viewModel.isLoadingHistory.observe(viewLifecycleOwner) { loading ->
+            // Left visible but inert, so a slow page does not make the button
+            // jump out from under the finger that just tapped it.
+            binding.activityLoadMore.isEnabled = !loading
+            binding.activityLoadMore.alpha = if (loading) 0.5f else 1f
         }
 
         viewModel.isRedeeming.observe(viewLifecycleOwner) { busy ->
@@ -487,7 +501,5 @@ class RedemptionFragment : Fragment() {
         private const val SPAN_COUNT = 2
         private const val GUTTER_DP = 11
 
-        /** The Wallet preview; the full ledger is not paged in here. */
-        private const val ACTIVITY_PREVIEW = 6
     }
 }

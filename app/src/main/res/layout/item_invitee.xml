@@ -153,7 +153,7 @@
             android:fontFamily="@font/jakarta_semibold"
             android:textColor="@color/text_ghost"
             android:textSize="11.5sp"
-            tools:text="100 pts" />
+            tools:text="100 ★" />
 
     </LinearLayout>
 

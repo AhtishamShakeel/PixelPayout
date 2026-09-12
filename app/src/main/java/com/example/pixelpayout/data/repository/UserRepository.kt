@@ -2,6 +2,7 @@ package com.example.pixelpayout.data.repository
 
 import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Source
@@ -1391,37 +1392,74 @@ class UserRepository {
      * the backend, and it stops paying for itself the moment the flag and the
      * index are live.
      */
-    suspend fun getEarningHistory(limit: Long = HISTORY_LIMIT): List<LedgerEntry> {
-        val userId = auth.currentUser?.uid ?: return emptyList()
+    suspend fun getEarningHistory(
+        pageSize: Long = HISTORY_PAGE_SIZE,
+        after: DocumentSnapshot? = null
+    ): LedgerPage {
+        val userId = auth.currentUser?.uid ?: return LedgerPage()
         val events = firestore.collection(COLLECTION_USERS).document(userId)
             .collection(COLLECTION_REWARD_EVENTS)
 
         val indexed = runCatching {
-            events
+            var query = events
                 .whereEqualTo(FIELD_AFFECTS_POINTS, true)
                 .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
-                .limit(limit)
-                .get().await()
-                .documents.mapNotNull(::toLedgerEntry)
+            if (after != null) query = query.startAfter(after)
+            query.limit(pageSize).get().await()
         }.onFailure {
             // Almost always the composite index not being deployed yet.
             Log.w("History", "Indexed ledger read failed, falling back: ${it.message}")
         }.getOrNull()
 
-        if (!indexed.isNullOrEmpty()) return indexed
+        // An empty FIRST page is ambiguous - either the account has no
+        // history or the flag/index is not live - so it falls through to the
+        // window below. An empty LATER page is not ambiguous at all: the
+        // cursor came from a query that worked, so this is simply the end of
+        // the ledger, and re-reading a wide window here would both cost reads
+        // and hand back rows the caller already has.
+        if (indexed != null && (!indexed.isEmpty || after != null)) {
+            val docs = indexed.documents
+            return LedgerPage(
+                entries = docs.mapNotNull(::toLedgerEntry),
+                cursor = docs.lastOrNull(),
+                // A short page cannot have more behind it. A full one might,
+                // and the next tap settles it.
+                hasMore = docs.size.toLong() == pageSize
+            )
+        }
 
+        // DEGRADED PATH, and deliberately not paged. It already reads the
+        // widest window it is ever going to read and filters in memory, so
+        // there is no cursor worth carrying: it shows the most recent page
+        // and offers no Load more until the index is live.
         return runCatching {
-            events
-                .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
-                .limit(LEGACY_STAR_WINDOW)
-                .get().await()
-                .documents.mapNotNull(::toLedgerEntry)
-                .filter { it.points != 0 }
-                .take(limit.toInt())
+            LedgerPage(
+                entries = events
+                    .orderBy(FIELD_CREATED_AT, Query.Direction.DESCENDING)
+                    .limit(LEGACY_STAR_WINDOW)
+                    .get().await()
+                    .documents.mapNotNull(::toLedgerEntry)
+                    .filter { it.points != 0 }
+                    .take(pageSize.toInt())
+            )
         }.onFailure {
             Log.e("History", "Ledger read failed: ${it.message}")
-        }.getOrDefault(emptyList())
+        }.getOrDefault(LedgerPage())
     }
+
+    /**
+     * One page of the Activity list, plus what is needed to ask for the next.
+     *
+     * The cursor is the raw [DocumentSnapshot] rather than the last entry's
+     * timestamp: two ledger entries written by one transaction share a server
+     * timestamp, and a timestamp cursor would then either repeat one of them
+     * or skip it. Firestore's own cursor has no such tie to break.
+     */
+    data class LedgerPage(
+        val entries: List<LedgerEntry> = emptyList(),
+        val cursor: DocumentSnapshot? = null,
+        val hasMore: Boolean = false
+    )
 
     private fun toLedgerEntry(doc: com.google.firebase.firestore.DocumentSnapshot): LedgerEntry? {
         // A locked level-up bonus records a promise, not a movement, so it has
@@ -1747,7 +1785,16 @@ class UserRepository {
          * that could be shown. Raise this when there is a full history screen
          * to fill; until then a bigger number is just a bigger bill.
          */
-        private const val HISTORY_LIMIT = 15L
+        /**
+         * One page of the Activity list, read and shown.
+         *
+         * It used to read 15 and show 6, so nine of every fifteen reads paid
+         * for rows nobody saw - on a screen re-read on every visit to the
+         * tab. Page and preview are now the same number, so the list costs
+         * exactly the rows it draws and the rest is only read if somebody
+         * asks for it.
+         */
+        private const val HISTORY_PAGE_SIZE = 10L
 
         /**
          * The fallback window, used only until `affectsPoints` and its index

@@ -8,6 +8,7 @@ import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.data.repository.RedemptionOptionsStore
 import com.example.pixelpayout.data.repository.UserRepository
+import com.google.firebase.firestore.DocumentSnapshot
 import kotlinx.coroutines.launch
 
 class ReferralViewModel(private val userRepository: UserRepository) : ViewModel() {
@@ -38,6 +39,19 @@ class ReferralViewModel(private val userRepository: UserRepository) : ViewModel(
     private val _history = MutableLiveData<List<UserRepository.LedgerEntry>>(emptyList())
     val history: LiveData<List<UserRepository.LedgerEntry>> = _history
 
+    /**
+     * Where the next page starts. Held here rather than in the repository,
+     * which is constructed per view model and owns no screen state.
+     */
+    private var historyCursor: DocumentSnapshot? = null
+
+    /** Whether there is anything left to load - drives the Load more row. */
+    private val _historyHasMore = MutableLiveData(false)
+    val historyHasMore: LiveData<Boolean> = _historyHasMore
+
+    private val _isLoadingHistory = MutableLiveData(false)
+    val isLoadingHistory: LiveData<Boolean> = _isLoadingHistory
+
     private val _redemptionResult = MutableLiveData<RedemptionResult?>()
     val redemptionResult: LiveData<RedemptionResult?> = _redemptionResult
 
@@ -66,8 +80,40 @@ class ReferralViewModel(private val userRepository: UserRepository) : ViewModel(
      * for a screen the user is usually not looking at.
      */
     fun refreshHistory() {
+        if (_isLoadingHistory.value == true) return
+
         viewModelScope.launch {
-            _history.value = userRepository.getEarningHistory()
+            _isLoadingHistory.value = true
+            val page = userRepository.getEarningHistory()
+            // Back to one page. An expanded list is not carried across a
+            // visit to another tab on purpose: re-reading everything the user
+            // had paged through would make returning to Wallet cost more the
+            // more they had looked at, which is the opposite of the point.
+            _history.value = page.entries
+            historyCursor = page.cursor
+            _historyHasMore.value = page.hasMore
+            _isLoadingHistory.value = false
+        }
+    }
+
+    /**
+     * The next page, appended.
+     *
+     * Only ever reached by a tap, so the reads past the first page are ones
+     * somebody actually asked for. The cursor is dropped when the ledger runs
+     * out, which is what retires the button.
+     */
+    fun loadMoreHistory() {
+        if (_isLoadingHistory.value == true) return
+        val cursor = historyCursor ?: return
+
+        viewModelScope.launch {
+            _isLoadingHistory.value = true
+            val page = userRepository.getEarningHistory(after = cursor)
+            _history.value = _history.value.orEmpty() + page.entries
+            historyCursor = page.cursor
+            _historyHasMore.value = page.hasMore
+            _isLoadingHistory.value = false
         }
     }
 

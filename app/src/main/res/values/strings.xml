@@ -572,13 +572,13 @@ The board resets every Monday. Prizes are paid in stars.</string>
          around them, which is why there is no game or currency named below.
          ================================================================== -->
     <string name="wallet_stars_label">Your stars</string>
-    <string name="wallet_points_unit">pts</string>
     <string name="wallet_earn_stars">Earn stars</string>
     <string name="wallet_orders">Orders</string>
     <string name="wallet_help">Help</string>
     <string name="wallet_redeem_title">Choose your reward</string>
     <string name="wallet_activity_title">Activity</string>
     <string name="wallet_no_rewards">No games available right now. Check back soon.</string>
+    <string name="wallet_activity_load_more">Load more</string>
     <string name="wallet_no_activity">Nothing yet. Play a quiz or a game to start earning.</string>
     <string name="wallet_no_orders">No orders yet. Redeem something and it will show up here.</string>
     <string name="wallet_game_from">from %1$s ★</string>
@@ -700,7 +700,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_stat_streak">Day streak</string>
     <string name="profile_invite_title">Invite friends</string>
     <string name="profile_your_code">Your code</string>
-    <string name="profile_earned">%1$s pts earned</string>
+    <string name="profile_earned">%1$s ★ earned</string>
     <string name="profile_referral_rule">Your friend enters this code at signup. You get %1$d points once they earn %2$d XP, which keeps rewards tied to real players.</string>
     <string name="profile_referral_progress">Referral progress</string>
     <string name="profile_invited_count">%1$d invited</string>
@@ -717,7 +717,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_invitee_note_paid">Reward credited</string>
     <string name="profile_invitee_note_qualified">Reward releasing shortly</string>
     <string name="profile_invitee_note_progress">Needs %1$s more XP</string>
-    <string name="profile_invitee_reward">%1$d pts</string>
+    <string name="profile_invitee_reward">%1$d ★</string>
     <string name="profile_claim_sub">Get %1$d points for a valid referral</string>
     <string name="profile_account">Account</string>
     <string name="profile_terms">Terms and conditions</string>

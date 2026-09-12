@@ -26,6 +26,7 @@ import com.example.pixelpayout.utils.UserPreferences
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.pixelpayout.BuildConfig
+import com.example.pixelpayout.utils.setStarText
 import com.example.pixelpayout.utils.showAppDialog
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentProfileBinding
@@ -410,9 +411,13 @@ class ProfileFragment : Fragment() {
             binding.funnelQualified.statValue.text = stats.qualified.toString()
             binding.funnelPaid.statValue.text = stats.paid.toString()
 
-            binding.profileEarnedLabel.text = getString(
-                R.string.profile_earned,
-                WalletFormat.number(stats.paid * stats.referrerReward)
+            // A caption, so only the figure takes weight and the Stars
+            // colour - see StarText. The sentence around it stays a caption.
+            val earned = WalletFormat.number(stats.paid * stats.referrerReward)
+            binding.profileEarnedLabel.setStarText(
+                getString(R.string.profile_earned, earned),
+                emphasise = earned,
+                emphasisColor = R.color.stars_accent
             )
             binding.referralRuleLine.text = getString(
                 R.string.profile_referral_rule,

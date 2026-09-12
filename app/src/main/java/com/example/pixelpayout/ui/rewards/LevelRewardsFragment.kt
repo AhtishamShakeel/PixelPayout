@@ -46,10 +46,11 @@ import java.util.Locale
  * only the claim itself is a call.
  *
  * COSTS NO READS AT ALL. The curve is fetched once per process by
- * LevelCurveStore, the catalogue is seeded from Firestore's disk cache at
- * start, and the first-redeem level is memoised for the process by
- * getFirstRedeemMinLevel - which reads disk before it reads the network, so
- * opening this screen does not wait on a round trip the way it used to.
+ * LevelCurveStore and the catalogue is seeded from Firestore's disk cache at
+ * start, so opening this screen does not wait on a round trip the way it used
+ * to. It used to also read config/redemption for the first-redeem level;
+ * that offer has no level gate any more, so the read and the rung are both
+ * gone.
  *
  * THE SCREEN IS ONE RECYCLERVIEW: a header row, the rungs, a footer row,
  * stitched together by a ConcatAdapter. See LevelRungAdapter for why the
@@ -136,7 +137,6 @@ class LevelRewardsFragment : Fragment() {
             adapter = ConcatAdapter(header, rungAdapter, footer)
         }
 
-        mainViewModel.loadFirstRedeemMinLevel()
 
         // Warms the pool for the claim button. A no-op when an ad is already
         // ready or the pacer says wait, so opening the screen repeatedly costs
@@ -150,7 +150,6 @@ class LevelRewardsFragment : Fragment() {
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { render() }
         mainViewModel.levelCurve.observe(viewLifecycleOwner) { render() }
         mainViewModel.redemptionGames.observe(viewLifecycleOwner) { render() }
-        mainViewModel.firstRedeemMinLevel.observe(viewLifecycleOwner) { render() }
     }
 
     private fun render() {
@@ -170,7 +169,6 @@ class LevelRewardsFragment : Fragment() {
                 res = resources,
                 curve = curve,
                 currentLevel = progress.level,
-                firstRedeemMinLevel = mainViewModel.firstRedeemMinLevel.value,
                 games = mainViewModel.redemptionGames.value.orEmpty(),
                 pendingLevels = progress.pendingLevelRewards
             )

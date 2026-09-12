@@ -6,8 +6,25 @@
  * at the bottom of this file, and the npm scripts `seed:options:emulator` and
  * `seed:options:live`.
  *
- * The catalogue below is the four games from the Wallet design handoff, with
- * its prices. Treat every number here as a STARTING POINT, not a decision:
+ * The catalogue below is the games from the Wallet design handoff plus Call
+ * of Duty Mobile, with its prices.
+ *
+ * EVERY GAME CARRIES A `currencyName`, and that - not `name` - is what the app
+ * draws. The same goes for `subtitle`, which is printed in the sheet header:
+ * these used to read "Unknown Cash for PUBG Mobile" and now name only the
+ * currency. See the field's note in economy/redemption.ts: the app shows "UC",
+ * "Diamonds", "CP"; `name` stays for the admin tool and the order records,
+ * where somebody has to know which game to top up.
+ *
+ * THE TASTER PACK IN EACH GAME IS `firstRedeemOnly`. It is reachable only
+ * through the first-redeem offer, never at list price, which is what lets the
+ * ordinary floor sit at the pack above it - 60 UC, 100 Diamonds, 300 Coins,
+ * 80 CP - without deleting the cheap pack the offer is built on.
+ *
+ * `imageUrl` is left unset here on purpose. Art is added per game from the
+ * Firebase console (or Storage) without a release and without touching this
+ * file; a tile with no image falls back to a labelled well rather than a
+ * hole. Treat every number here as a STARTING POINT, not a decision:
  * the design's tiers (1,200 - 28,000 points) were drawn before this app's
  * economy existed, and today the only recurring star sources are the daily
  * streak, the daily-goals bonus and referrals. Check these against what a
@@ -22,19 +39,16 @@
  */
 import * as admin from "firebase-admin";
 import {
-  REDEMPTION_CONFIG_DOC,
   REDEMPTION_OPTIONS_COLLECTION,
   RedemptionGame,
 } from "../economy/redemption";
-
-/** Level at which the discounted first redeem unlocks. */
-const FIRST_REDEEM_MIN_LEVEL = 10;
 
 const GAMES: Record<string, RedemptionGame> = {
   pubg_mobile: {
     name: "PUBG Mobile",
     code: "UC",
-    subtitle: "Unknown Cash for PUBG Mobile",
+    currencyName: "UC",
+    subtitle: "Top up your account with UC",
     enabled: true,
     sortOrder: 10,
     idLabel: "Player ID",
@@ -48,7 +62,7 @@ const GAMES: Record<string, RedemptionGame> = {
       // discount, because its job is to prove the payout works.
       uc_30: {
         amount: "30 UC", pointsCost: 600, note: "Taster pack",
-        firstRedeemCost: 150, sortOrder: 0,
+        firstRedeemCost: 150, firstRedeemOnly: true, sortOrder: 0,
       },
       uc_60: {amount: "60 UC", pointsCost: 1200, note: "Starter pack", sortOrder: 1},
       uc_325: {
@@ -63,7 +77,8 @@ const GAMES: Record<string, RedemptionGame> = {
   free_fire: {
     name: "Free Fire Diamonds",
     code: "FF",
-    subtitle: "Diamonds for Garena Free Fire",
+    currencyName: "Diamonds",
+    subtitle: "Top up your account with Diamonds",
     enabled: true,
     sortOrder: 20,
     idLabel: "Free Fire UID",
@@ -75,7 +90,7 @@ const GAMES: Record<string, RedemptionGame> = {
     packs: {
       ff_20: {
         amount: "20 Diamonds", pointsCost: 700, note: "Taster pack",
-        firstRedeemCost: 150, sortOrder: 0,
+        firstRedeemCost: 150, firstRedeemOnly: true, sortOrder: 0,
       },
       ff_100: {amount: "100 Diamonds", pointsCost: 1400, note: "Starter pack", sortOrder: 1},
       ff_310: {
@@ -90,7 +105,8 @@ const GAMES: Record<string, RedemptionGame> = {
   delta_force: {
     name: "Delta Force Coins",
     code: "DF",
-    subtitle: "Coins for Delta Force",
+    currencyName: "Coins",
+    subtitle: "Top up your account with Coins",
     enabled: true,
     sortOrder: 30,
     idLabel: "Account ID",
@@ -102,7 +118,7 @@ const GAMES: Record<string, RedemptionGame> = {
     packs: {
       df_20: {
         amount: "20 Coins", pointsCost: 800, note: "Taster pack",
-        firstRedeemCost: 150, sortOrder: 0,
+        firstRedeemCost: 150, firstRedeemOnly: true, sortOrder: 0,
       },
       df_300: {amount: "300 Coins", pointsCost: 1800, note: "Starter pack", sortOrder: 1},
       df_980: {
@@ -114,10 +130,42 @@ const GAMES: Record<string, RedemptionGame> = {
     },
   },
 
+  cod_mobile: {
+    name: "Call of Duty Mobile",
+    code: "CP",
+    currencyName: "CP",
+    subtitle: "Top up your account with CP",
+    enabled: true,
+    sortOrder: 35,
+    idLabel: "Player ID",
+    idHint: "Open your profile and copy the numeric UID under your name.",
+    idMinLength: 6,
+    requiresUsername: true,
+    usernameLabel: "In-game username",
+    // No region picker: CODM tops up against the account itself rather than a
+    // per-region wallet, so asking would be a question with one right answer
+    // the player cannot know.
+    servers: [],
+    packs: {
+      cp_20: {
+        amount: "20 CP", pointsCost: 700, note: "Taster pack",
+        firstRedeemCost: 150, firstRedeemOnly: true, sortOrder: 0,
+      },
+      cp_80: {amount: "80 CP", pointsCost: 1300, note: "Starter pack", sortOrder: 1},
+      cp_420: {
+        amount: "420 CP", pointsCost: 5200, note: "Battle pass ready",
+        tag: "Popular", sortOrder: 2,
+      },
+      cp_880: {amount: "880 CP", pointsCost: 10400, note: "Crate opener", sortOrder: 3},
+      cp_2400: {amount: "2400 CP", pointsCost: 26000, note: "Full season", sortOrder: 4},
+    },
+  },
+
   mobile_legends: {
     name: "MLBB Diamonds",
     code: "ML",
-    subtitle: "Diamonds for Mobile Legends",
+    currencyName: "Diamonds",
+    subtitle: "Top up your account with Diamonds",
     enabled: true,
     sortOrder: 40,
     // MLBB identifies an account by user ID AND zone, so the zone goes in the
@@ -131,7 +179,7 @@ const GAMES: Record<string, RedemptionGame> = {
     packs: {
       ml_20: {
         amount: "20 Diamonds", pointsCost: 700, note: "Taster pack",
-        firstRedeemCost: 150, sortOrder: 0,
+        firstRedeemCost: 150, firstRedeemOnly: true, sortOrder: 0,
       },
       ml_86: {amount: "86 Diamonds", pointsCost: 1300, note: "Starter pack", sortOrder: 1},
       ml_172: {
@@ -189,14 +237,11 @@ async function main() {
     console.log(`  ${id}  ${packCount} packs, ${offers} on the first-redeem offer`);
   }
 
-  // The level gate for the discounted first redeem. Read by redeemReward and
-  // by the app, so the card and the server can never disagree about it.
-  batch.set(
-    db.collection("config").doc(REDEMPTION_CONFIG_DOC),
-    {firstRedeemMinLevel: FIRST_REDEEM_MIN_LEVEL},
-    {merge: true}
-  );
-  console.log(`  config/${REDEMPTION_CONFIG_DOC}  firstRedeemMinLevel=${FIRST_REDEEM_MIN_LEVEL}`);
+  // config/redemption is no longer written. Its only tunable was
+  // firstRedeemMinLevel, and the offer has no level gate any more - it is
+  // there to prove the payout works, which is worth least to somebody who has
+  // already stayed to level 10. An existing document is left alone rather
+  // than deleted; nothing reads it.
 
   await batch.commit();
   console.log(`\nDone. ${Object.keys(GAMES).length} games written.`);

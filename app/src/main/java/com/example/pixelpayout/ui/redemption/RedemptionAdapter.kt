@@ -43,7 +43,9 @@ class RedemptionAdapter(
         fun bind(game: RedemptionGame) {
             val context = binding.root.context
 
-            binding.gameName.text = game.name
+            // The CURRENCY, not the game. See RedemptionGame.currencyName -
+            // this is a trade-mark call, not a design preference.
+            binding.gameName.text = game.displayName
             binding.gameCode.text = game.code
 
             val from = game.fromPointsCost

@@ -175,23 +175,6 @@ class MainViewModel(
      */
     val levelCurve: LiveData<UserRepository.LevelCurve?> = userRepository.levelCurve
 
-    private val _firstRedeemMinLevel = MutableLiveData<Int?>(null)
-
-    /** The level the discounted first redeem unlocks at, or null until read. */
-    val firstRedeemMinLevel: LiveData<Int?> = _firstRedeemMinLevel
-
-    /**
-     * One config read per process, not per screen: the number only changes
-     * when somebody edits it in the console, and the Level rewards screen is
-     * not worth a read every time it is opened.
-     */
-    fun loadFirstRedeemMinLevel() {
-        if (_firstRedeemMinLevel.value != null) return
-        viewModelScope.launch {
-            _firstRedeemMinLevel.value = userRepository.getFirstRedeemMinLevel()
-        }
-    }
-
     val nextRedemption: LiveData<NextRedemption?> = MediatorLiveData<NextRedemption?>().apply {
         fun recompute() {
             val user = userRepository.userData.value
@@ -207,10 +190,14 @@ class MainViewModel(
             // the cheapest pack of some arbitrary game.
             val target = games
                 .filter { it.minLevel <= user.level }
-                .flatMap { game -> game.packs.map { game to it } }
+                .flatMap { game -> game.purchasablePacks.map { game to it } }
                 .filter { (_, pack) -> pack.pointsCost > user.points }
                 .minByOrNull { (_, pack) -> pack.pointsCost }
-                ?.let { (game, pack) -> Triple(game.name, pack.amount, pack.pointsCost) }
+                // The pack amount alone. The game name used to ride along in
+                // this tuple and was discarded at the other end - see the
+                // destructuring below - and it is not something that goes in
+                // front of a user anyway. See RedemptionGame.currencyName.
+                ?.let { (_, pack) -> pack.amount to pack.pointsCost }
 
             // Nothing left to reach means everything on offer is already
             // affordable - the bar has no meaning, so hide it rather than
@@ -220,7 +207,7 @@ class MainViewModel(
                 return
             }
 
-            val (_, amount, cost) = target
+            val (amount, cost) = target
             value = NextRedemption(
                 title = amount,
                 pointsCost = cost,
@@ -265,9 +252,19 @@ class MainViewModel(
         }
     }
 
-    /** Whether the once-per-account first-redeem discount is already spent. */
-    val hasUsedFirstRedeem: LiveData<Boolean> =
-        userRepository.userData.map { it.hasUsedFirstRedeem }
+    /**
+     * Whether the first-redeem offer is finished for this account, for any
+     * reason.
+     *
+     * The two reasons are different facts on the server and are kept apart
+     * there - one is "you spent it", the other is "the game account you tried
+     * had already had one". Neither is recoverable by the user, and the card
+     * has exactly one thing to do about either, so they are merged here
+     * rather than at the three call sites that would otherwise each have to
+     * remember to ask both.
+     */
+    val firstRedeemFinished: LiveData<Boolean> =
+        userRepository.userData.map { it.hasUsedFirstRedeem || it.firstRedeemUnavailable }
 
     val streak: LiveData<UserRepository.Streak> = userRepository.userData.map { it.streak }
 

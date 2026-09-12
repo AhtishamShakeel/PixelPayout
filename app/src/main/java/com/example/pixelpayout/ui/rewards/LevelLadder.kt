@@ -18,13 +18,16 @@ import com.pixelpayout.R
  *     pays - so a console retune moves the ladder and the payout together,
  *   * the referral rung is placed from `referralUnlockXp`, the same figure
  *     readReferrerForUnlock tests,
- *   * the first-redeem rung from `config/redemption.firstRedeemMinLevel`,
- *     which validateRedemption re-reads on every claim,
  *   * game rungs from each catalogue document's own `minLevel`.
  *
  * That is the point of building it this way: a level ladder written down by
  * hand would be a second set of numbers, and it would be wrong the first time
- * any of the four above was retuned - while still looking authoritative.
+ * any of the three above was retuned - while still looking authoritative.
+ *
+ * THE FIRST-REDEEM RUNG IS GONE. It was placed from
+ * `config/redemption.firstRedeemMinLevel`, and the offer no longer gates on a
+ * level at all - it is available from level 1. A rung promising it at some
+ * future level would now be advertising a wait that does not exist.
  *
  * LEVELS THAT UNLOCK NOTHING ARE NOT LISTED. In practice that is now only
  * level 1 - every level from 2 up pays stars - so the ladder reads as the
@@ -92,11 +95,6 @@ object LevelLadder {
     }
 
     /**
-     * @param firstRedeemMinLevel null until the config read lands; the rung is
-     *   simply absent until then rather than guessing at the default, which
-     *   would put a level on screen that the console may have moved.
-     */
-    /**
      * @param pendingLevels levels already reached whose star bonus has not
      *   been released yet, straight from the user document. Everything about
      *   claiming on this screen is derived from it - which rungs are tagged,
@@ -108,7 +106,6 @@ object LevelLadder {
         res: Resources,
         curve: UserRepository.LevelCurve,
         currentLevel: Int,
-        firstRedeemMinLevel: Int?,
         games: List<RedemptionGame>,
         pendingLevels: List<Int> = emptyList()
     ): Ladder {
@@ -136,23 +133,18 @@ object LevelLadder {
             )
         }
 
-        if (firstRedeemMinLevel != null) {
-            add(
-                firstRedeemMinLevel,
-                Perk(R.drawable.ic_gift, res.getString(R.string.level_perk_first_redeem))
-            )
-        }
-
         // minLevel of 1 means no gate at all, so those games are not an
         // unlock and do not belong on the ladder.
         games.filter { it.minLevel > 1 }
-            .sortedBy { it.name }
+            .sortedBy { it.displayName }
             .forEach { game ->
                 add(
                     game.minLevel,
                     Perk(
                         R.drawable.ic_redeem,
-                        res.getString(R.string.level_perk_game, game.name)
+                        // The currency, not the game - the ladder is as
+                        // user-facing as the tiles. See currencyName.
+                        res.getString(R.string.level_perk_game, game.displayName)
                     )
                 )
             }

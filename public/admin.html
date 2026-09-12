@@ -112,6 +112,21 @@
       text-transform: uppercase;
       letter-spacing: .04em;
     }
+    /* The device badge. Three states, because "one account" and "we have no
+       device on file" are different things and only one of them is
+       reassuring. */
+    .device-badge {
+      display: inline-block;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      border-radius: 4px;
+      padding: 0 .35rem;
+      font-size: .7rem;
+      letter-spacing: .04em;
+      cursor: pointer;
+    }
+    .device-badge.shared { border-color: #8a6d1f; color: #fbbf24; }
+    .device-badge.unknown { border-color: var(--line); color: #6b7280; }
     .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
     .empty { color: var(--muted); text-align: center; padding: 3rem 1rem; }
     .banner {
@@ -387,6 +402,7 @@
               <div class="muted">${fmtDate(r.createdAtMillis)}</div>
               <div class="support-id">Order ${escapeHtml(supportId)}
                 ${r.firstRedeem ? '<span class="first-badge">first redeem</span>' : ""}
+                ${deviceBadge(r)}
               </div>
             </div>
             <div style="text-align:right">
@@ -397,6 +413,17 @@
           </div>
           <div class="fulfil">${fulfil}</div>
         `;
+
+        for (const badge of card.querySelectorAll("[data-device]")) {
+          badge.onclick = async () => {
+            try {
+              await navigator.clipboard.writeText(badge.dataset.device);
+              banner("Copied device id " + badge.dataset.device, "ok");
+            } catch {
+              banner("Could not copy the device id.");
+            }
+          };
+        }
 
         for (const target of card.querySelectorAll("[data-copy]")) {
           target.onclick = async () => {
@@ -422,8 +449,39 @@
           reject.className = "reject";
           reject.textContent = "Reject & refund";
           reject.onclick = () => {
-            const reason = prompt("Reason for rejection (optional):") ?? "";
-            resolve(r.id, "rejected", actions, reason);
+            // The reason is shown TO THE USER in the app, on the declined
+            // sheet. Naming the device there hands a farmer the one fact they
+            // need - that a factory reset clears it - so the prompt says so
+            // rather than trusting everyone to remember.
+            const reason = prompt(
+              "Reason for rejection (shown to the user - do not mention the " +
+              "device or how it was detected):",
+            );
+            // Cancel on the reason prompt means cancel the rejection. It used
+            // to mean "no reason given, carry on", so a slip of the hand
+            // rejected an order and refunded it with no explanation attached.
+            if (reason === null) return;
+
+            // WHAT HAPPENS TO THE DISCOUNT, and it is a real decision rather
+            // than a formality - only you know why you rejected this. A
+            // mistyped UID should get the offer back; an account caught
+            // farming it should not. Defaults to giving it back, because the
+            // usual rejection is an honest mistake and silently costing
+            // somebody their one discount is the worse way to be wrong.
+            //
+            // Restoring also releases the per-UID mark on the game account
+            // they entered, so the offer they get back is one they can
+            // actually spend.
+            let restoreFirstRedeem = true;
+            if (r.firstRedeem) {
+              restoreFirstRedeem = confirm(
+                "This order used the first-redeem discount.\n\n" +
+                "OK - give the discount back (mistyped UID, our error, " +
+                "out of stock)\n" +
+                "Cancel - keep it spent (abuse, farming, duplicate account)",
+              );
+            }
+            resolve(r.id, "rejected", actions, reason, restoreFirstRedeem);
           };
 
           actions.append(approve, reject);
@@ -434,7 +492,45 @@
       }
     }
 
-    async function resolve(redemptionId, status, actionsEl, reason = "") {
+    /**
+     * How many accounts have been seen on the ordering device.
+     *
+     * A SIGNAL, NOT A VERDICT. Two accounts on one phone is a family sharing
+     * a device as often as it is one person farming, and nothing the server
+     * can measure tells those apart - so this is a number beside an order and
+     * the decision stays yours.
+     *
+     * It is also deliberately not enforced anywhere. An account rejected
+     * automatically on device reuse teaches whoever is farming precisely which
+     * signal to defeat, and the workaround is a factory reset away. A
+     * rejection that arrives by hand, with a reason that never mentions the
+     * device, does not.
+     *
+     * The badge is clickable to copy the full id, for cross-referencing orders
+     * that are not on screen together.
+     */
+    function deviceBadge(r) {
+      const count = Number(r.deviceAccountCount || 0);
+      const id = String(r.androidId || "");
+
+      if (!id || count === 0) {
+        return '<span class="device-badge unknown" title="No device recorded' +
+          ' for this account - it predates device tracking, or the install' +
+          ' returned nothing.">device unknown</span>';
+      }
+      const short = escapeHtml(id.slice(0, 8));
+      if (count === 1) {
+        return `<span class="device-badge" data-device="${escapeHtml(id)}"
+          title="Only this account has been seen on this device.">device ${short}</span>`;
+      }
+      return `<span class="device-badge shared" data-device="${escapeHtml(id)}"
+        title="This device has been used by ${count} accounts. Judge it yourself - do not reject on this alone."
+        >device ${short} &middot; used &times;${count}</span>`;
+    }
+
+    async function resolve(
+      redemptionId, status, actionsEl, reason = "", restoreFirstRedeem = true,
+    ) {
       if (status === "approved" &&
           !confirm("Only do this AFTER you have actually sent the payout. Continue?")) {
         return;
@@ -442,11 +538,19 @@
 
       for (const b of actionsEl.querySelectorAll("button")) b.disabled = true;
       try {
-        const res = await httpsCallable(fns, "resolveRedemption")({redemptionId, status, reason});
+        const res = await httpsCallable(fns, "resolveRedemption")({
+          redemptionId, status, reason, restoreFirstRedeem,
+        });
         const refunded = res.data?.refunded || 0;
+        // Says whether the discount came back, because it is the half of a
+        // rejection that is invisible otherwise - the stars show up in the
+        // balance, the offer just quietly is or is not there.
+        const discount = res.data?.firstRedeemRestored
+          ? " First-redeem discount given back."
+          : "";
         banner(
           status === "rejected"
-            ? `Rejected. ${refunded.toLocaleString()} stars refunded.`
+            ? `Rejected. ${refunded.toLocaleString()} stars refunded.${discount}`
             : "Marked as paid.",
           "ok",
         );

@@ -101,13 +101,31 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- ================= Balance ================= -->
+                <!-- ================= Your stars ================= -->
                 <!--
                     A dark surface with the accent as a glow, not the violet
                     flood Home uses. Both the handoff and its design system
                     are explicit that the accent is a line and a glow rather
                     than a fill, and it keeps Wallet from reading as a second
                     copy of Home.
+
+                    REBUILT AROUND THE NEXT THING THE BALANCE CAN BUY. It used
+                    to print the balance and a sentence about it, with two
+                    buttons underneath. The sentence was doing the work of a
+                    progress bar in prose, and "Orders" was a second route to
+                    a tab that is already the other half of the control at the
+                    top of this screen. What is left is the figure, the target,
+                    the bar between them, and one button.
+
+                    The micro-column reading PLAY / COMPLETE / EARN / REDEEM
+                    from the mockup is deliberately not here. It describes the
+                    app to somebody already inside it, in four words none of
+                    which is an instruction.
+
+                    The hero artwork is walletHeroArt, hidden until a URL is
+                    set on the catalogue - see RedemptionFragment. The card is
+                    laid out so the text column keeps its full width whether or
+                    not the art ever arrives.
                 -->
                 <FrameLayout
                     android:layout_width="match_parent"
@@ -123,6 +141,24 @@
                         android:layout_marginTop="-70dp"
                         android:layout_marginEnd="-50dp"
                         android:background="@drawable/bg_glow_violet" />
+
+                    <!--
+                        Behind the text rather than beside it, bottom-right and
+                        bleeding off the card edge. A column of its own would
+                        squeeze the figure and the bar on a narrow phone, and
+                        this way a missing image costs the layout nothing.
+                    -->
+                    <ImageView
+                        android:id="@+id/walletHeroArt"
+                        android:layout_width="150dp"
+                        android:layout_height="130dp"
+                        android:layout_gravity="bottom|end"
+                        android:layout_marginEnd="-8dp"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="@null"
+                        android:scaleType="fitEnd"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -149,7 +185,7 @@
                                 android:layout_marginStart="6dp"
                                 android:fontFamily="@font/jakarta_semibold"
                                 android:letterSpacing="0.14"
-                                android:text="@string/wallet_balance_label"
+                                android:text="@string/wallet_stars_label"
                                 android:textAllCaps="true"
                                 android:textColor="@color/text_faint"
                                 android:textSize="11sp" />
@@ -171,87 +207,109 @@
                                 android:fontFamily="@font/jakarta_extrabold"
                                 android:includeFontPadding="false"
                                 android:letterSpacing="-0.035"
+                                android:text="@string/wallet_balance_placeholder"
                                 android:textColor="@color/text_strong"
                                 android:textSize="42sp"
                                 tools:text="14,820" />
 
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:layout_marginBottom="4dp"
-                                android:fontFamily="@font/jakarta_medium"
-                                android:includeFontPadding="false"
-                                android:text="@string/wallet_points_unit"
-                                android:textColor="@color/text_faint"
-                                android:textSize="14sp" />
+                            <ImageView
+                                android:layout_width="22dp"
+                                android:layout_height="22dp"
+                                android:layout_marginStart="7dp"
+                                android:layout_marginBottom="6dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_star"
+                                app:tint="@color/stars_accent" />
 
                         </LinearLayout>
 
                         <!--
-                            The handoff prints "= N UC in game currency" from
-                            a hardcoded 17.85 points-per-UC rate. There is no
-                            such rate in this system - packs carry a points
-                            price and a free-text amount, and no machine
-                            readable conversion between them - so this says
-                            what the balance can actually reach instead. An
-                            invented rate would be wrong the first time
-                            somebody repriced a pack.
+                            What the balance is climbing toward, and how far
+                            along it is. Named from a real pack rather than
+                            from a points-to-currency rate: a pack carries a
+                            price and a free-text amount with nothing
+                            machine-readable between them, so an invented rate
+                            would be wrong the first time anything was
+                            repriced.
+
+                            The whole group hides once every pack is already
+                            affordable - see renderReach - because a full bar
+                            with nothing above it is progress toward nothing.
                         -->
                         <TextView
                             android:id="@+id/walletReachLine"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
+                            android:layout_marginTop="8dp"
+                            android:ellipsize="end"
                             android:fontFamily="@font/jakarta_medium"
-                            android:textColor="@color/text_faint"
+                            android:maxLines="1"
+                            android:textColor="@color/text_dim"
                             android:textSize="12.5sp"
-                            tools:text="Enough for 325 UC in PUBG Mobile" />
+                            tools:text="600 more stars for 30 UC" />
 
                         <LinearLayout
+                            android:id="@+id/walletReachGroup"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="17dp"
+                            android:layout_marginTop="9dp"
+                            android:baselineAligned="false"
+                            android:gravity="center_vertical"
                             android:orientation="horizontal">
 
-                            <!--
-                                Painted like Home's redeem button, and for the
-                                same reason: this card is about stars, so its
-                                primary action wears the stars accent. In
-                                violet it read as an XP control standing on a
-                                star balance.
-                            -->
-                            <TextView
-                                android:id="@+id/walletEarnMore"
+                            <ProgressBar
+                                android:id="@+id/walletReachBar"
+                                style="@android:style/Widget.ProgressBar.Horizontal"
                                 android:layout_width="0dp"
-                                android:layout_height="38dp"
+                                android:layout_height="7dp"
                                 android:layout_weight="1"
-                                android:background="@drawable/bg_button_stars_outline"
-                                android:clickable="true"
-                                android:focusable="true"
-                                android:fontFamily="@font/jakarta_bold"
-                                android:gravity="center"
-                                android:text="@string/wallet_earn_more"
-                                android:textColor="@color/stars_accent"
-                                android:textSize="13sp" />
+                                android:max="100"
+                                android:progress="0"
+                                android:progressDrawable="@drawable/progress_gold"
+                                tools:progress="35" />
 
                             <TextView
-                                android:id="@+id/walletOrdersShortcut"
-                                android:layout_width="0dp"
-                                android:layout_height="38dp"
-                                android:layout_marginStart="8dp"
-                                android:layout_weight="1"
-                                android:background="@drawable/bg_button_neutral_outline"
-                                android:drawablePadding="6dp"
-                                android:fontFamily="@font/jakarta_semibold"
-                                android:gravity="center"
-                                android:text="@string/wallet_orders"
-                                android:textColor="@color/text_dim"
-                                android:textSize="13sp"
-                                app:drawableStartCompat="@drawable/ic_receipt"
-                                app:drawableTint="@color/text_dim" />
+                                android:id="@+id/walletReachRatio"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="10dp"
+                                android:fontFamily="@font/mono_medium"
+                                android:textColor="@color/text_ghost"
+                                android:textSize="11sp"
+                                tools:text="0 / 600" />
 
                         </LinearLayout>
+
+                        <!--
+                            Earn, not Play. This card counts stars, and Play
+                            pays XP - sending somebody who wants a bigger
+                            balance to the screen that grows the other
+                            currency is the wrong half of the app.
+
+                            Orders has gone from here: the segmented control at
+                            the top of this screen is the way to Orders, and a
+                            card-level shortcut was a second door to the same
+                            room.
+                        -->
+                        <TextView
+                            android:id="@+id/walletEarnMore"
+                            android:layout_width="wrap_content"
+                            android:layout_height="40dp"
+                            android:layout_marginTop="16dp"
+                            android:background="@drawable/bg_button_stars_outline"
+                            android:clickable="true"
+                            android:drawablePadding="7dp"
+                            android:focusable="true"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:gravity="center"
+                            android:minWidth="150dp"
+                            android:paddingStart="18dp"
+                            android:paddingEnd="18dp"
+                            android:text="@string/wallet_earn_stars"
+                            android:textColor="@color/stars_accent"
+                            android:textSize="13sp"
+                            app:drawableEndCompat="@drawable/ic_arrow_right"
+                            app:drawableTint="@color/stars_accent" />
 
                     </LinearLayout>
 
@@ -319,135 +377,173 @@
 
                 <!-- ================= First-redeem offer ================= -->
                 <!--
-                    Shown only while the discount is unspent AND the account
-                    has reached the unlock level. Below that level the card is
-                    hidden rather than shown locked: it is an offer, and an
-                    offer you cannot take is just an advert for waiting.
+                    Shown while the discount is unspent and some pack actually
+                    carries a discounted price. Nothing else gates it.
+
+                    THE LEVEL LOCK IS GONE, and with it the row that used to
+                    read "Unlocks at level 10". This offer exists to prove the
+                    payout is real, which is worth most to somebody who has not
+                    decided whether to believe us yet and least to somebody who
+                    has already stayed ten levels. Holding it back until then
+                    inverted its own purpose. The server dropped the gate too -
+                    see validateRedemption - so there is no level to name here
+                    and no disabled state to draw.
+
+                    Once it is finished it is finished FOREVER: spent, or
+                    refused because the game account had already had one. See
+                    MainViewModel.firstRedeemFinished.
+
+                    The gift artwork is firstRedeemArt, hidden until a URL is
+                    set on config/wallet - see RedemptionFragment.
                 -->
-                <LinearLayout
+                <FrameLayout
                     android:id="@+id/firstRedeemCard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="11dp"
                     android:background="@drawable/bg_first_redeem_card"
-                    android:orientation="vertical"
-                    android:padding="14dp"
+                    android:clipToOutline="true"
                     android:visibility="gone"
                     tools:visibility="visible">
+
+                    <ImageView
+                        android:id="@+id/firstRedeemArt"
+                        android:layout_width="132dp"
+                        android:layout_height="118dp"
+                        android:layout_gravity="end|center_vertical"
+                        android:layout_marginEnd="-4dp"
+                        android:adjustViewBounds="true"
+                        android:contentDescription="@null"
+                        android:scaleType="fitEnd"
+                        android:visibility="gone"
+                        tools:visibility="visible" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:baselineAligned="false"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:orientation="vertical"
+                        android:padding="14dp">
 
-                        <ImageView
-                            android:layout_width="13dp"
-                            android:layout_height="13dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_gift"
-                            app:tint="@color/brand_violet_light" />
-
-                        <TextView
-                            android:layout_width="0dp"
+                        <!--
+                            A pill, not a row. The old header put a kicker on
+                            the left and a "One time only" chip on the right,
+                            which said the same thing twice at opposite ends of
+                            the card.
+                        -->
+                        <LinearLayout
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
-                            android:layout_weight="1"
-                            android:fontFamily="@font/jakarta_semibold"
-                            android:letterSpacing="0.14"
-                            android:text="@string/first_redeem_kicker"
-                            android:textAllCaps="true"
-                            android:textColor="@color/brand_violet_light"
-                            android:textSize="11sp" />
+                            android:background="@drawable/bg_chip_violet"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="10dp"
+                            android:paddingTop="5dp"
+                            android:paddingEnd="12dp"
+                            android:paddingBottom="5dp">
+
+                            <ImageView
+                                android:layout_width="13dp"
+                                android:layout_height="13dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_gift"
+                                app:tint="@color/brand_violet_light" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:letterSpacing="0.1"
+                                android:text="@string/first_redeem_kicker"
+                                android:textAllCaps="true"
+                                android:textColor="@color/brand_violet_light"
+                                android:textSize="10sp" />
+
+                        </LinearLayout>
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:background="@drawable/bg_chip_violet"
-                            android:fontFamily="@font/jakarta_semibold"
-                            android:letterSpacing="0.06"
-                            android:paddingStart="7dp"
-                            android:paddingTop="3dp"
-                            android:paddingEnd="7dp"
-                            android:paddingBottom="3dp"
-                            android:text="@string/first_redeem_once"
-                            android:textAllCaps="true"
-                            android:textColor="@color/brand_violet_light"
-                            android:textSize="10sp" />
+                            android:layout_marginTop="12dp"
+                            android:fontFamily="@font/jakarta_extrabold"
+                            android:letterSpacing="-0.02"
+                            android:text="@string/first_redeem_title"
+                            android:textColor="@color/white"
+                            android:textSize="19sp" />
 
-                    </LinearLayout>
+                        <!--
+                            Kept clear of the artwork on the right. The body is
+                            one short line by design; anything longer would run
+                            under the gift.
+                        -->
+                        <TextView
+                            android:id="@+id/firstRedeemBody"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:layout_marginEnd="120dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:lineSpacingMultiplier="1.35"
+                            android:text="@string/first_redeem_body"
+                            android:textColor="@color/text_faint"
+                            android:textSize="12.5sp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:fontFamily="@font/jakarta_semibold"
-                        android:letterSpacing="-0.01"
-                        android:text="@string/first_redeem_title"
-                        android:textColor="@color/text_strong"
-                        android:textSize="17sp" />
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="12dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/firstRedeemBody"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:fontFamily="@font/jakarta_medium"
-                        android:lineSpacingMultiplier="1.35"
-                        android:textColor="@color/text_faint"
-                        android:textSize="12.5sp"
-                        tools:text="Your first pack costs a fraction of the usual stars." />
+                            <ImageView
+                                android:layout_width="15dp"
+                                android:layout_height="15dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_shield_check"
+                                app:tint="@color/brand_violet" />
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="11dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="7dp"
+                                android:fontFamily="@font/jakarta_medium"
+                                android:text="@string/first_redeem_uid_note"
+                                android:textColor="@color/text_ghost"
+                                android:textSize="11.5sp" />
 
-                        <ImageView
-                            android:layout_width="14dp"
-                            android:layout_height="14dp"
-                            android:contentDescription="@null"
-                            android:src="@drawable/ic_shield_check"
-                            app:tint="@color/brand_violet" />
+                        </LinearLayout>
 
                         <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
-                            android:layout_weight="1"
-                            android:fontFamily="@font/jakarta_medium"
-                            android:text="@string/first_redeem_uid_note"
-                            android:textColor="@color/text_ghost"
-                            android:textSize="11.5sp" />
+                            android:id="@+id/firstRedeemButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:layout_marginTop="14dp"
+                            android:background="@drawable/bg_button_accent_outline"
+                            android:drawablePadding="7dp"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:gravity="center"
+                            android:text="@string/first_redeem_cta"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="13.5sp"
+                            app:drawableStartCompat="@drawable/ic_gift"
+                            app:drawableTint="@color/brand_violet_light" />
 
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/firstRedeemButton"
-                        android:layout_width="match_parent"
-                        android:layout_height="42dp"
-                        android:layout_marginTop="14dp"
-                        android:background="@drawable/bg_button_accent_outline"
-                        android:drawablePadding="6dp"
-                        android:fontFamily="@font/jakarta_semibold"
-                        android:gravity="center"
-                        android:text="@string/first_redeem_cta"
-                        android:textColor="@color/brand_violet_light"
-                        android:textSize="13.5sp"
-                        app:drawableStartCompat="@drawable/ic_gift"
-                        app:drawableTint="@color/brand_violet_light" />
+                </FrameLayout>
 
-                </LinearLayout>
-
-                <!-- ================= Redeem ================= -->
+                <!-- ================= Choose your reward ================= -->
+                <!--
+                    The count beside the title is gone. "4 games" was a fact
+                    about our catalogue rather than an instruction to the
+                    reader, and it sat where the mockup puts the one line that
+                    tells them what to do with the grid below.
+                -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="22dp"
-                    android:layout_marginBottom="11dp"
+                    android:layout_marginBottom="12dp"
                     android:baselineAligned="false"
                     android:gravity="bottom"
                     android:orientation="horizontal">
@@ -456,19 +552,24 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:fontFamily="@font/jakarta_semibold"
+                        android:fontFamily="@font/jakarta_extrabold"
+                        android:letterSpacing="-0.02"
                         android:text="@string/wallet_redeem_title"
-                        android:textColor="@color/text_strong"
-                        android:textSize="15sp" />
+                        android:textColor="@color/white"
+                        android:textSize="19sp" />
 
                     <TextView
                         android:id="@+id/walletGamesCount"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_marginBottom="3dp"
+                        android:ellipsize="end"
                         android:fontFamily="@font/jakarta_medium"
+                        android:maxLines="1"
+                        android:text="@string/wallet_redeem_hint"
                         android:textColor="@color/text_ghost"
-                        android:textSize="11.5sp"
-                        tools:text="4 games" />
+                        android:textSize="11.5sp" />
 
                 </LinearLayout>
 

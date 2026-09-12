@@ -40,6 +40,9 @@
     <string name="level_up_with_bonus">Level %1$d reached! %2$d stars waiting in Level rewards</string>
     <string name="level_up">Level up! You reached level %d</string>
     <string name="done">Done</string>
+    <!-- Default primary button on showAppDialog, for announcements that are
+         not asking anything. -->
+    <string name="dialog_ok">Got it</string>
     <string name="redeem">Redeem</string>
     <string name="insufficient_points">Insufficient points</string>
     <string name="enter_phone_number">Enter Phone Number</string>
@@ -322,7 +325,6 @@
     <!-- %1$d is the XP threshold the server actually tests, not the level:
          the level is reached slightly before it. -->
     <string name="level_perk_referral">Referral rewards - a friend you invited pays out once they reach %1$d XP</string>
-    <string name="level_perk_first_redeem">Discounted first redeem - one pack at a lower price, once per account</string>
     <string name="level_perk_game">%1$s unlocks in Cashout</string>
     <!-- Quick actions -->
     <string name="quick_actions">Quick actions</string>
@@ -569,40 +571,52 @@ The board resets every Monday. Prizes are paid in stars.</string>
          tags - comes from Firestore. The strings here are only the furniture
          around them, which is why there is no game or currency named below.
          ================================================================== -->
-    <string name="wallet_balance_label">Point balance</string>
+    <string name="wallet_stars_label">Your stars</string>
     <string name="wallet_points_unit">pts</string>
-    <string name="wallet_earn_more">Earn more</string>
+    <string name="wallet_earn_stars">Earn stars</string>
     <string name="wallet_orders">Orders</string>
     <string name="wallet_help">Help</string>
-    <string name="wallet_redeem_title">Redeem</string>
+    <string name="wallet_redeem_title">Choose your reward</string>
     <string name="wallet_activity_title">Activity</string>
-    <string name="wallet_games_count">%1$d games</string>
-    <string name="wallet_games_count_one">1 game</string>
     <string name="wallet_no_rewards">No games available right now. Check back soon.</string>
     <string name="wallet_no_activity">Nothing yet. Play a quiz or a game to start earning.</string>
     <string name="wallet_no_orders">No orders yet. Redeem something and it will show up here.</string>
-    <string name="wallet_game_from">from %1$s pts</string>
+    <string name="wallet_game_from">from %1$s stars</string>
     <!-- The balance card's second line. Names a real pack the balance can
          already buy, rather than converting points at an invented rate. -->
-    <string name="wallet_reach_enough">Enough for %1$s in %2$s</string>
-    <string name="wallet_reach_short">%1$s more for %2$s</string>
+    <!-- Under the section title, where a game count used to sit. Tells the
+         reader what the grid is for rather than how big our catalogue is. -->
+    <string name="wallet_redeem_hint">Select a game to see packs</string>
+    <string name="wallet_view_packs">View packs</string>
+    <!-- The balance before the user document lands. A dash, not a zero: zero
+         is a statement about somebody's balance and it is usually wrong. -->
+    <string name="wallet_balance_placeholder">—</string>
+    <!-- x / y under the progress bar toward the next affordable pack. -->
+    <string name="wallet_reach_ratio">%1$s / %2$s</string>
+    <string name="wallet_reach_short">%1$s more stars for %2$s</string>
     <string name="wallet_reach_none">Start earning to unlock your first pack</string>
     <string name="wallet_pending_one">1 order processing</string>
     <string name="wallet_pending_many">%1$d orders processing</string>
 
     <!-- The discounted first redeem. The exact price lives on the pack in
          Firestore, so no number appears here. -->
-    <string name="first_redeem_kicker">First redeem</string>
+    <string name="first_redeem_kicker">One-time offer</string>
     <string name="first_redeem_once">One time only</string>
     <string name="first_redeem_title">Your first pack costs less</string>
-    <string name="first_redeem_body">Pick one small pack at a reduced price and see the payout work before you spend a full balance.</string>
-    <string name="first_redeem_uid_note">One game UID per account</string>
+    <string name="first_redeem_body">Get a small pack for fewer stars.</string>
+    <string name="first_redeem_uid_note">One per person</string>
     <string name="first_redeem_cta">Use my discount</string>
-    <string name="first_redeem_locked">Unlocks at level %1$d</string>
+    <!-- Shown when the server refuses the discount because the GAME ACCOUNT
+         has already had one - almost always the user's own older sign-in.
+         Says what happened and that it is final, because the card is about to
+         disappear and a vague message would read as a bug. -->
+    <string name="first_redeem_taken_title">Already claimed</string>
+    <string name="first_redeem_taken_body">The one-time offer has already been used on this game account. Your stars have not been spent.\n\nYou can still redeem any pack at its normal price.</string>
+    <string name="first_redeem_taken_ok">Got it</string>
     <string name="first_redeem_kicker_numbered">First redeem \u00b7 1 of 1</string>
     <string name="first_redeem_sheet_title">Pick your discounted pack</string>
     <string name="sheet_continue">Continue</string>
-    <string name="first_redeem_sheet_sub">One discounted pack, once per account. The offer disappears after it is delivered.</string>
+    <string name="first_redeem_sheet_sub">One discounted pack per person. The offer disappears after it is delivered.</string>
 
     <!-- The redeem sheet. -->
     <string name="sheet_choose_pack">Choose a pack</string>
@@ -707,7 +721,9 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_privacy">Privacy policy</string>
     <string name="profile_support">Help and support</string>
     <string name="profile_sign_out">Sign out</string>
-    <string name="profile_sign_out_confirm">Sign out of PixelPayout?</string>
+    <!-- The confirm dialog now has a title of its own, so the body says what
+         the consequence is rather than repeating the question. -->
+    <string name="profile_sign_out_confirm">Your stars stay on your account. You will need to sign in again to reach them.</string>
     <string name="profile_version">PixelPayout v%1$s</string>
 
     <!-- Reward paid / declined popups. -->

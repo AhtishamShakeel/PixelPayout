@@ -175,6 +175,14 @@ object RedemptionOptionsStore {
             id = doc.id,
             name = name,
             code = doc.getString("code")?.trim().orEmpty().ifEmpty { name.take(2).uppercase() },
+            // Left blank rather than defaulted to the game name: the whole
+            // point of the field is that the game name does not go on screen,
+            // so a missing one has to fall through to `code` instead. See
+            // RedemptionGame.displayName.
+            currencyName = doc.getString("currencyName")?.trim().orEmpty(),
+            walletHeroUrl = doc.getString("walletHeroUrl")?.trim()?.takeIf(String::isNotEmpty),
+            firstRedeemArtUrl =
+                doc.getString("firstRedeemArtUrl")?.trim()?.takeIf(String::isNotEmpty),
             subtitle = doc.getString("subtitle").orEmpty(),
             packs = packs,
             imageUrl = doc.getString("imageUrl"),
@@ -228,7 +236,8 @@ object RedemptionOptionsStore {
                 tag = (fields["tag"] as? String)?.trim()?.takeIf(String::isNotEmpty),
                 sortOrder = (fields["sortOrder"] as? Number)?.toInt() ?: 0,
                 firstRedeemCost = (fields["firstRedeemCost"] as? Number)?.toInt()
-                    ?.takeIf { it >= 0 }
+                    ?.takeIf { it >= 0 },
+                firstRedeemOnly = fields["firstRedeemOnly"] == true
             )
         }.sortedWith(compareBy({ it.sortOrder }, { it.pointsCost }))
     }

@@ -16,10 +16,13 @@ import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import coil.load
+import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.GridSpacingItemDecoration
+import com.example.pixelpayout.utils.showAppDialog
 import com.google.android.material.snackbar.Snackbar
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentRedemptionBinding
@@ -53,9 +56,8 @@ class RedemptionFragment : Fragment() {
     private lateinit var activityAdapter: ActivityAdapter
 
     /** Cached so the offer card can be shown the moment both facts land. */
-    private var hasUsedFirstRedeem: Boolean = true
+    private var firstRedeemFinished: Boolean = true
     private var currentLevel: Int = 1
-    private var firstRedeemMinLevel: Int? = null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -130,7 +132,6 @@ class RedemptionFragment : Fragment() {
     private fun setupNavigation() {
         binding.segmentWallet.setOnClickListener { showOrders(false) }
         binding.segmentOrders.setOnClickListener { showOrders(true) }
-        binding.walletOrdersShortcut.setOnClickListener { showOrders(true) }
         binding.walletPendingRow.setOnClickListener { showOrders(true) }
 
         // Earn, not Play. This card counts stars, and Play pays XP for games
@@ -138,10 +139,40 @@ class RedemptionFragment : Fragment() {
         // screen that grows the other currency is the wrong half of the app.
         binding.walletEarnMore.setOnClickListener { navigateToEarn() }
 
-        binding.firstRedeemButton.setOnClickListener {
-            // Disabled while locked, so this can only be a real attempt.
-            if (binding.firstRedeemButton.isEnabled) openFirstRedeem()
-        }
+        // No enabled check any more. The offer has no level gate, so the card
+        // is either on screen and usable or not on screen at all.
+        binding.firstRedeemButton.setOnClickListener { openFirstRedeem() }
+
+        // The refusal that ends the offer. The sheet cannot show this itself -
+        // it dismisses on the failure - so it hands the news back here.
+        parentFragmentManager.setFragmentResultListener(
+            RedeemSheetFragment.RESULT_FIRST_REDEEM_TAKEN,
+            viewLifecycleOwner
+        ) { _, _ -> showFirstRedeemTaken() }
+    }
+
+    /**
+     * "The one-time offer has already been used on this game account."
+     *
+     * A dialog rather than a snackbar, because it is the end of something
+     * rather than a correction: there is no other UID they could type that
+     * would work, and the card is about to disappear from under them. A line
+     * of toast that vanishes in two seconds would leave them wondering where
+     * the offer went.
+     *
+     * The card itself is retired by the server, not here - redeemReward sets
+     * firstRedeemUnavailable inside the transaction that refused - so this
+     * only has to say so. Nothing is dismissed or hidden by hand, and a user
+     * who kills the app before reading it still finds the card gone.
+     */
+    private fun showFirstRedeemTaken() {
+        if (!isAdded) return
+        requireContext().showAppDialog(
+            title = R.string.first_redeem_taken_title,
+            message = R.string.first_redeem_taken_body,
+            icon = R.drawable.ic_gift,
+            positiveText = R.string.first_redeem_taken_ok
+        )
     }
 
     private fun showOrders(orders: Boolean) {
@@ -190,8 +221,8 @@ class RedemptionFragment : Fragment() {
     /**
      * Earn is a tab that comes and goes with the offerwall catalogue, the
      * same switch the bottom bar follows. Leaving the button up when the tab
-     * is gone would send the user to a destination the bar does not admit to
-     * - so it goes too, and the Orders button beside it takes the full row.
+     * is gone would send the user to a destination the bar does not admit to,
+     * so the button goes with it.
      */
     private fun navigateToEarn() {
         try {
@@ -210,25 +241,19 @@ class RedemptionFragment : Fragment() {
     }
 
     private fun observeViewModel() {
+        // Earn is a tab that comes and goes with the offerwall catalogue.
+        // The button goes with it rather than pointing at a destination the
+        // bottom bar no longer admits to. It is the only button on the card
+        // now, so nothing has to be re-laid-out around its absence.
         mainViewModel.offerwallAvailable.observe(viewLifecycleOwner) { available ->
-            val b = _binding ?: return@observe
-            b.walletEarnMore.isVisible = available
-            // The two buttons are weighted halves of one row; with Earn gone
-            // the margin that separated them would sit against the card edge.
-            (b.walletOrdersShortcut.layoutParams as? android.widget.LinearLayout.LayoutParams)
-                ?.let { params ->
-                    params.marginStart = if (available) dp(8) else 0
-                    b.walletOrdersShortcut.layoutParams = params
-                }
+            _binding?.walletEarnMore?.isVisible = available
         }
 
         viewModel.games.observe(viewLifecycleOwner) { games ->
             gamesAdapter.submitList(games)
-            binding.walletGamesCount.text = when (games.size) {
-                1 -> getString(R.string.wallet_games_count_one)
-                else -> getString(R.string.wallet_games_count, games.size)
-            }
+            // The hint under the title only makes sense with a grid under it.
             binding.walletGamesCount.isVisible = games.isNotEmpty()
+            renderHeroArt(games)
             updateCatalogueState()
             updateReachLine()
             updateFirstRedeemCard()
@@ -241,16 +266,10 @@ class RedemptionFragment : Fragment() {
             gamesAdapter.updateLevel(state.level)
             binding.walletBalance.text = WalletFormat.number(state.points)
             updateReachLine()
-            updateFirstRedeemCard()
         }
 
-        mainViewModel.hasUsedFirstRedeem.observe(viewLifecycleOwner) { used ->
-            hasUsedFirstRedeem = used
-            updateFirstRedeemCard()
-        }
-
-        viewModel.firstRedeemMinLevel.observe(viewLifecycleOwner) { level ->
-            firstRedeemMinLevel = level
+        mainViewModel.firstRedeemFinished.observe(viewLifecycleOwner) { finished ->
+            firstRedeemFinished = finished
             updateFirstRedeemCard()
         }
 
@@ -284,74 +303,113 @@ class RedemptionFragment : Fragment() {
     }
 
     /**
-     * The balance card's second line.
+     * What the balance is climbing toward, as a line and a bar.
      *
      * The handoff prints a points-to-currency conversion from a hardcoded
      * rate. There is no such rate here - a pack carries a points price and a
      * free-text amount, with nothing machine-readable between them - so this
-     * names a real pack instead: the best one the balance already covers, or
-     * the shortfall to the cheapest one it does not.
+     * names a real pack instead: the CHEAPEST ONE THE BALANCE CANNOT REACH
+     * YET, which is the only pack a progress bar could honestly point at.
+     *
+     * Three states, and the third is why the bar is not simply always on:
+     *
+     *   * nothing in the catalogue at all - the whole group goes,
+     *   * everything already affordable - the group goes too, because a full
+     *     bar under "you can afford everything" is progress toward nothing,
+     *   * something out of reach - the line names it and the bar measures the
+     *     climb.
+     *
+     * The pack's own `amount` is used rather than the game name, for the same
+     * reason the tiles do: "600 more stars for 30 UC" says what arrives,
+     * without putting somebody else's trade mark on our screen.
      */
     private fun updateReachLine() {
+        val binding = _binding ?: return
         val games = viewModel.games.value.orEmpty()
         val points = mainViewModel.userState.value?.points ?: 0
 
         val available = games
             .filter { it.minLevel <= currentLevel }
-            .flatMap { game -> game.packs.map { game to it } }
+            .flatMap { game -> game.purchasablePacks.map { game to it } }
 
-        if (available.isEmpty()) {
-            binding.walletReachLine.isVisible = false
-            return
-        }
-        binding.walletReachLine.isVisible = true
+        // The cheapest thing still out of reach. Null when the catalogue is
+        // empty OR when every pack is already affordable - both of which mean
+        // there is no climb left to draw.
+        val target = available
+            .filter { (_, pack) -> pack.pointsCost > points }
+            .minByOrNull { (_, pack) -> pack.pointsCost }
+            ?.second
 
-        val affordable = available.filter { (_, pack) -> pack.pointsCost <= points }
-        binding.walletReachLine.text = if (affordable.isNotEmpty()) {
-            val (game, pack) = affordable.maxBy { (_, pack) -> pack.pointsCost }
-            getString(R.string.wallet_reach_enough, pack.amount, game.name)
-        } else {
-            val (_, pack) = available.minBy { (_, pack) -> pack.pointsCost }
-            getString(
-                R.string.wallet_reach_short,
-                WalletFormat.number(pack.pointsCost - points),
-                pack.amount
-            )
-        }
+        val show = target != null
+        binding.walletReachLine.isVisible = show
+        binding.walletReachGroup.isVisible = show
+        if (target == null) return
+
+        binding.walletReachLine.text = getString(
+            R.string.wallet_reach_short,
+            WalletFormat.number(target.pointsCost - points),
+            target.amount
+        )
+        binding.walletReachRatio.text = getString(
+            R.string.wallet_reach_ratio,
+            WalletFormat.number(points),
+            WalletFormat.number(target.pointsCost)
+        )
+        // Long arithmetic: a balance and a price are both Ints, and their
+        // product overflows at a little over two million points - which this
+        // economy will reach.
+        binding.walletReachBar.progress =
+            (points.toLong() * 100 / target.pointsCost).toInt().coerceIn(0, 100)
+    }
+
+    /**
+     * The star pile on the balance card, and the gift on the offer card.
+     *
+     * BOTH COME FROM FIRESTORE, so the artwork on this screen is swapped from
+     * the console rather than in a release - the same rule the game tiles
+     * follow. Neither has a bundled fallback: the cards are designed to read
+     * correctly with the art absent, and a placeholder illustration would be
+     * worse than the space it filled.
+     *
+     * The hero image is carried on the catalogue rather than in its own
+     * document, so this screen still costs no reads of its own. It is taken
+     * from whichever game document defines `walletHeroUrl` - in practice one
+     * of them does and the rest leave it blank.
+     */
+    private fun renderHeroArt(games: List<RedemptionGame>) {
+        val binding = _binding ?: return
+
+        val hero = games.firstNotNullOfOrNull { it.walletHeroUrl?.takeIf(String::isNotBlank) }
+        binding.walletHeroArt.isVisible = hero != null
+        if (hero != null) binding.walletHeroArt.load(hero) { crossfade(true) }
+
+        val gift = games.firstNotNullOfOrNull { it.firstRedeemArtUrl?.takeIf(String::isNotBlank) }
+        binding.firstRedeemArt.isVisible = gift != null
+        if (gift != null) binding.firstRedeemArt.load(gift) { crossfade(true) }
     }
 
     /**
      * The offer card.
      *
-     * Shown whenever the discount is unspent AND some pack actually carries a
-     * discounted price. Below the unlock level it is shown LOCKED rather than
-     * hidden: hiding it meant a user under level 10 had no way to learn the
-     * offer existed, or what to aim at - and it made the whole feature
-     * invisible while testing. An offer you cannot take yet is worth naming;
-     * an offer that does not exist is not, which is why an empty catalogue
-     * still hides it.
+     * Two conditions, and no third. The discount has to be unfinished for
+     * this account, and some pack has to actually carry a discounted price -
+     * an empty catalogue has no offer to advertise.
+     *
+     * THE LEVEL GATE IS GONE, and with it the locked state this used to draw.
+     * The card previously appeared below the unlock level in a disabled form
+     * so the offer was at least discoverable; there is no level to be below
+     * now, so the card is either usable or absent.
+     *
+     * "Finished" covers both ways it ends - spent, or refused because the
+     * game account had already had one - and neither is recoverable, so the
+     * card never comes back. See MainViewModel.firstRedeemFinished.
      */
     private fun updateFirstRedeemCard() {
-        val minLevel = firstRedeemMinLevel
+        val binding = _binding ?: return
         val offerExists = viewModel.games.value.orEmpty()
             .any { game -> game.packs.any { it.isFirstRedeemOffer } }
 
-        // Still hidden until the config read lands, so the card never names an
-        // unlock level it might have to correct a moment later.
-        val show = !hasUsedFirstRedeem && offerExists && minLevel != null
-        binding.firstRedeemCard.isVisible = show
-        if (!show) return
-
-        val unlocked = currentLevel >= (minLevel ?: Int.MAX_VALUE)
-
-        binding.firstRedeemBody.text = getString(R.string.first_redeem_body)
-        binding.firstRedeemButton.isEnabled = unlocked
-        binding.firstRedeemButton.alpha = if (unlocked) 1f else 0.5f
-        binding.firstRedeemButton.text = if (unlocked) {
-            getString(R.string.first_redeem_cta)
-        } else {
-            getString(R.string.first_redeem_locked, minLevel ?: 0)
-        }
+        binding.firstRedeemCard.isVisible = !firstRedeemFinished && offerExists
     }
 
     /**

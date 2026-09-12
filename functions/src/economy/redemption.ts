@@ -31,17 +31,28 @@ export const REDEMPTION_OPTIONS_COLLECTION = "redemptionOptions";
 export const REDEMPTIONS_COLLECTION = "redemptions";
 
 /**
- * The claim on a game player ID: `{gameId}__{playerId}` -> the uid that first
- * redeemed into it.
+ * What is known about a game player ID: `{gameId}__{playerId}`.
+ *
+ * IT NO LONGER BLOCKS A REDEMPTION. This used to be a hard claim - the first
+ * account to redeem into a player ID owned it, and any other account was
+ * refused outright. That rule was too blunt in the case it hit most often:
+ * one person with two sign-ins, or a phone handed to a sibling, topping up
+ * the same game account. Being told "this UID belongs to someone else" about
+ * your own game account is indistinguishable from a broken app.
+ *
+ * What it carries now is `firstRedeemUsed`, which is narrower and is aimed at
+ * the thing actually worth defending: the discounted first pack. Ordinary
+ * redeems are open to any account, because they are paid for at full price
+ * and there is nothing to farm.
  *
  * A deterministic document id rather than a query, because the check and the
- * claim have to happen inside the redemption transaction - two devices
- * redeeming into the same fresh ID at the same moment must not both win, and
- * only a read of a known document id can be part of a transaction.
+ * mark have to happen inside the redemption transaction - two devices
+ * claiming the discount on the same fresh ID at the same moment must not both
+ * win, and only a read of a known document id can be part of a transaction.
  *
  * Server-only in firestore.rules. A client that could read this could
- * enumerate which player IDs are taken, which is exactly the reconnaissance
- * the rule exists to prevent.
+ * enumerate which player IDs have spent their discount, which is exactly the
+ * reconnaissance the rule exists to prevent.
  */
 export const PLAYER_LINKS_COLLECTION = "playerLinks";
 
@@ -54,9 +65,6 @@ export const GAME_PROFILES_SUBCOLLECTION = "gameProfiles";
 
 /** Config doc holding the tunables that should not need a redeploy. */
 export const REDEMPTION_CONFIG_DOC = "redemption";
-
-/** Level required for the discounted first redeem, when config says nothing. */
-export const DEFAULT_FIRST_REDEEM_MIN_LEVEL = 10;
 
 /** Shortest player ID any game will accept, when the game says nothing. */
 export const DEFAULT_ID_MIN_LENGTH = 4;
@@ -94,13 +102,58 @@ export interface RedemptionPack {
    * drift out of step with the first.
    */
   firstRedeemCost?: number;
+  /**
+   * This pack exists ONLY as the first-redeem offer. It is not sold at list
+   * price and does not appear in the game's pack list.
+   *
+   * WHY IT IS NEEDED: the offer used to point at the cheapest ordinary pack -
+   * 30 UC - which tied two unrelated decisions together. Raising the ordinary
+   * minimum to 60 UC meant deleting the 30 UC pack, and deleting it took the
+   * offer with it; keeping the offer meant keeping a 30 UC pack on sale. This
+   * separates them: the taster is its own pack, reachable only through the
+   * offer, and the ordinary floor moves independently of it.
+   *
+   * `pointsCost` is still required and still has to be a sane figure - it is
+   * what the pack WOULD cost, and validateRedemption uses it as the ceiling
+   * the discount cannot exceed - but it is never actually charged, because
+   * buying this pack without the discount is refused.
+   *
+   * A pack marked this way with no `firstRedeemCost` is unreachable: it is
+   * excluded from the ordinary list by the flag and from the offer by the
+   * missing price. That is a console mistake rather than a state to handle.
+   */
+  firstRedeemOnly?: boolean;
 }
 
 /** One game, and everything the redeem flow needs to ask for. */
 export interface RedemptionGame {
+  /**
+   * The game's own name ("PUBG Mobile").
+   *
+   * INTERNAL AND ADMIN-FACING ONLY. It is written onto every order so a
+   * payout can be actioned by hand, and it is what the admin tool lists - but
+   * nothing in the app draws it any more. The tiles and the sheet show
+   * [currencyName] instead; see the note there.
+   */
   name: string;
   /** Two or three characters for the tile ("UC", "FF", "ML"). */
   code?: string;
+  /**
+   * What the player actually receives, named as the game names it: "UC",
+   * "Diamonds", "CP", "Coins".
+   *
+   * THIS IS WHAT THE APP SHOWS, not [name]. Printing "PUBG Mobile" or "Free
+   * Fire" beside artwork of a character from those games is us using someone
+   * else's trade mark to sell something; naming the currency is a plain
+   * description of the goods. The store listing is the risk being managed
+   * here, and it is cheap to avoid.
+   *
+   * A separate field rather than reusing [code] because the two answer
+   * different questions - code is a two-letter tag for a cramped tile, this
+   * is the word a player would use. Absent falls back to code, then to name,
+   * so a catalogue written before this field existed still renders.
+   */
+  currencyName?: string;
   /** One line under the name in the sheet header. */
   subtitle?: string;
   enabled: boolean;
@@ -109,6 +162,18 @@ export interface RedemptionGame {
   minLevel?: number;
   sortOrder?: number;
   imageUrl?: string;
+  /**
+   * Artwork for the Wallet screen itself - the star pile on the balance card
+   * and the gift on the first-redeem card.
+   *
+   * Carried on the catalogue rather than in a config document of their own so
+   * the screen still costs no reads beyond the one it already makes. They
+   * belong to the screen, not to the game whose document holds them: set them
+   * on ONE document and leave them off the rest. The app takes the first game
+   * in sort order that defines one.
+   */
+  walletHeroUrl?: string;
+  firstRedeemArtUrl?: string;
   /** Label and help text for the player ID field. */
   idLabel?: string;
   idHint?: string;
@@ -130,9 +195,9 @@ export type RedemptionRejection =
   | "player_id_required"
   | "username_required"
   | "server_required"
-  | "uid_linked_to_another_account"
+  | "pack_first_redeem_only"
   | "first_redeem_used"
-  | "first_redeem_level_too_low"
+  | "first_redeem_uid_used"
   | "first_redeem_unavailable"
   | "insufficient_points";
 
@@ -209,13 +274,19 @@ export function validateRedemption(input: {
   server?: string;
   /** Caller asked to spend the once-per-account discount on this order. */
   useFirstRedeem?: boolean;
+  /** This ACCOUNT has already spent its discount. */
   hasUsedFirstRedeem?: boolean;
-  firstRedeemMinLevel?: number;
   /**
-   * The uid already linked to (this game, this player ID), or null if the ID
-   * has never been redeemed into. Read inside the transaction by the caller.
+   * This PLAYER ID has already had a discounted first pack delivered into it,
+   * by any account. Read inside the transaction by the caller, off the
+   * playerLinks document.
+   *
+   * The two are different questions and both have to be asked. The account
+   * flag stops one sign-in taking the offer twice; this stops one person
+   * taking it once per sign-in, which is the same offer farmed through a
+   * second Gmail into the same game account.
    */
-  linkedUid?: string | null;
+  firstRedeemUidUsed?: boolean;
   callerUid: string;
 }): RedemptionValidation {
   const {game} = input;
@@ -268,12 +339,20 @@ export function validateRedemption(input: {
     server = asked;
   }
 
-  // The anti-farming rule. Checked before the balance so the message the user
-  // sees names the real problem: a second account cannot pay its way past a
-  // linked ID no matter how many points it has.
-  const linkedUid = input.linkedUid ?? null;
-  if (linkedUid && linkedUid !== input.callerUid) {
-    return {ok: false, rejection: "uid_linked_to_another_account"};
+  // NO UID OWNERSHIP CHECK HERE ANY MORE. A player ID redeemed into by one
+  // account used to be closed to every other account, forever. It caught real
+  // farming, but it also caught the ordinary case - one person, two sign-ins,
+  // one game account - and told them their own UID belonged to a stranger.
+  // Full-price redeems are now open: they are paid for, so there is nothing
+  // to farm. The UID rule that survives is the one just below, and it guards
+  // only the thing that is actually given away.
+
+  // An offer-only pack is not for sale at list price. Checked here rather
+  // than trusted to the client not to offer it: the pack id travels in the
+  // request, so anyone can name the cheap taster on an ordinary redeem and
+  // would otherwise be sold it at whatever pointsCost happens to say.
+  if (pack.firstRedeemOnly === true && input.useFirstRedeem !== true) {
+    return {ok: false, rejection: "pack_first_redeem_only"};
   }
 
   // The discount decides the price, so it is resolved before the balance.
@@ -288,12 +367,15 @@ export function validateRedemption(input: {
     if (input.hasUsedFirstRedeem === true) {
       return {ok: false, rejection: "first_redeem_used"};
     }
-    const giftLevel = Number(input.firstRedeemMinLevel ?? DEFAULT_FIRST_REDEEM_MIN_LEVEL);
-    const requiredLevel = Number.isFinite(giftLevel) ?
-      giftLevel :
-      DEFAULT_FIRST_REDEEM_MIN_LEVEL;
-    if (input.userLevel < requiredLevel) {
-      return {ok: false, rejection: "first_redeem_level_too_low"};
+    // ONE DISCOUNTED PACK PER GAME ACCOUNT, not per sign-in. Checked after
+    // the account's own flag so a user who simply already used their offer is
+    // told that plainly, rather than being told something about a UID.
+    //
+    // NO LEVEL GATE. The offer used to unlock at level 10, which meant the
+    // one thing designed to prove the payout works was withheld until long
+    // after a new user had decided whether to trust it.
+    if (input.firstRedeemUidUsed === true) {
+      return {ok: false, rejection: "first_redeem_uid_used"};
     }
     // The discount can only ever lower the price. A firstRedeemCost typed
     // above the list price is a mistake in the console, not an upcharge.

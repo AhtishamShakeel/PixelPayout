@@ -236,26 +236,23 @@ assertEq("an alphanumeric id is plausible", isPlausiblePlayerId("Abc123", 4), tr
 assertEq("an id with a space is not plausible", isPlausiblePlayerId("521 884", 4), false);
 assertEq("an over-long id is rejected", isPlausiblePlayerId("1".repeat(33), 4), false);
 
-// --- the anti-farming rule ---
+// --- full-price redeems are open to any account ---
+//
+// The hard UID claim was removed: it refused one person topping up their own
+// game account from a second sign-in, which is a far more common thing than
+// the farming it was aimed at. What replaces it guards the discount only, and
+// is tested in the block below.
 assertEq(
-  "a player id linked to another account is refused",
-  validateRedemption({...base, game: pubg, linkedUid: "user-b"}).rejection,
-  "uid_linked_to_another_account"
-);
-assertEq(
-  "the owner may redeem into their own linked id again",
-  validateRedemption({...base, game: pubg, linkedUid: "user-a"}).ok,
+  "a player id another account has used is allowed at full price",
+  validateRedemption({...base, game: pubg, firstRedeemUidUsed: true}).ok,
   true
 );
 assertEq(
-  "an unclaimed id is allowed",
-  validateRedemption({...base, game: pubg, linkedUid: null}).ok,
+  "a spent discount on this uid does not block an ordinary redeem",
+  validateRedemption({
+    ...base, game: pubg, firstRedeemUidUsed: true, userPoints: 5800,
+  }).ok,
   true
-);
-assertEq(
-  "a linked id is refused even when the caller could afford it many times over",
-  validateRedemption({...base, game: pubg, linkedUid: "user-b", userPoints: 9999999}).rejection,
-  "uid_linked_to_another_account"
 );
 assertEq(
   "the link id is case-insensitive so one game account is one identity",
@@ -265,34 +262,125 @@ assertEq(
 assertEq("the link id namespaces by game", playerLinkId("pubg", "1"), "pubg__1");
 
 // --- the discounted first redeem ---
-const firstBase = {...base, packId: "uc_60", useFirstRedeem: true, userLevel: 10};
+const firstBase = {...base, packId: "uc_60", useFirstRedeem: true, userLevel: 1};
 assertEq(
   "the first redeem charges the discounted price",
   validateRedemption({...firstBase, game: pubg, userPoints: 300}),
   {ok: true, pointsCost: 300, packAmount: "60 UC", server: "Global", usedFirstRedeem: true}
 );
+
+// THE LEVEL GATE IS GONE. The offer exists to prove the payout works, and
+// withholding it until level 10 withheld it until well after a new user had
+// already decided whether to believe us.
 assertEq(
-  "level 10 exactly is allowed (boundary)",
-  validateRedemption({...firstBase, game: pubg, userLevel: 10}).ok,
+  "a brand new account can take the offer",
+  validateRedemption({...firstBase, game: pubg, userLevel: 1, userPoints: 300}).ok,
   true
 );
+
 assertEq(
-  "below level 10 the discount is refused",
-  validateRedemption({...firstBase, game: pubg, userLevel: 9}).rejection,
-  "first_redeem_level_too_low"
-);
-assertEq(
-  "the level gate is configurable",
-  validateRedemption({
-    ...firstBase, game: pubg, userLevel: 14, firstRedeemMinLevel: 15,
-  }).rejection,
-  "first_redeem_level_too_low"
-);
-assertEq(
-  "a second discounted redeem is refused",
+  "a second discounted redeem on the same account is refused",
   validateRedemption({...firstBase, game: pubg, hasUsedFirstRedeem: true}).rejection,
   "first_redeem_used"
 );
+
+// One discounted pack per GAME ACCOUNT, which is the rule that survives the
+// removal of the UID claim above. A fresh sign-in is still a fresh account,
+// so the account flag alone would not catch this.
+assertEq(
+  "a uid that already took the offer cannot take it again",
+  validateRedemption({
+    ...firstBase, game: pubg, userPoints: 300, firstRedeemUidUsed: true,
+  }).rejection,
+  "first_redeem_uid_used"
+);
+assertEq(
+  "a fresh account on a fresh uid is fine",
+  validateRedemption({
+    ...firstBase, game: pubg, userPoints: 300, firstRedeemUidUsed: false,
+  }).ok,
+  true
+);
+assertEq(
+  "the uid rule holds however many stars the caller has",
+  validateRedemption({
+    ...firstBase, game: pubg, userPoints: 9999999, firstRedeemUidUsed: true,
+  }).rejection,
+  "first_redeem_uid_used"
+);
+// Ordered so the message names the reason the user can act on: somebody who
+// has simply already used their own offer should be told that, not told
+// something about a UID.
+assertEq(
+  "an account that already used the offer is told so before the uid rule",
+  validateRedemption({
+    ...firstBase, game: pubg, hasUsedFirstRedeem: true, firstRedeemUidUsed: true,
+  }).rejection,
+  "first_redeem_used"
+);
+// --- the offer-only taster ---------------------------------------------
+//
+// The pack that exists so the ordinary floor can sit above it. Sold only
+// through the discount; refused at list price however the request is shaped,
+// because the pack id travels from the client and naming the cheap one on an
+// ordinary redeem would otherwise buy it.
+{
+  const withTaster = {
+    ...pubg,
+    packs: {
+      ...pubg.packs,
+      uc_taster: {
+        amount: "30 UC", pointsCost: 600, firstRedeemCost: 150,
+        firstRedeemOnly: true,
+      },
+    },
+  };
+
+  assertEq(
+    "an offer-only pack cannot be bought at list price",
+    validateRedemption({
+      ...base, game: withTaster, packId: "uc_taster", userPoints: 99999,
+    }).rejection,
+    "pack_first_redeem_only"
+  );
+  assertEq(
+    "...and the discount is what makes it reachable",
+    validateRedemption({
+      ...base, game: withTaster, packId: "uc_taster",
+      useFirstRedeem: true, userPoints: 150,
+    }),
+    {
+      ok: true, pointsCost: 150, packAmount: "30 UC",
+      server: "Global", usedFirstRedeem: true,
+    }
+  );
+  assertEq(
+    "an ordinary pack is unaffected by the flag",
+    validateRedemption({
+      ...base, game: withTaster, packId: "uc_60", userPoints: 1200,
+    }).ok,
+    true
+  );
+  // The flag is checked before the balance, so somebody who could not afford
+  // it anyway is still told the real reason.
+  assertEq(
+    "the refusal names the pack, not the balance",
+    validateRedemption({
+      ...base, game: withTaster, packId: "uc_taster", userPoints: 0,
+    }).rejection,
+    "pack_first_redeem_only"
+  );
+  // The offer sheet is built from firstRedeemCost, which the flag does not
+  // touch - so the taster still appears where it is meant to.
+  assertEq(
+    "an offer-only pack still shows up in the offer",
+    firstRedeemPacks([{id: "pubg", game: withTaster}])
+      .map((p) => p.packId)
+      .includes("uc_taster"),
+    true
+  );
+}
+
 assertEq(
   "a pack outside the offer cannot be discounted",
   validateRedemption({...firstBase, game: pubg, packId: "uc_325"}).rejection,
@@ -340,9 +428,11 @@ assertEq(
   "player_id_required"
 );
 assertEq(
-  "a linked id is reported before an insufficient balance",
-  validateRedemption({...base, game: pubg, linkedUid: "user-b", userPoints: 0}).rejection,
-  "uid_linked_to_another_account"
+  "a spent-discount uid is reported before an insufficient balance",
+  validateRedemption({
+    ...firstBase, game: pubg, firstRedeemUidUsed: true, userPoints: 0,
+  }).rejection,
+  "first_redeem_uid_used"
 );
 
 // --- spending must never touch progression ---

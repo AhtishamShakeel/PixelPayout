@@ -44,14 +44,6 @@ class ReferralViewModel(private val userRepository: UserRepository) : ViewModel(
     private val _isRedeeming = MutableLiveData(false)
     val isRedeeming: LiveData<Boolean> = _isRedeeming
 
-    /**
-     * The level at which the first-redeem discount unlocks. Null until the
-     * config read lands; the offer card stays hidden until then rather than
-     * promising an unlock level it might have to correct a moment later.
-     */
-    private val _firstRedeemMinLevel = MutableLiveData<Int?>(null)
-    val firstRedeemMinLevel: LiveData<Int?> = _firstRedeemMinLevel
-
     fun submitReferral(referralCode: String) {
         viewModelScope.launch {
             try {
@@ -65,12 +57,6 @@ class ReferralViewModel(private val userRepository: UserRepository) : ViewModel(
     /** Idempotent - the store ignores this once it is already listening. */
     fun loadGames() {
         userRepository.observeRedemptionGames()
-
-        if (_firstRedeemMinLevel.value == null) {
-            viewModelScope.launch {
-                _firstRedeemMinLevel.value = userRepository.getFirstRedeemMinLevel()
-            }
-        }
     }
 
     /**
@@ -126,7 +112,14 @@ sealed class RedemptionResult {
         val redemptionId: String
     ) : RedemptionResult()
 
-    data class Error(val message: String) : RedemptionResult()
+    /**
+     * @param code the server's raw rejection code, when there was one.
+     *   Carried alongside the message because ONE of these codes is not a
+     *   correction the user can act on - first_redeem_uid_used ends the offer
+     *   outright - and the sheet has to be able to tell that case apart
+     *   without matching on display text.
+     */
+    data class Error(val message: String, val code: String? = null) : RedemptionResult()
 }
 
 sealed class ReferralResult {

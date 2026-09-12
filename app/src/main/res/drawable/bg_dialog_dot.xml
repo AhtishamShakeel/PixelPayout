@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The accent dot on an app dialog, when it has no icon of its own.
+
+    Solid white and tinted at bind time rather than one drawable per colour -
+    see AppDialog, which paints it from the caller's accent. bg_dot_streak and
+    bg_dot_stars are the fixed-colour versions this generalises.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/white" />
+</shape>

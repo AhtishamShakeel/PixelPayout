@@ -183,6 +183,8 @@ class UserRepository {
                                     it.getBoolean(FIELD_HAS_USED_REFERRAL) ?: false,
                                 hasUsedFirstRedeem =
                                     it.getBoolean(FIELD_HAS_USED_FIRST_REDEEM) ?: false,
+                                firstRedeemUnavailable =
+                                    it.getBoolean(FIELD_FIRST_REDEEM_UNAVAILABLE) ?: false,
                                 // Both were already arriving in this snapshot
                                 // and being thrown away, which is what made
                                 // getDailyGoals a read per return to Home.
@@ -258,6 +260,22 @@ class UserRepository {
          * retry cannot spend it twice.
          */
         val hasUsedFirstRedeem: Boolean = false,
+        /**
+         * Whether the first-redeem offer is off the table for this account
+         * for a reason other than having spent it.
+         *
+         * Set by the server when a discount is refused because the GAME
+         * ACCOUNT being redeemed into has already had one - somebody else's
+         * sign-in got there first, usually the user's own older account. Once
+         * that happens there is nothing they can do: every other UID they
+         * could type belongs to a stranger, so the offer is retired rather
+         * than dangled in front of them to be refused again.
+         *
+         * Held apart from [hasUsedFirstRedeem] because they are different
+         * facts and an admin restoring a rejected order must clear only the
+         * one that was actually spent.
+         */
+        val firstRedeemUnavailable: Boolean = false,
         /** Today's activity counters, as the server increments them. */
         val dailyStats: DailyStats = DailyStats(),
         /** The UTC day the goal bonus was last paid, or null. */
@@ -711,7 +729,9 @@ class UserRepository {
                 redemptionId = (data["redemptionId"] as? String).orEmpty()
             )
         } catch (e: FirebaseFunctionsException) {
-            RedemptionResult.Error(redemptionErrorMessage(e.message))
+            // The raw code travels with the message. The callable puts the
+            // rejection code in the message field, so this is the whole of it.
+            RedemptionResult.Error(redemptionErrorMessage(e.message), e.message)
         } catch (e: Exception) {
             RedemptionResult.Error(e.message ?: "Unknown error occurred")
         }
@@ -821,90 +841,35 @@ class UserRepository {
     )
 
     /**
-     * The level at which the discounted first redeem unlocks.
-     *
-     * Read from config rather than hardcoded so the number can be retuned
-     * without an app release - the server reads the same field when it
-     * validates the claim, so the two cannot disagree for long. A failed read
-     * falls back to the same default the server uses.
-     *
-     * MEMOISED FOR THE PROCESS, and cache-first before that, for the same
-     * reason LevelCurveStore is: the repository is constructed per view
-     * model, so Wallet and the Level rewards screen each used to pay their
-     * own SERVER round trip for a document that only changes when somebody
-     * edits the console. Worse, that round trip was on the path of the Level
-     * rewards ladder - the first-redeem rung could not be placed until the
-     * network answered, so the whole ladder was built once without it and`
-     * again with it.
-     *
-     * The refresh below keeps "briefly stale" from becoming "permanently
-     * stale": the disk copy is what this call returns, and one server read
-     * behind it corrects the memo for the next open. Nothing here decides
-     * what is GRANTED - validateRedemption re-reads the same field on every
-     * claim - so a display that is one screen-open behind is harmless.
-     */
-    suspend fun getFirstRedeemMinLevel(): Int {
-        cachedFirstRedeemMinLevel?.let { return it }
-
-        val doc = firestore.collection(COLLECTION_CONFIG).document(DOC_REDEMPTION)
-
-        // Free and instant whenever the disk copy is there, which after the
-        // first read it always is.
-        val cached = try {
-            doc.get(Source.CACHE).await().getLong("firstRedeemMinLevel")?.toInt()
-        } catch (e: Exception) {
-            null
-        }
-
-        if (cached != null) {
-            cachedFirstRedeemMinLevel = cached
-            // One billed read, in the background, off the render path.
-            doc.get(Source.SERVER).addOnSuccessListener { fresh ->
-                fresh.getLong("firstRedeemMinLevel")?.toInt()?.let {
-                    cachedFirstRedeemMinLevel = it
-                }
-            }
-            return cached
-        }
-
-        // Nothing on disk yet - first launch, or cleared data.
-        return try {
-            val level = doc.get(Source.SERVER).await()
-                .getLong("firstRedeemMinLevel")?.toInt() ?: DEFAULT_FIRST_REDEEM_MIN_LEVEL
-            cachedFirstRedeemMinLevel = level
-            level
-        } catch (e: Exception) {
-            // The default is deliberately NOT memoised: it is a guess made
-            // because the read failed, and the next caller should try again
-            // rather than inherit it for the life of the process.
-            DEFAULT_FIRST_REDEEM_MIN_LEVEL
-        }
-    }
-
-    /**
      * Turns a server rejection code into something a player can act on.
      *
      * The codes are the server's vocabulary and are deliberately not shown
-     * raw. The linked-ID message is the one that has to be unambiguous: it is
-     * the anti-farming rule speaking, and a vague "something went wrong"
-     * there would read as a bug rather than as a warning.
+     * raw.
+     *
+     * `first_redeem_uid_used` does NOT get a message here. It is the one
+     * rejection that ends something rather than asking the user to fix
+     * something, so the sheet intercepts it and shows a dialog - see
+     * RedeemSheetFragment. The string below is only a backstop for a caller
+     * that does not.
      */
     private fun redemptionErrorMessage(raw: String?): String = when (raw) {
         "insufficient_points" -> "You don't have enough stars yet."
         "level_too_low" -> "Reach a higher level to unlock this game."
         "option_disabled" -> "This game is no longer available."
         "pack_disabled" -> "This pack is no longer available."
+        // Only reachable if a client offers an offer-only pack for ordinary
+        // purchase, which is a bug rather than something a user did.
+        "pack_first_redeem_only" ->
+            "That pack is part of the first-redeem offer and cannot be bought on its own."
         "unknown_option" -> "This game could not be found."
         "unknown_pack" -> "This pack could not be found."
         "invalid_option" -> "This pack is misconfigured. Try another one."
         "player_id_required" -> "Enter a valid player ID."
         "username_required" -> "Enter your in-game username."
         "server_required" -> "Choose your server."
-        "uid_linked_to_another_account" ->
-            "This UID is linked with another account. If we notice spam we " +
-                "will ban the user and that UID forever."
         "first_redeem_used" -> "You have already used your first-redeem discount."
-        "first_redeem_level_too_low" -> "Reach the required level to unlock this offer."
+        "first_redeem_uid_used" ->
+            "The first-redeem discount has already been claimed on this game account."
         "first_redeem_unavailable" -> "This pack is not part of the first-redeem offer."
         else -> raw ?: "Redemption failed"
     }
@@ -1709,16 +1674,9 @@ class UserRepository {
         private const val FIELD_HAS_USED_REFERRAL = "hasUsedReferral"
         private const val FIELD_HAS_USED_FIRST_REDEEM = "hasUsedFirstRedeem"
         private const val COLLECTION_GAME_PROFILES = "gameProfiles"
-        private const val DOC_REDEMPTION = "redemption"
-        /** Matches DEFAULT_FIRST_REDEEM_MIN_LEVEL in the functions package. */
-        private const val DEFAULT_FIRST_REDEEM_MIN_LEVEL = 10
-
-        /**
-         * The published first-redeem level, once read. Process-wide because
-         * the repository is not - see [getFirstRedeemMinLevel].
-         */
-        @Volatile
-        private var cachedFirstRedeemMinLevel: Int? = null
+        // config/redemption is no longer read. Its only field was
+        // firstRedeemMinLevel, and the offer has no level gate any more.
+        private const val FIELD_FIRST_REDEEM_UNAVAILABLE = "firstRedeemUnavailable"
 
         private const val COLLECTION_REDEMPTIONS = "redemptions"
         private const val COLLECTION_PAYOUT_FEED = "payoutFeed"

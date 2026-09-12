@@ -150,8 +150,11 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
     }
 
     private fun setupHeader(game: RedemptionGame) {
+        // The currency, not the game. Same rule as the tiles - see
+        // RedemptionGame.currencyName for why the game name does not go in
+        // front of a user.
         binding.sheetGameCode.text = game.code
-        binding.sheetGameName.text = game.name
+        binding.sheetGameName.text = game.displayName
         binding.sheetGameSub.text = game.subtitle
         binding.sheetGameSub.isVisible = game.subtitle.isNotBlank()
     }
@@ -168,7 +171,10 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         binding.packsRecyclerView.adapter = packAdapter
         binding.packsRecyclerView.layoutManager = LinearLayoutManager(requireContext())
         binding.packsRecyclerView.isNestedScrollingEnabled = false
-        packAdapter.submitList(game.packs)
+        // The buyable ones only. The first-redeem taster is reachable through
+        // the offer and nowhere else, so listing it here would offer a price
+        // the server refuses.
+        packAdapter.submitList(game.purchasablePacks)
         packAdapter.updateBalance(balance)
     }
 
@@ -334,8 +340,13 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         val cost = priceOf(pack)
 
         val rows = buildList {
+            // No "Game" row. It used to name the game, which no longer goes in
+            // front of a user, and the only thing left to put there would be
+            // the currency - which the Item row above already carries, as part
+            // of "30 UC". A row repeating half of the row above it is not a
+            // confirmation, it is noise on the screen where somebody is about
+            // to spend their balance.
             add(getString(R.string.sheet_summary_item) to pack.amount)
-            add(getString(R.string.sheet_summary_game) to game.name)
             add(
                 getString(R.string.sheet_summary_player_id) to
                     binding.playerIdInput.text.toString().trim()
@@ -404,13 +415,30 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
                 }
 
                 is RedemptionResult.Error -> {
-                    // Stays on the confirm step: every rejection here is
-                    // something the user can act on - a different pack, a
-                    // corrected ID, or the knowledge that the UID is taken -
-                    // and closing the sheet would throw away everything they
-                    // typed on the way to being told.
-                    Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
                     viewModel.clearRedemptionResult()
+
+                    // ONE REJECTION IS NOT A CORRECTION. Everything else here
+                    // is something the user can act on - a different pack, a
+                    // corrected ID - so the sheet stays put rather than
+                    // throwing away everything they typed on the way to being
+                    // told. This one ends the offer: the game account they
+                    // entered has already had a discounted pack, and no other
+                    // UID they could type belongs to them. There is nothing
+                    // left to fix on this sheet, so it closes and Wallet says
+                    // so properly - see RedemptionFragment.showFirstRedeemTaken.
+                    //
+                    // The card is retired by the server, not here, so a user
+                    // who kills the app instead of reading the dialog still
+                    // finds the offer gone.
+                    if (result.code == CODE_FIRST_REDEEM_TAKEN) {
+                        parentFragmentManager.setFragmentResult(
+                            RESULT_FIRST_REDEEM_TAKEN, Bundle.EMPTY
+                        )
+                        dismiss()
+                        return@observe
+                    }
+
+                    Snackbar.make(binding.root, result.message, Snackbar.LENGTH_LONG).show()
                 }
 
                 null -> Unit
@@ -458,6 +486,16 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
     companion object {
         const val TAG = "RedeemSheet"
         const val RESULT_TRACK_ORDERS = "redeem_track_orders"
+
+        /**
+         * Raised when the discount was refused because the GAME ACCOUNT has
+         * already had one. Wallet turns it into a dialog; the sheet cannot,
+         * because it is closing.
+         */
+        const val RESULT_FIRST_REDEEM_TAKEN = "redeem_first_taken"
+
+        /** Matches the rejection in economy/redemption.ts. */
+        private const val CODE_FIRST_REDEEM_TAKEN = "first_redeem_uid_used"
 
         private const val ARG_GAME = "game"
         private const val ARG_FIRST_REDEEM = "firstRedeem"

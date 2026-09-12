@@ -705,6 +705,11 @@ async function run() {
       packs: {
         uc_1000: {amount: "1000 UC", pointsCost: 1000},
         uc_small: {amount: "60 UC", pointsCost: 100, firstRedeemCost: 50},
+        // Reachable through the offer and nowhere else.
+        uc_taster: {
+          amount: "30 UC", pointsCost: 90, firstRedeemCost: 40,
+          firstRedeemOnly: true,
+        },
       },
     });
     await db.collection("redemptionOptions").doc("locked").set({
@@ -809,32 +814,33 @@ async function run() {
     assertEq("balance untouched when delivery details are missing", snap.get("points"), 5000);
   }
 
-  // --- redemption: one game UID belongs to one account, forever ---
+  // --- redemption: a UID another account used is open at full price ---
+  //
+  // The hard claim this replaces refused any second account outright. It
+  // caught farming, but it also caught one person topping up their own game
+  // account from a second sign-in and told them the UID belonged to a
+  // stranger. Full price is paid for, so there is nothing to farm; the rule
+  // that survives guards the discount only, and is tested below.
   {
-    const intruder = await makeUser("uidthief");
-    await seedUserDoc(intruder.uid, "THIEF", {points: 99999, level: 50});
+    const second = await makeUser("uidsecond");
+    await seedUserDoc(second.uid, "SECOND", {points: 99999, level: 50});
     const redeem = httpsCallable(clientFunctions, "redeemReward");
 
-    // 5218840977 was claimed by the "redeem" user above.
-    await assertThrows(
-      "a player id already linked to another account is refused",
-      () => redeem({
-        optionId: "pubg", packId: "uc_1000", playerId: "5218840977", server: "Global",
-      }),
-      "failed-precondition"
-    );
-    const snap = await db.collection("users").doc(intruder.uid).get();
-    assertEq("a refused link never debits the balance", snap.get("points"), 99999);
-
-    // Their own, unclaimed id goes through - the rule is one ID per account,
-    // not one account per game.
+    // 5218840977 was redeemed into by the "redeem" user above.
     const ok = await redeem({
-      optionId: "pubg", packId: "uc_1000", playerId: "7000000001", server: "Global",
+      optionId: "pubg", packId: "uc_1000", playerId: "5218840977", server: "Global",
     });
     assertEq(
-      "an unclaimed id is accepted",
+      "a second account may redeem into the same player id at full price",
       (ok.data as {pointsSpent: number}).pointsSpent,
       1000
+    );
+
+    const link = await db.collection("playerLinks").doc("pubg__5218840977").get();
+    assertEq(
+      "the link now names the most recent account to use the id",
+      link.get("uid"),
+      second.uid
     );
   }
 
@@ -866,17 +872,67 @@ async function run() {
       "failed-precondition"
     );
 
-    // Below the level gate it is refused outright.
+    // NO LEVEL GATE. The offer exists to prove the payout works, so holding
+    // it back until level 10 held it back until well after a new user had
+    // already decided whether to believe us.
     const junior = await makeUser("firstjunior");
     await seedUserDoc(junior.uid, "JUNIOR", {points: 5000, level: 1});
     const juniorRedeem = httpsCallable(clientFunctions, "redeemReward");
+    const juniorRes = await juniorRedeem({
+      optionId: "pubg", packId: "uc_small", playerId: "9000000001",
+      server: "Global", useFirstRedeem: true,
+    });
+    assertEq(
+      "a level 1 account can take the discount",
+      (juniorRes.data as {pointsSpent: number}).pointsSpent,
+      50
+    );
+  }
+
+  // --- redemption: one discounted pack per GAME ACCOUNT, not per sign-in ---
+  //
+  // The farming case the removed UID claim used to cover, narrowed to the
+  // only thing being given away: a second Gmail redeeming the cheap first
+  // pack into the same game account.
+  {
+    const farmer = await makeUser("firstfarmer");
+    await seedUserDoc(farmer.uid, "FARMER", {points: 5000, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    // 9000000001 already had a discounted pack delivered into it, by the
+    // "firstjunior" account above.
     await assertThrows(
-      "the discount is gated on level",
-      () => juniorRedeem({
+      "a second account cannot take the discount on the same player id",
+      () => redeem({
         optionId: "pubg", packId: "uc_small", playerId: "9000000001",
         server: "Global", useFirstRedeem: true,
       }),
       "failed-precondition"
+    );
+
+    const snap = await db.collection("users").doc(farmer.uid).get();
+    assertEq("a refused discount never debits the balance", snap.get("points"), 5000);
+    // The app retires the card on this, so the offer is never dangled again
+    // in front of somebody who can only ever be refused.
+    assertEq(
+      "the offer is marked unavailable for that account",
+      snap.get("firstRedeemUnavailable"),
+      true
+    );
+    assertEq(
+      "but the account's own discount is NOT recorded as used",
+      snap.get("hasUsedFirstRedeem") === true,
+      false
+    );
+
+    // Full price into the same id is still fine - only the discount is gone.
+    const ok = await redeem({
+      optionId: "pubg", packId: "uc_small", playerId: "9000000001", server: "Global",
+    });
+    assertEq(
+      "the same id is still redeemable at full price",
+      (ok.data as {pointsSpent: number}).pointsSpent,
+      100
     );
   }
 
@@ -917,10 +973,52 @@ async function run() {
     assertEq("a rejected FIRST redeem also returns the discount",
       after.get("hasUsedFirstRedeem"), false);
 
-    // The claim on the player id is deliberately kept: a rejection says the
-    // order was not fulfilled, not that the account never used that id.
+    // The link record itself stays - it is how an order is traced by hand -
+    // but the per-UID discount mark has to come back WITH the account flag.
+    // Restoring only one of the two hands the user an offer that their very
+    // next attempt refuses, which then retires the card for good.
     const link = await db.collection("playerLinks").doc("pubg__5400000001").get();
-    assertEq("the player id stays linked after a rejection", link.exists, true);
+    assertEq("the player id record survives a rejection", link.exists, true);
+    assertEq("the per-uid discount mark is released with it",
+      link.get("firstRedeemUsed"), false);
+
+    await admin.auth().setCustomUserClaims(user.uid, {admin: false});
+  }
+
+  // --- redemption: an admin can reject WITHOUT giving the discount back ----
+  //
+  // The other half of the admin's choice. A mistyped UID deserves the offer
+  // back; an account caught farming it does not, and no rule could tell the
+  // two apart from the server's side.
+  {
+    const user = await makeUser("firstrejectkeep");
+    await seedUserDoc(user.uid, "FIRSTKEEP", {points: 5000, xp: 0, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_small", playerId: "5400000002",
+      server: "Global", useFirstRedeem: true,
+    });
+    const redemptionId = (res.data as {redemptionId: string}).redemptionId;
+
+    await admin.auth().setCustomUserClaims(user.uid, {admin: true});
+    await clientAuth.currentUser?.getIdToken(true);
+
+    await httpsCallable(clientFunctions, "resolveRedemption")({
+      redemptionId, status: "rejected", reason: "farming", restoreFirstRedeem: false,
+    });
+
+    const after = await db.collection("users").doc(user.uid).get();
+    // The stars always come back. A failed payout must never cost somebody
+    // their balance, whatever they were caught doing.
+    assertEq("the stars are refunded even when the discount is kept",
+      after.get("points"), 5000);
+    assertEq("the discount stays spent when the admin says so",
+      after.get("hasUsedFirstRedeem"), true);
+
+    const link = await db.collection("playerLinks").doc("pubg__5400000002").get();
+    assertEq("and the per-uid mark stays with it",
+      link.get("firstRedeemUsed"), true);
 
     await admin.auth().setCustomUserClaims(user.uid, {admin: false});
   }
@@ -1056,6 +1154,117 @@ async function run() {
       codes.add((res.data as {referralCode: string}).referralCode);
     }
     assertEq("every issued referral code is distinct", codes.size, 5);
+  }
+
+  // --- an offer-only pack is not for sale ------------------------------
+  //
+  // The taster exists so the ordinary minimum can sit above it. The pack id
+  // comes from the client, so the rule has to hold against a request that
+  // simply names it - which is what this sends.
+  {
+    const user = await makeUser("tasteronly");
+    await seedUserDoc(user.uid, "TASTER", {points: 5000, level: 50});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    await assertThrows(
+      "an offer-only pack is refused at list price",
+      () => redeem({
+        optionId: "pubg", packId: "uc_taster", playerId: "6200000001",
+        server: "Global",
+      }),
+      "invalid-argument"
+    );
+    const untouched = await db.collection("users").doc(user.uid).get();
+    assertEq("a refused taster never debits the balance",
+      untouched.get("points"), 5000);
+
+    // Through the offer it goes through, at the discounted price.
+    const ok = await redeem({
+      optionId: "pubg", packId: "uc_taster", playerId: "6200000001",
+      server: "Global", useFirstRedeem: true,
+    });
+    assertEq(
+      "the same pack is reachable through the offer",
+      (ok.data as {pointsSpent: number}).pointsSpent,
+      40
+    );
+  }
+
+  // --- the device signal the admin tool shows --------------------------
+  //
+  // Two accounts on one phone, one of them ordering. The point of the test is
+  // that the count is REPORTED and nothing acts on it: the order goes through
+  // exactly as it would from a device nobody had seen before, and the only
+  // difference is a number the admin tool can draw.
+  {
+    const sharedDevice = "shared-device-aaaa1111";
+
+    const first = await makeUser("devicefirst");
+    await seedUserDoc(first.uid, "DEV1", {androidId: sharedDevice});
+
+    const second = await makeUser("devicesecond");
+    await seedUserDoc(second.uid, "DEV2", {
+      androidId: sharedDevice, points: 5000, level: 50,
+    });
+
+    // The second account orders. Nothing about the shared device stops it.
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+    const res = await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "6100000001", server: "Global",
+    });
+    assertEq(
+      "a shared device does not block the order",
+      (res.data as {pointsSpent: number}).pointsSpent,
+      1000
+    );
+
+    const orderId = (res.data as {redemptionId: string}).redemptionId;
+    const order = await db.collection("redemptions").doc(orderId).get();
+    assertEq("the order records the device it came from",
+      order.get("androidId"), sharedDevice);
+    assertEq("the order is pending like any other",
+      order.get("status"), "pending");
+
+    await admin.auth().setCustomUserClaims(second.uid, {admin: true});
+    await clientAuth.currentUser?.getIdToken(true);
+
+    const listed = await httpsCallable(clientFunctions, "listRedemptions")({
+      status: "pending",
+    });
+    const rows = (listed.data as {
+      redemptions: Array<{
+        id: string; androidId: string; deviceAccountCount: number;
+      }>;
+    }).redemptions;
+
+    const row = rows.find((r) => r.id === orderId);
+    assertEq("the order is listed for the admin", row !== undefined, true);
+    assertEq("...with the device id", row?.androidId, sharedDevice);
+    assertEq("...and how many accounts share it", row?.deviceAccountCount, 2);
+
+    // An order from a device nobody else has used reads as one account, not
+    // as a warning - the badge has to be able to say "nothing to see here".
+    const lone = await makeUser("devicelone");
+    await seedUserDoc(lone.uid, "DEV3", {
+      androidId: "lone-device-bbbb2222", points: 5000, level: 50,
+    });
+    const loneRes = await httpsCallable(clientFunctions, "redeemReward")({
+      optionId: "pubg", packId: "uc_1000", playerId: "6100000002", server: "Global",
+    });
+    const loneId = (loneRes.data as {redemptionId: string}).redemptionId;
+
+    await admin.auth().setCustomUserClaims(lone.uid, {admin: true});
+    await clientAuth.currentUser?.getIdToken(true);
+    const listedAgain = await httpsCallable(clientFunctions, "listRedemptions")({
+      status: "pending",
+    });
+    const loneRow = (listedAgain.data as {
+      redemptions: Array<{id: string; deviceAccountCount: number}>;
+    }).redemptions.find((r) => r.id === loneId);
+    assertEq("a device with one account reports one", loneRow?.deviceAccountCount, 1);
+
+    await admin.auth().setCustomUserClaims(second.uid, {admin: false});
+    await admin.auth().setCustomUserClaims(lone.uid, {admin: false});
   }
 
   // --- admin surface is locked to admins ---
@@ -2020,17 +2229,39 @@ async function run() {
   }
 
   // --- weekly leaderboard settlement --------------------------------------
+  //
+  // SETTLED INTO A WEEK OF ITS OWN, a long way back, rather than into "last
+  // week". Other blocks in this file leave users stamped with real week keys -
+  // the double-XP test rewinds one to last week and then claims, which is a
+  // legitimate entrant in last week's board - so asserting an exact winner
+  // count against the shared fixture set made this test depend on every other
+  // test that had ever touched a weekly counter. An isolated week means the
+  // four users below ARE the board.
   {
+    const carried = await makeUser("boardcarried");
     const winner = await makeUser("boardfirst");
     const runnerUp = await makeUser("boardsecond");
     const idle = await makeUser("boardidle");
 
-    // Last week, finished. weekKey is written by claimReward; seeded directly
-    // here so the test does not have to play a week of games.
-    const lastWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7) - 1;
-    await seedUserDoc(winner.uid, "BOARD1", {weekKey: lastWeek, weeklyXp: 400});
-    await seedUserDoc(runnerUp.uid, "BOARD2", {weekKey: lastWeek, weeklyXp: 250});
-    await seedUserDoc(idle.uid, "BOARD3", {weekKey: lastWeek, weeklyXp: 0});
+    const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
+    const settledWeek = thisWeek - 100;
+
+    // THE REPORTED BUG, as a fixture. This player topped the settled week and
+    // then played again after the boundary, so their live counters have moved
+    // on to the current week and a query for the settled one cannot see them.
+    // Before the rollover carried the closing total across, they were paid
+    // nothing and the runner-up took first prize.
+    await seedUserDoc(carried.uid, "BOARD0", {
+      weekKey: thisWeek,
+      weeklyXp: 5,
+      lastWeekKey: settledWeek,
+      lastWeeklyXp: 900,
+    });
+    // Players who have not opened the app since the week ended. Their live
+    // counters still name the settled week.
+    await seedUserDoc(winner.uid, "BOARD1", {weekKey: settledWeek, weeklyXp: 400});
+    await seedUserDoc(runnerUp.uid, "BOARD2", {weekKey: settledWeek, weeklyXp: 250});
+    await seedUserDoc(idle.uid, "BOARD3", {weekKey: settledWeek, weeklyXp: 0});
 
     await admin.auth().setCustomUserClaims(winner.uid, {admin: true});
     await signInWithEmailAndPassword(clientAuth, winner.email!, "Test1234!");
@@ -2038,35 +2269,51 @@ async function run() {
 
     const settle = httpsCallable(clientFunctions, "settleLeaderboardNow");
 
-    const first = await settle({weekKey: lastWeek});
+    const first = await settle({weekKey: settledWeek});
     const firstData = first.data as {paid: number; pointsPaid: number};
-    assertEq("settlement pays the two players", firstData.paid, 2);
-    assertEq("settlement pays first and second prize",
-      firstData.pointsPaid, 350 + 200);
+    assertEq("settlement pays every player who scored", firstData.paid, 3);
+    assertEq("settlement pays the first three prizes",
+      firstData.pointsPaid, 350 + 200 + 200);
 
+    const carriedSnap = await db.collection("users").doc(carried.uid).get();
+    assertEq("a player who played after the rollover still takes first prize",
+      carriedSnap.get("points"), 350);
     const winnerSnap = await db.collection("users").doc(winner.uid).get();
-    assertEq("first place is credited", winnerSnap.get("points"), 350);
+    assertEq("the live board is paid behind them", winnerSnap.get("points"), 200);
     const idleSnap = await db.collection("users").doc(idle.uid).get();
     assertEq("a player with no XP is not paid", idleSnap.get("points") || 0, 0);
 
+    // The prize is announced, not just credited - see FIELD_LAST_LEADERBOARD_PRIZE.
+    const prize = carriedSnap.get("lastLeaderboardPrize");
+    assertEq("the win is recorded for the app to announce", prize?.rank, 1);
+    assertEq("...with the XP that earned it", prize?.weeklyXp, 900);
+    assertEq("...and the week it was won in", prize?.weekKey, settledWeek);
+
     // The guarantee that matters: a scheduler retry must not pay again.
-    const second = await settle({weekKey: lastWeek});
+    const second = await settle({weekKey: settledWeek});
     const secondData = second.data as {alreadySettled: boolean; pointsPaid: number};
     assertEq("a re-run reports the week already settled",
       secondData.alreadySettled, true);
     assertEq("a re-run pays nothing further", secondData.pointsPaid, 0);
 
-    const winnerAfter = await db.collection("users").doc(winner.uid).get();
+    const carriedAfter = await db.collection("users").doc(carried.uid).get();
     assertEq("first place is still credited exactly once",
-      winnerAfter.get("points"), 350);
+      carriedAfter.get("points"), 350);
 
-    const ledger = await db.collection("users").doc(winner.uid)
-      .collection("rewardEvents").doc(`leaderboard:${lastWeek}`).get();
+    const ledger = await db.collection("users").doc(carried.uid)
+      .collection("rewardEvents").doc(`leaderboard:${settledWeek}`).get();
     assertEq("the prize has a ledger entry", ledger.exists, true);
     assertEq("the ledger records the rank", ledger.get("metadata").rank, 1);
 
+    // The board was frozen before a penny moved, so a retry pays the ranking
+    // the first attempt decided rather than re-reading a moved collection.
+    const marker = await db.collection("leaderboardSettlements")
+      .doc(String(settledWeek)).get();
+    assertEq("the settlement is marked complete", marker.get("status"), "complete");
+    assertEq("...and records the board it paid",
+      (marker.get("entries") as unknown[]).length, 3);
+
     // A week still in progress must not be settled early.
-    const thisWeek = lastWeek + 1;
     await assertThrows(
       "settling the current week is refused",
       () => settle({weekKey: thisWeek}),

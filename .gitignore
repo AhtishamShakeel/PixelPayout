@@ -36,3 +36,12 @@ firebase-export-*/
 *serviceAccount*.json
 *-adminsdk-*.json
 gcloud-key.json
+# The short names a key gets renamed to once somebody is tired of typing the
+# one Google generated. "*-adminsdk-*.json" catches the download as it comes
+# out of the console and nothing after that.
+key.json
+*-key.json
+adc.json
+application_default_credentials.json
+credentials.json
+/secrets/

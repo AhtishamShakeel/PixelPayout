@@ -71,11 +71,9 @@ import {
   generateReferralCode,
 } from "./economy/signup";
 import {
-  DEFAULT_FIRST_REDEEM_MIN_LEVEL,
   GAME_PROFILES_SUBCOLLECTION,
   PLAYER_LINKS_COLLECTION,
   REDEMPTIONS_COLLECTION,
-  REDEMPTION_CONFIG_DOC,
   REDEMPTION_OPTIONS_COLLECTION,
   RedemptionGame,
   playerLinkId,
@@ -2530,16 +2528,17 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
   const linkRef = firestore
     .collection(PLAYER_LINKS_COLLECTION)
     .doc(playerLinkId(optionId, playerId || "_"));
-  const configRef = firestore.collection(CONFIG_COLLECTION).doc(REDEMPTION_CONFIG_DOC);
 
   const result = await firestore.runTransaction(async (transaction) => {
     // Every read first: Firestore transactions refuse a read issued after a
     // write, and the link claim below is a write.
-    const [userDoc, optionDoc, linkDoc, configDoc] = await Promise.all([
+    // config/redemption is no longer read here. Its only tunable was
+    // firstRedeemMinLevel, and the offer has no level gate any more - one
+    // fewer document read on the hottest transaction in the app.
+    const [userDoc, optionDoc, linkDoc] = await Promise.all([
       transaction.get(userRef),
       transaction.get(optionRef),
       transaction.get(linkRef),
-      transaction.get(configRef),
     ]);
 
     if (!userDoc.exists) {
@@ -2561,14 +2560,26 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       server,
       useFirstRedeem,
       hasUsedFirstRedeem: userDoc.get("hasUsedFirstRedeem") === true,
-      firstRedeemMinLevel: Number(
-        configDoc.get("firstRedeemMinLevel") ?? DEFAULT_FIRST_REDEEM_MIN_LEVEL
-      ),
-      linkedUid: linkDoc.exists ? String(linkDoc.get("uid") || "") : null,
+      // The per-game-account half of the offer rule. See the playerLinks note
+      // in economy/redemption.ts for why the account flag alone is not enough.
+      firstRedeemUidUsed: linkDoc.get("firstRedeemUsed") === true,
       callerUid: userId,
     });
 
     if (!validation.ok) {
+      // A discount refused because THIS PLAYER ID has already had one is the
+      // end of the offer for this account, not a retryable error: every other
+      // UID they could enter belongs to somebody else's game account. Marking
+      // it here - inside the transaction that refused - is what lets the app
+      // retire the card for good rather than re-offering something that can
+      // only be refused again.
+      //
+      // Deliberately NOT hasUsedFirstRedeem: they never used it, and an admin
+      // restoring a rejected order must not hand it back to somebody who was
+      // blocked rather than served.
+      if (validation.rejection === "first_redeem_uid_used") {
+        transaction.set(userRef, {firstRedeemUnavailable: true}, {merge: true});
+      }
       return {ok: false as const, rejection: validation.rejection};
     }
 
@@ -2597,15 +2608,27 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
 
     writeAward(transaction, userRef, ledgerRef, award);
 
-    // Claim the player ID for this account. Written unconditionally rather
-    // than only when absent: re-writing our own claim is harmless, and the
-    // validation above has already refused anyone else's.
-    transaction.set(linkRef, {
+    // What is known about this player ID. No longer a claim on it - any
+    // account may redeem into any UID at full price - so `uid` is now the
+    // LAST account to use it rather than the owner, and is kept for tracing an
+    // order by hand.
+    //
+    // `firstRedeemUsed` is the part that still decides anything: once a
+    // discounted pack has been delivered into this game account, no sign-in
+    // gets another one. Written in the same transaction as the order, so two
+    // devices racing the same fresh UID cannot both take the discount.
+    const linkUpdate: Record<string, unknown> = {
       uid: userId,
       gameId: optionId,
       playerId,
       updatedAt: FieldValue.serverTimestamp(),
-    }, {merge: true});
+    };
+    if (validation.usedFirstRedeem === true) {
+      linkUpdate.firstRedeemUsed = true;
+      linkUpdate.firstRedeemUid = userId;
+      linkUpdate.firstRedeemAt = FieldValue.serverTimestamp();
+    }
+    transaction.set(linkRef, linkUpdate, {merge: true});
 
     // The user's own copy, for prefilling the form next time.
     transaction.set(
@@ -2641,6 +2664,18 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       username,
       server: validation.server ?? "",
       firstRedeem: validation.usedFirstRedeem === true,
+      // Stored so resolveRedemption can release the per-UID mark without
+      // rebuilding the id from fields that an admin may have edited since.
+      playerLinkId: playerLinkId(optionId, playerId),
+      // The device this account was created on, copied from the user document
+      // rather than taken from the request - the client does not get to
+      // choose what it is judged on. Free: the user document is already open
+      // in this transaction.
+      //
+      // NOTHING HERE ACTS ON IT. It is written so the admin tool can say how
+      // many accounts share a device, and an admin decides what that means.
+      // See listRedemptions.
+      androidId: String(userDoc.get("androidId") || ""),
       pointsCost,
       status: "pending",
       ledgerEventId: ledgerRef.id,
@@ -2665,9 +2700,8 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       result.rejection === "level_too_low" ||
       result.rejection === "option_disabled" ||
       result.rejection === "pack_disabled" ||
-      result.rejection === "uid_linked_to_another_account" ||
       result.rejection === "first_redeem_used" ||
-      result.rejection === "first_redeem_level_too_low" ||
+      result.rejection === "first_redeem_uid_used" ||
       result.rejection === "first_redeem_unavailable";
     throw new functions.https.HttpsError(
       precondition ? "failed-precondition" : "invalid-argument",
@@ -2702,18 +2736,78 @@ export const listRedemptions = functions.https.onCall(async (request: CallableRe
 
   const pageSize = Math.min(Math.max(Number(request.data.limit) || 100, 1), 200);
 
-  const snapshot = await getFirestore()
+  const firestore = getFirestore();
+  const users = firestore.collection(USERS_COLLECTION);
+
+  const snapshot = await firestore
     .collection(REDEMPTIONS_COLLECTION)
     .where("status", "==", status)
     .orderBy("createdAt", "desc")
     .limit(pageSize)
     .get();
 
+  const orders = snapshot.docs.map((doc) => ({id: doc.id, data: doc.data()}));
+
+  // Which device each order came from.
+  //
+  // New orders carry it; ones placed before redeemReward started stamping do
+  // not, so those are resolved from the ordering account. Looked up in one
+  // getAll rather than a read per order, and only for the ones that need it -
+  // in a settled backlog that is all of them once, and none of them after.
+  const needsLookup = [...new Set(
+    orders
+      .filter((o) => !o.data.androidId)
+      .map((o) => String(o.data.uid || ""))
+      .filter(Boolean)
+  )];
+
+  const deviceByUid = new Map<string, string>();
+  if (needsLookup.length > 0) {
+    const docs = await firestore.getAll(
+      ...needsLookup.map((uid) => users.doc(uid))
+    );
+    for (const doc of docs) {
+      deviceByUid.set(doc.id, String(doc.get("androidId") || ""));
+    }
+  }
+
+  const deviceOf = (o: {data: FirebaseFirestore.DocumentData}): string =>
+    String(o.data.androidId || deviceByUid.get(String(o.data.uid || "")) || "");
+
+  // HOW MANY ACCOUNTS SHARE EACH DEVICE, counted live rather than stored.
+  //
+  // Live because the interesting case appears AFTER the order is placed: the
+  // second account is usually made later, and a figure frozen at order time
+  // would still read "1" on the very order it matters for.
+  //
+  // A count query is billed per thousand index entries scanned rather than
+  // per document, and this is asked once per distinct device on a page an
+  // admin opens by hand - not on anything a user can trigger.
+  //
+  // NOTHING IS REJECTED ON THIS. It is a number next to an order, and an
+  // admin decides what it means: two accounts on one phone is a family as
+  // often as it is a farm, and no rule the server could apply would tell
+  // those apart. Rejecting automatically would also teach whoever is farming
+  // exactly which signal to defeat.
+  const devices = [...new Set(orders.map(deviceOf).filter(Boolean))];
+  const accountsPerDevice = new Map<string, number>();
+  await Promise.all(devices.map(async (device) => {
+    const counted = await users.where("androidId", "==", device).count().get();
+    accountsPerDevice.set(device, counted.data().count);
+  }));
+
   return {
-    redemptions: snapshot.docs.map((doc) => {
-      const data = doc.data();
+    redemptions: orders.map((order) => {
+      const data = order.data;
+      const device = deviceOf(order);
       return {
-        id: doc.id,
+        id: order.id,
+        androidId: device,
+        // 0 means we have no device on file for this account at all - an
+        // account from before signup recorded one, or an install that
+        // returned nothing. Shown as "unknown" rather than as "1", which
+        // would be a clean bill of health we have not actually established.
+        deviceAccountCount: device ? (accountsPerDevice.get(device) ?? 0) : 0,
         uid: data.uid ?? "",
         userDisplayName: data.userDisplayName ?? "",
         userEmail: data.userEmail ?? "",
@@ -2742,6 +2836,14 @@ export const listRedemptions = functions.https.onCall(async (request: CallableRe
  * user their balance. The original ledger entry is marked "reversed" and the
  * refund gets its own entry, so the history shows both halves rather than
  * rewriting the past.
+ *
+ * `restoreFirstRedeem` decides what happens to the DISCOUNT on a rejected
+ * first order, and it is the admin's call because only they know why they
+ * rejected it. The two cases pull in opposite directions and no rule could
+ * tell them apart: a mistyped UID deserves the offer back, and an account
+ * caught farming it does not. Defaults to true - the common rejection is an
+ * honest mistake, and quietly costing somebody their one discount because an
+ * admin forgot a checkbox is the worse failure of the two.
  */
 export const resolveRedemption = functions.https.onCall(async (request: CallableRequest) => {
   if (!request.auth) {
@@ -2754,6 +2856,9 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
   const redemptionId = String(request.data.redemptionId || "").trim();
   const status = String(request.data.status || "").trim();
   const reason = String(request.data.reason || "").trim();
+  // Absent means yes. An older admin build that does not send the field at
+  // all keeps the behaviour it was written against.
+  const restoreFirstRedeem = request.data.restoreFirstRedeem !== false;
 
   if (!redemptionId) {
     throw new functions.https.HttpsError("invalid-argument", "redemptionId is required");
@@ -2849,25 +2954,41 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
       storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
     });
 
-    // A rejected first redeem gives the DISCOUNT back too, not just the
-    // stars. The offer is once-per-account and was burned when the order was
-    // placed; leaving it burned after refusing to deliver would cost the user
-    // the one thing the refund is supposed to make them whole for.
-    //
-    // The playerLinks claim is deliberately NOT released here. A rejection
-    // says the order was not fulfilled, not that the account never used that
-    // player ID - and releasing it on rejection would turn "get rejected"
-    // into a way to free a UID somebody else could then claim. Freeing a
-    // genuinely mistyped ID stays a deliberate admin action.
-    const restoreFirstRedeem = redemptionDoc.get("firstRedeem") === true;
+    // A rejected first redeem can give the DISCOUNT back as well as the
+    // stars, and whether it does is the admin's decision - see the note on
+    // this function. Only a first order has anything to restore, so the flag
+    // is meaningless on any other one.
+    const wasFirstRedeem = redemptionDoc.get("firstRedeem") === true;
+    const giveDiscountBack = wasFirstRedeem && restoreFirstRedeem;
 
     writeAward(
       transaction,
       userRef,
       userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`refund:${redemptionId}`),
       refund,
-      restoreFirstRedeem ? {hasUsedFirstRedeem: false} : {}
+      giveDiscountBack ? {hasUsedFirstRedeem: false} : {}
     );
+
+    // The per-UID mark has to come back with the account flag, or the user is
+    // handed an offer they cannot spend: the account would be clear, the game
+    // account they were redeeming into would not, and their next attempt
+    // would be refused as "already claimed on this UID" - which then retires
+    // the card for good. Half a restore is worse than none.
+    //
+    // Released only on an explicit restore. A rejection alone must never free
+    // the mark, or "get rejected" becomes the way to farm the discount.
+    const linkId = redemptionDoc.get("playerLinkId") as string | undefined;
+    if (giveDiscountBack && linkId) {
+      transaction.set(
+        firestore.collection(PLAYER_LINKS_COLLECTION).doc(linkId),
+        {
+          firstRedeemUsed: false,
+          firstRedeemReleasedAt: FieldValue.serverTimestamp(),
+          firstRedeemReleasedBy: request.auth?.uid ?? "",
+        },
+        {merge: true}
+      );
+    }
 
     const originalLedgerId = redemptionDoc.get("ledgerEventId") as string | undefined;
     if (originalLedgerId) {
@@ -2882,7 +3003,7 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
       {...resolution, refundedPoints: pointsCost} as
         FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData>
     );
-    return {refunded: pointsCost, targetUid, firstRedeemRestored: restoreFirstRedeem};
+    return {refunded: pointsCost, targetUid, firstRedeemRestored: giveDiscountBack};
   });
 
   console.log("Redemption resolved", {redemptionId, status, ...result});

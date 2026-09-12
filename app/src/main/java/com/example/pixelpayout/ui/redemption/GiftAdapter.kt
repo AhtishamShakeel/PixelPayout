@@ -61,7 +61,11 @@ class GiftAdapter(
 
             binding.giftCode.text = offer.game.code
             binding.giftAmount.text = offer.pack.amount
-            binding.giftGame.text = offer.game.name
+            // Hidden rather than switched to the currency name: this line held
+            // the game ("PUBG Mobile"), which no longer goes in front of a
+            // user, and the currency is already the second half of the amount
+            // directly above it. "30 UC" over "UC" reads as a rendering bug.
+            binding.giftGame.isVisible = false
             binding.giftCost.text = WalletFormat.number(price)
 
             binding.giftShort.isVisible = !affordable

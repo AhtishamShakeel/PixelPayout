@@ -9,7 +9,6 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.appcompat.app.AlertDialog
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -27,6 +26,7 @@ import com.example.pixelpayout.utils.UserPreferences
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.pixelpayout.BuildConfig
+import com.example.pixelpayout.utils.showAppDialog
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentProfileBinding
 import kotlinx.coroutines.launch
@@ -291,19 +291,25 @@ class ProfileFragment : Fragment() {
     /** Confirmed, because signing out of an account holding a balance is not
      *  something to do on a mis-tap. */
     private fun confirmSignOut() {
-        AlertDialog.Builder(requireContext())
-            .setMessage(R.string.profile_sign_out_confirm)
-            .setPositiveButton(R.string.profile_sign_out) { _, _ ->
-                FirebaseAuth.getInstance().signOut()
-                startActivity(
-                    Intent(requireContext(), Auth::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    }
-                )
-                requireActivity().finish()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        requireContext().showAppDialog(
+            title = R.string.profile_sign_out,
+            message = R.string.profile_sign_out_confirm,
+            // The same glyph and the same red the sign-out row wears, so the
+            // dialog reads as that row confirming itself rather than as a
+            // generic warning that arrived from somewhere else.
+            icon = R.drawable.ic_arrow_up_right,
+            accent = R.color.difficulty_hard,
+            positiveText = R.string.profile_sign_out,
+            negativeText = R.string.cancel
+        ) {
+            FirebaseAuth.getInstance().signOut()
+            startActivity(
+                Intent(requireContext(), Auth::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+            )
+            requireActivity().finish()
+        }
     }
 
     private fun observeViewModel() {

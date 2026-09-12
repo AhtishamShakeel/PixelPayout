@@ -65,9 +65,6 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
     private var isFirstRedeem: Boolean = false
     private var balance: Int = 0
 
-    /** The offer highlighted in the picker, before Continue confirms it. */
-    private var pendingGift: GiftOffer? = null
-
     override fun getTheme(): Int = R.style.Theme_PixelPayout_BottomSheet
 
     override fun onCreateView(
@@ -137,9 +134,10 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         giftAdapter = GiftAdapter { offer ->
             // Only an affordable cell is clickable, so reaching here means the
             // choice is payable.
-            pendingGift = offer
-            binding.giftContinue.isEnabled = true
-            binding.giftContinue.alpha = 1f
+            if (!binding.stepGift.isVisible) return@GiftAdapter
+            selectedPack = offer.pack
+            bindGame(offer.game)
+            showStep(Step.DETAILS)
         }
         binding.giftRecyclerView.adapter = giftAdapter
         binding.giftRecyclerView.layoutManager = GridLayoutManager(requireContext(), GIFT_SPAN)
@@ -153,8 +151,6 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         giftAdapter.submitList(offers)
         giftAdapter.updateBalance(balance)
 
-        binding.giftContinue.isEnabled = false
-        binding.giftContinue.alpha = 0.45f
     }
 
     private fun setupHeader(game: RedemptionGame) {
@@ -267,13 +263,6 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
 
     private fun setupActions() {
         binding.giftClose.setOnClickListener { dismiss() }
-
-        binding.giftContinue.setOnClickListener {
-            val offer = pendingGift ?: return@setOnClickListener
-            selectedPack = offer.pack
-            bindGame(offer.game)
-            showStep(Step.DETAILS)
-        }
 
         // Back from the ID step returns to whichever list opened it.
         binding.detailsBack.setOnClickListener {

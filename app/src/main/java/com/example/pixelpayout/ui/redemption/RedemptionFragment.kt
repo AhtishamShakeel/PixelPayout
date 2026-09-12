@@ -55,7 +55,15 @@ class RedemptionFragment : Fragment() {
     private lateinit var ordersAdapter: OrdersAdapter
     private lateinit var activityAdapter: ActivityAdapter
 
-    /** Cached so the offer card can be shown the moment both facts land. */
+    /**
+     * Cached so the offer card can be shown the moment both facts land, and
+     * read by the reach line to decide which prices it is measuring.
+     *
+     * DEFAULTS TO FINISHED on purpose: until the user document has answered,
+     * neither surface should advertise a discount that may already be spent.
+     * The card stays hidden and the line names the ordinary floor, and both
+     * correct themselves on the first emission.
+     */
     private var firstRedeemFinished: Boolean = true
     private var currentLevel: Int = 1
 
@@ -282,6 +290,10 @@ class RedemptionFragment : Fragment() {
         mainViewModel.firstRedeemFinished.observe(viewLifecycleOwner) { finished ->
             firstRedeemFinished = finished
             updateFirstRedeemCard()
+            // The reach line reads this too now - see updateReachLine - so
+            // spending the offer has to move the bar, not only retire the
+            // card above it.
+            updateReachLine()
         }
 
         mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { pending ->
@@ -330,6 +342,11 @@ class RedemptionFragment : Fragment() {
      *   * something out of reach - the line names it and the bar measures the
      *     climb.
      *
+     * WHICH PACKS COUNT depends on whether the first-redeem offer is still
+     * live, exactly as it does on Home - see MainViewModel.nextRedemption,
+     * which this deliberately mirrors. The two bars describe the same fact
+     * and disagreeing about it would be a bug on one of them.
+     *
      * The pack's own `amount` is used rather than the game name, for the same
      * reason the tiles do: "600 more stars for 30 UC" says what arrives,
      * without putting somebody else's trade mark on our screen.
@@ -339,38 +356,57 @@ class RedemptionFragment : Fragment() {
         val games = viewModel.games.value.orEmpty()
         val points = mainViewModel.userState.value?.points ?: 0
 
-        val available = games
-            .filter { it.minLevel <= currentLevel }
-            .flatMap { game -> game.purchasablePacks.map { game to it } }
+        val reachable = games.filter { it.minLevel <= currentLevel }
 
-        // The cheapest thing still out of reach. Null when the catalogue is
-        // empty OR when every pack is already affordable - both of which mean
-        // there is no climb left to draw.
-        val target = available
-            .filter { (_, pack) -> pack.pointsCost > points }
-            .minByOrNull { (_, pack) -> pack.pointsCost }
-            ?.second
+        // The offer first, at its discounted price, while this account still
+        // has it. It is the cheapest price in the catalogue by design and the
+        // one they would actually pay next, so measuring the ordinary floor
+        // instead would name a climb they do not have to make. The card
+        // directly below this says the same thing; the bar should not be
+        // quietly contradicting it.
+        val offers = if (firstRedeemFinished) emptyList() else reachable
+            .flatMap { game ->
+                game.packs.mapNotNull { pack ->
+                    pack.firstRedeemCost?.let { pack.amount to it }
+                }
+            }
+
+        // The cheapest thing still out of reach, falling back to the ordinary
+        // catalogue when the offer is finished, when nothing carries a
+        // discount, or when the discount is already affordable. Null out of
+        // both means the catalogue is empty OR everything is affordable -
+        // either way there is no climb left to draw.
+        val target = offers
+            .filter { (_, cost) -> cost > points }
+            .minByOrNull { (_, cost) -> cost }
+            ?: reachable
+                .flatMap { game ->
+                    game.purchasablePacks.map { it.amount to it.pointsCost }
+                }
+                .filter { (_, cost) -> cost > points }
+                .minByOrNull { (_, cost) -> cost }
 
         val show = target != null
         binding.walletReachLine.isVisible = show
         binding.walletReachGroup.isVisible = show
         if (target == null) return
 
+        val (amount, cost) = target
         binding.walletReachLine.text = getString(
             R.string.wallet_reach_short,
-            WalletFormat.number(target.pointsCost - points),
-            target.amount
+            WalletFormat.number(cost - points),
+            amount
         )
         binding.walletReachRatio.text = getString(
             R.string.wallet_reach_ratio,
             WalletFormat.number(points),
-            WalletFormat.number(target.pointsCost)
+            WalletFormat.number(cost)
         )
         // Long arithmetic: a balance and a price are both Ints, and their
         // product overflows at a little over two million points - which this
         // economy will reach.
         binding.walletReachBar.progress =
-            (points.toLong() * 100 / target.pointsCost).toInt().coerceIn(0, 100)
+            (points.toLong() * 100 / cost).toInt().coerceIn(0, 100)
     }
 
     /** Bundled artwork is always available; catalogue URLs can override it. */

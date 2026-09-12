@@ -33,7 +33,7 @@
                 <TextView
                     android:id="@+id/segmentWallet"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="38dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_segment_on"
                     android:fontFamily="@font/jakarta_semibold"
@@ -44,7 +44,7 @@
                 <TextView
                     android:id="@+id/segmentOrders"
                     android:layout_width="0dp"
-                    android:layout_height="48dp"
+                    android:layout_height="38dp"
                     android:layout_weight="1"
                     android:fontFamily="@font/jakarta_medium"
                     android:gravity="center"

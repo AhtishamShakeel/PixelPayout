@@ -136,6 +136,10 @@ class MainViewModel(
      * The cheapest redemption the user cannot afford yet - what the balance
      * bar on the home screen fills toward.
      *
+     * While the first-redeem offer is still live for this account it is the
+     * offer that gets measured, at its discounted price. See the recompute
+     * below for why.
+     *
      * The label is the OPTION'S OWN TITLE ("100 UC", "Rs 500"), never a
      * points-to-currency rate computed here. redemptionOptions carries a
      * pointsCost and a free-text title but no machine-readable currency
@@ -188,16 +192,50 @@ class MainViewModel(
             // the user cannot buy yet ANYWHERE in the catalogue, which is the
             // next thing that will actually become available to them - not
             // the cheapest pack of some arbitrary game.
-            val target = games
-                .filter { it.minLevel <= user.level }
-                .flatMap { game -> game.purchasablePacks.map { game to it } }
-                .filter { (_, pack) -> pack.pointsCost > user.points }
-                .minByOrNull { (_, pack) -> pack.pointsCost }
-                // The pack amount alone. The game name used to ride along in
-                // this tuple and was discarded at the other end - see the
-                // destructuring below - and it is not something that goes in
-                // front of a user anyway. See RedemptionGame.currencyName.
-                ?.let { (_, pack) -> pack.amount to pack.pointsCost }
+            //
+            // Amount and price only. The game itself used to ride along in
+            // this tuple and was discarded at the other end, and it is not
+            // something that goes in front of a user anyway - see
+            // RedemptionGame.currencyName.
+            val reachable = games.filter { it.minLevel <= user.level }
+
+            // THE OFFER IS THE TARGET WHILE IT IS STILL THERE.
+            //
+            // The first redeem is the cheapest price in the catalogue by
+            // design, it is reachable only through the offer, and it is what
+            // this account will genuinely pay next. Measuring the ordinary
+            // floor instead asks for a 600-star climb toward a purchase that
+            // would have cost 150 - a number that is wrong for this user and
+            // discouraging for no reason.
+            //
+            // "Still there" is the offer card's own test, and for the same
+            // two reasons: unfinished for this account, and some pack
+            // actually carrying a discounted price. Both halves of finished
+            // count - spent, or retired because the UID had already had one -
+            // which is what firstRedeemFinished merges; this reads the same
+            // two fields directly because it is already holding the user.
+            val offerLive = !(user.hasUsedFirstRedeem || user.firstRedeemUnavailable)
+            val offers = if (!offerLive) emptyList() else reachable
+                .flatMap { game ->
+                    game.packs.mapNotNull { pack ->
+                        pack.firstRedeemCost?.let { pack.amount to it }
+                    }
+                }
+
+            // Falls through to the ordinary catalogue on any of three counts:
+            // the offer is finished, nothing carries a discounted price, or
+            // every discounted pack is ALREADY affordable. That last one is
+            // the interesting case - the offer has stopped being a climb, so
+            // the bar goes back to measuring what still is one.
+            val target = offers
+                .filter { (_, cost) -> cost > user.points }
+                .minByOrNull { (_, cost) -> cost }
+                ?: reachable
+                    .flatMap { game ->
+                        game.purchasablePacks.map { it.amount to it.pointsCost }
+                    }
+                    .filter { (_, cost) -> cost > user.points }
+                    .minByOrNull { (_, cost) -> cost }
 
             // Nothing left to reach means everything on offer is already
             // affordable - the bar has no meaning, so hide it rather than
@@ -212,7 +250,11 @@ class MainViewModel(
                 title = amount,
                 pointsCost = cost,
                 pointsShort = (cost - user.points).coerceAtLeast(0),
-                percent = (user.points * 100 / cost).coerceIn(0, 100),
+                // Long arithmetic: a balance and a price are both Ints and
+                // their product overflows a little past two million points,
+                // which this economy reaches. The Wallet bar already does
+                // this; Home was still overflowing.
+                percent = (user.points.toLong() * 100 / cost).toInt().coerceIn(0, 100),
                 pointsHeld = user.points
             )
         }

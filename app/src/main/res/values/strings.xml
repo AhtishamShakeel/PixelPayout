@@ -581,7 +581,10 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="wallet_no_rewards">No games available right now. Check back soon.</string>
     <string name="wallet_no_activity">Nothing yet. Play a quiz or a game to start earning.</string>
     <string name="wallet_no_orders">No orders yet. Redeem something and it will show up here.</string>
-    <string name="wallet_game_from">from %1$s stars</string>
+    <string name="wallet_game_from">from %1$s ★</string>
+    <string name="wallet_offer_stars">%1$s stars</string>
+    <string name="wallet_offer_select">Select pack</string>
+    <string name="wallet_offer_selected">Selected</string>
     <!-- The balance card's second line. Names a real pack the balance can
          already buy, rather than converting points at an invented rate. -->
     <!-- Under the section title, where a game count used to sit. Tells the

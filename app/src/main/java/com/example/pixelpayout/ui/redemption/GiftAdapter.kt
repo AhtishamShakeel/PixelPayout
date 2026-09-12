@@ -8,6 +8,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.model.RedemptionPack
 import com.pixelpayout.R
@@ -37,7 +38,6 @@ class GiftAdapter(
     private val onPick: (GiftOffer) -> Unit
 ) : ListAdapter<GiftOffer, GiftAdapter.ViewHolder>(DIFF) {
 
-    private var selectedKey: String? = null
     private var balance: Int = 0
 
     fun updateBalance(points: Int) {
@@ -60,13 +60,20 @@ class GiftAdapter(
             val affordable = shortBy <= 0
 
             binding.giftCode.text = offer.game.code
+            // The game's own artwork, from the same imageUrl the Wallet grid
+            // reads - the offer cell was showing only the initials, so a
+            // catalogue with art looked half-finished the moment the offer
+            // opened. GiftOffer already carries the whole game, so there is
+            // nothing to fetch.
+            val art = offer.game.imageUrl
+            binding.giftImage.isVisible = !art.isNullOrBlank()
+            if (!art.isNullOrBlank()) {
+                binding.giftImage.load(art) { crossfade(true) }
+            }
             binding.giftAmount.text = offer.pack.amount
-            // Hidden rather than switched to the currency name: this line held
-            // the game ("PUBG Mobile"), which no longer goes in front of a
-            // user, and the currency is already the second half of the amount
-            // directly above it. "30 UC" over "UC" reads as a rendering bug.
-            binding.giftGame.isVisible = false
-            binding.giftCost.text = WalletFormat.number(price)
+            binding.giftCost.text = context.getString(
+                R.string.wallet_offer_stars, WalletFormat.number(price)
+            )
 
             binding.giftShort.isVisible = !affordable
             if (!affordable) {
@@ -81,11 +88,6 @@ class GiftAdapter(
             binding.giftCost.setTextColor(costColor)
             binding.giftStar.imageTintList = ColorStateList.valueOf(costColor)
 
-            binding.giftCard.setBackgroundResource(
-                if (offer.key == selectedKey) R.drawable.bg_pack_row_selected
-                else R.drawable.bg_pack_row
-            )
-
             // An unaffordable offer stays on screen but cannot be chosen: the
             // grid is also how a user learns what the offer covers, so hiding
             // it would answer a question by removing it.
@@ -96,11 +98,6 @@ class GiftAdapter(
                     null
                 } else {
                     View.OnClickListener {
-                        val previous = selectedKey
-                        selectedKey = offer.key
-                        currentList.indexOfFirst { it.key == previous }
-                            .takeIf { it >= 0 }?.let(::notifyItemChanged)
-                        notifyItemChanged(bindingAdapterPosition)
                         onPick(offer)
                     }
                 }

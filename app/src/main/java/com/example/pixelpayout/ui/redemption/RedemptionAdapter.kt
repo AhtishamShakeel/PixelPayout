@@ -9,6 +9,7 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import coil.load
 import com.example.pixelpayout.data.model.RedemptionGame
+import com.example.pixelpayout.utils.setStarText
 import com.pixelpayout.R
 import com.pixelpayout.databinding.ItemRedemptionGameBinding
 
@@ -48,11 +49,23 @@ class RedemptionAdapter(
             binding.gameName.text = game.displayName
             binding.gameCode.text = game.code
 
+            // "from 1,200 <star>", with the figure and the star gold and the
+            // word "from" left in the tile's dim caption colour. The line is
+            // a caption; coloring all of it would make every tile shout, and
+            // the figure is the part being scanned. Same treatment, and the
+            // same real ic_star, as every other Stars figure in the app -
+            // see StarText, which also explains why the string carries the
+            // star CHARACTER rather than the drawable.
             val from = game.fromPointsCost
-            binding.gameFrom.text = if (from != null) {
-                context.getString(R.string.wallet_game_from, WalletFormat.number(from))
+            if (from != null) {
+                val figure = WalletFormat.number(from)
+                binding.gameFrom.setStarText(
+                    context.getString(R.string.wallet_game_from, figure),
+                    emphasise = figure,
+                    emphasisColor = R.color.stars_accent
+                )
             } else {
-                ""
+                binding.gameFrom.text = ""
             }
 
             // The dashed code well stays behind the artwork rather than being

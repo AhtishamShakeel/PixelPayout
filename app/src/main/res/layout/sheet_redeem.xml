@@ -137,18 +137,6 @@
                 tools:itemCount="4"
                 tools:listitem="@layout/item_gift_pack" />
 
-            <TextView
-                android:id="@+id/giftContinue"
-                android:layout_width="match_parent"
-                android:layout_height="46dp"
-                android:layout_marginTop="17dp"
-                android:background="@drawable/bg_button_accent_outline"
-                android:fontFamily="@font/jakarta_semibold"
-                android:gravity="center"
-                android:text="@string/sheet_continue"
-                android:textColor="@color/brand_violet_light"
-                android:textSize="14sp" />
-
         </LinearLayout>
 
         <!-- ================= Step 1: pick a pack ================= -->

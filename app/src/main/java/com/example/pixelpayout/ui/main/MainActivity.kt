@@ -628,10 +628,20 @@ class MainActivity : AppCompatActivity() {
                     val hasUsedReferral = document.getBoolean("hasUsedReferral") ?: false
                     Log.d("ReferralDebug", "Firebase hasUsedReferral: $hasUsedReferral")
 
-                    if(!hasUsedReferral){
+                    // The window closes at the unlock level, and submitReferral
+                    // refuses a late code - so offering the popup past it would
+                    // be inviting somebody to type something that can only be
+                    // rejected. Normally unreachable (this is a first-run
+                    // prompt), but a reinstall reaches it with a played account.
+                    val unlockLevel =
+                        viewModel.levelCurve.value?.referralUnlockLevel ?: 0
+                    val level = document.getLong("level")?.toInt() ?: 1
+                    val expired = unlockLevel > 0 && level >= unlockLevel
+
+                    if(!hasUsedReferral && !expired){
                         showReferralPopup()
                     } else {
-                        Log.d("ReferralDebug", "User has already used a referral code.")
+                        Log.d("ReferralDebug", "Referral entry unavailable (used=$hasUsedReferral expired=$expired)")
                     }
                 } else {
                     Log.d("ReferralDebug", "User document does not exist in Firebase.")

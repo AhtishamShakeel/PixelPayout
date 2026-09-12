@@ -136,7 +136,8 @@ async function run() {
         xp: 0,
         level: 1,
         referralCode: "ABCDEF",
-        referralRewardClaimed: false,
+        referralLevelRewardPaid: false,
+        referralRedeemRewardPaid: false,
       })
     );
 
@@ -146,7 +147,8 @@ async function run() {
         points: 999999,
         xp: 999999,
         level: 30,
-        referralRewardClaimed: false,
+        referralLevelRewardPaid: false,
+        referralRedeemRewardPaid: false,
       })
     );
   }

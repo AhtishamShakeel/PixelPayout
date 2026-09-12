@@ -117,10 +117,13 @@ class UserRepository {
          */
         val levelRewards: Map<Int, Int> = emptyMap(),
         /**
-         * The XP an invitee must reach before their referrer is paid. Zero
-         * when the curve document predates this field being published.
+         * The level an invitee must reach before their referrer is paid, and
+         * the level at which that invitee's own chance to enter a code
+         * expires. Zero when the curve document predates this field being
+         * published, which hides the ladder's referral row rather than
+         * placing it at a guessed level.
          */
-        val referralUnlockXp: Int = 0
+        val referralUnlockLevel: Int = 0
     ) {
         /** Total XP needed to reach [level]; 0 for level 1. */
         fun xpRequiredFor(level: Int): Int = when {
@@ -786,10 +789,11 @@ class UserRepository {
                 Invitee(
                     name = row["name"] as? String ?: return@mapNotNull null,
                     joinedAtMillis = (row["joinedAtMillis"] as? Number)?.toLong(),
-                    xp = (row["xp"] as? Number)?.toInt() ?: 0,
-                    xpTarget = (row["xpTarget"] as? Number)?.toInt() ?: 0,
+                    level = (row["level"] as? Number)?.toInt() ?: 0,
+                    levelTarget = (row["levelTarget"] as? Number)?.toInt() ?: 0,
                     qualified = row["qualified"] == true,
-                    paid = row["paid"] == true
+                    levelPaid = row["levelPaid"] == true,
+                    redeemPaid = row["redeemPaid"] == true
                 )
             }
 
@@ -797,10 +801,11 @@ class UserRepository {
                 invitees = invitees,
                 invited = (data["invited"] as? Number)?.toInt() ?: invitees.size,
                 qualified = (data["qualified"] as? Number)?.toInt() ?: 0,
-                paid = (data["paid"] as? Number)?.toInt() ?: 0,
-                unlockXp = (data["unlockXp"] as? Number)?.toInt() ?: 0,
-                referrerReward = (data["referrerReward"] as? Number)?.toInt() ?: 0,
-                refereeReward = (data["refereeReward"] as? Number)?.toInt() ?: 0
+                levelPaid = (data["levelPaid"] as? Number)?.toInt() ?: 0,
+                redeemPaid = (data["redeemPaid"] as? Number)?.toInt() ?: 0,
+                unlockLevel = (data["unlockLevel"] as? Number)?.toInt() ?: 0,
+                levelReward = (data["levelReward"] as? Number)?.toInt() ?: 0,
+                redeemReward = (data["redeemReward"] as? Number)?.toInt() ?: 0
             )
         } catch (e: Exception) {
             Log.w("Referral", "Referral stats unavailable: ${e.message}")
@@ -811,12 +816,16 @@ class UserRepository {
     data class ReferralStats(
         val invitees: List<Invitee>,
         val invited: Int,
+        /** Invitees at or past [unlockLevel], whether or not that has paid. */
         val qualified: Int,
-        val paid: Int,
-        /** XP a referee must earn before the referrer is paid. */
-        val unlockXp: Int,
-        val referrerReward: Int,
-        val refereeReward: Int
+        /** Invitees whose level milestone has actually been credited. */
+        val levelPaid: Int,
+        /** Invitees who have since placed a full-price order. */
+        val redeemPaid: Int,
+        /** The level a referee must reach before the first milestone pays. */
+        val unlockLevel: Int,
+        val levelReward: Int,
+        val redeemReward: Int
     )
 
     /**
@@ -829,10 +838,12 @@ class UserRepository {
     data class Invitee(
         val name: String,
         val joinedAtMillis: Long?,
-        val xp: Int,
-        val xpTarget: Int,
+        /** Their level, capped at [levelTarget] - progress, not surveillance. */
+        val level: Int,
+        val levelTarget: Int,
         val qualified: Boolean,
-        val paid: Boolean
+        val levelPaid: Boolean,
+        val redeemPaid: Boolean
     )
 
     data class GameProfile(
@@ -1640,6 +1651,7 @@ class UserRepository {
             when (data?.get("status") as? String) {
                 "success" -> ReferralResult.Success
                 "invalid_code" -> ReferralResult.InvalidCode
+                "window_closed" -> ReferralResult.WindowClosed
                 else -> ReferralResult.Error("Unexpected referral response")
             }
         } catch (e: FirebaseFunctionsException) {

@@ -348,13 +348,18 @@ class ProfileFragment : Fragment() {
             binding.referralCodeValue.text = code
         }
 
-        // The server is the authority: the user document flipping to true is
-        // what retires the input, whether it was this screen, the first-run
-        // popup, or another device that spent the claim.
-        mainViewModel.hasUsedReferral.observe(viewLifecycleOwner) { used ->
-            binding.referralClaimGroup.isVisible = !used
-            binding.referralClaimedNote.isVisible = used
-        }
+        // TWO WAYS TO LOSE THE INPUT, and both have to retire it: spending
+        // the claim, and running out of time. The window closes at the unlock
+        // level (see submitReferral, which enforces it - this only saves the
+        // user from typing a code that is going to be refused).
+        //
+        // The level is taken from levelProgress rather than the curve's own
+        // copy of the rule so the two cannot disagree mid-session; the unlock
+        // level itself comes from the published curve, so retuning it moves
+        // the deadline everywhere at once.
+        mainViewModel.hasUsedReferral.observe(viewLifecycleOwner) { renderReferralClaim() }
+        mainViewModel.levelProgress.observe(viewLifecycleOwner) { renderReferralClaim() }
+        mainViewModel.levelCurve.observe(viewLifecycleOwner) { renderReferralClaim() }
 
         mainViewModel.referralStats.observe(viewLifecycleOwner) { stats ->
             renderReferralStats(stats)
@@ -376,6 +381,9 @@ class ProfileFragment : Fragment() {
                 }
                 is ReferralResult.InvalidCode ->
                     binding.referralInputLayout.error = getString(R.string.error_invalid_referral)
+                is ReferralResult.WindowClosed ->
+                    binding.referralInputLayout.error =
+                        getString(R.string.error_referral_window_closed)
                 is ReferralResult.AlreadyUsed ->
                     binding.referralInputLayout.error =
                         getString(R.string.error_already_used_referral)
@@ -393,11 +401,33 @@ class ProfileFragment : Fragment() {
      * to naming no numbers, rather than surfacing an error nobody using the
      * app can act on.
      */
+    /**
+     * Whether this account can still enter somebody's code.
+     *
+     * The "already claimed" note is kept for the spent case only. Somebody
+     * who simply ran out of time never claimed anything, and telling them
+     * they did would send them looking for stars that were never paid - so
+     * that case gets its own line.
+     */
+    private fun renderReferralClaim() {
+        val used = mainViewModel.hasUsedReferral.value == true
+        val unlockLevel = mainViewModel.levelCurve.value?.referralUnlockLevel ?: 0
+        val level = mainViewModel.levelProgress.value?.level ?: 1
+        // A curve that has not landed yet reads as "not expired": the server
+        // refuses a late code anyway, and hiding the input on a guess would
+        // retire it for somebody who is still eligible.
+        val expired = !used && unlockLevel > 0 && level >= unlockLevel
+
+        binding.referralClaimGroup.isVisible = !used && !expired
+        binding.referralClaimedNote.isVisible = used
+        binding.referralExpiredNote.isVisible = expired
+    }
+
     private fun renderReferralStats(stats: UserRepository.ReferralStats?) {
         val invitees = stats?.invitees.orEmpty()
 
         inviteeAdapter.submitList(invitees)
-        inviteeAdapter.updateReward(stats?.referrerReward ?: 0)
+        inviteeAdapter.updateRewards(stats?.levelReward ?: 0, stats?.redeemReward ?: 0)
 
         binding.inviteesRecyclerView.isVisible = invitees.isNotEmpty()
         binding.inviteesEmpty.isVisible = invitees.isEmpty()
@@ -409,11 +439,17 @@ class ProfileFragment : Fragment() {
         if (stats != null) {
             binding.funnelInvited.statValue.text = stats.invited.toString()
             binding.funnelQualified.statValue.text = stats.qualified.toString()
-            binding.funnelPaid.statValue.text = stats.paid.toString()
+            binding.funnelPaid.statValue.text = stats.levelPaid.toString()
 
-            // A caption, so only the figure takes weight and the Stars
-            // colour - see StarText. The sentence around it stays a caption.
-            val earned = WalletFormat.number(stats.paid * stats.referrerReward)
+            // Both milestones, counted separately and added. The funnel above
+            // still counts invitees, so this is the only figure on the screen
+            // that says what those invitees were actually worth.
+            //
+            // A caption, so only the figure takes weight and the Stars colour
+            // - see StarText. The sentence around it stays a caption.
+            val earned = WalletFormat.number(
+                stats.levelPaid * stats.levelReward + stats.redeemPaid * stats.redeemReward
+            )
             binding.profileEarnedLabel.setStarText(
                 getString(R.string.profile_earned, earned),
                 emphasise = earned,
@@ -421,15 +457,13 @@ class ProfileFragment : Fragment() {
             )
             binding.referralRuleLine.text = getString(
                 R.string.profile_referral_rule,
-                stats.referrerReward,
-                stats.unlockXp
+                stats.levelReward,
+                stats.unlockLevel,
+                stats.redeemReward
             )
-            binding.referralClaimSub.text =
-                getString(R.string.profile_claim_sub, stats.refereeReward)
         }
         binding.profileEarnedLabel.isVisible = stats != null
         binding.referralRuleLine.isVisible = stats != null
-        binding.referralClaimSub.isVisible = stats != null
     }
 
     override fun onDestroyView() {

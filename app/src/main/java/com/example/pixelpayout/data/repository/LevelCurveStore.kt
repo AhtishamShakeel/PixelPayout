@@ -45,7 +45,7 @@ object LevelCurveStore {
     private const val FIELD_THRESHOLDS = "thresholds"
     private const val FIELD_MAX_LEVEL = "maxLevel"
     private const val FIELD_LEVEL_REWARDS = "levelRewards"
-    private const val FIELD_REFERRAL_UNLOCK_XP = "referralUnlockXp"
+    private const val FIELD_REFERRAL_UNLOCK_LEVEL = "referralUnlockLevel"
     private const val FIELD_GOAL_POOL = "dailyGoalPool"
     private const val FIELD_GOAL_KINDS = "dailyGoalKinds"
 
@@ -103,8 +103,8 @@ object LevelCurveStore {
                     maxLevel = maxLevel,
                     thresholds = thresholds,
                     levelRewards = parseLevelRewards(snapshot.get(FIELD_LEVEL_REWARDS)),
-                    referralUnlockXp =
-                        snapshot.getLong(FIELD_REFERRAL_UNLOCK_XP)?.toInt() ?: 0
+                    referralUnlockLevel =
+                        snapshot.getLong(FIELD_REFERRAL_UNLOCK_LEVEL)?.toInt() ?: 0
                 )
             )
         }

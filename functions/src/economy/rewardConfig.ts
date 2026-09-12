@@ -10,7 +10,6 @@
 export type RewardSource =
   | "QUIZ"
   | "GAME"
-  | "REFERRAL_REFEREE"
   | "REFERRAL_REFERRER"
   // Not wired up yet, but named now so the ledger's vocabulary is stable:
   | "OFFERWALL"
@@ -39,7 +38,6 @@ export type RewardSource =
 export const MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   QUIZ: false, // XP only
   GAME: false, // XP only
-  REFERRAL_REFEREE: false, // fixed acquisition cost
   REFERRAL_REFERRER: false, // fixed acquisition cost
   OFFERWALL: true,
   SURVEY: true,
@@ -72,7 +70,6 @@ export const MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
 export const XP_MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   QUIZ: true,
   GAME: true,
-  REFERRAL_REFEREE: false, // fixed acquisition cost
   REFERRAL_REFERRER: false, // fixed acquisition cost
   OFFERWALL: true,
   SURVEY: true,
@@ -152,13 +149,32 @@ export function gameXpForScore(gameId: string, score: number): number {
 }
 
 // --- Referrals --------------------------------------------------------------
-// Referral rewards are an acquisition cost: fixed, never buffed.
-// Both sides get Points (referrals are one of the few Points sources today)
-// and XP.
-export const REFERRED_USER_REWARD_POINTS = 50;
-export const REFERRED_USER_REWARD_XP = 25;
-export const REFERRER_REWARD_POINTS = 100;
-export const REFERRER_REWARD_XP = 50;
+// An acquisition cost: fixed, never buffed, and paid ENTIRELY TO THE
+// REFERRER. The referee gets nothing for entering a code - a signup bonus
+// every new account receives is the plan instead, which is worth the same to
+// a genuine new player and worth nothing to somebody farming codes.
+//
+// TWO MILESTONES, NOT ONE, and they are priced very differently on purpose.
+// Reaching level 10 says the referee is a real player; making a full-price
+// redemption says they are a real player who is worth money. The second is
+// three times the first because that is where the value actually is, and it
+// cannot be reached by an account that only farms XP.
+//
+// Both are stars only. Referral XP used to level the referrer up, which then
+// paid them level rewards as well - a second, hidden cost on every referral
+// that made the true acquisition price hard to see.
+export const REFERRER_LEVEL_REWARD_POINTS = 50;
+export const REFERRER_REDEEM_REWARD_POINTS = 150;
+
+/**
+ * The level a referee must reach before the first milestone pays.
+ *
+ * Also the point at which the referee's own chance to enter a code expires -
+ * see submitReferral. A code entered after ten levels of play is not an
+ * invitation that brought somebody here; it is an existing player being
+ * handed a code, which is the shape most referral fraud takes.
+ */
+export const REFERRAL_UNLOCK_LEVEL = 10;
 
 // --- Level rewards ------------------------------------------------------------
 // Levelling is the payoff for quizzes and games, which award no Points of
@@ -272,12 +288,3 @@ export function levelUpPointsForLevels(
     .filter((reward) => reward.points > 0);
 }
 
-/**
- * The referrer is only paid once the referee shows real engagement. This was
- * previously "referee reaches 100 points", which breaks now that quizzes and
- * games award no Points at all - a genuinely engaged referee could sit at 50
- * points forever and never pay out. XP is the signal that actually tracks
- * engagement across every activity, and (unlike Points) it can never be spent
- * back down below the threshold.
- */
-export const REFERRAL_UNLOCK_XP = 100;

@@ -470,9 +470,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:fontFamily="@font/jakarta_medium"
+                android:text="@string/profile_claim_sub"
                 android:textColor="@color/text_faint"
-                android:textSize="11.5sp"
-                tools:text="Get 50 points for a valid referral" />
+                android:textSize="11.5sp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/referralInputLayout"
@@ -536,6 +536,34 @@
             app:drawableStartCompat="@drawable/ic_shield_check"
             app:drawableTint="@color/brand_violet"
             tools:visibility="visible" />
+
+        <!--
+            Shown INSTEAD of the claim input once this account has passed the
+            unlock level without entering a code. Separate from the "already
+            claimed" note above on purpose: nothing was claimed here, and
+            saying otherwise would send somebody looking for stars that were
+            never paid.
+        -->
+        <TextView
+            android:id="@+id/referralExpiredNote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="11dp"
+            android:background="@drawable/bg_summary_card"
+            android:drawablePadding="8dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:gravity="center_vertical"
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="12dp"
+            android:text="@string/referral_window_closed"
+            android:textColor="@color/text_faint"
+            android:textSize="12sp"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_info"
+            app:drawableTint="@color/text_ghost"
+            tools:visibility="gone" />
 
         <!-- ================= Account ================= -->
         <TextView

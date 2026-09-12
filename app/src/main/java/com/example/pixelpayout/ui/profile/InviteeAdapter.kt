@@ -22,20 +22,29 @@ import com.pixelpayout.databinding.ItemInviteeBinding
  *                 transaction that awards the referee's XP, so it closes in
  *                 seconds - but a row that jumped straight to "paid" would be
  *                 claiming money had moved before it had.
- *   PAID        - `referralRewardClaimed` is set, so the award really landed.
+ *   PAID        - `referralLevelRewardPaid` is set, so the award landed.
  *
- * Progress is XP toward the threshold, not level: that is the condition the
- * payout actually tests, so this bar fills at the same rate the reward
- * arrives.
+ * Progress is the invitee's LEVEL toward the unlock level, because that is
+ * the condition the payout actually tests - so this bar fills at the same
+ * rate the reward arrives.
+ *
+ * The SECOND milestone is a tick on the row rather than a state of its own.
+ * It is not a later stage of the same journey - an invitee can place a
+ * full-price order without ever reaching the unlock level, and the two pay
+ * independently - so a single four-state track would have to lie about one
+ * of them.
  */
 class InviteeAdapter :
     ListAdapter<UserRepository.Invitee, InviteeAdapter.ViewHolder>(DIFF) {
 
-    private var reward: Int = 0
+    private var levelReward: Int = 0
+    private var redeemReward: Int = 0
 
-    fun updateReward(points: Int) {
-        if (points == reward) return
-        reward = points
+    /** Both milestone amounts, published by the server. */
+    fun updateRewards(levelPoints: Int, redeemPoints: Int) {
+        if (levelPoints == levelReward && redeemPoints == redeemReward) return
+        levelReward = levelPoints
+        redeemReward = redeemPoints
         notifyItemRangeChanged(0, itemCount)
     }
 
@@ -55,22 +64,22 @@ class InviteeAdapter :
                 if (binding.inviteeJoined.text.isBlank()) android.view.View.GONE
                 else android.view.View.VISIBLE
 
-            val target = invitee.xpTarget.coerceAtLeast(1)
-            binding.inviteeProgress.progress = (invitee.xp * 100 / target).coerceIn(0, 100)
+            val target = invitee.levelTarget.coerceAtLeast(1)
+            binding.inviteeProgress.progress = (invitee.level * 100 / target).coerceIn(0, 100)
             binding.inviteeProgressLabel.text = context.getString(
                 R.string.profile_invitee_progress,
-                WalletFormat.number(invitee.xp),
-                WalletFormat.number(invitee.xpTarget)
+                invitee.level,
+                invitee.levelTarget
             )
 
             val statusRes = when {
-                invitee.paid -> R.string.profile_invitee_status_paid
+                invitee.levelPaid -> R.string.profile_invitee_status_paid
                 invitee.qualified -> R.string.profile_invitee_status_qualified
                 else -> R.string.profile_invitee_status_progress
             }
             binding.inviteeStatus.setText(statusRes)
 
-            val done = invitee.paid || invitee.qualified
+            val done = invitee.levelPaid || invitee.qualified
             binding.inviteeStatus.setBackgroundResource(
                 if (done) R.drawable.bg_status_qualified else R.drawable.bg_status_rejected
             )
@@ -84,17 +93,25 @@ class InviteeAdapter :
                 context.getColor(if (done) R.color.brand_violet_light else R.color.text_faint)
             )
 
+            // The note tracks whichever milestone is still outstanding, so a
+            // row never goes quiet while money is still to come: an invitee
+            // who has been paid for their level still has the larger of the
+            // two ahead of them, and that is the one worth naming.
             binding.inviteeNote.text = when {
-                invitee.paid -> context.getString(R.string.profile_invitee_note_paid)
+                invitee.redeemPaid -> context.getString(R.string.profile_invitee_note_redeemed)
+                invitee.levelPaid -> context.getString(
+                    R.string.profile_invitee_note_awaiting_redeem,
+                    redeemReward
+                )
                 invitee.qualified -> context.getString(R.string.profile_invitee_note_qualified)
                 else -> context.getString(
                     R.string.profile_invitee_note_progress,
-                    WalletFormat.number((invitee.xpTarget - invitee.xp).coerceAtLeast(0))
+                    (invitee.levelTarget - invitee.level).coerceAtLeast(0)
                 )
             }
 
             binding.inviteeRewardIcon.setImageResource(
-                if (invitee.paid) R.drawable.ic_check else R.drawable.ic_lock
+                if (invitee.levelPaid) R.drawable.ic_check else R.drawable.ic_lock
             )
 
             // Paid rows read violet and unpaid ones stay ghosted, and the
@@ -103,11 +120,20 @@ class InviteeAdapter :
             // a gold star on an unpaid row would contradict the lock beside
             // it.
             val rewardColorRes =
-                if (invitee.paid) R.color.brand_violet_light else R.color.text_ghost
+                if (invitee.levelPaid) R.color.brand_violet_light else R.color.text_ghost
             val rewardColor = context.getColor(rewardColorRes)
             binding.inviteeReward.setTextColor(rewardColor)
+            // What this invitee HAS earned once both milestones are counted,
+            // rather than one milestone's price: a row that still said 50
+            // after a 150 order would understate the account by three times.
+            val earned =
+                (if (invitee.levelPaid) levelReward else 0) +
+                    (if (invitee.redeemPaid) redeemReward else 0)
             binding.inviteeReward.setStarText(
-                context.getString(R.string.profile_invitee_reward, reward),
+                context.getString(
+                    R.string.profile_invitee_reward,
+                    if (earned > 0) earned else levelReward
+                ),
                 starColor = rewardColorRes
             )
             binding.inviteeRewardIcon.imageTintList =

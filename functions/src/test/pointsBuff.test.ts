@@ -148,7 +148,7 @@ assertEq("isBuffActive false once expired", isBuffActive(buff(2, NOW - 1), NOW),
   const active = activeMultiplier(buff(3, NOW + 60_000), NOW);
   assertEq("the buff under test is genuinely active", active, 3);
 
-  for (const source of ["QUIZ", "GAME", "REFERRAL_REFEREE", "REFERRAL_REFERRER", "DAILY_LOGIN"] as const) {
+  for (const source of ["QUIZ", "GAME", "REFERRAL_REFERRER", "DAILY_LOGIN"] as const) {
     const award = buildAward(0, 0, {
       source,
       basePoints: 100,
@@ -230,7 +230,7 @@ assertEq("isBuffActive false once expired", isBuffActive(buff(2, NOW - 1), NOW),
     levelled.userUpdate.xp !== undefined, true);
 
   // Ineligible sources are untouched however large the grant.
-  const ineligible = ["REFERRAL_REFEREE", "DAILY_LOGIN", "LEVEL_UP"] as const;
+  const ineligible = ["REFERRAL_REFERRER", "DAILY_LOGIN", "LEVEL_UP"] as const;
   for (const source of ineligible) {
     const award = buildAward(0, 0, {
       source,

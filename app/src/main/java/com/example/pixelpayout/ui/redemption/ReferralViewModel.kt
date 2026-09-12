@@ -173,4 +173,12 @@ sealed class ReferralResult {
     data class Error(val message: String) : ReferralResult()
     object InvalidCode : ReferralResult()
     object AlreadyUsed : ReferralResult()
+
+    /**
+     * The account reached the unlock level without entering a code, so the
+     * chance has expired. Distinct from [AlreadyUsed] because nothing was
+     * spent - telling somebody a code they never used was "already used"
+     * would send them looking for a mistake that never happened.
+     */
+    object WindowClosed : ReferralResult()
 }

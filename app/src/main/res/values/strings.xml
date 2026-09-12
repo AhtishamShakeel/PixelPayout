@@ -177,10 +177,11 @@
     <string name="enter_referral_code">Enter Referral Code</string>
     <string name="or_signup_using_google">Or Login with</string>
     <string name="get_started">Get Started</string>
-    <string name="referral_reward_description">Get 100 points for valid referral</string>
+    <string name="referral_reward_description">Back the friend who invited you — they earn stars as you play</string>
     <string name="submit_referral">Submit Referral</string>
-    <string name="referral_success">Referral successful! 100 points added</string>
+    <string name="referral_success">Code applied — your friend now earns as you play</string>
     <string name="error_already_used_referral">You have already used a referral code</string>
+    <string name="error_referral_window_closed">Codes can only be entered before level 10</string>
     <string name="error_invalid_referral">Invalid referral code</string>
     <string name="slide_1_title">Welcome to PixelPayout</string>
     <string name="slide_1_description">Earn rewards by playing games and completing quizzes</string>
@@ -324,7 +325,7 @@
     <string name="level_perk_stars">+%1$d ★, claim with an ad</string>
     <!-- %1$d is the XP threshold the server actually tests, not the level:
          the level is reached slightly before it. -->
-    <string name="level_perk_referral">Referral rewards - a friend you invited pays out once they reach %1$d XP</string>
+    <string name="level_perk_referral">Referral rewards — friends you invited start paying out, and your own chance to enter a code ends at level %1$d</string>
     <string name="level_perk_game">%1$s unlocks in Cashout</string>
     <!-- Quick actions -->
     <string name="quick_actions">Quick actions</string>
@@ -560,8 +561,9 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="referral_share">Share code</string>
     <string name="referral_copied">Code copied</string>
     <string name="referral_share_subject">Join me on PixelPayout</string>
-    <string name="referral_share_text">Use my code %1$s when you join PixelPayout and we both get bonus stars.</string>
+    <string name="referral_share_text">Use my code %1$s when you join PixelPayout.</string>
     <string name="referral_already_claimed">Referral code already applied.</string>
+    <string name="referral_window_closed">Referral codes can only be entered before level 10. Your own code still works for the friends you invite.</string>
     <string name="profile_meta">Level %1$d · %2$s stars</string>
 
     <!-- ==================================================================
@@ -701,7 +703,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_invite_title">Invite friends</string>
     <string name="profile_your_code">Your code</string>
     <string name="profile_earned">%1$s ★ earned</string>
-    <string name="profile_referral_rule">Your friend enters this code at signup. You get %1$d points once they earn %2$d XP, which keeps rewards tied to real players.</string>
+    <string name="profile_referral_rule">Your friend enters this code at signup. You get %1$d ★ when they reach level %2$d, and %3$d ★ more on their first full-price redemption.</string>
     <string name="profile_referral_progress">Referral progress</string>
     <string name="profile_invited_count">%1$d invited</string>
     <string name="profile_funnel_invited">Invited</string>
@@ -710,15 +712,17 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_no_invites">No one has used your code yet</string>
     <string name="profile_no_invites_sub">Share it and track their progress here</string>
     <string name="profile_invitee_joined">Joined %1$s</string>
-    <string name="profile_invitee_progress">%1$s / %2$s XP</string>
+    <string name="profile_invitee_progress">Level %1$d of %2$d</string>
     <string name="profile_invitee_status_paid">Paid</string>
     <string name="profile_invitee_status_qualified">Qualified</string>
     <string name="profile_invitee_status_progress">In progress</string>
     <string name="profile_invitee_note_paid">Reward credited</string>
     <string name="profile_invitee_note_qualified">Reward releasing shortly</string>
-    <string name="profile_invitee_note_progress">Needs %1$s more XP</string>
+    <string name="profile_invitee_note_awaiting_redeem">%1$d ★ more on their first full-price order</string>
+    <string name="profile_invitee_note_redeemed">Both rewards credited</string>
+    <string name="profile_invitee_note_progress">%1$d levels to go</string>
     <string name="profile_invitee_reward">%1$d ★</string>
-    <string name="profile_claim_sub">Get %1$d points for a valid referral</string>
+    <string name="profile_claim_sub">Enter a code before you reach level 10 — after that this closes</string>
     <string name="profile_account">Account</string>
     <string name="profile_terms">Terms and conditions</string>
     <string name="profile_privacy">Privacy policy</string>

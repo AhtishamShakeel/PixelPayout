@@ -119,16 +119,16 @@ object LevelLadder {
             add(level, Perk(R.drawable.ic_star, res.getString(R.string.level_perk_stars, points)))
         }
 
-        // Placed by XP rather than by a level number, because that is how the
-        // server states the rule. The wording quotes the XP figure too: the
-        // level is reached a little before the threshold is, so naming only
-        // the level would promise the payout slightly early.
-        if (curve.referralUnlockXp > 0) {
+        // Placed on the level the server actually tests, which is now the
+        // rule itself rather than an XP figure that had to be converted. It
+        // is the same rung that closes this account's own chance to enter a
+        // code, so the wording carries both halves.
+        if (curve.referralUnlockLevel > 0) {
             add(
-                curve.levelForXp(curve.referralUnlockXp),
+                curve.referralUnlockLevel,
                 Perk(
                     R.drawable.ic_users,
-                    res.getString(R.string.level_perk_referral, curve.referralUnlockXp)
+                    res.getString(R.string.level_perk_referral, curve.referralUnlockLevel)
                 )
             )
         }

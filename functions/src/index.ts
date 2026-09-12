@@ -86,7 +86,7 @@ import {
   activeMultiplier,
   resolveBuffGrant,
 } from "./economy/pointsBuff";
-import {MAX_LEVEL, XP_THRESHOLDS} from "./economy/levelCurve";
+import {MAX_LEVEL, XP_THRESHOLDS, levelForXp} from "./economy/levelCurve";
 import {
   GAME_XP_PER_SESSION_CAP,
   GAME_XP_SCORE_DIVISOR,
@@ -96,11 +96,9 @@ import {
   MAX_DAILY_QUIZ_ATTEMPTS,
   QUIZ_CORRECT_XP,
   QUIZ_INCORRECT_XP,
-  REFERRAL_UNLOCK_XP,
-  REFERRED_USER_REWARD_POINTS,
-  REFERRED_USER_REWARD_XP,
-  REFERRER_REWARD_POINTS,
-  REFERRER_REWARD_XP,
+  REFERRAL_UNLOCK_LEVEL,
+  REFERRER_LEVEL_REWARD_POINTS,
+  REFERRER_REDEEM_REWARD_POINTS,
   RewardSource,
   attemptsAllowance,
   gameXpForScore,
@@ -215,7 +213,17 @@ const FIELD_HAS_USED_REFERRAL = "hasUsedReferral";
 const REFERRAL_LIST_LIMIT = 50;
 const FIELD_REFERRED_BY = "referredBy";
 const FIELD_REFERRAL_CODE = "referralCode";
-const FIELD_REFERRAL_REWARD_CLAIMED = "referralRewardClaimed";
+/**
+ * The two referral milestones, marked on the REFEREE.
+ *
+ * On the referee rather than the referrer because the referee is the one
+ * whose progress decides them, and because that is the document already open
+ * in every transaction that could satisfy one. Each is the only thing making
+ * its payout once-per-referee: both are written in the same transaction that
+ * pays, so a second attempt cannot find either false.
+ */
+const FIELD_REFERRAL_LEVEL_PAID = "referralLevelRewardPaid";
+const FIELD_REFERRAL_REDEEM_PAID = "referralRedeemRewardPaid";
 const MAX_GAME_SCORE = 1_000_000;
 
 /**
@@ -281,7 +289,7 @@ async function publishLevelCurve(): Promise<void> {
   const payload: Record<string, unknown> = {
     maxLevel: MAX_LEVEL,
     thresholds: XP_THRESHOLDS,
-    referralUnlockXp: REFERRAL_UNLOCK_XP,
+    referralUnlockLevel: REFERRAL_UNLOCK_LEVEL,
     // The goal pool and the order of kinds. Order matters: selectDailyGoals
     // hashes the kind's INDEX, so a reordering here changes which goal each
     // user gets - and the client must hash the same index.
@@ -615,6 +623,7 @@ function writeAward(
 }
 
 interface PendingReferrerPayout {
+  milestone: ReferralMilestone;
   referrerRef: FirebaseFirestore.DocumentReference;
   referrerLedgerRef: FirebaseFirestore.DocumentReference;
   refereeId: string;
@@ -624,49 +633,52 @@ interface PendingReferrerPayout {
 }
 
 /**
- * Decides whether this XP gain pushes a referred user past the engagement
- * threshold that unlocks their referrer's reward, and if so reads the
- * referrer's document. Read-only: every write happens in
- * payReferrerIfUnlocked, so callers can satisfy Firestore's
- * all-reads-before-writes rule.
+ * One referral milestone, and what it pays.
+ *
+ * Two of them exist and they are deliberately very different prices - see
+ * REFERRER_LEVEL_REWARD_POINTS in rewardConfig. Everything else about them is
+ * identical, which is why they share one read/pay pair rather than having a
+ * copy each: the same once-per-referee flag discipline, the same
+ * deterministic ledger id, the same write path.
  */
-async function readReferrerForUnlock(
+interface ReferralMilestone {
+  /** Flag on the REFEREE that marks this milestone as already paid. */
+  paidField: string;
+  /** Prefix of the deterministic ledger id written on the REFERRER. */
+  ledgerPrefix: string;
+  points: number;
+}
+
+const REFERRAL_LEVEL_MILESTONE: ReferralMilestone = {
+  paidField: FIELD_REFERRAL_LEVEL_PAID,
+  ledgerPrefix: "referral_level",
+  points: REFERRER_LEVEL_REWARD_POINTS,
+};
+
+const REFERRAL_REDEEM_MILESTONE: ReferralMilestone = {
+  paidField: FIELD_REFERRAL_REDEEM_PAID,
+  ledgerPrefix: "referral_redeem",
+  points: REFERRER_REDEEM_REWARD_POINTS,
+};
+
+/**
+ * Reads the referrer's document if [milestone] is now owed on this referee.
+ *
+ * Read-only: every write happens in payReferrer, so callers can satisfy
+ * Firestore's all-reads-before-writes rule.
+ */
+async function readReferrerFor(
   transaction: FirebaseFirestore.Transaction,
   userDoc: FirebaseFirestore.DocumentSnapshot,
-  currentXp: number,
-  xpGain: number
+  milestone: ReferralMilestone
 ): Promise<PendingReferrerPayout | null> {
-  if (xpGain <= 0) return null;
-
   const referredBy = userDoc.get(FIELD_REFERRED_BY) as string | undefined;
   if (!referredBy) return null;
 
   // The ONLY thing that makes this once-per-referee. Set on the referee in
   // the same transaction that pays the referrer, so a second attempt cannot
   // find it false.
-  if (userDoc.get(FIELD_REFERRAL_REWARD_CLAIMED) === true) return null;
-
-  // At or above the threshold - NOT only on the exact crossing.
-  //
-  // This used to also return null when currentXp was already >= the
-  // threshold, on the reasoning that the crossing happens once so catching
-  // it once is enough. It is not: the crossing can happen somewhere this
-  // function never runs, and then the reward was lost for good.
-  //
-  //   * submitReferral awards the referee 25 XP itself and does not check
-  //     this, so anyone entering a code between 75 and 99 XP crossed 100 on
-  //     the referral itself and no later claim could ever pay it.
-  //   * Anyone entering a code already past 100 XP had no crossing left.
-  //   * claimDailyStreak and claimDailyGoalBonus award XP without calling
-  //     this at all, so a referee who reached 100 through streaks consumed
-  //     the crossing invisibly.
-  //
-  // In every one of those the referee kept their bonus and the referrer was
-  // never paid - which shows on Profile as an invitee stuck on "Qualified"
-  // forever. Testing the threshold rather than the crossing costs nothing:
-  // referralRewardClaimed above is what prevents a second payout, and it is
-  // written in the same transaction as the first.
-  if (currentXp + xpGain < REFERRAL_UNLOCK_XP) return null;
+  if (userDoc.get(milestone.paidField) === true) return null;
 
   const referrerRef = getFirestore().collection(USERS_COLLECTION).doc(referredBy);
   const referrerDoc = await transaction.get(referrerRef);
@@ -676,11 +688,13 @@ async function readReferrerForUnlock(
   }
 
   return {
+    milestone,
     referrerRef,
-    // Deterministic per referee, so a retry can never pay the referrer twice.
+    // Deterministic per referee AND per milestone, so a retry can never pay
+    // the referrer twice and the two milestones can never collide.
     referrerLedgerRef: referrerRef
       .collection(REWARD_EVENTS_SUBCOLLECTION)
-      .doc(`referral_referrer:${userDoc.id}`),
+      .doc(`${milestone.ledgerPrefix}:${userDoc.id}`),
     refereeId: userDoc.id,
     currentPoints: Number(referrerDoc.get(FIELD_POINTS) || 0),
     currentXp: Number(referrerDoc.get(FIELD_XP) || 0),
@@ -688,31 +702,86 @@ async function readReferrerForUnlock(
   };
 }
 
-/** Applies the payout prepared by readReferrerForUnlock. Writes only. */
-function payReferrerIfUnlocked(
+/**
+ * The level milestone: the referee has reached REFERRAL_UNLOCK_LEVEL.
+ *
+ * AT OR ABOVE THE LEVEL - not only on the exact crossing. The crossing can
+ * happen somewhere this function never runs (claimDailyStreak and
+ * claimDailyGoalBonus both award XP without calling it), and a reward keyed
+ * to the crossing would simply be lost when that happened. Testing the
+ * threshold costs nothing, because the paid flag above is what prevents a
+ * second payout - so the worst case is that the reward lands on the referee's
+ * next quiz or game rather than on the streak that actually took them there.
+ *
+ * The level is computed from XP rather than read from the `level` field:
+ * `level` is a cache that lags behind the XP it is derived from until the
+ * next award repairs it, and a milestone keyed to a stale cache would pay
+ * late for no reason.
+ */
+async function readReferrerForLevelUnlock(
+  transaction: FirebaseFirestore.Transaction,
+  userDoc: FirebaseFirestore.DocumentSnapshot,
+  currentXp: number,
+  xpGain: number
+): Promise<PendingReferrerPayout | null> {
+  if (xpGain <= 0) return null;
+  if (levelForXp(currentXp + xpGain) < REFERRAL_UNLOCK_LEVEL) return null;
+
+  return readReferrerFor(transaction, userDoc, REFERRAL_LEVEL_MILESTONE);
+}
+
+/**
+ * The redeem milestone: the referee has just placed their first FULL-PRICE
+ * order.
+ *
+ * The discounted first-redeem offer deliberately does not count. It is sold
+ * at a loss to get somebody through the flow once, so paying an acquisition
+ * bonus on top of it would mean paying twice for the same event - and it is
+ * the cheapest order in the app, which makes it exactly what a farmed account
+ * would use. A full-price order is somebody spending stars they actually
+ * earned.
+ */
+async function readReferrerForRedeemUnlock(
+  transaction: FirebaseFirestore.Transaction,
+  userDoc: FirebaseFirestore.DocumentSnapshot,
+  usedFirstRedeem: boolean
+): Promise<PendingReferrerPayout | null> {
+  if (usedFirstRedeem) return null;
+
+  return readReferrerFor(transaction, userDoc, REFERRAL_REDEEM_MILESTONE);
+}
+
+/** Applies the payout prepared by one of the reads above. Writes only. */
+function payReferrer(
   transaction: FirebaseFirestore.Transaction,
   refereeRef: FirebaseFirestore.DocumentReference,
   pending: PendingReferrerPayout | null
 ): void {
   if (!pending) return;
 
+  // Stars only - no XP. See the note in rewardConfig on why referral XP was
+  // removed: it levelled the referrer up and so paid them level rewards too.
   const award = buildAward(pending.currentPoints, pending.currentXp, {
     source: "REFERRAL_REFERRER",
-    basePoints: REFERRER_REWARD_POINTS,
-    baseXp: REFERRER_REWARD_XP,
-    metadata: {refereeId: pending.refereeId},
+    basePoints: pending.milestone.points,
+    baseXp: 0,
+    metadata: {
+      refereeId: pending.refereeId,
+      milestone: pending.milestone.ledgerPrefix,
+    },
     storedLevel: pending.currentLevel,
   });
 
-  // The referrer's XP can itself cross a milestone, so this goes through the
-  // same path as any other award rather than writing points directly.
+  // Through writeAward rather than a direct points write, so the referrer's
+  // ledger entry is built the same way every other award is. It crosses no
+  // level (the award carries no XP), so the reward table is never consulted.
   writeAward(transaction, pending.referrerRef, pending.referrerLedgerRef, award);
-  transaction.update(refereeRef, {[FIELD_REFERRAL_REWARD_CLAIMED]: true});
+  transaction.update(refereeRef, {[pending.milestone.paidField]: true});
 
   console.log("Referral reward applied", {
     refereeId: pending.refereeId,
+    milestone: pending.milestone.ledgerPrefix,
     pointsAwarded: award.pointsAwarded,
-    xpAwarded: award.xpAwarded,
   });
 }
 
@@ -1961,7 +2030,8 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // the XP - it used to be a document trigger that woke on EVERY user write
     // (millions of invocations to check a condition that can fire at most once
     // per referred user). Reads must all happen before any write below.
-    const referrer = await readReferrerForUnlock(transaction, userDoc, currentXp, xpAward);
+    const referrer =
+      await readReferrerForLevelUnlock(transaction, userDoc, currentXp, xpAward);
 
     if (gameSessionRef) {
       if (!sessionDoc || !sessionDoc.exists) {
@@ -2076,7 +2146,7 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     const {milestonePoints, milestoneLevels} =
       writeAward(transaction, userRef, ledgerRef, award, extraUpdates);
 
-    payReferrerIfUnlocked(transaction, userRef, referrer);
+    payReferrer(transaction, userRef, referrer);
 
     return {
       rejected: false as const,
@@ -2287,8 +2357,9 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     const currentLevel = Number(userDoc.get(FIELD_LEVEL) || 1);
 
     // Reads before writes, as everywhere else: the bonus can be the gain that
-    // carries a referred user past REFERRAL_UNLOCK_XP.
-    const referrer = await readReferrerForUnlock(transaction, userDoc, currentXp, bonusXp);
+    // carries a referred user to REFERRAL_UNLOCK_LEVEL.
+    const referrer =
+      await readReferrerForLevelUnlock(transaction, userDoc, currentXp, bonusXp);
 
     // No activeXpMultiplier is passed: the base entry was already buffed and
     // this doubles what that paid. Applying the buff again would compound it.
@@ -2334,7 +2405,7 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     const {milestonePoints, milestoneLevels} =
       writeAward(transaction, userRef, doubleRef, award, extraUpdates);
 
-    payReferrerIfUnlocked(transaction, userRef, referrer);
+    payReferrer(transaction, userRef, referrer);
 
     return {
       success: true,
@@ -2584,6 +2655,16 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
     }
 
     const pointsCost = validation.pointsCost as number;
+
+    // BEFORE the first write below, because Firestore forbids a read after
+    // one. A full-price order is the referee's second milestone; the
+    // discounted offer is not - see readReferrerForRedeemUnlock.
+    const referrer = await readReferrerForRedeemUnlock(
+      transaction,
+      userDoc,
+      validation.usedFirstRedeem === true
+    );
+
     const redemptionRef = firestore.collection(REDEMPTIONS_COLLECTION).doc();
     const ledgerRef = userRef
       .collection(REWARD_EVENTS_SUBCOLLECTION)
@@ -2607,6 +2688,7 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
     });
 
     writeAward(transaction, userRef, ledgerRef, award);
+    payReferrer(transaction, userRef, referrer);
 
     // What is known about this player ID. No longer a claim on it - any
     // account may redeem into any UID at full price - so `uid` is now the
@@ -3023,9 +3105,14 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
  * the reward has been paid. Never an email, never a uid, never a balance -
  * inviting somebody does not entitle you to watch their account.
  *
- * Progress is XP against REFERRAL_UNLOCK_XP, not level. That is the condition
- * the payout actually tests (see readReferrerForUnlock), and a bar measuring
- * anything else would fill at a different rate than the reward arrives.
+ * Progress is the referee's LEVEL against REFERRAL_UNLOCK_LEVEL, because that
+ * is the condition the first payout actually tests - a bar measuring anything
+ * else would fill at a different rate than the reward arrives. It is computed
+ * from XP rather than read from the `level` field for the same reason
+ * readReferrerForLevelUnlock computes it: the field is a cache that lags.
+ *
+ * Each invitee reports BOTH milestones, because a referrer who sees one
+ * number cannot tell a referee who played and stopped from one who redeemed.
  */
 export const getReferralStats = functions.https.onCall(async (request: CallableRequest) => {
   if (!request.auth) {
@@ -3044,19 +3131,21 @@ export const getReferralStats = functions.https.onCall(async (request: CallableR
     .get();
 
   const invitees = snapshot.docs.map((doc) => {
-    const xp = Number(doc.get(FIELD_XP) || 0);
-    const qualified = xp >= REFERRAL_UNLOCK_XP;
-    // `referralRewardClaimed` is set on the REFEREE when the referrer is
-    // paid, so it is the honest answer to "did this actually pay out".
-    const paid = doc.get(FIELD_REFERRAL_REWARD_CLAIMED) === true;
+    const level = levelForXp(Number(doc.get(FIELD_XP) || 0));
+    // The paid flags live on the REFEREE and are written in the same
+    // transaction that pays, so they are the honest answer to "did this
+    // actually pay out" rather than "did it qualify".
+    const levelPaid = doc.get(FIELD_REFERRAL_LEVEL_PAID) === true;
+    const redeemPaid = doc.get(FIELD_REFERRAL_REDEEM_PAID) === true;
 
     return {
       name: maskDisplayName(doc.get("displayName") as string | undefined),
       joinedAtMillis: (doc.createTime?.toMillis?.() ?? null),
-      xp: Math.min(xp, REFERRAL_UNLOCK_XP),
-      xpTarget: REFERRAL_UNLOCK_XP,
-      qualified,
-      paid,
+      level: Math.min(level, REFERRAL_UNLOCK_LEVEL),
+      levelTarget: REFERRAL_UNLOCK_LEVEL,
+      qualified: level >= REFERRAL_UNLOCK_LEVEL,
+      levelPaid,
+      redeemPaid,
     };
   }).sort((a, b) => (b.joinedAtMillis ?? 0) - (a.joinedAtMillis ?? 0));
 
@@ -3064,12 +3153,13 @@ export const getReferralStats = functions.https.onCall(async (request: CallableR
     invitees,
     invited: invitees.length,
     qualified: invitees.filter((i) => i.qualified).length,
-    paid: invitees.filter((i) => i.paid).length,
+    levelPaid: invitees.filter((i) => i.levelPaid).length,
+    redeemPaid: invitees.filter((i) => i.redeemPaid).length,
     // The rule, from the server that enforces it - so the Profile screen can
     // state the terms without hardcoding numbers that could drift.
-    unlockXp: REFERRAL_UNLOCK_XP,
-    referrerReward: REFERRER_REWARD_POINTS,
-    refereeReward: REFERRED_USER_REWARD_POINTS,
+    unlockLevel: REFERRAL_UNLOCK_LEVEL,
+    levelReward: REFERRER_LEVEL_REWARD_POINTS,
+    redeemReward: REFERRER_REDEEM_REWARD_POINTS,
   };
 });
 
@@ -3082,10 +3172,6 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
   if (!referralCode) {
     throw new functions.https.HttpsError("invalid-argument", "Referral code is required");
   }
-
-  // Refreshed before the transaction, because writeAward reads the reward
-  // table synchronously from inside one. See ensureLevelRewardsFresh.
-  await ensureLevelRewardsFresh();
 
   const currentUserId = request.auth.uid;
   const firestore = getFirestore();
@@ -3107,15 +3193,9 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
   }
 
   const userRef = firestore.collection(USERS_COLLECTION).doc(currentUserId);
-  // Deterministic: a referee can only ever produce one of these, so the key
-  // itself is the idempotency guarantee, independent of the hasUsedReferral
-  // flag check below (which already protects this too - this is redundant
-  // defense-in-depth against a redelivered/retried request racing the flag).
-  const refereeLedgerRef = userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`referral_referee:${currentUserId}`);
 
-  await firestore.runTransaction(async (transaction) => {
+  const outcome = await firestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
-    const existingLedgerDoc = await transaction.get(refereeLedgerRef);
 
     if (!userDoc.exists) {
       throw new functions.https.HttpsError("not-found", "User document not found");
@@ -3125,31 +3205,33 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
       throw new functions.https.HttpsError("failed-precondition", "Referral already used");
     }
 
-    if (existingLedgerDoc.exists) {
-      // Already recorded (redelivered request) - don't double-award.
-      return;
+    // THE WINDOW CLOSES AT REFERRAL_UNLOCK_LEVEL, and it closes here rather
+    // than only in the UI - the client hiding the field is a courtesy, this
+    // is the rule. A code entered by an account that has already played ten
+    // levels did not bring anybody to the app; it is an existing player being
+    // handed a code, which is the shape most referral fraud takes, and it
+    // would pay the level milestone out instantly on the referee's very next
+    // award.
+    //
+    // Computed from XP, not read from `level`: the field is a cache that lags
+    // until the next award repairs it, and half an hour of play sitting
+    // uncached is exactly the gap somebody would aim for.
+    if (levelForXp(Number(userDoc.get(FIELD_XP) || 0)) >= REFERRAL_UNLOCK_LEVEL) {
+      return {status: "window_closed" as const};
     }
 
-    // Referrals are one of the few Points sources, and give XP as well.
-    const award = buildAward(
-      Number(userDoc.get(FIELD_POINTS) || 0),
-      Number(userDoc.get(FIELD_XP) || 0),
-      {
-        source: "REFERRAL_REFEREE",
-        basePoints: REFERRED_USER_REWARD_POINTS,
-        baseXp: REFERRED_USER_REWARD_XP,
-        metadata: {referrerId},
-        storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
-      }
-    );
-
-    writeAward(transaction, userRef, refereeLedgerRef, award, {
+    // No award to the referee - see rewardConfig. The only writes are the
+    // link itself, which is what every later milestone is read from, and the
+    // flag that retires the input. No ledger entry either: nothing moved.
+    transaction.update(userRef, {
       [FIELD_HAS_USED_REFERRAL]: true,
       [FIELD_REFERRED_BY]: referrerId,
     });
+
+    return {status: "success" as const};
   });
 
-  return {status: "success"};
+  return outcome;
 });
 
 /**

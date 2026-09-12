@@ -83,7 +83,8 @@ async function seedUserDoc(uid: string, referralCode: string, overrides: Record<
     level: 1,
     quiz_attempts: 0,
     hasUsedReferral: false,
-    referralRewardClaimed: false,
+    referralLevelRewardPaid: false,
+    referralRedeemRewardPaid: false,
     referralCode,
     ...overrides,
   });
@@ -586,35 +587,32 @@ async function run() {
     assertEq("an expired buff records multiplierApplied 1", events[0].multiplierApplied, 1);
   }
 
-  // --- referral: the referrer is paid even when the crossing was invisible -
-  // The bug this covers: readReferrerForUnlock used to fire only on the exact
-  // transition past REFERRAL_UNLOCK_XP. submitReferral awards the referee 25
-  // XP without running that check, so a referee who entered a code between 75
-  // and 99 XP crossed the threshold there - and every later claim saw "already
-  // above" and paid nobody. The referee kept their bonus, the referrer got
-  // nothing, permanently.
+  // --- referral: the level milestone pays at or above level 10 ------------
+  // AT OR ABOVE, not on the exact crossing. The crossing can happen inside
+  // claimDailyStreak or claimDailyGoalBonus, neither of which runs this
+  // check, and a reward keyed to it would then be lost for good. See
+  // readReferrerForLevelUnlock.
   {
-    // Seeded mid-level on purpose. Every level from 2 up now pays a bonus,
-    // so an account parked just below a threshold has its referral reward
-    // mixed with a level-up bonus in the same balance - and this block is
-    // about the referral, not the ladder. 120 xp is level 3, and the 50 xp
-    // the referrer earns lands at 170, short of level 4 at 179.
+    // The referrer's award carries no XP at all now, so their balance is the
+    // referral reward and nothing else - no level of their own to disentangle
+    // from the assertion.
     const referrer = await makeUser("refpayee");
-    await seedUserDoc(referrer.uid, "PAYME1", {points: 0, xp: 120, level: 3});
+    await seedUserDoc(referrer.uid, "PAYME1", {points: 0, xp: 0, level: 1});
 
-    // A referee sitting just under the threshold, so the referral's own XP
-    // carries them over it. 75 + 25 = 100 exactly, still inside level 2.
+    // Level 10 is 954 xp on the published curve, so one quiz (10 xp) crosses
+    // it from here.
     const referee = await makeUser("refcrosser");
-    await seedUserDoc(referee.uid, "CROSS1", {points: 0, xp: 75, level: 2});
+    await seedUserDoc(referee.uid, "CROSS1", {points: 0, xp: 950, level: 9});
 
     await httpsCallable(clientFunctions, "submitReferral")({referralCode: "PAYME1"});
 
-    const refereeAfterSubmit = await db.collection("users").doc(referee.uid).get();
-    assertEq("the referee is paid immediately", refereeAfterSubmit.get("points"), 50);
+    const afterSubmit = await db.collection("users").doc(referee.uid).get();
+    assertEq("entering a code pays the referee nothing", afterSubmit.get("points"), 0);
+    assertEq("and awards them no xp", afterSubmit.get("xp"), 950);
     assertEq(
-      "and the referral's own xp carried them past the threshold",
-      refereeAfterSubmit.get("xp") >= 100,
-      true
+      "nothing moved, so the referee has no ledger entry for it",
+      (await getLedgerEvents(referee.uid)).length,
+      0
     );
     assertEq(
       "the referrer is not paid at submit time",
@@ -622,54 +620,61 @@ async function run() {
       0
     );
 
-    // Any later XP-awarding claim should now settle it.
     await httpsCallable(clientFunctions, "claimReward")({
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
 
     const paid = await db.collection("users").doc(referrer.uid).get();
-    assertEq("the referrer is paid on the next claim", paid.get("points"), 100);
-    assertEq("and gets the referrer xp too", paid.get("xp"), 120 + 50);
+    assertEq("the referrer is paid once the referee reaches level 10", paid.get("points"), 50);
+    assertEq("stars only - the referrer gains no xp", paid.get("xp"), 0);
     assertEq(
       "the referee is flagged so it cannot pay twice",
-      (await db.collection("users").doc(referee.uid).get()).get("referralRewardClaimed"),
+      (await db.collection("users").doc(referee.uid).get()).get("referralLevelRewardPaid"),
       true
     );
 
-    // A second claim must not pay again.
     await httpsCallable(clientFunctions, "claimReward")({
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 2, selectedAnswer: 2,
     });
     assertEq(
-      "a later claim does not pay the referrer twice",
+      "a later claim does not pay the level milestone twice",
       (await db.collection("users").doc(referrer.uid).get()).get("points"),
-      100
+      50
     );
   }
 
-  // --- referral: a referee already well past the threshold still pays out ---
+  // --- referral: the window to enter a code closes at level 10 -------------
   {
-    // Mid-level again, so the referrer's 50 xp crosses no threshold and
-    // their balance is the referral reward alone.
     const referrer = await makeUser("reflate");
-    await seedUserDoc(referrer.uid, "LATE01", {points: 0, xp: 120, level: 3});
+    await seedUserDoc(referrer.uid, "LATE01", {points: 0, xp: 0, level: 1});
 
+    // Already past level 10 before entering anything. A code here is not an
+    // invitation that brought somebody to the app.
     const referee = await makeUser("reflatecode");
-    await seedUserDoc(referee.uid, "LATE02", {points: 0, xp: 500, level: 6});
+    await seedUserDoc(referee.uid, "LATE02", {points: 0, xp: 1000, level: 10});
 
-    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "LATE01"});
+    const res = await httpsCallable(clientFunctions, "submitReferral")({referralCode: "LATE01"});
+    assertEq(
+      "a code entered at level 10 is refused",
+      (res.data as {status: string}).status,
+      "window_closed"
+    );
+
+    const refereeSnap = await db.collection("users").doc(referee.uid).get();
+    assertEq("the referee is linked to nobody", refereeSnap.get("referredBy") ?? null, null);
+    assertEq("and their code is still unspent", refereeSnap.get("hasUsedReferral"), false);
+
     await httpsCallable(clientFunctions, "claimReward")({
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
-
     assertEq(
-      "entering a code long after passing the threshold still pays the referrer",
+      "so no later claim can pay the referrer",
       (await db.collection("users").doc(referrer.uid).get()).get("points"),
-      100
+      0
     );
   }
 
-  // --- referral: below the threshold, nothing is owed yet ---
+  // --- referral: below level 10, nothing is owed yet ---
   {
     const referrer = await makeUser("refearly");
     await seedUserDoc(referrer.uid, "EARLY1", {points: 0, xp: 0, level: 1});
@@ -682,15 +687,15 @@ async function run() {
       rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
     });
 
-    // Referee is on 25 + 10 = 35 XP, well short of 100.
+    // The referee is on 10 xp - level 1, nowhere near 954.
     assertEq(
-      "a referee under the threshold pays the referrer nothing",
+      "a referee under level 10 pays the referrer nothing",
       (await db.collection("users").doc(referrer.uid).get()).get("points"),
       0
     );
     assertEq(
       "and is not flagged as settled",
-      (await db.collection("users").doc(referee.uid).get()).get("referralRewardClaimed"),
+      (await db.collection("users").doc(referee.uid).get()).get("referralLevelRewardPaid"),
       false
     );
   }
@@ -792,6 +797,70 @@ async function run() {
 
     const afterSnap = await db.collection("users").doc(user.uid).get();
     assertEq("no rejected redemption changed the balance", afterSnap.get("points"), 500);
+  }
+
+  // --- referral: the redeem milestone, and what does not count ------------
+  {
+    const referrer = await makeUser("refredeem");
+    await seedUserDoc(referrer.uid, "REDEEM1", {points: 0, xp: 0, level: 1});
+
+    const referee = await makeUser("refredeemer");
+    await seedUserDoc(referee.uid, "REDEEM2", {points: 3000, xp: 0, level: 1});
+
+    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "REDEEM1"});
+    const redeem = httpsCallable(clientFunctions, "redeemReward");
+
+    // The DISCOUNTED first redeem does not count. It is sold at a loss to get
+    // somebody through the flow once, so paying an acquisition bonus on top
+    // would be paying twice for the same event - and being the cheapest order
+    // in the app it is exactly what a farmed account would reach for.
+    await redeem({
+      optionId: "pubg", packId: "uc_small", playerId: "7100000001",
+      server: "Global", useFirstRedeem: true,
+    });
+    assertEq(
+      "the discounted first redeem pays the referrer nothing",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      0
+    );
+    assertEq(
+      "and leaves the milestone unsettled",
+      (await db.collection("users").doc(referee.uid).get()).get("referralRedeemRewardPaid") ?? false,
+      false
+    );
+
+    // A full-price order does.
+    await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "7100000001", server: "Global",
+    });
+
+    const paid = await db.collection("users").doc(referrer.uid).get();
+    assertEq("a full-price order pays the redeem milestone", paid.get("points"), 150);
+    assertEq("stars only - no xp on this one either", paid.get("xp"), 0);
+    assertEq(
+      "the referee is flagged so it cannot pay twice",
+      (await db.collection("users").doc(referee.uid).get()).get("referralRedeemRewardPaid"),
+      true
+    );
+
+    const events = await getLedgerEvents(referrer.uid);
+    assertEq("the referrer has one referral entry", events.length, 1);
+    assertEq(
+      "named for the milestone that paid it",
+      events[0].id,
+      `referral_redeem:${referee.uid}`
+    );
+    assertEq("carrying the redeem amount", events[0].basePoints, 150);
+
+    // A second full-price order must not pay again.
+    await redeem({
+      optionId: "pubg", packId: "uc_1000", playerId: "7100000001", server: "Global",
+    });
+    assertEq(
+      "a second order does not pay the redeem milestone again",
+      (await db.collection("users").doc(referrer.uid).get()).get("points"),
+      150
+    );
   }
 
   // --- redemption: a delivery needs somewhere to go ---
@@ -1881,15 +1950,14 @@ async function run() {
     assertEq("valid referral -> success", (res.data as {status: string}).status, "success");
 
     const refereeSnap = await db.collection("users").doc(referee.uid).get();
-    assertEq("referee got +50 points", refereeSnap.get("points"), 50);
-    assertEq("referee also got referral xp", refereeSnap.get("xp"), 25);
+    assertEq("the referee is paid nothing", refereeSnap.get("points"), 0);
+    assertEq("and gains no xp", refereeSnap.get("xp"), 0);
     assertEq("referee marked hasUsedReferral", refereeSnap.get("hasUsedReferral"), true);
+    assertEq("and linked to the referrer", refereeSnap.get("referredBy"), referrer.uid);
 
-    const refEvents = await getLedgerEvents(referee.uid);
-    assertEq("referee ledger has exactly 1 REFERRAL_REFEREE event", refEvents.length, 1);
-    assertEq("referee ledger event id is deterministic", refEvents[0].id, `referral_referee:${referee.uid}`);
-    assertEq("referee ledger basePoints 50", refEvents[0].basePoints, 50);
-    assertEq("referee ledger metadata.referrerId correct", (refEvents[0].metadata as any)?.referrerId, referrer.uid);
+    // The link is the only thing written. Nothing moved, so there is nothing
+    // for the ledger to record.
+    assertEq("no ledger entry is written", (await getLedgerEvents(referee.uid)).length, 0);
 
     await assertThrows(
       "second submit rejected (already used)",
@@ -1918,63 +1986,63 @@ async function run() {
     assertEq("self-referral -> invalid_code status", (res.data as {status: string}).status, "invalid_code");
   }
 
-  // --- referrer payout now unlocks on the referee's XP, not their points ---
+  // --- referrer payout unlocks on the referee's LEVEL ---------------------
   {
-    // Mid-level, so the referrer's 50 xp crosses nothing and their balance is
-    // the referral reward alone. See the note on refpayee above.
     const referrer = await makeUser("referrer2");
-    await seedUserDoc(referrer.uid, "BOOST100", {points: 0, xp: 120, level: 3});
+    await seedUserDoc(referrer.uid, "BOOST100", {points: 0, xp: 0, level: 1});
 
+    // 900 xp is level 9; level 10 is 954. Two 30-xp games straddle it.
     const referee = await makeUser("referee3");
-    await seedUserDoc(referee.uid, "REFCODE3");
+    await seedUserDoc(referee.uid, "REFCODE3", {points: 0, xp: 900, level: 9});
     await signInWithEmailAndPassword(clientAuth, referee.email!, "Test1234!");
 
     const submitReferral = httpsCallable(clientFunctions, "submitReferral");
-    await submitReferral({referralCode: "BOOST100"}); // referee: 25 xp, referredBy set
+    await submitReferral({referralCode: "BOOST100"});
 
     const claimReward = httpsCallable(clientFunctions, "claimReward");
 
-    // Two 30-xp game sessions: 25 + 30 + 30 = 85 xp, still short of the 100
-    // threshold. The scores are chosen to sit UNDER the per-session cap on
-    // purpose - a capped score would tie this block to the cap's value, and
-    // what it is actually about is the threshold either side of 100.
-    for (const _ of [1, 2]) {
-      const s = await openGameSession("floppy_bird");
-      await backdateSession(referee.uid, s, 60_000);
-      await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: s});
-    }
+    // 900 -> 930, still level 9. The score sits under the per-session cap on
+    // purpose: a capped score would tie this block to the cap's value, and
+    // what it is about is the level either side of 954.
+    const first = await openGameSession("floppy_bird");
+    await backdateSession(referee.uid, first, 60_000);
+    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: first});
 
     let referrerSnap = await db.collection("users").doc(referrer.uid).get();
-    assertEq("referrer is NOT paid before the referee crosses the xp threshold", referrerSnap.get("points"), 0);
+    assertEq("referrer is NOT paid while the referee is still level 9", referrerSnap.get("points"), 0);
 
-    // One more session takes the referee to 115 xp, past the threshold.
-    const finalSession = await openGameSession("floppy_bird");
-    await backdateSession(referee.uid, finalSession, 60_000);
-    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: finalSession});
+    // 930 -> 960, which is level 10.
+    const second = await openGameSession("floppy_bird");
+    await backdateSession(referee.uid, second, 60_000);
+    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: second});
 
-    // The payout is now part of the same transaction, so it is visible
+    // The payout is part of the same transaction, so it is visible
     // immediately - no polling for an async trigger.
     referrerSnap = await db.collection("users").doc(referrer.uid).get();
-    assertEq("referrer got +100 points once referee crossed the xp threshold", referrerSnap.get("points"), 100);
-    assertEq("referrer also got referral xp", referrerSnap.get("xp"), 120 + 50);
+    assertEq("referrer got +50 once the referee reached level 10", referrerSnap.get("points"), 50);
+    assertEq("and no xp with it", referrerSnap.get("xp"), 0);
 
     const refereeSnap = await db.collection("users").doc(referee.uid).get();
-    assertEq("referee crossed the xp threshold", refereeSnap.get("xp") >= 100, true);
-    assertEq("referee marked referralRewardClaimed", refereeSnap.get("referralRewardClaimed"), true);
+    assertEq("referee is at or past level 10", refereeSnap.get("xp") >= 954, true);
+    assertEq("referee marked referralLevelRewardPaid", refereeSnap.get("referralLevelRewardPaid"), true);
 
     const referrerEvents = await getLedgerEvents(referrer.uid);
-    assertEq("referrer ledger has exactly 1 REFERRAL_REFERRER event", referrerEvents.length, 1);
-    assertEq("referrer ledger event id is deterministic", referrerEvents[0].id, `referral_referrer:${referee.uid}`);
-    assertEq("referrer ledger basePoints 100", referrerEvents[0].basePoints, 100);
-    assertEq("referrer ledger xpAwarded 50", referrerEvents[0].xpAwarded, 50);
+    assertEq("referrer ledger has exactly 1 referral event", referrerEvents.length, 1);
+    assertEq(
+      "referrer ledger event id is deterministic and names the milestone",
+      referrerEvents[0].id,
+      `referral_level:${referee.uid}`
+    );
+    assertEq("referrer ledger basePoints 50", referrerEvents[0].basePoints, 50);
+    assertEq("referrer ledger xpAwarded 0", referrerEvents[0].xpAwarded, 0);
 
-    // Earning more XP must not pay the referrer a second time.
-    const extraSession = await openGameSession("floppy_bird");
-    await backdateSession(referee.uid, extraSession, 60_000);
-    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: extraSession});
+    // Earning more XP must not pay the level milestone a second time.
+    const extra = await openGameSession("floppy_bird");
+    await backdateSession(referee.uid, extra, 60_000);
+    await claimReward({rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: extra});
 
     referrerSnap = await db.collection("users").doc(referrer.uid).get();
-    assertEq("referrer is not paid twice on further xp gains", referrerSnap.get("points"), 100);
+    assertEq("referrer is not paid twice on further xp gains", referrerSnap.get("points"), 50);
     assertEq(
       "referrer still has exactly 1 referral ledger entry",
       (await getLedgerEvents(referrer.uid)).length,
@@ -1984,47 +2052,39 @@ async function run() {
 
   // --- a referee who never earns Points still unlocks their referrer ---
   {
-    // This is the scenario the old points-threshold trigger would have broken:
-    // quizzes/games award no Points, so a quiz-only user's points balance
-    // never moves past the 50 from the referral itself.
+    // Quizzes and games award no Points at all, so a referee's BALANCE is not
+    // a signal of engagement. Levels are, which is what the milestone tests.
     const referrer = await makeUser("referrer4");
-    await seedUserDoc(referrer.uid, "QUIZONLY", {xp: 120, level: 3});
+    await seedUserDoc(referrer.uid, "QUIZONLY", {points: 0, xp: 0, level: 1});
 
+    // 934 + two quizzes (10 xp each) = 954, exactly level 10.
     const referee = await makeUser("referee5");
-    await seedUserDoc(referee.uid, "REFCODE5");
+    await seedUserDoc(referee.uid, "REFCODE5", {points: 0, xp: 934, level: 9});
     await signInWithEmailAndPassword(clientAuth, referee.email!, "Test1234!");
 
-    const submitReferral = httpsCallable(clientFunctions, "submitReferral");
-    await submitReferral({referralCode: "QUIZONLY"}); // 25 xp
+    await httpsCallable(clientFunctions, "submitReferral")({referralCode: "QUIZONLY"});
 
-    // 8 correct quiz answers = 80 xp -> 105 total, past the threshold.
     const claimReward = httpsCallable(clientFunctions, "claimReward");
-    for (let i = 0; i < 8; i++) {
-      await claimReward({
-        rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
-      });
-    }
+    await claimReward({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 0, selectedAnswer: 1,
+    });
+    await claimReward({
+      rewardType: "quiz", category: "Animals", quizId: "1", questionIndex: 2, selectedAnswer: 2,
+    });
 
-    // Asked of the ledger rather than the balance. The balance is no longer
-    // the right question: 105 xp crosses level 2, which pays a milestone
-    // bonus, so a quiz-only account CAN gain Points - just never from a quiz.
-    // That distinction is the whole claim being made here.
     const refereeEvents = await getLedgerEvents(referee.uid);
     const quizPoints = refereeEvents
       .filter((e) => e.source === "QUIZ")
       .reduce((sum, e) => sum + Number(e.finalPoints || 0), 0);
     assertEq("quizzes awarded the referee no points at all", quizPoints, 0);
     assertEq(
-      "the only points a quiz-only referee earns are the referral and the ladder",
-      refereeEvents
-        .filter((e) => Number(e.finalPoints || 0) !== 0)
-        .map((e) => e.source)
-        .sort(),
-      ["LEVEL_UP", "REFERRAL_REFEREE"]
+      "and the referee has no referral entry of their own",
+      refereeEvents.filter((e) => String(e.source).startsWith("REFERRAL")).length,
+      0
     );
 
     const referrerSnap = await db.collection("users").doc(referrer.uid).get();
-    assertEq("quiz-only engagement still pays the referrer", referrerSnap.get("points"), 100);
+    assertEq("quiz-only engagement still pays the referrer", referrerSnap.get("points"), 50);
   }
 
   // --- submitReferral: concurrent duplicate requests don't double-award ---
@@ -2047,10 +2107,9 @@ async function run() {
     assertEq("concurrent double-submit: exactly one call succeeds", succeeded.length, 1);
 
     const refereeSnap = await db.collection("users").doc(referee.uid).get();
-    assertEq("concurrent double-submit: referee only credited once", refereeSnap.get("points"), 50);
-
-    const events = await getLedgerEvents(referee.uid);
-    assertEq("concurrent double-submit: exactly one ledger entry", events.length, 1);
+    assertEq("concurrent double-submit: the link is written once", refereeSnap.get("hasUsedReferral"), true);
+    assertEq("concurrent double-submit: linked to the right referrer", refereeSnap.get("referredBy"), referrer.uid);
+    assertEq("concurrent double-submit: still no referee payment", refereeSnap.get("points"), 0);
   }
 
   // --- the day rollover, which no longer has a callable of its own ---------

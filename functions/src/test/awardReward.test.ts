@@ -105,7 +105,7 @@ console.log("=== Award builder unit tests ===\n");
   // An active buff must NOT apply to an ineligible source, even when one is
   // passed in. This is the guard that keeps referrals/login rewards fixed.
   const referral = buildAward(0, 0, {
-    source: "REFERRAL_REFEREE", basePoints: 50, baseXp: 25, metadata: {}, activeMultiplier: 3,
+    source: "REFERRAL_REFERRER", basePoints: 50, baseXp: 25, metadata: {}, activeMultiplier: 3,
   });
   assertEq("referral points are not multiplied by an active buff", referral.pointsAwarded, 50);
   assertEq("referral ledger records multiplierApplied 1", referral.ledgerDoc.multiplierApplied, 1);
@@ -133,7 +133,6 @@ console.log("=== Award builder unit tests ===\n");
 // --- the eligibility table itself ---
 assertEq("QUIZ is not multiplier eligible", MULTIPLIER_ELIGIBLE.QUIZ, false);
 assertEq("GAME is not multiplier eligible", MULTIPLIER_ELIGIBLE.GAME, false);
-assertEq("REFERRAL_REFEREE is not multiplier eligible", MULTIPLIER_ELIGIBLE.REFERRAL_REFEREE, false);
 assertEq("REFERRAL_REFERRER is not multiplier eligible", MULTIPLIER_ELIGIBLE.REFERRAL_REFERRER, false);
 assertEq("DAILY_LOGIN is not multiplier eligible", MULTIPLIER_ELIGIBLE.DAILY_LOGIN, false);
 assertEq("OFFERWALL is multiplier eligible", MULTIPLIER_ELIGIBLE.OFFERWALL, true);

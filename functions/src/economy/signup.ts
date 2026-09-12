@@ -40,7 +40,8 @@ export interface NewUserProfile {
   points: number;
   xp: number;
   level: number;
-  referralRewardClaimed: boolean;
+  referralLevelRewardPaid: boolean;
+  referralRedeemRewardPaid: boolean;
 }
 
 /**
@@ -66,6 +67,10 @@ export function buildNewUserProfile(input: {
     points: 0,
     xp: 0,
     level: 1,
-    referralRewardClaimed: false,
+    // Both referral milestones, unpaid. Seeded rather than left
+    // absent so the flags read the same on day one as they do after
+    // the first payout - see FIELD_REFERRAL_LEVEL_PAID.
+    referralLevelRewardPaid: false,
+    referralRedeemRewardPaid: false,
   };
 }

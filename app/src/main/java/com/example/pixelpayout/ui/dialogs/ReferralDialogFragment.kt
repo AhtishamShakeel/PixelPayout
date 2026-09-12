@@ -91,6 +91,9 @@ class ReferralDialogFragment : DialogFragment() {
                 is ReferralResult.InvalidCode -> {
                     binding.referralInputLayout.error = "Invalid referral code"
                 }
+                is ReferralResult.WindowClosed -> {
+                    showErrorMessage(getString(R.string.error_referral_window_closed))
+                }
                 is ReferralResult.AlreadyUsed -> {
                     binding.referralInputLayout.error = "Referral already used"
                 }

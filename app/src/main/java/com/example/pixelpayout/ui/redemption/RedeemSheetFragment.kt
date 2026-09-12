@@ -9,16 +9,19 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
+import coil.load
 import com.example.pixelpayout.data.model.RedemptionGame
 import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.GridSpacingItemDecoration
+import com.example.pixelpayout.utils.setStarText
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.google.android.material.chip.Chip
 import com.google.android.material.snackbar.Snackbar
@@ -158,6 +161,11 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         // RedemptionGame.currencyName for why the game name does not go in
         // front of a user.
         binding.sheetGameCode.text = game.code
+        val artwork = game.imageUrl?.takeIf { it.isNotBlank() }
+        binding.sheetGameImage.isVisible = artwork != null
+        // Reuse the card's URL and Coil cache; the code remains underneath
+        // while loading, or if Firebase artwork is unavailable.
+        binding.sheetGameImage.load(artwork) { crossfade(true) }
         binding.sheetGameName.text = game.displayName
         binding.sheetGameSub.text = game.subtitle
         binding.sheetGameSub.isVisible = game.subtitle.isNotBlank()
@@ -357,10 +365,8 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
             if (game.servers.isNotEmpty()) {
                 add(getString(R.string.sheet_summary_server) to selectedServer)
             }
-            add(
-                getString(R.string.sheet_summary_cost) to
-                    getString(R.string.sheet_summary_cost_value, WalletFormat.number(cost))
-            )
+            // Cost is added below rather than here: it is the one row whose
+            // value is a Stars figure, so it is drawn rather than printed.
         }
 
         binding.summaryContainer.removeAllViews()
@@ -373,9 +379,28 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
             binding.summaryContainer.addView(row.root)
         }
 
-        binding.balanceAfter.text = getString(
-            R.string.sheet_balance_after_value,
-            WalletFormat.number((balance - cost).coerceAtLeast(0))
+        // The price, in the same Stars colour and with the same real ic_star
+        // as the pack rows the user just picked from - see StarText. The
+        // whole value takes the colour rather than only the digits, because
+        // unlike the captions StarText was written for, there is no sentence
+        // around it to keep readable: the value IS the figure.
+        val costRow = ItemSummaryRowBinding.inflate(
+            layoutInflater, binding.summaryContainer, false
+        )
+        costRow.summaryKey.text = getString(R.string.sheet_summary_cost)
+        costRow.summaryValue.setTextColor(
+            ContextCompat.getColor(requireContext(), R.color.stars_accent)
+        )
+        costRow.summaryValue.setStarText(
+            getString(R.string.sheet_summary_cost_value, WalletFormat.number(cost))
+        )
+        binding.summaryContainer.addView(costRow.root)
+
+        binding.balanceAfter.setStarText(
+            getString(
+                R.string.sheet_balance_after_value,
+                WalletFormat.number((balance - cost).coerceAtLeast(0))
+            )
         )
     }
 

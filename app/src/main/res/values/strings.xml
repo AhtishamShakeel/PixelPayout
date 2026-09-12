@@ -646,8 +646,8 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="sheet_summary_username">Username</string>
     <string name="sheet_summary_server">Server</string>
     <string name="sheet_summary_cost">Cost</string>
-    <string name="sheet_summary_cost_value">-%1$s pts</string>
-    <string name="sheet_balance_after_value">%1$s pts</string>
+    <string name="sheet_summary_cost_value">-%1$s ★</string>
+    <string name="sheet_balance_after_value">%1$s ★</string>
     <string name="sheet_discount_applied">First-redeem price</string>
 
     <!-- Orders. -->

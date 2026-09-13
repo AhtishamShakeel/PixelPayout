@@ -48,6 +48,15 @@ data class RedemptionGame(
     val packs: List<RedemptionPack>,
     val imageUrl: String? = null,
     /**
+     * Artwork of the currency itself - a UC coin, a diamond - rather than of
+     * the game. Firestore field `currencyImageUrl`.
+     *
+     * Shown on the "which do you play" chooser, where the currency is the
+     * whole label (see [currencyName] for why it is never the game). Null
+     * until art is uploaded; the chooser falls back to [code].
+     */
+    val currencyImageUrl: String? = null,
+    /**
      * The star-pile illustration on the Wallet balance card, and the gift on
      * the first-redeem card.
      *

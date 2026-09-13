@@ -333,7 +333,15 @@
     <!-- Home redesign: the two stat cards at the top, replacing the single
          full-width balance card. -->
     <string name="stars_eyebrow">Stars</string>
-    <string name="stars_redeem_cta">Redeem rewards</string>
+    <string name="stars_redeem_cta">View rewards</string>
+    <!-- %s is a pack amount as the catalogue writes it: "60 UC". -->
+    <string name="stars_redeem_now">Redeem %s now</string>
+    <string name="stars_switch_game_desc">Change reward currency</string>
+
+    <!-- The "which do you play" chooser. Options are currencies, never game
+         names - see RedemptionGame.currencyName. -->
+    <string name="game_choice_title">What do you want to earn?</string>
+    <string name="game_choice_message">Pick the in-game currency you use most. Home will show your progress toward it, and you can change it any time.</string>
     <string name="xp_eyebrow">XP &amp; level</string>
 
     <!-- Quick ways to earn. The subtitles say XP where XP is what is

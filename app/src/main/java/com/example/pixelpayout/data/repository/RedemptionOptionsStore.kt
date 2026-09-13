@@ -186,6 +186,8 @@ object RedemptionOptionsStore {
             subtitle = doc.getString("subtitle").orEmpty(),
             packs = packs,
             imageUrl = doc.getString("imageUrl"),
+            currencyImageUrl =
+                doc.getString("currencyImageUrl")?.trim()?.takeIf(String::isNotEmpty),
             minLevel = doc.getLong("minLevel")?.toInt() ?: 1,
             sortOrder = doc.getLong("sortOrder")?.toInt() ?: 0,
             idLabel = doc.getString("idLabel")?.trim().orEmpty().ifEmpty { "Player ID" },

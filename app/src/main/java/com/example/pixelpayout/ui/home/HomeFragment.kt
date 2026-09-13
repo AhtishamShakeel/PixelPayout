@@ -13,8 +13,10 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import coil.load
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.debug.BuffDebug
@@ -146,9 +148,10 @@ class HomeFragment : Fragment() {
             binding.totalPoints.text = points.toString()
         }
 
-        // Fills toward the cheapest redemption not yet affordable. Null means
-        // there is no such target, so the bar is hidden rather than shown full.
-        mainViewModel.nextRedemption.observe(viewLifecycleOwner) { next ->
+        // Fills toward the cheapest redemption not yet affordable in the
+        // chosen game. No target means the bar is hidden rather than full.
+        mainViewModel.starsCard.observe(viewLifecycleOwner) { card ->
+            val next = card?.next
             if (next == null) {
                 binding.nextTierGroup.visibility = View.GONE
             } else {
@@ -165,6 +168,17 @@ class HomeFragment : Fragment() {
                 binding.balanceCurrent.text = formatCount(next.pointsHeld)
                 binding.balanceRequired.text = cost
             }
+            renderRedeemButton(card?.redeemable)
+        }
+
+        mainViewModel.preferredGame.observe(viewLifecycleOwner) { game ->
+            binding.starsGameSwitch.isVisible = game != null
+            if (game != null) binding.starsGameSwitch.text = "${game.displayName} ⇄"
+        }
+
+        // First run, or the chosen game was switched off in the console.
+        mainViewModel.needsGameChoice.observe(viewLifecycleOwner) { needs ->
+            if (needs) showGameChooser(required = true)
         }
 
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
@@ -356,8 +370,107 @@ class HomeFragment : Fragment() {
 
             levelRewardsButton.setOnClickListener { openLevelRewards() }
 
-            btnPayout.setOnClickListener { navigateToRedemption()}
+            btnPayout.setOnClickListener { onRedeemButton() }
+            starsGameSwitch.setOnClickListener { showGameChooser(required = false) }
         }
+    }
+
+    /**
+     * "View rewards" in the quiet outline while nothing is affordable;
+     * "Redeem 60 UC now" in solid gold once something is. Both directions are
+     * set every pass - the view is rebound on each balance change.
+     */
+    private fun renderRedeemButton(redeemable: MainViewModel.Redeemable?) {
+        val button = binding.btnPayout
+        if (redeemable == null) {
+            button.setBackgroundResource(R.drawable.bg_button_stars_outline)
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.stars_accent))
+            button.setText(R.string.stars_redeem_cta)
+        } else {
+            button.setBackgroundResource(R.drawable.bg_button_stars_filled)
+            // Ink on gold, as on the level-rewards claim button.
+            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
+            button.text = getString(R.string.stars_redeem_now, redeemable.amount)
+        }
+    }
+
+    /**
+     * Straight into the redeem sheet when there is something to redeem,
+     * otherwise the Wallet.
+     *
+     * The sheet is opened BY Wallet, not here: its results (track the order,
+     * first redeem already taken) are listened for there, and a sheet shown
+     * over Home would deliver them to nobody. So Home leaves a request and
+     * switches tab - the same handoff the pending-redemption row uses.
+     */
+    private fun onRedeemButton() {
+        val redeemable = mainViewModel.starsCard.value?.redeemable
+        if (redeemable != null) {
+            parentFragmentManager.setFragmentResult(
+                RedemptionFragment.RESULT_OPEN_REDEEM,
+                bundleOf(
+                    RedemptionFragment.KEY_GAME_ID to redeemable.game.id,
+                    RedemptionFragment.KEY_FIRST_REDEEM to redeemable.viaFirstRedeem
+                )
+            )
+        }
+        requireActivity()
+            .findViewById<View>(R.id.navigation_redemption)
+            ?.performClick()
+    }
+
+    private var gameChooser: Dialog? = null
+
+    /**
+     * The currency chooser.
+     *
+     * [required] is the first-run case: there is no choice yet, so the dialog
+     * cannot be dismissed without making one - a card with no game to measure
+     * would fall back to quoting every currency at once, which is the
+     * confusion this exists to end. From the switch chip it is cancellable,
+     * because a choice already stands.
+     */
+    private fun showGameChooser(required: Boolean) {
+        if (gameChooser?.isShowing == true) return
+        val games = mainViewModel.redemptionGames.value.orEmpty()
+        if (games.isEmpty()) return
+
+        val view = layoutInflater.inflate(R.layout.dialog_game_choice, null)
+        val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
+            setContentView(view)
+            setCancelable(!required)
+            setCanceledOnTouchOutside(!required)
+        }
+
+        val options = view.findViewById<ViewGroup>(R.id.gameChoiceOptions)
+        val selectedId = mainViewModel.preferredGame.value?.id
+        games.forEach { game ->
+            val row = layoutInflater.inflate(R.layout.item_game_choice, options, false)
+            row.setBackgroundResource(
+                if (game.id == selectedId) R.drawable.bg_chip_server_selected
+                else R.drawable.bg_chip_server
+            )
+            row.findViewById<TextView>(R.id.gameChoiceName).text = game.displayName
+
+            val code = row.findViewById<TextView>(R.id.gameChoiceCode)
+            code.text = game.code
+            game.currencyImageUrl?.let { url ->
+                row.findViewById<ImageView>(R.id.gameChoiceImage).load(url) {
+                    crossfade(true)
+                    listener(onSuccess = { _, _ -> code.visibility = View.INVISIBLE })
+                }
+            }
+
+            row.setOnClickListener {
+                mainViewModel.setPreferredGame(game.id)
+                dialog.dismiss()
+            }
+            options.addView(row)
+        }
+
+        dialog.setOnDismissListener { gameChooser = null }
+        gameChooser = dialog
+        dialog.show()
     }
 
     /**
@@ -1363,23 +1476,11 @@ class HomeFragment : Fragment() {
         }
     }
 
-    private fun navigateToRedemption() {
-        try {
-            val navOptions = NavOptions.Builder()
-                .setEnterAnim(R.anim.slide_in_up)
-                .setExitAnim(R.anim.fade_out)
-                .setPopEnterAnim(R.anim.fade_in)
-                .setPopExitAnim(R.anim.slide_out_down)
-                .build()
-
-            findNavController().navigate(R.id.navigation_redemption, null, navOptions)
-        } catch (e: Exception) {
-            Log.e("Navigation", "Error navigating to redemption: ${e.message}")
-            (activity as? MainActivity)?.binding?.bottomNav?.selectedItemId = R.id.navigation_redemption
-        }
-    }
-
     override fun onDestroyView() {
+        // Otherwise a rotation leaks the window, and the new view's observer
+        // could not open a replacement past the isShowing guard.
+        gameChooser?.dismiss()
+        gameChooser = null
         super.onDestroyView()
         _binding = null
     }

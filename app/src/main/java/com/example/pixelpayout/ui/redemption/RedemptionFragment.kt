@@ -12,6 +12,9 @@ import android.view.ViewGroup
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
+import kotlinx.coroutines.launch
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
@@ -100,6 +103,31 @@ class RedemptionFragment : Fragment() {
             RedeemSheetFragment.RESULT_TRACK_ORDERS,
             viewLifecycleOwner
         ) { _, _ -> showOrders(true) }
+
+        // Home's "Redeem 60 UC now". Delivered while this view is only
+        // STARTED, and openRedeemSheet refuses anything short of RESUMED, so
+        // the open waits for that. Games come from the shared store Home was
+        // already reading, so they are here even before this screen's own
+        // listener answers.
+        parentFragmentManager.setFragmentResultListener(
+            RESULT_OPEN_REDEEM,
+            viewLifecycleOwner
+        ) { _, result ->
+            val gameId = result.getString(KEY_GAME_ID)
+            val firstRedeem = result.getBoolean(KEY_FIRST_REDEEM)
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewLifecycleOwner.withResumed {
+                    showOrders(false)
+                    if (firstRedeem) {
+                        openFirstRedeem()
+                    } else {
+                        mainViewModel.redemptionGames.value.orEmpty()
+                            .firstOrNull { it.id == gameId }
+                            ?.let { game -> openRedeemSheet { RedeemSheetFragment.newInstance(game) } }
+                    }
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -497,6 +525,15 @@ class RedemptionFragment : Fragment() {
          * cannot call into a fragment that does not exist yet.
          */
         const val RESULT_SHOW_ORDERS = "wallet_show_orders"
+
+        /**
+         * Asks this screen to open the redeem sheet for [KEY_GAME_ID], or the
+         * first-redeem picker when [KEY_FIRST_REDEEM] is set. Set by the
+         * Stars card on Home.
+         */
+        const val RESULT_OPEN_REDEEM = "wallet_open_redeem"
+        const val KEY_GAME_ID = "gameId"
+        const val KEY_FIRST_REDEEM = "firstRedeem"
 
         private const val SPAN_COUNT = 2
         private const val GUTTER_DP = 11

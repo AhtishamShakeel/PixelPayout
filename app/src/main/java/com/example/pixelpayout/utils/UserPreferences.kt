@@ -75,6 +75,27 @@ class UserPreferences(private val context: Context) {
          */
         private val LAST_ANNOUNCED_LEADERBOARD_WEEK =
             intPreferencesKey("lastAnnouncedLeaderboardWeek")
+
+        /**
+         * The redemption game (catalogue document id) the Stars card on Home
+         * measures against.
+         *
+         * On the device rather than the account: it only decides which prices
+         * a progress bar quotes, nothing the server acts on, so it is not
+         * worth a Cloud Function. The cost is being asked again after a
+         * reinstall, which is one tap.
+         */
+        private val PREFERRED_GAME_ID = stringPreferencesKey("preferredRedemptionGameId")
+    }
+
+    /** Null until the user has picked one. */
+    val preferredGameId: Flow<String?> = context.dataStore.data
+        .map { preferences -> preferences[PREFERRED_GAME_ID] }
+
+    suspend fun setPreferredGameId(value: String) {
+        context.dataStore.edit { preferences ->
+            preferences[PREFERRED_GAME_ID] = value
+        }
     }
 
     val lastAnnouncedLeaderboardWeek: Flow<Int> = context.dataStore.data

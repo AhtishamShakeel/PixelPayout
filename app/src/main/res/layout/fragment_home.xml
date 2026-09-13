@@ -113,6 +113,33 @@
                         android:textColor="@color/stars_accent"
                         android:textSize="10sp" />
 
+                    <!--
+                        The chosen currency, and the way to change it. Hidden
+                        until a choice exists - before then the chooser dialog
+                        is on screen asking for one.
+                    -->
+                    <TextView
+                        android:id="@+id/starsGameSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_chip_server"
+                        android:clickable="true"
+                        android:contentDescription="@string/stars_switch_game_desc"
+                        android:drawablePadding="3dp"
+                        android:focusable="true"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:paddingStart="7dp"
+                        android:paddingTop="3dp"
+                        android:paddingEnd="7dp"
+                        android:paddingBottom="3dp"
+                        android:text="⇄"
+                        android:textColor="@color/text_soft"
+                        android:textSize="10sp"
+                        android:visibility="gone"
+                        tools:text="UC ⇄"
+                        tools:visibility="visible" />
+
                 </LinearLayout>
 
                 <!--

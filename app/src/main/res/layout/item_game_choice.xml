@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    One option on the currency chooser. The code sits under the image so a
+    game with no `currencyImageUrl` still has a mark, and one whose image is
+    loading does not flash an empty box.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/bg_chip_server"
+    android:clickable="true"
+    android:focusable="true"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <FrameLayout
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@drawable/bg_icon_gold">
+
+        <TextView
+            android:id="@+id/gameChoiceCode"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fontFamily="@font/jakarta_bold"
+            android:gravity="center"
+            android:maxLines="1"
+            android:textColor="@color/stars_accent"
+            android:textSize="11sp"
+            tools:text="UC" />
+
+        <ImageView
+            android:id="@+id/gameChoiceImage"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:importantForAccessibility="no"
+            android:padding="4dp"
+            android:scaleType="fitCenter" />
+
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/gameChoiceName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:fontFamily="@font/jakarta_semibold"
+        android:maxLines="1"
+        android:textColor="@color/white"
+        android:textSize="15sp"
+        tools:text="Diamonds" />
+
+</LinearLayout>

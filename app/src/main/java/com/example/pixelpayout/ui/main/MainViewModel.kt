@@ -166,6 +166,74 @@ class MainViewModel(
     )
 
     /**
+     * The most valuable thing the user can redeem RIGHT NOW in their chosen
+     * game - what turns the card's button from "View rewards" into
+     * "Redeem 60 UC now".
+     *
+     * [viaFirstRedeem] means the only affordable option is the discounted
+     * first redeem, which is bought through its own sheet rather than the
+     * game's pack list.
+     */
+    data class Redeemable(
+        val game: RedemptionGame,
+        val amount: String,
+        val viaFirstRedeem: Boolean
+    )
+
+    /** Everything the Stars card draws below the balance. */
+    data class StarsCard(
+        /** Null when nothing is left to climb toward; the bar hides. */
+        val next: NextRedemption?,
+        /** Null when nothing is affordable yet; the button says View. */
+        val redeemable: Redeemable?
+    )
+
+    private val _preferredGameId = MutableLiveData<String?>()
+    private var preferredGameLoaded = false
+
+    /**
+     * The game the user chose, resolved against the live catalogue.
+     *
+     * Null both before a choice and when the chosen game has since been
+     * disabled or removed in the console - to the card those are the same
+     * thing, and [needsGameChoice] asks again in either case.
+     */
+    val preferredGame: LiveData<RedemptionGame?> = MediatorLiveData<RedemptionGame?>().apply {
+        fun recompute() {
+            val id = _preferredGameId.value
+            val game = userRepository.redemptionGames.value.orEmpty().firstOrNull { it.id == id }
+            if (value != game) value = game
+        }
+        addSource(_preferredGameId) { recompute() }
+        addSource(userRepository.redemptionGames) { recompute() }
+    }
+
+    /**
+     * True once we KNOW the user has no usable choice: the preference has been
+     * read from disk and the catalogue has games in it. Either one still
+     * pending means "don't know", which must not pop a dialog that the next
+     * emission would make unnecessary.
+     */
+    val needsGameChoice: LiveData<Boolean> = MediatorLiveData<Boolean>().apply {
+        fun recompute() {
+            val games = userRepository.redemptionGames.value.orEmpty()
+            val needs = preferredGameLoaded && games.isNotEmpty() &&
+                games.none { it.id == _preferredGameId.value }
+            if (value != needs) value = needs
+        }
+        addSource(_preferredGameId) { recompute() }
+        addSource(userRepository.redemptionGames) { recompute() }
+    }
+
+    fun setPreferredGame(gameId: String) {
+        // Published immediately so the card moves on the tap; DataStore's
+        // own emission lands a moment later with the same value.
+        preferredGameLoaded = true
+        _preferredGameId.value = gameId
+        viewModelScope.launch { userPreferences.setPreferredGameId(gameId) }
+    }
+
+    /**
      * The same catalogue the Wallet grid draws, from the same shared store -
      * so opening Wallet does not re-read what this already has, and a price
      * edited in Firestore moves the bar here as well as the card there.
@@ -180,7 +248,7 @@ class MainViewModel(
      */
     val levelCurve: LiveData<UserRepository.LevelCurve?> = userRepository.levelCurve
 
-    val nextRedemption: LiveData<NextRedemption?> = MediatorLiveData<NextRedemption?>().apply {
+    val starsCard: LiveData<StarsCard?> = MediatorLiveData<StarsCard?>().apply {
         fun recompute() {
             val user = userRepository.userData.value
             val games = redemptionGames.value.orEmpty()
@@ -189,16 +257,14 @@ class MainViewModel(
                 return
             }
 
-            // Flattened across games: the bar fills toward the cheapest thing
-            // the user cannot buy yet ANYWHERE in the catalogue, which is the
-            // next thing that will actually become available to them - not
-            // the cheapest pack of some arbitrary game.
-            //
-            // Amount and price only. The game itself used to ride along in
-            // this tuple and was discarded at the other end, and it is not
-            // something that goes in front of a user anyway - see
-            // RedemptionGame.currencyName.
-            val reachable = games.filter { it.minLevel <= user.level }
+            // ONE GAME, once the user has said which they play. Quoting "600
+            // stars for 60 UC" to somebody who only plays the Diamonds game
+            // is a price for a thing they will never buy. Before a choice
+            // (the chooser is up on Home) the whole catalogue is measured,
+            // which is what this card did for everyone before.
+            val preferred = preferredGame.value
+            val pool = if (preferred != null) listOf(preferred) else games
+            val reachable = pool.filter { it.minLevel <= user.level }
 
             // THE OFFER IS THE TARGET WHILE IT IS STILL THERE.
             //
@@ -239,29 +305,47 @@ class MainViewModel(
                     .minByOrNull { (_, cost) -> cost }
 
             // Nothing left to reach means everything on offer is already
-            // affordable - the bar has no meaning, so hide it rather than
+            // affordable - the bar has no meaning, so it hides rather than
             // showing a permanently full one.
-            if (target == null) {
-                value = null
-                return
+            val next = target?.let { (amount, cost) ->
+                NextRedemption(
+                    title = amount,
+                    pointsCost = cost,
+                    pointsShort = (cost - user.points).coerceAtLeast(0),
+                    // Long arithmetic: a balance and a price are both Ints and
+                    // their product overflows a little past two million
+                    // points, which this economy reaches.
+                    percent = (user.points.toLong() * 100 / cost).toInt().coerceIn(0, 100),
+                    pointsHeld = user.points
+                )
             }
 
-            val (amount, cost) = target
-            value = NextRedemption(
-                title = amount,
-                pointsCost = cost,
-                pointsShort = (cost - user.points).coerceAtLeast(0),
-                // Long arithmetic: a balance and a price are both Ints and
-                // their product overflows a little past two million points,
-                // which this economy reaches. The Wallet bar already does
-                // this; Home was still overflowing.
-                percent = (user.points.toLong() * 100 / cost).toInt().coerceIn(0, 100),
-                pointsHeld = user.points
-            )
+            // What the button can offer now. Only once a game is chosen: "Redeem
+            // 60 UC" to a user who has not said they want UC is the confusion
+            // the choice exists to remove.
+            //
+            // The biggest ordinary pack they can afford wins. The discounted
+            // first redeem is only offered when no ordinary pack is in reach -
+            // it is a one-off, and spending it on the button while a larger
+            // pack is already affordable would be the worse deal for them.
+            val redeemable = preferred?.takeIf { it.minLevel <= user.level }?.let { game ->
+                game.purchasablePacks
+                    .filter { it.pointsCost <= user.points }
+                    .maxByOrNull { it.pointsCost }
+                    ?.let { Redeemable(game, it.amount, viaFirstRedeem = false) }
+                    ?: game.packs
+                        .takeIf { offerLive }
+                        ?.filter { (it.firstRedeemCost ?: Int.MAX_VALUE) <= user.points }
+                        ?.maxByOrNull { it.firstRedeemCost ?: 0 }
+                        ?.let { Redeemable(game, it.amount, viaFirstRedeem = true) }
+            }
+
+            value = StarsCard(next, redeemable)
         }
 
         addSource(userRepository.userData) { recompute() }
         addSource(redemptionGames) { recompute() }
+        addSource(preferredGame) { recompute() }
     }
 
     init {
@@ -271,6 +355,16 @@ class MainViewModel(
         // trade for a screen that is not the catalogue. Wallet opens the live
         // listener when it appears.
         userRepository.seedRedemptionGames()
+
+        viewModelScope.launch {
+            userPreferences.preferredGameId.collect { id ->
+                preferredGameLoaded = true
+                // Always set, even to the same null: the first emission is
+                // what flips preferredGameLoaded, and needsGameChoice only
+                // recomputes when this LiveData emits.
+                _preferredGameId.value = id
+            }
+        }
     }
 
     /** The code this user hands out, for the invite card on Profile. */

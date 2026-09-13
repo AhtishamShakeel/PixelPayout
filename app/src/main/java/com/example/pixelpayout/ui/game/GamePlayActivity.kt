@@ -138,10 +138,12 @@ class GamePlayActivity : AppCompatActivity() {
                     // /games/**/*.{html,js}. The games are ours to iterate on
                     // now, so cache freshness has to be the host's call.
                     cacheMode = WebSettings.LOAD_DEFAULT
-
-                    // Enable hardware acceleration
-                    setLayerType(View.LAYER_TYPE_HARDWARE, null)
                 }
+
+                // No setLayerType here. The window is already hardware
+                // accelerated; LAYER_TYPE_HARDWARE on a WebView makes it paint
+                // into an extra offscreen texture that is re-uploaded every
+                // frame, which on a 60fps canvas game is pure added cost.
 
                 // Pass Activity instance along with ViewModel
                 addJavascriptInterface(GameJavaScriptInterface(viewModel, gameId), "AndroidInterface")
@@ -183,16 +185,23 @@ class GamePlayActivity : AppCompatActivity() {
 
     override fun onPause() {
         adView.pause()
+        binding.gameWebView.onPause()
         super.onPause()
     }
 
     override fun onResume() {
         super.onResume()
+        binding.gameWebView.onResume()
         adView.resume()
     }
 
     override fun onDestroy() {
         adView.destroy()
+        binding.gameWebView.apply {
+            stopLoading()
+            (parent as? ViewGroup)?.removeView(this)
+            destroy()
+        }
         super.onDestroy()
     }
 

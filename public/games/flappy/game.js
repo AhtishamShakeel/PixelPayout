@@ -33,6 +33,13 @@
   // tall phone and a squat tablet.
   var G, FLAP, PIPE_SPEED, PIPE_GAP, PIPE_W, PIPE_SPACING, BIRD_R;
 
+  // Built once per resize, not per frame. Creating gradients every frame
+  // allocated a dozen objects a second per pipe, and the garbage collector
+  // clearing them up was an irregular hitch - the "sometimes" in the lag.
+  // Pipe and bird gradients are in local coordinates and drawn under a
+  // translate, which is what lets one instance serve every pipe.
+  var skyGrad, pipeGrad, birdGrad, hudFont = {};
+
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = canvas.clientWidth;
@@ -52,6 +59,22 @@
     PIPE_W = Math.min(W * 0.16, H * 0.11);
     PIPE_SPACING = Math.max(W * 0.62, H * 0.42);
     BIRD_R = H * 0.026;
+
+    skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, '#0b1026');
+    skyGrad.addColorStop(0.55, '#141a3d');
+    skyGrad.addColorStop(1, '#2a1b47');
+
+    pipeGrad = ctx.createLinearGradient(0, 0, PIPE_W, 0);
+    pipeGrad.addColorStop(0, '#12d6a0');
+    pipeGrad.addColorStop(0.5, '#31f2c0');
+    pipeGrad.addColorStop(1, '#0aa47c');
+
+    birdGrad = ctx.createLinearGradient(-BIRD_R, -BIRD_R, BIRD_R, BIRD_R);
+    birdGrad.addColorStop(0, '#ffe29a');
+    birdGrad.addColorStop(1, '#ff9f43');
+
+    hudFont = {};
   }
 
   function reset() {
@@ -207,11 +230,7 @@
   function drawBackground() {
     var groundY = H * 0.86;
 
-    var sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, '#0b1026');
-    sky.addColorStop(0.55, '#141a3d');
-    sky.addColorStop(1, '#2a1b47');
-    ctx.fillStyle = sky;
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
     // Parallax skyline. Each building's height is hashed from its own index in
@@ -235,28 +254,28 @@
     var groundY = H * 0.86;
     for (var i = 0; i < pipes.length; i++) {
       var p = pipes[i];
+      var lowerH = groundY - (p.top + PIPE_GAP);
 
-      var grad = ctx.createLinearGradient(p.x, 0, p.x + PIPE_W, 0);
-      grad.addColorStop(0, '#12d6a0');
-      grad.addColorStop(0.5, '#31f2c0');
-      grad.addColorStop(1, '#0aa47c');
+      ctx.save();
+      ctx.translate(p.x, 0);
 
-      ctx.fillStyle = grad;
-      ctx.shadowColor = 'rgba(49, 242, 192, 0.55)';
-      ctx.shadowBlur = H * 0.02;
-
-      roundRect(p.x, p.top - H * 0.9, PIPE_W, H * 0.9, PIPE_W * 0.22);
+      // No glow. It used to be shadowBlur, a per-pixel gaussian on every
+      // fill - at devicePixelRatio 2 across several tall pipes, by far the
+      // most expensive thing in the frame on a mid-range phone.
+      ctx.fillStyle = pipeGrad;
+      roundRect(0, p.top - H * 0.9, PIPE_W, H * 0.9, PIPE_W * 0.22);
       ctx.fill();
-      roundRect(p.x, p.top + PIPE_GAP, PIPE_W, groundY - (p.top + PIPE_GAP), PIPE_W * 0.22);
+      roundRect(0, p.top + PIPE_GAP, PIPE_W, lowerH, PIPE_W * 0.22);
       ctx.fill();
-      ctx.shadowBlur = 0;
 
       // Lip on each mouth - the one bit of detail that sells them as pipes.
       ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      roundRect(p.x - PIPE_W * 0.06, p.top - H * 0.022, PIPE_W * 1.12, H * 0.022, PIPE_W * 0.1);
+      roundRect(-PIPE_W * 0.06, p.top - H * 0.022, PIPE_W * 1.12, H * 0.022, PIPE_W * 0.1);
       ctx.fill();
-      roundRect(p.x - PIPE_W * 0.06, p.top + PIPE_GAP, PIPE_W * 1.12, H * 0.022, PIPE_W * 0.1);
+      roundRect(-PIPE_W * 0.06, p.top + PIPE_GAP, PIPE_W * 1.12, H * 0.022, PIPE_W * 0.1);
       ctx.fill();
+
+      ctx.restore();
     }
   }
 
@@ -280,16 +299,11 @@
     ctx.translate(bird.x, bird.y);
     ctx.rotate(bird.rot);
 
-    ctx.shadowColor = 'rgba(255, 209, 102, 0.7)';
-    ctx.shadowBlur = H * 0.025;
-    var body = ctx.createLinearGradient(-BIRD_R, -BIRD_R, BIRD_R, BIRD_R);
-    body.addColorStop(0, '#ffe29a');
-    body.addColorStop(1, '#ff9f43');
-    ctx.fillStyle = body;
+    // No glow here either - see drawPipes.
+    ctx.fillStyle = birdGrad;
     ctx.beginPath();
     ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
 
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     var wing = Math.sin(performance.now() / 60) * BIRD_R * 0.25;
@@ -314,8 +328,11 @@
   }
 
   function drawText(text, y, size, color, weight) {
+    var key = (weight || '700') + ' ' + size;
+    var font = hudFont[key] ||
+      (hudFont[key] = key + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif');
     ctx.fillStyle = color;
-    ctx.font = (weight || '700') + ' ' + size + 'px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    ctx.font = font;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, W / 2, y);
@@ -323,11 +340,12 @@
 
   function drawHud() {
     if (state === PLAYING || state === DEAD) {
+      // A hard offset shadow; shadowBlur on text is re-rasterised every frame.
       ctx.save();
-      ctx.shadowColor = 'rgba(0,0,0,0.6)';
-      ctx.shadowBlur = 8;
-      drawText(String(score), H * 0.13, H * 0.085, '#ffffff');
+      ctx.translate(0, H * 0.004);
+      drawText(String(score), H * 0.13, H * 0.085, 'rgba(0,0,0,0.45)');
       ctx.restore();
+      drawText(String(score), H * 0.13, H * 0.085, '#ffffff');
     }
 
     if (state === READY) {

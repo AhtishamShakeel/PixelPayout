@@ -213,6 +213,7 @@
             android:gravity="center"
             android:fontFamily="@font/jakarta_bold"
             android:text="@string/games_step_play"
+            android:maxLines="1"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:importantForAccessibility="no" />
@@ -302,6 +303,7 @@
             android:gravity="center"
             android:fontFamily="@font/jakarta_bold"
             android:text="@string/games_step_play"
+            android:maxLines="1"
             android:textColor="@color/white"
             android:textSize="15sp"
             android:importantForAccessibility="no" />

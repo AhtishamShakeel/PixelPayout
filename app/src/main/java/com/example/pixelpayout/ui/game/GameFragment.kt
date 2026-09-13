@@ -204,8 +204,13 @@ class GameFragment : Fragment() {
         icon?.setBounds(0, 0, size, size)
         icon?.setTint(ContextCompat.getColor(requireContext(), R.color.white))
         action.setCompoundDrawablesRelative(icon, null, null, null)
-        action.compoundDrawablePadding = (6 * resources.displayMetrics.density).toInt()
-        val padding = (28 * resources.displayMetrics.density).toInt()
+        val gap = (6 * resources.displayMetrics.density).toInt()
+        action.compoundDrawablePadding = gap
+        // The icon sits at the padding edge, so the padding is what centres
+        // icon + label as one group. Derived from the label's own width: a
+        // fixed 28dp fitted "Play" but squeezed "Locked" onto two lines.
+        val content = size + gap + action.paint.measureText(action.text.toString()).toInt()
+        val padding = ((action.layoutParams.width - content) / 2).coerceAtLeast(0)
         action.setPaddingRelative(padding, 0, padding, 0)
     }
 

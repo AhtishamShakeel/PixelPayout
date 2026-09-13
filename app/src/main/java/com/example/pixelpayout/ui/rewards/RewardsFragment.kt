@@ -17,6 +17,7 @@ import com.example.pixelpayout.data.repository.OfferwallCatalogStore
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.leaderboard.LeaderboardFragment
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.utils.ServerClock
 import com.example.pixelpayout.utils.TapjoyOfferwall
 import com.example.pixelpayout.utils.setStarText
 import com.pixelpayout.R
@@ -81,7 +82,11 @@ class RewardsFragment : Fragment() {
         // The button carries the entry offer when there is one; the card itself
         // only ever opens the board, so a stray tap never starts a purchase.
         binding.viewTournament.setOnClickListener {
-            openLeaderboard(promptEntry = mainViewModel.tournament.value?.entered == false)
+            val board = mainViewModel.tournament.value
+            openLeaderboard(
+                promptEntry = board != null && !board.entered &&
+                    board.entriesOpen(ServerClock.now())
+            )
         }
         binding.leaderboardRow.setOnClickListener { openLeaderboard(promptEntry = false) }
 
@@ -124,7 +129,10 @@ class RewardsFragment : Fragment() {
         val pool = formatCount(board.prizePool)
         binding.leaderboardSubtitle.text = getString(R.string.earn_pool_summary, board.size, pool)
 
+        val open = board.entriesOpen(ServerClock.now())
+
         binding.leaderboardRank.text = when {
+            !board.entered && !open -> getString(R.string.earn_entries_closed_you)
             // The place their XP would take - the reason to tap Enter below.
             !board.entered && board.expectedRank > 0 ->
                 getString(R.string.earn_expected_rank_you, formatCount(board.expectedRank))
@@ -137,7 +145,9 @@ class RewardsFragment : Fragment() {
         binding.leaderboardPrizePool.setStarText(getString(R.string.earn_pool_value, pool))
         binding.leaderboardPrizeShare.text = getString(R.string.earn_pool_share, board.size)
 
-        if (board.entered) {
+        // Past the entry window there is nothing to buy, so the button goes
+        // back to simply opening the board.
+        if (board.entered || !open) {
             binding.viewTournament.setText(R.string.earn_view_tournament)
         } else {
             binding.viewTournament.setStarText(

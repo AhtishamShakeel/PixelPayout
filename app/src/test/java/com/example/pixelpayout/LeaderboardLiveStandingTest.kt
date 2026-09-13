@@ -27,7 +27,7 @@ class LeaderboardLiveStandingTest {
         entries = entries, myRank = myRank, myXp = myXp, myPrize = myPrize,
         prizePool = 2450, size = 30, weekEndsAtMillis = 0L, entryFee = 20,
         entered = entered, expectedRank = expectedRank, expectedPrize = expectedPrize,
-        full = full
+        full = full, prizeBands = emptyList(), entriesCloseAtMillis = 0L
     )
 
     @Test

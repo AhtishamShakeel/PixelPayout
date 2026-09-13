@@ -485,7 +485,8 @@
     <string name="leaderboard_no_prize">Reach the top %1$d to win</string>
     <string name="leaderboard_rules_title">How it works</string>
     <!-- %1$s is the live entry fee. -->
-    <string name="leaderboard_rules_body">Entry costs %1$s ★ a week and is not refundable. All the quiz and game XP you earn this week counts toward your score, but only players who enter appear on the board and win prizes. Streak and referral XP still level you up, but do not place you here.
+    <!-- %1$s is the fee, %2$d the days entry stays open after the reset. -->
+    <string name="leaderboard_rules_body">Entry costs %1$s ★ a week, is not refundable, and closes %2$d days after the board resets. All the quiz and game XP you earn this week counts toward your score, but only players who enter appear on the board and win prizes. Streak and referral XP still level you up, but do not place you here.
 
 The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_prizes_title">Prizes</string>
@@ -543,13 +544,20 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_entered_label">Entered</string>
     <string name="leaderboard_enter_cta">Enter · %1$s ★</string>
     <string name="leaderboard_enter_prompt">Enter to compete for prizes</string>
-    <string name="leaderboard_enter_hint">All your XP this week counts when you enter</string>
     <string name="leaderboard_expected_prize">Enter now to win %1$s ★</string>
+    <!-- Entry window. %1$s is a countdown such as "1d 4h 05m". -->
+    <string name="leaderboard_expected_prize_closing">Enter now to win %1$s ★ · closes in %2$s</string>
+    <string name="leaderboard_entries_close_in">Entries close in %1$s</string>
+    <string name="leaderboard_entries_closed">Entries closed</string>
+    <string name="leaderboard_entries_closed_label">Closed</string>
+    <string name="leaderboard_entries_closed_hint">Entry is closed for this week. The next tournament opens when the board resets.</string>
+    <string name="leaderboard_entries_closed_title">Entries closed</string>
+    <string name="leaderboard_entries_closed_message">Entry for this week\'s tournament has closed. Nothing was charged - the next one opens when the board resets.</string>
     <string name="leaderboard_entered_no_xp">You\'re in - play to score</string>
     <string name="leaderboard_entering">Entering…</string>
     <string name="leaderboard_enter_title">Enter this week\'s tournament?</string>
-    <string name="leaderboard_enter_message">%1$s ★ will be taken from your balance, and the entry is not refundable. All the XP you earn this week counts.\n\nThis week ends in %2$s.</string>
-    <string name="leaderboard_enter_message_ranked">%1$s ★ will be taken from your balance, and the entry is not refundable.\n\nYour %2$s XP this week already counts, so you would start at #%3$s.\n\nThis week ends in %4$s.</string>
+    <string name="leaderboard_enter_message">%1$s ★ will be taken from your balance, and the entry is not refundable. All the XP you earn this week counts.\n\nEntries close in %2$s.</string>
+    <string name="leaderboard_enter_message_ranked">%1$s ★ will be taken from your balance, and the entry is not refundable.\n\nYour %2$s XP this week already counts, so you would start at #%3$s.\n\nEntries close in %4$s.</string>
     <string name="leaderboard_short_title">Not enough stars</string>
     <string name="leaderboard_short_message">Entry costs %1$s ★ and you have %2$s ★. Earn more from level rewards, streaks and daily goals.</string>
     <string name="leaderboard_fee_changed_title">Entry fee updated</string>

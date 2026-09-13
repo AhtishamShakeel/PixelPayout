@@ -32,7 +32,9 @@ import {
 } from "./economy/payoutFeed";
 import {
   buildSettlement,
+  entriesCloseMillis,
   expectedRankFromBoard,
+  resolveEntryWindowDays,
   hasEnteredWeek,
   mergeSettlementBoard,
   prizeForRank,
@@ -49,6 +51,7 @@ import {
   FIELD_LAST_WEEKLY_XP,
   FIELD_LAST_WEEK_KEY,
   LEADERBOARD_PREVIEW_SIZE,
+  LEADERBOARD_PRIZES,
   LEADERBOARD_SETTLEMENTS_COLLECTION,
   LEADERBOARD_SIZE,
   FIELD_TOURNAMENT_WEEK,
@@ -1318,39 +1321,51 @@ async function entrantsAhead(weekKey: number, xp: number): Promise<number> {
 }
 
 /**
- * The tournament entry fee, as configured.
+ * The tournament's tunables, as configured: the entry fee and the entry window.
  *
- * Cached in the instance for a minute, like the goal bonus: getLeaderboard
- * asks on every visit to Earn, and a read per visit for a number that changes
- * rarely is a bill for nothing. A console edit can therefore be up to a minute
- * stale on a warm instance - which is harmless, because enterTournament
- * refuses a fee that does not match the one the player was shown.
+ * One document, one read, cached in the instance for a minute like the goal
+ * bonus: getLeaderboard asks on every visit to Earn, and a read per visit for
+ * numbers that change rarely is a bill for nothing. A console edit can
+ * therefore be up to a minute stale on a warm instance - harmless for the fee,
+ * which enterTournament refuses on a mismatch, and a minute's slack either way
+ * on the window.
  */
-let entryFeeCache: {fee: number; readAt: number} | null = null;
-const ENTRY_FEE_TTL_MS = 60_000;
+interface TournamentConfig {
+  fee: number;
+  windowDays: number;
+}
 
-async function configuredEntryFee(): Promise<number> {
+let tournamentConfigCache: {config: TournamentConfig; readAt: number} | null = null;
+const TOURNAMENT_CONFIG_TTL_MS = 60_000;
+
+async function configuredTournament(): Promise<TournamentConfig> {
   const now = Date.now();
-  if (entryFeeCache && now - entryFeeCache.readAt < ENTRY_FEE_TTL_MS) {
-    return entryFeeCache.fee;
+  if (tournamentConfigCache && now - tournamentConfigCache.readAt < TOURNAMENT_CONFIG_TTL_MS) {
+    return tournamentConfigCache.config;
   }
 
-  let fee: number;
+  let config: TournamentConfig;
   try {
     const snapshot = await getFirestore()
       .collection(CONFIG_COLLECTION)
       .doc(TOURNAMENT_CONFIG_DOC)
       .get();
-    fee = resolveEntryFee(snapshot.get("entryFee"));
+    config = {
+      fee: resolveEntryFee(snapshot.get("entryFee")),
+      windowDays: resolveEntryWindowDays(snapshot.get("entryWindowDays")),
+    };
   } catch (error) {
-    // Charging the deployed fee is right; refusing every entry because a
-    // config read blipped is not.
+    // The deployed values are right; refusing every entry because a config
+    // read blipped is not.
     console.error("Tournament config unreadable", error);
-    fee = resolveEntryFee(undefined);
+    config = {
+      fee: resolveEntryFee(undefined),
+      windowDays: resolveEntryWindowDays(undefined),
+    };
   }
 
-  entryFeeCache = {fee, readAt: now};
-  return fee;
+  tournamentConfigCache = {config, readAt: now};
+  return config;
 }
 
 /**
@@ -1384,11 +1399,14 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
   const firestore = getFirestore();
   const weekKey = utcWeekFor(Date.now());
 
-  const [cachedBoard, userDoc, entryFee] = await Promise.all([
+  const [cachedBoard, userDoc, tournamentConfig] = await Promise.all([
     cachedTopBoard(weekKey),
     firestore.collection(USERS_COLLECTION).doc(userId).get(),
-    configuredEntryFee(),
+    configuredTournament(),
   ]);
+  const entryFee = tournamentConfig.fee;
+  const entriesCloseAt = entriesCloseMillis(weekKey, tournamentConfig.windowDays);
+  const entriesOpen = Date.now() < entriesCloseAt;
 
   const entered = hasEnteredWeek(
     userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined,
@@ -1416,9 +1434,10 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
 
   let myRank = 0;
   let expectedRank = 0;
-  if (!entered) {
+  if (!entered && entriesOpen) {
     // Where the caller's XP would land among entrants. Answered from the
     // board when it can be, which is every case but "below a full board".
+    // Not offered once entry has closed - there is nothing left to buy.
     expectedRank = expectedRankFromBoard(board.map((entry) => entry.xp), myXp) ??
       (await entrantsAhead(weekKey, myXp)) + 1;
   } else if (myXp > 0) {
@@ -1451,10 +1470,19 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
     weekEndsAt: weekEndMillis(weekKey),
     size: LEADERBOARD_SIZE,
     prizePool: totalWeeklyPrizePool(),
+    // The whole prize table, independent of who has entered. The Prizes tab
+    // used to rebuild the bands from the rows on the board, so a week with
+    // three entrants showed three places' worth of prizes and hid the rest.
+    prizeBands: LEADERBOARD_PRIZES,
     // What entering costs, and whether the caller already has. The client
     // sends entryFee back to enterTournament, which refuses if it has moved.
     entryFee,
     entered,
+    // When this week stops taking entries. Sent as a moment rather than only
+    // a flag so the client can count down to it and lock the button itself
+    // when it passes, without asking again.
+    entriesCloseAt,
+    entriesOpen,
     // This week's XP, entered or not.
     myXp,
     // Zero means unranked - not entered, or entered and not yet scored -
@@ -1497,6 +1525,9 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
  *     entry, so a player who enters before playing this week is moved onto it
  *     here at zero - through weeklyRollover, which carries last week's total
  *     first if they had entered that week and it has not been settled yet.
+ *   * ENTRY CLOSES partway through the week (config/tournament.entryWindowDays,
+ *     three days by default), so nobody can wait until their expected rank is
+ *     already a winning one and only then pay.
  *
  * Not refundable, and no XP is awarded for entering.
  */
@@ -1516,7 +1547,7 @@ export const enterTournament = functions.https.onCall(async (request: CallableRe
 
   // Outside the transaction, like the goal bonus: it is not part of what has
   // to stay consistent with the user document.
-  const fee = await configuredEntryFee();
+  const {fee, windowDays} = await configuredTournament();
 
   const result = await firestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
@@ -1526,13 +1557,16 @@ export const enterTournament = functions.https.onCall(async (request: CallableRe
 
     // Inside, so an entry that straddles the boundary joins the week it
     // actually committed in.
-    const weekKey = utcWeekFor(Date.now());
+    const nowMillis = Date.now();
+    const weekKey = utcWeekFor(nowMillis);
     const storedTournamentWeek = userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined;
     const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
 
     const decision = resolveTournamentEntry({
       storedTournamentWeek,
       currentWeekKey: weekKey,
+      nowMillis,
+      entriesCloseAt: entriesCloseMillis(weekKey, windowDays),
       points: currentPoints,
       fee,
       expectedFee,

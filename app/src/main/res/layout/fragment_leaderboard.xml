@@ -463,7 +463,7 @@
                         android:layout_marginTop="3dp"
                         android:ellipsize="end"
                         android:fontFamily="@font/jakarta_medium"
-                        android:maxLines="1"
+                        android:maxLines="2"
                         android:textColor="@color/text_faint"
                         android:textSize="11sp"
                         tools:text="44 XP behind #23" />

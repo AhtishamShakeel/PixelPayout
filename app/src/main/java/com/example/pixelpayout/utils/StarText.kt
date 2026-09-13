@@ -43,9 +43,29 @@ fun TextView.setStarText(
     formatted: CharSequence,
     emphasise: String? = null,
     @ColorRes emphasisColor: Int? = null,
-    @ColorRes starColor: Int = R.color.stars_accent
+    @ColorRes starColor: Int = R.color.stars_accent,
+    @ColorRes figureColor: Int? = null,
+    centerStars: Boolean = false
 ) {
     val out = SpannableStringBuilder(formatted)
+
+    // Every Stars figure at once - each number sitting directly before a star -
+    // for sentences quoting more than one ("costs 20 ★ and you have 5 ★"),
+    // which a single [emphasise] match cannot reach.
+    if (figureColor != null) {
+        val color = ContextCompat.getColor(context, figureColor)
+        FIGURE_BEFORE_STAR.findAll(out).forEach { match ->
+            val range = match.groups[1]!!.range
+            out.setSpan(
+                StyleSpan(Typeface.BOLD), range.first, range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+            out.setSpan(
+                ForegroundColorSpan(color), range.first, range.last + 1,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
+        }
+    }
 
     if (emphasise != null) {
         val start = out.toString().lastIndexOf(emphasise)
@@ -74,7 +94,7 @@ fun TextView.setStarText(
         var at = out.toString().lastIndexOf(STAR_CHAR)
         while (at >= 0) {
             out.setSpan(
-                ImageSpan(star, ImageSpan.ALIGN_BASELINE),
+                if (centerStars) CenteredImageSpan(star) else ImageSpan(star, ImageSpan.ALIGN_BASELINE),
                 at, at + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
             )
             at = out.toString().lastIndexOf(STAR_CHAR, at - 1)
@@ -85,3 +105,41 @@ fun TextView.setStarText(
 }
 
 private const val STAR_CHAR = "\u2605"
+
+/** A number (grouping commas allowed) directly before a star, space optional. */
+private val FIGURE_BEFORE_STAR = Regex("""(\d[\d,]*)\s?\u2605""")
+
+/**
+ * A star centred on the text's own middle rather than sat on its baseline.
+ *
+ * ALIGN_BASELINE puts the drawable's bottom on the baseline, so a star about
+ * the height of the font rides well above the digits beside it - and in a
+ * body with extra line spacing, as the app dialog has, that offset is what
+ * reads as "not centred". Centring on the font metrics lines it up with the
+ * figure it belongs to. (ImageSpan.ALIGN_CENTER would do this, but only from
+ * API 29, and the app supports 24.)
+ */
+private class CenteredImageSpan(drawable: android.graphics.drawable.Drawable) :
+    ImageSpan(drawable) {
+
+    override fun draw(
+        canvas: android.graphics.Canvas,
+        text: CharSequence?,
+        start: Int,
+        end: Int,
+        x: Float,
+        top: Int,
+        y: Int,
+        bottom: Int,
+        paint: android.graphics.Paint
+    ) {
+        val d = drawable
+        val metrics = paint.fontMetricsInt
+        // Centre of the glyphs on this line, measured from the baseline.
+        val textCentre = y + (metrics.ascent + metrics.descent) / 2
+        canvas.save()
+        canvas.translate(x, (textCentre - d.bounds.height() / 2).toFloat())
+        d.draw(canvas)
+        canvas.restore()
+    }
+}

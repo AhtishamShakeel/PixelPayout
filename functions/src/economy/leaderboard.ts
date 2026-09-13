@@ -357,8 +357,9 @@ export function weeklyRollover(
  * more than they paid. That was chosen knowingly over an entry-funded pool.
  *
  * XP EARNED BEFORE ENTERING COUNTS, also knowingly: a non-entrant is shown the
- * rank they would take, as the reason to enter. The cost is that a player can
- * wait until late in the week and pay only once that rank is a winning one.
+ * rank they would take, as the reason to enter. What stops a player waiting
+ * until late in the week and paying only once that rank is a winning one is
+ * the entry window - see TOURNAMENT_ENTRY_WINDOW_DAYS.
  */
 export const TOURNAMENT_ENTRY_FEE = 20;
 
@@ -371,8 +372,38 @@ export const TOURNAMENT_ENTRY_FEE = 20;
  */
 export const MAX_TOURNAMENT_ENTRY_FEE = 1000;
 
-/** The document holding the tunable fee. */
+/** The document holding the tunable fee and entry window. */
 export const TOURNAMENT_CONFIG_DOC = "tournament";
+
+/**
+ * How many days into the week entry stays open - the fallback for
+ * config/tournament.entryWindowDays.
+ *
+ * The lock is what makes pre-entry XP counting safe to keep: without it a
+ * player could watch their expected rank all week and pay only on Sunday, once
+ * they already knew they would win. Weeks start Monday 00:00 UTC, so three
+ * days closes entry at Thursday 00:00 UTC.
+ */
+export const TOURNAMENT_ENTRY_WINDOW_DAYS = 3;
+
+/**
+ * The window to actually apply, from whatever the config document holds.
+ *
+ * Whole days from 1 to 7; seven means entry never closes before the week does.
+ * Anything else falls back to the deployed window rather than to zero, which
+ * would silently lock every week before it began.
+ */
+export function resolveEntryWindowDays(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1 || raw > 7) {
+    return TOURNAMENT_ENTRY_WINDOW_DAYS;
+  }
+  return raw;
+}
+
+/** When entry into [weekKey] closes, as epoch millis. */
+export function entriesCloseMillis(weekKey: number, windowDays: number): number {
+  return weekStartMillis(weekKey) + windowDays * 86_400_000;
+}
 
 /**
  * The fee to actually charge, from whatever the config document holds.
@@ -465,6 +496,8 @@ export function expectedRankFromBoard(
 
 export type TournamentEntryRejection =
   | "already_entered"
+  /** Past the week's entry window - see TOURNAMENT_ENTRY_WINDOW_DAYS. */
+  | "entries_closed"
   | "insufficient_stars"
   /** The fee the client showed is not the fee now configured. */
   | "fee_changed";
@@ -490,9 +523,17 @@ export function resolveTournamentEntry(input: {
   points: number;
   fee: number;
   expectedFee: number;
+  nowMillis: number;
+  entriesCloseAt: number;
 }): TournamentEntryDecision {
   if (hasEnteredWeek(input.storedTournamentWeek, input.currentWeekKey)) {
     return {ok: false, rejection: "already_entered"};
+  }
+  // Before the fee and the balance: once entry is closed neither matters, and
+  // "top up your stars" would be the wrong thing to tell somebody who could
+  // not enter anyway.
+  if (input.nowMillis >= input.entriesCloseAt) {
+    return {ok: false, rejection: "entries_closed"};
   }
   if (input.expectedFee !== input.fee) {
     return {ok: false, rejection: "fee_changed"};

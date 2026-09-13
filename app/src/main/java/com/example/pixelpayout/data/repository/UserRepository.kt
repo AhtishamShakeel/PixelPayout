@@ -967,8 +967,20 @@ class UserRepository {
         val expectedRank: Int,
         val expectedPrize: Int,
         /** Whether [entries] is the whole board rather than the podium. */
-        val full: Boolean
+        val full: Boolean,
+        /** Every prize band, however many players have entered. */
+        val prizeBands: List<PrizeBand>,
+        /**
+         * When this week stops taking entries, per the server. Compared
+         * against [com.example.pixelpayout.utils.ServerClock] rather than
+         * cached as a flag, so a screen left open locks itself at the moment
+         * it passes. enterTournament re-checks it regardless.
+         */
+        val entriesCloseAtMillis: Long
     ) {
+        /** Whether entry is still open at [nowMillis]. */
+        fun entriesOpen(nowMillis: Long): Boolean = nowMillis < entriesCloseAtMillis
+
         /** Zero rank means not entered, or entered and not yet scored. */
         val isRanked: Boolean get() = myRank > 0
 
@@ -1037,9 +1049,14 @@ class UserRepository {
         }
     }
 
+    /** Places [fromRank]..[toRank], inclusive, each paying [points]. */
+    data class PrizeBand(val fromRank: Int, val toRank: Int, val points: Int)
+
     sealed class TournamentEntryResult {
         data class Entered(val feePaid: Int, val remainingPoints: Int) : TournamentEntryResult()
         object AlreadyEntered : TournamentEntryResult()
+        /** This week's entry window has passed; nothing was charged. */
+        object EntriesClosed : TournamentEntryResult()
         object InsufficientStars : TournamentEntryResult()
         /** The fee moved after the board loaded; nothing was charged. */
         data class FeeChanged(val fee: Int?) : TournamentEntryResult()
@@ -1749,7 +1766,16 @@ class UserRepository {
                 entered = data["entered"] == true,
                 expectedRank = (data["expectedRank"] as? Number)?.toInt() ?: 0,
                 expectedPrize = (data["expectedPrize"] as? Number)?.toInt() ?: 0,
-                full = data["full"] == true
+                full = data["full"] == true,
+                prizeBands = (data["prizeBands"] as? List<*>).orEmpty().mapNotNull { raw ->
+                    val band = raw as? Map<*, *> ?: return@mapNotNull null
+                    PrizeBand(
+                        fromRank = (band["fromRank"] as? Number)?.toInt() ?: return@mapNotNull null,
+                        toRank = (band["toRank"] as? Number)?.toInt() ?: return@mapNotNull null,
+                        points = (band["points"] as? Number)?.toInt() ?: 0
+                    )
+                },
+                entriesCloseAtMillis = (data["entriesCloseAt"] as? Number)?.toLong() ?: 0L
             )
         } catch (e: Exception) {
             Log.e("Leaderboard", "Could not load the board: ${e.message}")
@@ -1787,6 +1813,7 @@ class UserRepository {
             }
             when (e.message) {
                 "already_entered" -> TournamentEntryResult.AlreadyEntered
+                "entries_closed" -> TournamentEntryResult.EntriesClosed
                 "insufficient_stars" -> TournamentEntryResult.InsufficientStars
                 "fee_changed" -> TournamentEntryResult.FeeChanged(
                     ((e.details as? Map<*, *>)?.get("fee") as? Number)?.toInt()

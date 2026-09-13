@@ -530,6 +530,7 @@ class MainViewModel(
         val result = userRepository.enterTournament(expectedFee)
         if (result is UserRepository.TournamentEntryResult.Entered ||
             result is UserRepository.TournamentEntryResult.AlreadyEntered ||
+            result is UserRepository.TournamentEntryResult.EntriesClosed ||
             result is UserRepository.TournamentEntryResult.FeeChanged
         ) {
             refreshLeaderboard(force = true)

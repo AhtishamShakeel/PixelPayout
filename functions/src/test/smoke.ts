@@ -2293,8 +2293,12 @@ async function run() {
 
   // --- enterTournament: paid entry ----------------------------------------
   //
-  // No config/tournament document exists in the emulator, so the fee is the
-  // deployed fallback of 20.
+  // The fee is the deployed fallback of 20. The entry window is opened to the
+  // whole week, because the default of three days would make every entry test
+  // below fail whenever the suite happens to run from Thursday on. The lock
+  // itself is covered by the unit tests; this must be written before the first
+  // call that reads the config, which caches it for a minute.
+  await db.collection("config").doc("tournament").set({entryWindowDays: 7});
   {
     const user = await makeUser("tournament");
     const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
@@ -2311,6 +2315,19 @@ async function run() {
       entered: boolean; entryFee: number; myXp: number; expectedRank: number;
     };
     assertEq("the board reports the entry fee", before.entryFee, 20);
+    const window = before as unknown as {entriesOpen: boolean; entriesCloseAt: number};
+    assertEq("a seven-day window is open", window.entriesOpen, true);
+    assertEq("...and closes when the week does",
+      window.entriesCloseAt, ((thisWeek + 1) * 7 - 3) * 86_400_000);
+    const bands = (before as unknown as {prizeBands: Array<{fromRank: number; toRank: number; points: number}>})
+      .prizeBands;
+    assertEq("the board sends the whole prize table, entrants or not",
+      bands, [
+        {fromRank: 1, toRank: 1, points: 350},
+        {fromRank: 2, toRank: 3, points: 200},
+        {fromRank: 4, toRank: 10, points: 100},
+        {fromRank: 11, toRank: 30, points: 50},
+      ]);
     assertEq("a player who has not paid is not entered", before.entered, false);
     assertEq("...and has no xp this week yet", before.myXp, 0);
     assertEq("...so no rank to offer", before.expectedRank, 0);

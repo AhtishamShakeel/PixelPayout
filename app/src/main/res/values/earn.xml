@@ -10,6 +10,7 @@
     <string name="earn_rank_you">#%1$s · You</string>
     <string name="earn_unranked_you">Unranked · You</string>
     <string name="earn_not_entered_you">Not entered · You</string>
+    <string name="earn_entries_closed_you">Entries closed · You</string>
     <string name="earn_expected_rank_you">#%1$s if you enter</string>
     <string name="earn_entered_you">Entered · You</string>
     <string name="earn_enter_tournament">Enter tournament · %1$s ★</string>

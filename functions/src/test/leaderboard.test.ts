@@ -5,7 +5,10 @@
 import {
   buildSettlement,
   compareStanding,
+  entriesCloseMillis,
   expectedRankFromBoard,
+  resolveEntryWindowDays,
+  TOURNAMENT_ENTRY_WINDOW_DAYS,
   hasEnteredWeek,
   mergeSettlementBoard,
   nextWeeklyXp,
@@ -352,6 +355,25 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
     resolveEntryFee(200_000), MAX_TOURNAMENT_ENTRY_FEE);
 }
 
+// --- the entry window --------------------------------------------------------
+{
+  assertEq("the fallback window is three days", TOURNAMENT_ENTRY_WINDOW_DAYS, 3);
+  assertEq("a configured window is honoured", resolveEntryWindowDays(5), 5);
+  assertEq("seven days is the whole week", resolveEntryWindowDays(7), 7);
+  assertEq("zero would lock every week, so falls back", resolveEntryWindowDays(0), 3);
+  assertEq("more than a week falls back", resolveEntryWindowDays(8), 3);
+  assertEq("a fractional window falls back", resolveEntryWindowDays(2.5), 3);
+  assertEq("a missing window falls back", resolveEntryWindowDays(undefined), 3);
+  assertEq("a string window falls back", resolveEntryWindowDays("3"), 3);
+
+  const monday = Date.UTC(2026, 8, 7, 0, 0, 0); // Mon 7 Sep 2026
+  const week = utcWeekFor(monday);
+  assertEq("three days closes entry at Thursday midnight UTC",
+    new Date(entriesCloseMillis(week, 3)).toISOString(), "2026-09-10T00:00:00.000Z");
+  assertEq("seven days closes entry when the week ends",
+    entriesCloseMillis(week, 7), weekEndMillis(week));
+}
+
 // --- who has entered ---------------------------------------------------------
 {
   const week = 2900;
@@ -442,6 +464,7 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 // --- buying into a week ------------------------------------------------------
 {
   const week = 2900;
+  const closeAt = entriesCloseMillis(week, 3);
   const entry = (overrides: Partial<Parameters<typeof resolveTournamentEntry>[0]>) =>
     resolveTournamentEntry({
       storedTournamentWeek: week - 1,
@@ -449,8 +472,22 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
       points: 100,
       fee: 20,
       expectedFee: 20,
+      nowMillis: weekStartMillis(week) + 86_400_000,
+      entriesCloseAt: closeAt,
       ...overrides,
     });
+
+  assertEq("entry is open a moment before the cutoff",
+    entry({nowMillis: closeAt - 1}), {ok: true, fee: 20});
+  assertEq("entry is closed at the cutoff",
+    entry({nowMillis: closeAt}), {ok: false, rejection: "entries_closed"});
+  assertEq("...and after it",
+    entry({nowMillis: closeAt + 86_400_000}), {ok: false, rejection: "entries_closed"});
+  assertEq("a closed week is reported before a short balance",
+    entry({nowMillis: closeAt, points: 0}), {ok: false, rejection: "entries_closed"});
+  assertEq("somebody already in is told so, not that entry closed",
+    entry({nowMillis: closeAt, storedTournamentWeek: week}),
+    {ok: false, rejection: "already_entered"});
 
   assertEq("a player with enough stars may enter", entry({}), {ok: true, fee: 20});
   assertEq("exactly the fee is enough", entry({points: 20}), {ok: true, fee: 20});

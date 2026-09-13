@@ -102,6 +102,10 @@ class LeaderboardFragment : Fragment() {
     private val tick = object : Runnable {
         override fun run() {
             renderResetCountdown()
+            // A non-entrant's card counts down to the entry deadline and locks
+            // when it passes, so it is redrawn on the same minute beat.
+            board?.let { live(it) }?.takeIf { !it.entered && !entering }
+                ?.let { renderMyPlace(it) }
             ticker.postDelayed(this, nextTickDelay())
         }
     }
@@ -269,17 +273,10 @@ class LeaderboardFragment : Fragment() {
         renderPool(data)
         renderResetCountdown()
 
-        val hasEntries = data.entries.isNotEmpty()
-        binding.leaderboardSegments.visibility = if (hasEntries) View.VISIBLE else View.GONE
-        binding.leaderboardEmpty.visibility = if (hasEntries) View.GONE else View.VISIBLE
-        if (!hasEntries) binding.leaderboardColumns.visibility = View.GONE
-
-        if (hasEntries) {
-            renderSegment(data)
-        } else {
-            binding.leaderboardBody.removeAllViews()
-            binding.leaderboardRules.visibility = View.GONE
-        }
+        // The segments stay even on an empty board: the prizes are worth
+        // seeing - arguably most of all - before anybody has entered.
+        binding.leaderboardSegments.visibility = View.VISIBLE
+        renderSegment(data)
 
         renderMyPlace(live(data))
     }
@@ -334,13 +331,19 @@ class LeaderboardFragment : Fragment() {
         styleSegment(binding.segmentStandings, standings)
         styleSegment(binding.segmentPrizes, !standings)
 
+        val emptyBoard = data.entries.isEmpty()
+
         binding.leaderboardBody.removeAllViews()
-        binding.leaderboardColumns.visibility = if (standings) View.VISIBLE else View.GONE
+        binding.leaderboardColumns.visibility =
+            if (standings && !emptyBoard) View.VISIBLE else View.GONE
+        binding.leaderboardEmpty.visibility =
+            if (standings && emptyBoard) View.VISIBLE else View.GONE
+        binding.leaderboardEmpty.setText(R.string.leaderboard_empty)
         binding.leaderboardRules.visibility = if (standings) View.GONE else View.VISIBLE
         // Bound rather than static: the fee is the server's, and a rules line
         // quoting a different figure from the Enter button would be a lie.
         binding.leaderboardRules.setStarText(
-            getString(R.string.leaderboard_rules_body, formatCount(data.entryFee))
+            getString(R.string.leaderboard_rules_body, formatCount(data.entryFee), entryWindowDays(data))
         )
 
         // No heading is set here any more. There was one, and it repeated the
@@ -449,26 +452,18 @@ class LeaderboardFragment : Fragment() {
     }
 
     /**
-     * The prize bands, collapsed from the entries themselves.
+     * Every prize band, from the table the server pays by.
      *
-     * Derived rather than sent as its own table: the board already carries a
-     * prize on every place, so grouping consecutive equal values reproduces
-     * the bands exactly and cannot disagree with what the rows show.
+     * NOT derived from the entries any more. It used to group the prizes on
+     * the rows of the board, which only covers places somebody holds - so a
+     * week with three entrants listed first and second-to-third and nothing
+     * else, as if places four to thirty paid nothing. The server's own table
+     * is sent with the board, so it cannot disagree with the settlement.
      */
     private fun renderBands(data: UserRepository.Leaderboard) {
-        if (data.entries.isEmpty()) return
-
-        var start = data.entries.first()
-        var previous = start
-
-        data.entries.drop(1).forEach { entry ->
-            if (entry.prize != previous.prize) {
-                addBand(start.rank, previous.rank, previous.prize)
-                start = entry
-            }
-            previous = entry
-        }
-        addBand(start.rank, previous.rank, previous.prize)
+        data.prizeBands
+            .sortedBy { it.fromRank }
+            .forEach { addBand(it.fromRank, it.toRank, it.points) }
     }
 
     private fun addBand(from: Int, to: Int, prize: Int) {
@@ -558,10 +553,21 @@ class LeaderboardFragment : Fragment() {
      * looking at does not contain them.
      *
      * No climb bar: a distance to the next band belongs to a place held.
+     *
+     * Once the week's entry window has passed the card stops selling: no
+     * expected place, a locked button, and a line saying when it reopens.
+     * Redrawn by the minute ticker, so a screen left open locks on time.
      */
     private fun renderEntryOffer(data: UserRepository.Leaderboard) {
         val binding = _binding ?: return
+
+        if (!data.entriesOpen(ServerClock.now())) {
+            renderEntriesClosed(data)
+            return
+        }
+
         val hasStanding = data.expectedRank > 0
+        val closesIn = closesInLabel(data)
 
         binding.leaderboardMyRank.text = if (hasStanding) {
             getString(R.string.leaderboard_rank, formatCount(data.expectedRank))
@@ -581,18 +587,18 @@ class LeaderboardFragment : Fragment() {
         val gap = binding.leaderboardMyGap
         gap.visibility = View.VISIBLE
         when {
+            // The deadline rides with the prize: it is the urgency behind it.
             data.expectedPrize > 0 -> {
                 gap.setStarText(
-                    getString(R.string.leaderboard_expected_prize, formatCount(data.expectedPrize))
+                    getString(
+                        R.string.leaderboard_expected_prize_closing,
+                        formatCount(data.expectedPrize), closesIn
+                    )
                 )
                 gap.setTextColor(color(R.color.gold))
             }
-            hasStanding -> {
-                gap.text = getString(R.string.leaderboard_no_prize, data.size)
-                gap.setTextColor(color(R.color.text_faint))
-            }
             else -> {
-                gap.setText(R.string.leaderboard_enter_hint)
+                gap.text = getString(R.string.leaderboard_entries_close_in, closesIn)
                 gap.setTextColor(color(R.color.text_faint))
             }
         }
@@ -608,10 +614,47 @@ class LeaderboardFragment : Fragment() {
         }
     }
 
+    /** A non-entrant, after this week's entry window has passed. */
+    private fun renderEntriesClosed(data: UserRepository.Leaderboard) {
+        val binding = _binding ?: return
+
+        binding.leaderboardMyRank.text = UNRANKED_RANK
+        binding.leaderboardMyRankLabel.setText(R.string.leaderboard_entries_closed_label)
+        binding.leaderboardMyXp.text = if (data.myXp > 0) {
+            getString(R.string.leaderboard_xp_this_week, formatCount(data.myXp))
+        } else {
+            getString(R.string.leaderboard_entries_closed)
+        }
+        binding.leaderboardMyGap.visibility = View.VISIBLE
+        binding.leaderboardMyGap.setText(R.string.leaderboard_entries_closed_hint)
+        binding.leaderboardMyGap.setTextColor(color(R.color.text_faint))
+        binding.leaderboardClimbBar.visibility = View.GONE
+        binding.leaderboardClimbCaption.visibility = View.GONE
+
+        binding.leaderboardClimb.setText(R.string.leaderboard_entries_closed)
+        binding.leaderboardClimb.isEnabled = false
+    }
+
+    /** Whole days entry stays open, recovered from the week's two boundaries. */
+    private fun entryWindowDays(data: UserRepository.Leaderboard): Int {
+        val weekStart = data.weekEndsAtMillis - TimeUnit.DAYS.toMillis(7)
+        return TimeUnit.MILLISECONDS.toDays(data.entriesCloseAtMillis - weekStart).toInt()
+    }
+
+    /** The time left to enter, in the reset countdown's own format. */
+    private fun closesInLabel(data: UserRepository.Leaderboard): String =
+        remainingLabel((data.entriesCloseAtMillis - ServerClock.now()).coerceAtLeast(MINUTE_MS))
+
     /** The pinned button: Enter for a non-entrant, Play or Climb otherwise. */
     private fun onPinnedAction() {
         val data = board?.let { live(it) }
-        if (data != null && !data.entered) confirmEntry(data) else openPlay()
+        when {
+            data == null || data.entered -> openPlay()
+            data.entriesOpen(ServerClock.now()) -> confirmEntry(data)
+            // Locked by the ticker between redraws - say so rather than open
+            // a dialog the server will refuse.
+            else -> renderMyPlace(data)
+        }
     }
 
     /**
@@ -624,6 +667,10 @@ class LeaderboardFragment : Fragment() {
      */
     private fun confirmEntry(data: UserRepository.Leaderboard) {
         if (entering || _binding == null) return
+        if (!data.entriesOpen(ServerClock.now())) {
+            renderMyPlace(data)
+            return
+        }
         val fee = data.entryFee
 
         val balance = mainViewModel.points.value
@@ -632,12 +679,7 @@ class LeaderboardFragment : Fragment() {
             return
         }
 
-        val remaining = data.weekEndsAtMillis - ServerClock.now()
-        val endsIn = if (remaining > 0) {
-            remainingLabel(remaining)
-        } else {
-            getString(R.string.leaderboard_resets_now)
-        }
+        val endsIn = closesInLabel(data)
 
         val message = if (data.expectedRank > 0) {
             getString(
@@ -688,6 +730,14 @@ class LeaderboardFragment : Fragment() {
                 UserRepository.TournamentEntryResult.AlreadyEntered -> {
                     toast(R.string.leaderboard_already_entered)
                     showEntered()
+                }
+                // The window passed between the dialog and the tap.
+                UserRepository.TournamentEntryResult.EntriesClosed -> {
+                    loadBoard()
+                    requireContext().showAppDialog(
+                        title = getString(R.string.leaderboard_entries_closed_title),
+                        message = getString(R.string.leaderboard_entries_closed_message)
+                    )
                 }
                 UserRepository.TournamentEntryResult.InsufficientStars -> {
                     board?.let { renderMyPlace(live(it)) }
@@ -741,10 +791,19 @@ class LeaderboardFragment : Fragment() {
         ).drawStars()
     }
 
-    /** AppDialog takes plain text, so its star characters are swapped here. */
+    /**
+     * AppDialog takes plain text, so its star characters are swapped here.
+     *
+     * The body's figures go gold and the stars are centred on the line: the
+     * body has 1.35x line spacing, which is where a baseline-sat star looked
+     * off. The button keeps its own white label.
+     */
     private fun Dialog.drawStars() {
-        listOf(R.id.appDialogMessage, R.id.appDialogPositive).forEach { id ->
-            findViewById<TextView>(id)?.let { it.setStarText(it.text) }
+        findViewById<TextView>(R.id.appDialogMessage)?.let {
+            it.setStarText(it.text, figureColor = R.color.gold, centerStars = true)
+        }
+        findViewById<TextView>(R.id.appDialogPositive)?.let {
+            it.setStarText(it.text, centerStars = true)
         }
     }
 

@@ -32,11 +32,16 @@ import {
 } from "./economy/payoutFeed";
 import {
   buildSettlement,
+  expectedRankFromBoard,
+  hasEnteredWeek,
   mergeSettlementBoard,
   prizeForRank,
+  resolveEntryFee,
+  resolveTournamentEntry,
   SettlementEntry,
   settlementCost,
   settlementWeekFor,
+  withCallerRow,
   totalWeeklyPrizePool,
   utcWeekFor,
   weekEndMillis,
@@ -46,6 +51,8 @@ import {
   LEADERBOARD_PREVIEW_SIZE,
   LEADERBOARD_SETTLEMENTS_COLLECTION,
   LEADERBOARD_SIZE,
+  FIELD_TOURNAMENT_WEEK,
+  TOURNAMENT_CONFIG_DOC,
 } from "./economy/leaderboard";
 import {
   resolveBonusPoints,
@@ -159,6 +166,9 @@ const FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc";
 // job that rewrites every user document at the boundary. The closing total is
 // carried into FIELD_LAST_WEEKLY_XP on the way past, since the settlement for
 // a week runs after users have already started playing the next one.
+//
+// Every player's weekly XP accrues; only entrants (FIELD_TOURNAMENT_WEEK) are
+// ranked or paid.
 const FIELD_WEEKLY_XP = "weeklyXp";
 const FIELD_WEEK_KEY = "weekKey";
 // The last weekly prize this user won, for the app to congratulate them with.
@@ -1258,12 +1268,20 @@ async function cachedTopBoard(weekKey: number): Promise<CachedBoard["entries"]> 
     return boardCache.entries;
   }
 
-  // Needs the (weekKey ASC, weeklyXp DESC) composite index in
-  // firestore.indexes.json. The rank count below is deliberately ordered the
-  // same way so both queries share it.
+  // Entrants only, and only those who have scored. Every player's weekly XP
+  // accrues, so without the entry filter a non-entrant would take a place -
+  // and a prize line - that the settlement will never pay them. A zero row is
+  // dropped for the same reason: buildSettlement pays nobody on zero.
+  //
+  // weekKey is filtered as well as tournamentWeek even though, for the
+  // running week, entry implies it (enterTournament stamps both). The
+  // settlement's live query needs both filters, and sharing one shape means
+  // sharing the one (tournamentWeek, weekKey, weeklyXp DESC) composite index.
   const snapshot = await getFirestore()
     .collection(USERS_COLLECTION)
+    .where(FIELD_TOURNAMENT_WEEK, "==", weekKey)
     .where(FIELD_WEEK_KEY, "==", weekKey)
+    .where(FIELD_WEEKLY_XP, ">", 0)
     .orderBy(FIELD_WEEKLY_XP, "desc")
     .limit(LEADERBOARD_SIZE)
     .get();
@@ -1276,6 +1294,63 @@ async function cachedTopBoard(weekKey: number): Promise<CachedBoard["entries"]> 
 
   boardCache = {weekKey, readAt: now, entries};
   return entries;
+}
+
+/**
+ * How many of this week's entrants have more weekly XP than [xp].
+ *
+ * A count query rather than a scan: billed per thousand index entries, so it
+ * costs the same whether the caller is twelfth or twenty-thousandth. Ordered
+ * descending only so it is served by the board's own index - ordering does not
+ * change a count, but a second, ascending index would be write amplification
+ * on a document written on every reward claim.
+ */
+async function entrantsAhead(weekKey: number, xp: number): Promise<number> {
+  const ahead = await getFirestore()
+    .collection(USERS_COLLECTION)
+    .where(FIELD_TOURNAMENT_WEEK, "==", weekKey)
+    .where(FIELD_WEEK_KEY, "==", weekKey)
+    .where(FIELD_WEEKLY_XP, ">", xp)
+    .orderBy(FIELD_WEEKLY_XP, "desc")
+    .count()
+    .get();
+  return ahead.data().count;
+}
+
+/**
+ * The tournament entry fee, as configured.
+ *
+ * Cached in the instance for a minute, like the goal bonus: getLeaderboard
+ * asks on every visit to Earn, and a read per visit for a number that changes
+ * rarely is a bill for nothing. A console edit can therefore be up to a minute
+ * stale on a warm instance - which is harmless, because enterTournament
+ * refuses a fee that does not match the one the player was shown.
+ */
+let entryFeeCache: {fee: number; readAt: number} | null = null;
+const ENTRY_FEE_TTL_MS = 60_000;
+
+async function configuredEntryFee(): Promise<number> {
+  const now = Date.now();
+  if (entryFeeCache && now - entryFeeCache.readAt < ENTRY_FEE_TTL_MS) {
+    return entryFeeCache.fee;
+  }
+
+  let fee: number;
+  try {
+    const snapshot = await getFirestore()
+      .collection(CONFIG_COLLECTION)
+      .doc(TOURNAMENT_CONFIG_DOC)
+      .get();
+    fee = resolveEntryFee(snapshot.get("entryFee"));
+  } catch (error) {
+    // Charging the deployed fee is right; refusing every entry because a
+    // config read blipped is not.
+    console.error("Tournament config unreadable", error);
+    fee = resolveEntryFee(undefined);
+  }
+
+  entryFeeCache = {fee, readAt: now};
+  return fee;
 }
 
 /**
@@ -1294,6 +1369,10 @@ async function cachedTopBoard(weekKey: number): Promise<CachedBoard["entries"]> 
  * Both queries filter on weekKey. Without it, last week's figures would still
  * be sitting on the documents of everyone who has not played since, and they
  * would rank.
+ *
+ * A caller who has not entered still sees their weekly XP, and the rank it
+ * would take among entrants (`expectedRank`, `expectedPrize`) - which is the
+ * reason to enter. They are never placed on the board itself.
  */
 export const getLeaderboard = functions.https.onCall(async (request: CallableRequest) => {
   if (!request.auth) {
@@ -1305,19 +1384,44 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
   const firestore = getFirestore();
   const weekKey = utcWeekFor(Date.now());
 
-  const [board, userDoc] = await Promise.all([
+  const [cachedBoard, userDoc, entryFee] = await Promise.all([
     cachedTopBoard(weekKey),
     firestore.collection(USERS_COLLECTION).doc(userId).get(),
+    configuredEntryFee(),
   ]);
 
+  const entered = hasEnteredWeek(
+    userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined,
+    weekKey
+  );
   // A stale week means the caller has not played this week, whatever figure
   // is still sitting on the document.
   const myXp = userDoc.get(FIELD_WEEK_KEY) === weekKey ?
     Number(userDoc.get(FIELD_WEEKLY_XP) || 0) :
     0;
 
+  // The caller's own row from the document just read, not from the cache - so
+  // an entry or a finished quiz shows on the board at once. See withCallerRow.
+  const board = withCallerRow(
+    cachedBoard,
+    userId,
+    entered ?
+      {
+        uid: userId,
+        name: maskDisplayName(userDoc.get("displayName") as string | undefined),
+        xp: myXp,
+      } :
+      null
+  );
+
   let myRank = 0;
-  if (myXp > 0) {
+  let expectedRank = 0;
+  if (!entered) {
+    // Where the caller's XP would land among entrants. Answered from the
+    // board when it can be, which is every case but "below a full board".
+    expectedRank = expectedRankFromBoard(board.map((entry) => entry.xp), myXp) ??
+      (await entrantsAhead(weekKey, myXp)) + 1;
+  } else if (myXp > 0) {
     // Position in the board first, which costs nothing - the board is already
     // in hand - and, more importantly, is the rank the SETTLEMENT will pay.
     //
@@ -1332,21 +1436,8 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
       myRank = seat + 1;
     } else {
       // Outside the board, where no prize is at stake and the count is the
-      // only way to answer at all. Billed per thousand index entries scanned
-      // rather than per document ahead, so it survives a large user base.
-      const ahead = await firestore
-        .collection(USERS_COLLECTION)
-        .where(FIELD_WEEK_KEY, "==", weekKey)
-        .where(FIELD_WEEKLY_XP, ">", myXp)
-        // Ordering does not change what a count returns, but it does decide
-        // which index serves the query. Descending reuses the index the board
-        // itself needs; without it Firestore wants a second, ascending one -
-        // and every extra composite index is write amplification on a
-        // document that is written on every reward claim.
-        .orderBy(FIELD_WEEKLY_XP, "desc")
-        .count()
-        .get();
-      myRank = ahead.data().count + 1;
+      // only way to answer at all.
+      myRank = (await entrantsAhead(weekKey, myXp)) + 1;
     }
   }
 
@@ -1360,11 +1451,20 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
     weekEndsAt: weekEndMillis(weekKey),
     size: LEADERBOARD_SIZE,
     prizePool: totalWeeklyPrizePool(),
+    // What entering costs, and whether the caller already has. The client
+    // sends entryFee back to enterTournament, which refuses if it has moved.
+    entryFee,
+    entered,
+    // This week's XP, entered or not.
     myXp,
-    // Zero means unranked - no play this week - which the client shows as a
-    // prompt rather than as a position.
+    // Zero means unranked - not entered, or entered and not yet scored -
+    // which the client shows as a prompt rather than as a position.
     myRank,
     myPrize: prizeForRank(myRank),
+    // For a non-entrant with XP: the place entering now would give them, and
+    // what it currently pays. Zero for entrants and for anyone without XP.
+    expectedRank,
+    expectedPrize: prizeForRank(expectedRank),
     full,
     entries: visible.map((entry, index) => ({
       rank: index + 1,
@@ -1374,6 +1474,137 @@ export const getLeaderboard = functions.https.onCall(async (request: CallableReq
       isMe: entry.uid === userId,
     })),
   };
+});
+
+/**
+ * Buys the caller into this week's tournament with Stars.
+ *
+ * The only writer of FIELD_TOURNAMENT_WEEK. Everything entry depends on happens
+ * in one transaction: the balance check, the debit, the ledger entry, and the
+ * mark.
+ *
+ *   * THE FEE IS THE SERVER'S. `expectedFee` is what the button said, and it
+ *     is only compared - a mismatch refuses, so a console retune between
+ *     loading the board and tapping Enter can never charge an amount the
+ *     player did not agree to.
+ *   * ONCE PER WEEK. The tournamentWeek test refuses a second entry, and it is
+ *     read in the same transaction that writes it, so two racing taps cannot
+ *     both pay - the second retries, finds the week entered, and is refused.
+ *     The ledger id `tournament:{weekKey}` records which week was bought.
+ *   * XP ALREADY EARNED THIS WEEK COUNTS. Weekly XP accrues for everyone, and
+ *     the entry only makes it visible and payable.
+ *   * THE WEEK IS STAMPED TOO. The board filters on weekKey as well as on
+ *     entry, so a player who enters before playing this week is moved onto it
+ *     here at zero - through weeklyRollover, which carries last week's total
+ *     first if they had entered that week and it has not been settled yet.
+ *
+ * Not refundable, and no XP is awarded for entering.
+ */
+export const enterTournament = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const expectedFee = Number(request.data?.expectedFee);
+  if (!Number.isInteger(expectedFee) || expectedFee < 0) {
+    throw new functions.https.HttpsError("invalid-argument", "expectedFee is required");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  // Outside the transaction, like the goal bonus: it is not part of what has
+  // to stay consistent with the user document.
+  const fee = await configuredEntryFee();
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    // Inside, so an entry that straddles the boundary joins the week it
+    // actually committed in.
+    const weekKey = utcWeekFor(Date.now());
+    const storedTournamentWeek = userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined;
+    const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
+
+    const decision = resolveTournamentEntry({
+      storedTournamentWeek,
+      currentWeekKey: weekKey,
+      points: currentPoints,
+      fee,
+      expectedFee,
+    });
+    if (!decision.ok) {
+      return {ok: false as const, rejection: decision.rejection};
+    }
+
+    // Negative points, zero XP - the same shape as a redemption. buildAward
+    // never scales a negative award, so no buff can touch the fee.
+    const award = buildAward(currentPoints, Number(userDoc.get(FIELD_XP) || 0), {
+      source: "TOURNAMENT_ENTRY",
+      basePoints: -decision.fee,
+      baseXp: 0,
+      metadata: {weekKey, fee: decision.fee},
+      storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
+    });
+
+    // A zero gain: a no-op on a week already being played, and on a stale one
+    // the move onto this week, carrying the closing total if it was entered.
+    const weekly = weeklyRollover(
+      userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+      userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+      weekKey,
+      0,
+      storedTournamentWeek
+    );
+    const extraUpdates: Record<string, number> = {
+      [FIELD_TOURNAMENT_WEEK]: weekKey,
+      [FIELD_WEEK_KEY]: weekly.weekKey,
+      [FIELD_WEEKLY_XP]: weekly.weeklyXp,
+    };
+    if (weekly.lastWeekKey !== undefined) {
+      extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
+      extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+    }
+
+    writeAward(
+      transaction,
+      userRef,
+      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`tournament:${weekKey}`),
+      award,
+      extraUpdates
+    );
+
+    return {
+      ok: true as const,
+      weekKey,
+      feePaid: decision.fee,
+      remainingPoints: currentPoints - decision.fee,
+    };
+  });
+
+  if (!result.ok) {
+    console.log("Tournament entry refused", {userId, fee, expectedFee, rejection: result.rejection});
+    // The live fee rides along so a client refused for a stale price can show
+    // the new one without another round trip.
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      result.rejection,
+      {fee}
+    );
+  }
+
+  // A new entrant changes the board, so this instance stops serving the copy
+  // from before they joined. Other instances still wait out their minute;
+  // the entrant themselves never do, because getLeaderboard splices the
+  // caller's own row in fresh.
+  boardCache = null;
+
+  console.log("Tournament entered", {userId, ...result});
+  return {success: true, serverTime: Date.now(), ...result};
 });
 
 /**
@@ -1397,8 +1628,15 @@ async function freezeBoard(
 
   // The first of these is the same query, and the same composite index, the
   // live board uses - so what was on screen all week is what gets paid.
+  //
+  // ENTRANTS ONLY, in both halves. The live half says so with the
+  // tournamentWeek filter; here weekKey genuinely matters as well, because an
+  // entrant who has since played into the new week still has tournamentWeek
+  // naming this one while weeklyXp has moved on. The carried half needs no
+  // filter: weeklyRollover only ever carries a week the player had entered.
   const [live, carried] = await Promise.all([
     users
+      .where(FIELD_TOURNAMENT_WEEK, "==", weekKey)
       .where(FIELD_WEEK_KEY, "==", weekKey)
       .orderBy(FIELD_WEEKLY_XP, "desc")
       .limit(LEADERBOARD_SIZE)
@@ -2092,16 +2330,22 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // Weekly leaderboard. Written here rather than in writeAward so it counts
     // play alone: streak and referral XP go through the same award path, and
     // counting those would let someone place by signing up friends.
+    //
+    // Accrues for EVERY player, entered or not - a non-entrant is shown the
+    // rank this would give them. Entry decides visibility and payment, not
+    // scoring.
     const weekly = weeklyRollover(
       userDoc.get(FIELD_WEEK_KEY) as number | undefined,
       userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
       utcWeekFor(Date.now()),
-      xpAward
+      xpAward,
+      userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
     );
     extraUpdates[FIELD_WEEKLY_XP] = weekly.weeklyXp;
     extraUpdates[FIELD_WEEK_KEY] = weekly.weekKey;
-    // Only on the claim that crosses a boundary, and this is the claim that
-    // would otherwise erase a winning week before it had been paid for.
+    // Only on the claim that crosses a boundary out of an ENTERED week, and
+    // this is the claim that would otherwise erase that week before it had
+    // been paid for.
     if (weekly.lastWeekKey !== undefined) {
       extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
       extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
@@ -2379,10 +2623,10 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     // Read through weeklyRollover rather than incremented blindly so a week
     // that rolls over between the base claim and its double resets the total
     // instead of carrying last week's into this one - and preserves the
-    // closing figure on the way past, so the double cannot be what wipes a
-    // winning week out from under the settlement. That gap is seconds wide,
-    // but it is exactly as wide as a rewarded ad and the boundary does not
-    // care.
+    // closing figure of an entered week on the way past, so the double cannot
+    // be what wipes a winning week out from under the settlement. That gap is
+    // seconds wide, but it is exactly as wide as a rewarded ad and the
+    // boundary does not care.
     //
     // The daily goal counters and the attempt counters stay untouched: this
     // is one attempt being paid twice, not a second attempt, so a double must
@@ -2391,7 +2635,8 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
       userDoc.get(FIELD_WEEK_KEY) as number | undefined,
       userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
       utcWeekFor(Date.now()),
-      bonusXp
+      bonusXp,
+      userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
     );
     const extraUpdates: Record<string, FieldValue | number> = {
       [FIELD_WEEKLY_XP]: weekly.weeklyXp,

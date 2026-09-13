@@ -8,6 +8,12 @@
  * measures play, and counting passive XP would let someone rank by signing up
  * friends and opening the app once a day rather than by playing. Those still
  * level you up; they just do not place you.
+ *
+ * ENTRY IS PAID, SCORING IS NOT. Every player's weekly XP accrues whether or
+ * not they have entered, but only players who bought into the week with Stars
+ * (see resolveTournamentEntry) appear on the board or are paid by it. Entry is
+ * marked by FIELD_TOURNAMENT_WEEK; a non-entrant is shown the rank their XP
+ * would take, which is the prompt to enter.
  */
 
 /**
@@ -96,11 +102,23 @@ export const LEADERBOARD_SETTLEMENTS_COLLECTION = "leaderboardSettlements";
  * to open the app the moment it resets.
  *
  * So the rollover copies the closing total across rather than discarding it,
- * and the settlement reads both. Two fields, written only on the one claim
- * that crosses a boundary; the lazy reset is otherwise unchanged.
+ * and the settlement reads both. Two fields, written only on the one write
+ * that crosses a boundary, and only for a player who had ENTERED the week
+ * being closed - so everything under lastWeekKey is an entrant, and the
+ * settlement's carried query needs no second filter.
  */
 export const FIELD_LAST_WEEKLY_XP = "lastWeeklyXp";
 export const FIELD_LAST_WEEK_KEY = "lastWeekKey";
+
+/**
+ * The week a player last bought into. Written only by enterTournament.
+ *
+ * Kept apart from weekKey on purpose: weekKey says which week weeklyXp belongs
+ * to and moves on every player's first claim of a week, entered or not, while
+ * this moves only when Stars are paid. The board and the settlement filter on
+ * both - see the composite index on (tournamentWeek, weekKey, weeklyXp).
+ */
+export const FIELD_TOURNAMENT_WEEK = "tournamentWeek";
 
 /**
  * The week a settlement running now should pay: the one that has just ended.
@@ -152,6 +170,28 @@ export interface SettlementEntry {
 }
 
 /**
+ * The one ordering of a board: XP descending, then uid DESCENDING.
+ *
+ * The uid half is not a preference - it is what Firestore does. A query
+ * ordered by weeklyXp desc with no explicit tie-breaker breaks ties on
+ * __name__ in the direction of the last orderBy, which is descending (the
+ * board's composite index is defined with `__name__ DESC`). The live board is
+ * read in that order, so every in-code sort of a board has to use it too, or
+ * two players on equal XP would be shown in one order and paid in the other.
+ *
+ * Shared by the settlement merge and the caller-row splice for exactly that
+ * reason: they once disagreed - the merge sorted ties ascending - and a tie at
+ * a band edge would have handed the bigger prize to the player the screen
+ * ranked below.
+ */
+export function compareStanding(
+  a: {uid: string; xp: number},
+  b: {uid: string; xp: number}
+): number {
+  return (b.xp - a.xp) || (a.uid < b.uid ? 1 : a.uid > b.uid ? -1 : 0);
+}
+
+/**
  * The board a settlement should pay, from the two places last week can hide.
  *
  * `current` is everyone whose live counters still read the settled week -
@@ -160,10 +200,10 @@ export interface SettlementEntry {
  * Neither list is the board on its own, and the missing half is always the
  * more active one.
  *
- * ORDERED THE WAY FIRESTORE ORDERS IT: by XP descending, then by uid
- * ascending. Two players on the same XP are separated by document name in the
- * live board's query, and this merge has to reproduce that or a settlement
- * would rank ties differently from the screen that promised the prize.
+ * ORDERED THE WAY FIRESTORE ORDERS IT - see compareStanding. Two players on the
+ * same XP are separated by document name in the live board's query, and this
+ * merge has to reproduce that or a settlement would rank ties differently from
+ * the screen that promised the prize.
  *
  * A uid can only appear in one list - the rollover never writes the same week
  * into both the live and the carried key - but it is deduplicated anyway,
@@ -185,8 +225,7 @@ export function mergeSettlementBoard(
   return [...best.entries()]
     .map(([uid, weeklyXp]) => ({uid, weeklyXp}))
     .sort((a, b) =>
-      (b.weeklyXp - a.weeklyXp) ||
-      (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0)
+      compareStanding({uid: a.uid, xp: a.weeklyXp}, {uid: b.uid, xp: b.weeklyXp})
     )
     .slice(0, LEADERBOARD_SIZE);
 }
@@ -274,11 +313,18 @@ export interface WeeklyRollover {
   lastWeeklyXp?: number;
 }
 
+/**
+ * @param storedTournamentWeek the week the player last entered. The closing
+ *   total is carried only when it names the week being closed: a non-entrant's
+ *   week can never be paid, so carrying it would be a write for nothing and a
+ *   row the settlement would then have to filter back out.
+ */
 export function weeklyRollover(
   storedWeekKey: number | null | undefined,
   storedWeeklyXp: number | null | undefined,
   currentWeekKey: number,
-  xpAwarded: number
+  xpAwarded: number,
+  storedTournamentWeek: number | null | undefined
 ): WeeklyRollover {
   const weeklyXp = nextWeeklyXp(
     storedWeekKey, storedWeeklyXp, currentWeekKey, xpAwarded
@@ -288,6 +334,7 @@ export function weeklyRollover(
   if (typeof storedWeekKey !== "number" || storedWeekKey === currentWeekKey) {
     return rollover;
   }
+  if (storedTournamentWeek !== storedWeekKey) return rollover;
 
   const closing = Math.max(Math.trunc(storedWeeklyXp as number) || 0, 0);
   if (closing <= 0) return rollover;
@@ -295,4 +342,164 @@ export function weeklyRollover(
   rollover.lastWeekKey = storedWeekKey;
   rollover.lastWeeklyXp = closing;
   return rollover;
+}
+
+/**
+ * The fallback entry fee, in Stars.
+ *
+ * The live value is config/tournament.entryFee - see resolveEntryFee - so it
+ * can be retuned from the console without a deploy. This applies when that
+ * document is missing or unreadable.
+ *
+ * THE PRIZE POOL DOES NOT SCALE WITH IT. The bands above are fixed, so below
+ * totalWeeklyPrizePool() / fee entrants a week pays out more than it collects,
+ * and with fewer entrants than LEADERBOARD_SIZE every entrant who scores wins
+ * more than they paid. That was chosen knowingly over an entry-funded pool.
+ *
+ * XP EARNED BEFORE ENTERING COUNTS, also knowingly: a non-entrant is shown the
+ * rank they would take, as the reason to enter. The cost is that a player can
+ * wait until late in the week and pay only once that rank is a winning one.
+ */
+export const TOURNAMENT_ENTRY_FEE = 20;
+
+/**
+ * The ceiling on the configured fee.
+ *
+ * config/tournament is edited by hand, and an extra zero there would charge
+ * every entrant ten times over. The client also refuses to pay a fee other
+ * than the one it showed, but a cap keeps the worst typo bounded regardless.
+ */
+export const MAX_TOURNAMENT_ENTRY_FEE = 1000;
+
+/** The document holding the tunable fee. */
+export const TOURNAMENT_CONFIG_DOC = "tournament";
+
+/**
+ * The fee to actually charge, from whatever the config document holds.
+ *
+ * Zero is a legitimate setting - a free week - so it is honoured. Anything
+ * absent, negative, fractional or not a number falls back to the built-in fee:
+ * type-checked before coercion because Number(null) and Number("") are both 0,
+ * and a blank console field must not silently make entry free.
+ */
+export function resolveEntryFee(raw: unknown): number {
+  if (typeof raw !== "number") return TOURNAMENT_ENTRY_FEE;
+  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 0) {
+    return TOURNAMENT_ENTRY_FEE;
+  }
+  return Math.min(raw, MAX_TOURNAMENT_ENTRY_FEE);
+}
+
+/** One place on the live board, as getLeaderboard serves it. */
+export interface BoardRow {
+  uid: string;
+  name: string;
+  xp: number;
+}
+
+/**
+ * The cached board with the caller's own row replaced by a fresh one.
+ *
+ * The top of the board is cached for a minute per function instance, but the
+ * caller's own document is read fresh on every getLeaderboard call anyway. So
+ * their row - the one row on the screen they are sure to be watching - is
+ * taken from that read rather than from the cache: an entry, or a quiz just
+ * finished, shows on the board at once instead of a minute later. Everyone
+ * else's movement still waits for the cache, which is what keeps it cheap.
+ *
+ * `caller` is null when they should not be on the board at all (not entered,
+ * or no XP yet); any stale row of theirs is still removed.
+ *
+ * ORDERED THE WAY THE LIVE QUERY IS - see compareStanding - or a tied caller
+ * would sit on the wrong side of the rows they are spliced among.
+ *
+ * Pure: never mutates `board`, which is the shared cached array.
+ */
+export function withCallerRow(
+  board: BoardRow[],
+  callerUid: string,
+  caller: BoardRow | null,
+  size: number = LEADERBOARD_SIZE
+): BoardRow[] {
+  const others = board.filter((row) => row.uid !== callerUid);
+  if (!caller || !(caller.xp > 0)) return others.slice(0, size);
+
+  return [...others, caller].sort(compareStanding).slice(0, size);
+}
+
+/** Whether the player has paid into the running week. */
+export function hasEnteredWeek(
+  storedTournamentWeek: number | null | undefined,
+  currentWeekKey: number
+): boolean {
+  return typeof storedTournamentWeek === "number" &&
+    storedTournamentWeek === currentWeekKey;
+}
+
+/**
+ * The rank a non-entrant's XP would take among this week's entrants, if the
+ * board alone can say - or null when a count query has to.
+ *
+ * Counts the entrants strictly ahead, so a tie reads as the better of the two
+ * places. That is the optimistic reading, and it is labelled "if you enter"
+ * rather than promised: an actual tie is decided by uid, exactly as it is for
+ * entrants (see buildSettlement).
+ *
+ * The board is sorted descending and capped at [boardSize]. When somebody on
+ * it has no more XP than the caller, or the board is not full, everyone ahead
+ * is on it and the count is exact. Only a full board of players all ahead of
+ * the caller leaves the answer somewhere below it.
+ *
+ * Zero means no XP this week, and so no rank to show.
+ */
+export function expectedRankFromBoard(
+  boardXp: number[],
+  myXp: number,
+  boardSize: number = LEADERBOARD_SIZE
+): number | null {
+  if (!(myXp > 0)) return 0;
+  const ahead = boardXp.filter((xp) => xp > myXp).length;
+  if (ahead < boardXp.length || boardXp.length < boardSize) return ahead + 1;
+  return null;
+}
+
+export type TournamentEntryRejection =
+  | "already_entered"
+  | "insufficient_stars"
+  /** The fee the client showed is not the fee now configured. */
+  | "fee_changed";
+
+export type TournamentEntryDecision =
+  | {ok: true; fee: number}
+  | {ok: false; rejection: TournamentEntryRejection};
+
+/**
+ * Whether a player may buy into the running week.
+ *
+ * `expectedFee` is the figure the button showed. It is compared, never
+ * charged: the server's fee is what is taken, and a mismatch refuses rather
+ * than charging a number the player did not agree to - which is what a console
+ * retune between loading the board and tapping Enter would otherwise do.
+ *
+ * Checked in this order so the message is the useful one: somebody already in
+ * is told so even if the fee has since moved.
+ */
+export function resolveTournamentEntry(input: {
+  storedTournamentWeek: number | null | undefined;
+  currentWeekKey: number;
+  points: number;
+  fee: number;
+  expectedFee: number;
+}): TournamentEntryDecision {
+  if (hasEnteredWeek(input.storedTournamentWeek, input.currentWeekKey)) {
+    return {ok: false, rejection: "already_entered"};
+  }
+  if (input.expectedFee !== input.fee) {
+    return {ok: false, rejection: "fee_changed"};
+  }
+  const points = Number.isFinite(input.points) ? input.points : 0;
+  if (points < input.fee) {
+    return {ok: false, rejection: "insufficient_stars"};
+  }
+  return {ok: true, fee: input.fee};
 }

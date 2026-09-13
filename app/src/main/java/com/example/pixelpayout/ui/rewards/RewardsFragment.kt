@@ -6,6 +6,7 @@ import android.widget.Toast
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -14,6 +15,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.repository.OfferwallCatalogStore
 import com.example.pixelpayout.data.repository.UserRepository
+import com.example.pixelpayout.ui.leaderboard.LeaderboardFragment
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.TapjoyOfferwall
 import com.example.pixelpayout.utils.setStarText
@@ -76,10 +78,17 @@ class RewardsFragment : Fragment() {
         // SpacingItemDecoration casts to StaggeredGridLayoutManager.LayoutParams
         // and would throw under the linear manager this list uses.
         binding.offerwallList.layoutManager = LinearLayoutManager(requireContext())
-        binding.viewTournament.setOnClickListener { openLeaderboard() }
-        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
+        // The button carries the entry offer when there is one; the card itself
+        // only ever opens the board, so a stray tap never starts a purchase.
+        binding.viewTournament.setOnClickListener {
+            openLeaderboard(promptEntry = mainViewModel.tournament.value?.entered == false)
+        }
+        binding.leaderboardRow.setOnClickListener { openLeaderboard(promptEntry = false) }
 
-        mainViewModel.leaderboard.observe(viewLifecycleOwner) { renderLeaderboard(it) }
+        // The live view, not the raw board: the caller's XP and entry follow
+        // the user snapshot, so a finished quiz shows here without waiting out
+        // the board's refresh throttle.
+        mainViewModel.tournament.observe(viewLifecycleOwner) { renderLeaderboard(it) }
         observeWalls()
     }
 
@@ -115,15 +124,26 @@ class RewardsFragment : Fragment() {
         val pool = formatCount(board.prizePool)
         binding.leaderboardSubtitle.text = getString(R.string.earn_pool_summary, board.size, pool)
 
-        binding.leaderboardRank.text = if (board.isRanked) {
-            getString(R.string.earn_rank_you, formatCount(board.myRank))
-        } else {
-            getString(R.string.earn_unranked_you)
+        binding.leaderboardRank.text = when {
+            // The place their XP would take - the reason to tap Enter below.
+            !board.entered && board.expectedRank > 0 ->
+                getString(R.string.earn_expected_rank_you, formatCount(board.expectedRank))
+            !board.entered -> getString(R.string.earn_not_entered_you)
+            board.isRanked -> getString(R.string.earn_rank_you, formatCount(board.myRank))
+            else -> getString(R.string.earn_entered_you)
         }
 
         binding.leaderboardMyXp.text = getString(R.string.earn_xp, formatCount(board.myXp))
         binding.leaderboardPrizePool.setStarText(getString(R.string.earn_pool_value, pool))
         binding.leaderboardPrizeShare.text = getString(R.string.earn_pool_share, board.size)
+
+        if (board.entered) {
+            binding.viewTournament.setText(R.string.earn_view_tournament)
+        } else {
+            binding.viewTournament.setStarText(
+                getString(R.string.earn_enter_tournament, formatCount(board.entryFee))
+            )
+        }
     }
 
     /**
@@ -133,12 +153,19 @@ class RewardsFragment : Fragment() {
      * asynchronous, so a fast thumb could fire this several times before the
      * first one arrived, and every tap would push another copy of the screen
      * onto the stack. Asking where we are is the check that cannot race.
+     *
+     * [promptEntry] opens the entry confirmation there rather than here: the
+     * leaderboard is the one place that buys an entry, so the confirmation,
+     * the balance check and every refusal are handled once.
      */
-    private fun openLeaderboard() {
+    private fun openLeaderboard(promptEntry: Boolean) {
         val controller = findNavController()
         if (controller.currentDestination?.id != R.id.navigation_rewards) return
 
-        controller.navigate(R.id.leaderboardFragment)
+        controller.navigate(
+            R.id.leaderboardFragment,
+            bundleOf(LeaderboardFragment.ARG_PROMPT_ENTRY to promptEntry)
+        )
     }
 
     /** Thousands separators - a rank of 24247 is unreadable without them. */

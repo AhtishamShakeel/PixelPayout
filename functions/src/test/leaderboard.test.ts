@@ -4,9 +4,15 @@
  */
 import {
   buildSettlement,
+  compareStanding,
+  expectedRankFromBoard,
+  hasEnteredWeek,
   mergeSettlementBoard,
   nextWeeklyXp,
+  resolveEntryFee,
+  resolveTournamentEntry,
   weeklyRollover,
+  withCallerRow,
   prizeForRank,
   settlementCost,
   settlementWeekFor,
@@ -16,6 +22,8 @@ import {
   weekStartMillis,
   LEADERBOARD_PRIZES,
   LEADERBOARD_SIZE,
+  MAX_TOURNAMENT_ENTRY_FEE,
+  TOURNAMENT_ENTRY_FEE,
 } from "../economy/leaderboard";
 
 let passed = 0;
@@ -111,34 +119,42 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 // claim before then used to overwrite the total it was about to be paid for.
 {
   const week = 2900;
+  // Entered the week being closed, unless a test says otherwise.
+  const entered = week - 1;
 
-  const same = weeklyRollover(week, 40, week, 10);
+  const same = weeklyRollover(week, 40, week, 10, week);
   assertEq("a claim inside the week carries nothing",
     same, {weekKey: week, weeklyXp: 50});
 
-  const rolled = weeklyRollover(week - 1, 5000, week, 10);
+  const rolled = weeklyRollover(week - 1, 5000, week, 10, entered);
   assertEq("the first claim of a new week preserves the closing total",
     rolled,
     {weekKey: week, weeklyXp: 10, lastWeekKey: week - 1, lastWeeklyXp: 5000});
 
   assertEq("a second claim in the new week does not re-carry",
-    weeklyRollover(week, 10, week, 10), {weekKey: week, weeklyXp: 20});
+    weeklyRollover(week, 10, week, 10, entered), {weekKey: week, weeklyXp: 20});
 
   assertEq("a brand new user has no week to preserve",
-    weeklyRollover(undefined, undefined, week, 10),
+    weeklyRollover(undefined, undefined, week, 10, undefined),
     {weekKey: week, weeklyXp: 10});
 
   // Nothing to pay, so nothing to find: a zero carry would only add rows to a
   // query that exists to locate winners.
   assertEq("a week that scored nothing is not carried",
-    weeklyRollover(week - 1, 0, week, 10), {weekKey: week, weeklyXp: 10});
+    weeklyRollover(week - 1, 0, week, 10, entered), {weekKey: week, weeklyXp: 10});
 
   assertEq("a corrupt stored total is not carried",
-    weeklyRollover(week - 1, -5, week, 10), {weekKey: week, weeklyXp: 10});
+    weeklyRollover(week - 1, -5, week, 10, entered), {weekKey: week, weeklyXp: 10});
+
+  // Only an entrant's week can be paid, so only an entrant's week is kept.
+  assertEq("a non-entrant's closing week is not carried",
+    weeklyRollover(week - 1, 5000, week, 10, undefined), {weekKey: week, weeklyXp: 10});
+  assertEq("an entry into an older week does not carry this one",
+    weeklyRollover(week - 1, 5000, week, 10, week - 3), {weekKey: week, weeklyXp: 10});
 
   // The reproduction from the report, end to end: last week's winner plays
   // right after the reset, and must still be findable as last week's winner.
-  const winner = weeklyRollover(week - 1, 4800, week, 30);
+  const winner = weeklyRollover(week - 1, 4800, week, 30, entered);
   assertEq("last week's winner is still payable after playing on Monday",
     winner.lastWeeklyXp, 4800);
   assertEq("...and is ranked under last week, not this one",
@@ -157,14 +173,24 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
       {uid: "idle", weeklyXp: 300},
     ]);
 
-  // Firestore separates equal scores by document name; the merge has to agree
-  // with it or the settlement would rank ties differently from the screen.
-  assertEq("ties break on uid, ascending, as Firestore orders them",
+  // Firestore separates equal scores by document name, in the direction of the
+  // last orderBy - descending. The merge has to agree with it or the
+  // settlement would rank ties differently from the screen.
+  assertEq("ties break on uid, descending, as Firestore orders them",
     mergeSettlementBoard(
-      [{uid: "zoe", weeklyXp: 100}],
-      [{uid: "amy", weeklyXp: 100}]
+      [{uid: "amy", weeklyXp: 100}],
+      [{uid: "zoe", weeklyXp: 100}]
     ),
-    [{uid: "amy", weeklyXp: 100}, {uid: "zoe", weeklyXp: 100}]);
+    [{uid: "zoe", weeklyXp: 100}, {uid: "amy", weeklyXp: 100}]);
+
+  // The case the bug would have paid wrongly: a tie across a band edge.
+  // Rank 1 pays 350, rank 2 pays 200.
+  assertEq("a tie at a band edge pays the top prize to the uid the board shows first",
+    buildSettlement(mergeSettlementBoard(
+      [{uid: "amy", weeklyXp: 500}],
+      [{uid: "zoe", weeklyXp: 500}]
+    )).map((p) => [p.uid, p.points]),
+    [["zoe", 350], ["amy", 200]]);
 
   assertEq("a uid in both halves is counted once, at its best total",
     mergeSettlementBoard(
@@ -305,6 +331,150 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 
   assertEq("an empty week pays nothing", buildSettlement([]), []);
   assertEq("an empty week costs nothing", settlementCost([]), 0);
+}
+
+// --- the entry fee, as configured --------------------------------------------
+{
+  assertEq("the fallback fee is 20 stars", TOURNAMENT_ENTRY_FEE, 20);
+  assertEq("a configured fee is honoured", resolveEntryFee(35), 35);
+  assertEq("a free week is a legitimate setting", resolveEntryFee(0), 0);
+
+  // A blank or broken console field must not make entry free.
+  assertEq("a missing fee falls back", resolveEntryFee(undefined), TOURNAMENT_ENTRY_FEE);
+  assertEq("a null fee falls back", resolveEntryFee(null), TOURNAMENT_ENTRY_FEE);
+  assertEq("an empty-string fee falls back", resolveEntryFee(""), TOURNAMENT_ENTRY_FEE);
+  assertEq("a numeric string falls back", resolveEntryFee("20"), TOURNAMENT_ENTRY_FEE);
+  assertEq("a negative fee falls back", resolveEntryFee(-5), TOURNAMENT_ENTRY_FEE);
+  assertEq("a fractional fee falls back", resolveEntryFee(19.5), TOURNAMENT_ENTRY_FEE);
+  assertEq("NaN falls back", resolveEntryFee(NaN), TOURNAMENT_ENTRY_FEE);
+
+  assertEq("an extra-zero typo is capped",
+    resolveEntryFee(200_000), MAX_TOURNAMENT_ENTRY_FEE);
+}
+
+// --- who has entered ---------------------------------------------------------
+{
+  const week = 2900;
+
+  assertEq("the running week means entered", hasEnteredWeek(week, week), true);
+  assertEq("last week does not", hasEnteredWeek(week - 1, week), false);
+  assertEq("a new account has not", hasEnteredWeek(undefined, week), false);
+  assertEq("null has not", hasEnteredWeek(null, week), false);
+}
+
+// --- one ordering for every board -------------------------------------------
+{
+  const order = (rows: Array<{uid: string; xp: number}>) =>
+    [...rows].sort(compareStanding).map((r) => r.uid);
+
+  assertEq("more xp ranks higher", order([{uid: "a", xp: 10}, {uid: "b", xp: 20}]), ["b", "a"]);
+  assertEq("equal xp breaks on uid descending",
+    order([{uid: "a", xp: 10}, {uid: "c", xp: 10}, {uid: "b", xp: 10}]), ["c", "b", "a"]);
+
+  // The splice and the settlement merge must agree on the same tie.
+  const tied = [{uid: "amy", xp: 500}, {uid: "zoe", xp: 500}];
+  assertEq("the live board and the settlement order a tie the same way",
+    withCallerRow([{uid: "amy", name: "amy", xp: 500}], "zoe",
+      {uid: "zoe", name: "zoe", xp: 500}).map((r) => r.uid),
+    mergeSettlementBoard(tied.map((t) => ({uid: t.uid, weeklyXp: t.xp})), [])
+      .map((r) => r.uid));
+}
+
+// --- the caller's own row, fresh over a cached board ------------------------
+{
+  const row = (uid: string, xp: number) => ({uid, name: uid, xp});
+  const cached = [row("a", 900), row("me", 100), row("b", 300)].sort((x, y) => y.xp - x.xp);
+
+  assertEq("a stale own row is replaced by the fresh figure",
+    withCallerRow(cached, "me", row("me", 500)).map((r) => [r.uid, r.xp]),
+    [["a", 900], ["me", 500], ["b", 300]]);
+
+  assertEq("a caller missing from the cache is added in place",
+    withCallerRow([row("a", 900), row("b", 300)], "me", row("me", 400)).map((r) => r.uid),
+    ["a", "me", "b"]);
+
+  assertEq("a caller who should not be listed is removed",
+    withCallerRow(cached, "me", null).map((r) => r.uid), ["a", "b"]);
+  assertEq("...and so is one with no xp",
+    withCallerRow(cached, "me", row("me", 0)).map((r) => r.uid), ["a", "b"]);
+
+  // Firestore breaks ties on the document id in the direction of the last
+  // orderBy - descending here.
+  assertEq("ties sit where Firestore would put them",
+    withCallerRow([row("z", 100), row("a", 100)], "m", row("m", 100)).map((r) => r.uid),
+    ["z", "m", "a"]);
+
+  const full = Array.from({length: LEADERBOARD_SIZE}, (_, i) => row(`u${i}`, 1000 - i));
+  const climbed = withCallerRow(full, "me", row("me", 995));
+  assertEq("climbing into a full board keeps it at the board size",
+    climbed.length, LEADERBOARD_SIZE);
+  assertEq("...pushes the last place off", climbed.some((r) => r.uid === "u29"), false);
+  // 995 ties with u5, and "u5" sorts before "me" in descending id order.
+  assertEq("...and lands at the right place", climbed.findIndex((r) => r.uid === "me"), 6);
+  assertEq("a caller below a full board is not added",
+    withCallerRow(full, "me", row("me", 1)).some((r) => r.uid === "me"), false);
+
+  assertEq("the cached board is not mutated", full.length, LEADERBOARD_SIZE);
+}
+
+// --- the rank a non-entrant would take ---------------------------------------
+{
+  const board = [900, 500, 500, 300];
+
+  assertEq("no xp means no rank to offer", expectedRankFromBoard(board, 0), 0);
+  assertEq("top of the board", expectedRankFromBoard(board, 1000), 1);
+  assertEq("between two entrants", expectedRankFromBoard(board, 600), 2);
+  // Ties read as the better place - the prompt says "if you enter", and an
+  // actual tie is decided by uid when it is real.
+  assertEq("a tie takes the better place", expectedRankFromBoard(board, 500), 2);
+  assertEq("below everyone on a short board", expectedRankFromBoard(board, 10), 5);
+  assertEq("an empty board puts you first", expectedRankFromBoard([], 40), 1);
+
+  const full = Array.from({length: LEADERBOARD_SIZE}, (_, i) => 1000 - i);
+  assertEq("inside a full board is exact",
+    expectedRankFromBoard(full, 985), 16);
+  assertEq("level with the last place on a full board is exact",
+    expectedRankFromBoard(full, full[full.length - 1]), LEADERBOARD_SIZE);
+  // Everyone shown is ahead, and more may be ahead beyond them.
+  assertEq("below a full board needs a count", expectedRankFromBoard(full, 5), null);
+}
+
+// --- buying into a week ------------------------------------------------------
+{
+  const week = 2900;
+  const entry = (overrides: Partial<Parameters<typeof resolveTournamentEntry>[0]>) =>
+    resolveTournamentEntry({
+      storedTournamentWeek: week - 1,
+      currentWeekKey: week,
+      points: 100,
+      fee: 20,
+      expectedFee: 20,
+      ...overrides,
+    });
+
+  assertEq("a player with enough stars may enter", entry({}), {ok: true, fee: 20});
+  assertEq("exactly the fee is enough", entry({points: 20}), {ok: true, fee: 20});
+  assertEq("a new account may enter", entry({storedTournamentWeek: undefined}), {ok: true, fee: 20});
+
+  assertEq("one star short is refused",
+    entry({points: 19}), {ok: false, rejection: "insufficient_stars"});
+  assertEq("a corrupt balance is refused",
+    entry({points: NaN}), {ok: false, rejection: "insufficient_stars"});
+
+  assertEq("paying twice in one week is refused",
+    entry({storedTournamentWeek: week}), {ok: false, rejection: "already_entered"});
+  assertEq("...even if the fee has moved since",
+    entry({storedTournamentWeek: week, expectedFee: 10}),
+    {ok: false, rejection: "already_entered"});
+
+  // The player agreed to the number on the button, and nothing else.
+  assertEq("a fee raised after the board loaded is refused",
+    entry({fee: 30, expectedFee: 20}), {ok: false, rejection: "fee_changed"});
+  assertEq("a fee lowered after the board loaded is refused too",
+    entry({fee: 10, expectedFee: 20}), {ok: false, rejection: "fee_changed"});
+
+  assertEq("a free week needs no stars",
+    entry({points: 0, fee: 0, expectedFee: 0}), {ok: true, fee: 0});
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

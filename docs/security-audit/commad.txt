@@ -1,0 +1,1 @@
+firebase emulators:exec --project demo-pixelpayout-audit --only auth,firestore,functions "node docs/security-audit/audit.cjs"

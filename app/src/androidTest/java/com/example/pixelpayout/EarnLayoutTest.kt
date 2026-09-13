@@ -29,7 +29,12 @@ class EarnLayoutTest {
     fun offerCardsRemainReadableAndSelectTheCorrectProvider() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.runOnMainSync {
-            for ((widthDp, fontScale) in listOf(390 to 1f, 320 to 1f, 390 to 1.5f, 320 to 1.5f)) {
+            val sizes = listOf(390 to 1f, 320 to 1f, 390 to 1.5f, 320 to 1.5f)
+            // Both card states: an entrant, and the longer not-entered copy
+            // with the paid-entry button.
+            for ((widthDp, fontScale, entered) in sizes.flatMap { (w, f) ->
+                listOf(Triple(w, f, true), Triple(w, f, false))
+            }) {
                 val config = Configuration(instrumentation.targetContext.resources.configuration)
                 config.fontScale = fontScale
                 config.screenWidthDp = widthDp
@@ -47,7 +52,12 @@ class EarnLayoutTest {
                 }
                 val binding = FragmentRewardsBinding.inflate(inflater)
                 binding.root.layoutDirection = View.LAYOUT_DIRECTION_LTR
-                binding.leaderboardRank.text = "#1 · You"
+                binding.leaderboardRank.text = if (entered) "#1 · You" else
+                    context.getString(R.string.earn_not_entered_you)
+                if (!entered) {
+                    binding.viewTournament.text =
+                        context.getString(R.string.earn_enter_tournament, "20")
+                }
                 binding.leaderboardMyXp.text = "350 XP"
                 binding.leaderboardPrizePool.text = "2,450 ★"
                 binding.leaderboardPrizeShare.text = "Top 30 share"
@@ -68,7 +78,10 @@ class EarnLayoutTest {
                 val card = binding.offerwallList.findViewHolderForAdapterPosition(0)!!.itemView
                 assertTrue(card.performClick())
                 assertSame(wall, selected)
-                assertTrue(binding.viewTournament.height >= (48 * density).toInt())
+                val state = if (entered) "entered" else "open"
+                assertTrue("Tournament button under 48dp at ${widthDp}dp/$fontScale/$state: " +
+                    "${binding.viewTournament.height / density}dp",
+                    binding.viewTournament.height >= (48 * density).toInt())
                 assertTrue("Summary must sit below the artwork",
                     binding.leaderboardSubtitle.top >= binding.tournamentArt.bottom)
                 fun checkText(view: View) {
@@ -83,7 +96,7 @@ class EarnLayoutTest {
                 checkText(binding.root)
                 val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
                 binding.root.draw(Canvas(bitmap))
-                File(context.getExternalFilesDir(null), "earn-${widthDp}-${fontScale}.png").outputStream().use {
+                File(context.getExternalFilesDir(null), "earn-${widthDp}-${fontScale}-$state.png").outputStream().use {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
                 }
                 bitmap.recycle()

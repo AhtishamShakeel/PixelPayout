@@ -55,6 +55,7 @@ object WalletFormat {
                 "MISSION" -> R.string.activity_source_goals
                 "OFFERWALL", "SURVEY", "SPONSORED_APP" -> R.string.activity_source_offerwall
                 "ADMIN_GRANT" -> R.string.activity_source_admin
+                "TOURNAMENT_ENTRY" -> R.string.activity_source_tournament_entry
                 else -> R.string.activity_source_other
             }
         )

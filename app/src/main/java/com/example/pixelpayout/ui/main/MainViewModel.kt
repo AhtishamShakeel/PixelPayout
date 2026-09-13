@@ -5,6 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MediatorLiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.distinctUntilChanged
 import androidx.lifecycle.map  // Add this import
 import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
@@ -465,9 +466,76 @@ class MainViewModel(
         }
     }
 
-    /** The full hundred, fetched only when the sheet is actually opened. */
+    /**
+     * The whole board, fetched when the leaderboard screen opens.
+     *
+     * Published into [leaderboard] as well, with the throttle restarted: this
+     * is the freshest answer the app has, and keeping it to the screen that
+     * asked meant Earn went back to showing its older copy for up to three
+     * minutes after the player had just seen the real one.
+     */
     suspend fun getFullLeaderboard(): UserRepository.Leaderboard? =
-        userRepository.getLeaderboard(full = true)
+        userRepository.getLeaderboard(full = true)?.also {
+            _leaderboard.value = it
+            leaderboardFetchedAt = SystemClock.elapsedRealtime()
+        }
+
+    /** The caller's own tournament standing, as the user snapshot has it. */
+    data class TournamentSelf(val weeklyXp: Int, val entered: Boolean)
+
+    /**
+     * Live weekly XP and entry, straight off the user document listener.
+     *
+     * claimReward and enterTournament both write to that document, so this
+     * moves the moment a quiz, a game or an entry lands - with no call of its
+     * own. The week is reckoned on the server's clock, the same boundary the
+     * server resets on.
+     */
+    val tournamentSelf: LiveData<TournamentSelf> = userRepository.userData.map { user ->
+        val week = currentWeekKey()
+        TournamentSelf(user.weeklyXpFor(week), user.hasEnteredWeek(week))
+    }.distinctUntilChanged()
+
+    /**
+     * The board as the tournament cards should draw it: the last server
+     * answer, with the caller's own XP, entry, rank and prize kept live from
+     * [tournamentSelf]. See Leaderboard.withLiveStanding.
+     */
+    val tournament: LiveData<UserRepository.Leaderboard?> =
+        MediatorLiveData<UserRepository.Leaderboard?>().apply {
+            fun update() {
+                val board = _leaderboard.value
+                val self = tournamentSelf.value
+                value = if (board != null && self != null) {
+                    board.withLiveStanding(self.weeklyXp, self.entered)
+                } else {
+                    board
+                }
+            }
+            addSource(_leaderboard) { update() }
+            addSource(tournamentSelf) { update() }
+        }
+
+    /** Whole weeks since the epoch, starting Monday - the server's utcWeekFor. */
+    fun currentWeekKey(): Int =
+        ((Math.floorDiv(ServerClock.now(), MILLIS_PER_DAY) + 3) / 7).toInt()
+
+    /**
+     * Buys into this week's tournament, then re-reads the shared board so the
+     * Earn card stops offering an entry the player already holds. The refresh
+     * is forced past the throttle: the entry is exactly the change it exists
+     * to wait out, and waiting three minutes for it would look like a failure.
+     */
+    suspend fun enterTournament(expectedFee: Int): UserRepository.TournamentEntryResult {
+        val result = userRepository.enterTournament(expectedFee)
+        if (result is UserRepository.TournamentEntryResult.Entered ||
+            result is UserRepository.TournamentEntryResult.AlreadyEntered ||
+            result is UserRepository.TournamentEntryResult.FeeChanged
+        ) {
+            refreshLeaderboard(force = true)
+        }
+        return result
+    }
 
     private val _streakCycle = MutableLiveData<List<UserRepository.StreakDayReward>>(emptyList())
 

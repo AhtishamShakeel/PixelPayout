@@ -208,7 +208,10 @@ class UserRepository {
                                         ?.toDate()?.time,
                                 lastLeaderboardPrize = parseLeaderboardPrize(
                                     it.get(FIELD_LAST_LEADERBOARD_PRIZE)
-                                )
+                                ),
+                                weeklyXp = it.getLong(FIELD_WEEKLY_XP)?.toInt() ?: 0,
+                                weekKey = it.getLong(FIELD_WEEK_KEY)?.toInt(),
+                                tournamentWeek = it.getLong(FIELD_TOURNAMENT_WEEK)?.toInt()
                             )
                         )
                     }
@@ -318,8 +321,28 @@ class UserRepository {
          * what it has already said, the same way it does for level rewards
          * and settled payouts.
          */
-        val lastLeaderboardPrize: LeaderboardPrize? = null
+        val lastLeaderboardPrize: LeaderboardPrize? = null,
+        /**
+         * Weekly tournament XP as stored, and the week it belongs to. Read
+         * [weeklyXpFor] instead: like the attempt counters, the figure is only
+         * reset by the next claim, so it can still be last week's.
+         *
+         * Carried here because claimReward writes it onto this document - so
+         * the tournament cards can follow it live, for free, instead of
+         * waiting for the next getLeaderboard call.
+         */
+        val weeklyXp: Int = 0,
+        val weekKey: Int? = null,
+        /** The week this account last paid to enter. */
+        val tournamentWeek: Int? = null
     ) {
+        /** This week's tournament XP, zero if the stored figure is stale. */
+        fun weeklyXpFor(currentWeek: Int): Int =
+            if (weekKey == currentWeek) weeklyXp else 0
+
+        /** Whether this account has paid into [currentWeek]. */
+        fun hasEnteredWeek(currentWeek: Int): Boolean = tournamentWeek == currentWeek
+
         /**
          * Attempts used TODAY.
          *
@@ -928,10 +951,99 @@ class UserRepository {
         val prizePool: Int,
         val size: Int,
         /** When the standings reset, as the server reckons it. */
-        val weekEndsAtMillis: Long
+        val weekEndsAtMillis: Long,
+        /**
+         * What entering this week costs, in Stars. Sent back verbatim to
+         * [enterTournament], which refuses if the live fee has since moved.
+         */
+        val entryFee: Int,
+        /** Whether the caller has paid into this week. */
+        val entered: Boolean,
+        /**
+         * For a caller who has not entered: the place their weekly XP would
+         * take among entrants, and what that place pays now. Zero when
+         * entered, or with no XP this week. [myXp] accrues either way.
+         */
+        val expectedRank: Int,
+        val expectedPrize: Int,
+        /** Whether [entries] is the whole board rather than the podium. */
+        val full: Boolean
     ) {
-        /** Zero rank means no play this week, not last place. */
+        /** Zero rank means not entered, or entered and not yet scored. */
         val isRanked: Boolean get() = myRank > 0
+
+        /**
+         * This board with the caller's standing brought up to date from the
+         * user snapshot, which moves the instant a claim or an entry lands.
+         *
+         * The board itself is a server answer from some time ago - throttled
+         * on Earn, and a round trip away on the leaderboard screen - while the
+         * caller's weekly XP and entry arrive on the snapshot listener the app
+         * already holds. Rank and prize are re-derived against the rows
+         * already in hand, so none of this costs a read or a call.
+         *
+         * Where those rows cannot settle the rank (a podium-only board, or a
+         * caller below a full one) the server's last figure is kept; the next
+         * fetch corrects it. Ties count as the better place here, where the
+         * server breaks them by uid - a place of difference at most, until
+         * that same next fetch.
+         */
+        fun withLiveStanding(liveXp: Int, liveEntered: Boolean): Leaderboard {
+            if (liveXp == myXp && liveEntered == entered) return this
+
+            val others = entries.filter { !it.isMe }
+            val listed = entries.any { it.isMe }
+
+            fun rankFor(xp: Int, everyoneAheadListed: Boolean): Int? {
+                if (xp <= 0) return 0
+                val ahead = others.count { it.xp > xp }
+                val exact = everyoneAheadListed ||
+                    ahead < others.size ||
+                    (full && entries.size < size)
+                return if (exact) ahead + 1 else null
+            }
+
+            // Prizes run by position, so a row at that place already says it.
+            fun prizeFor(rank: Int): Int? = when {
+                rank <= 0 || rank > size -> 0
+                rank <= entries.size -> entries[rank - 1].prize
+                else -> null
+            }
+
+            return if (liveEntered) {
+                // Weekly XP only rises, so if the caller is on this list then
+                // everyone who could be ahead of them is on it too.
+                val rank = rankFor(liveXp, entered && listed && liveXp >= myXp)
+                    ?: if (entered) myRank else expectedRank
+                copy(
+                    entered = true,
+                    myXp = liveXp,
+                    myRank = rank,
+                    myPrize = prizeFor(rank) ?: if (entered) myPrize else expectedPrize,
+                    expectedRank = 0,
+                    expectedPrize = 0
+                )
+            } else {
+                val rank = rankFor(liveXp, false) ?: expectedRank
+                copy(
+                    entered = false,
+                    myXp = liveXp,
+                    myRank = 0,
+                    myPrize = 0,
+                    expectedRank = rank,
+                    expectedPrize = prizeFor(rank) ?: expectedPrize
+                )
+            }
+        }
+    }
+
+    sealed class TournamentEntryResult {
+        data class Entered(val feePaid: Int, val remainingPoints: Int) : TournamentEntryResult()
+        object AlreadyEntered : TournamentEntryResult()
+        object InsufficientStars : TournamentEntryResult()
+        /** The fee moved after the board loaded; nothing was charged. */
+        data class FeeChanged(val fee: Int?) : TournamentEntryResult()
+        data class Error(val message: String) : TournamentEntryResult()
     }
 
     /** One day of the streak cycle, as the server describes it. */
@@ -1632,11 +1744,58 @@ class UserRepository {
                 myPrize = (data["myPrize"] as? Number)?.toInt() ?: 0,
                 prizePool = (data["prizePool"] as? Number)?.toInt() ?: 0,
                 size = (data["size"] as? Number)?.toInt() ?: 0,
-                weekEndsAtMillis = (data["weekEndsAt"] as? Number)?.toLong() ?: 0L
+                weekEndsAtMillis = (data["weekEndsAt"] as? Number)?.toLong() ?: 0L,
+                entryFee = (data["entryFee"] as? Number)?.toInt() ?: 0,
+                entered = data["entered"] == true,
+                expectedRank = (data["expectedRank"] as? Number)?.toInt() ?: 0,
+                expectedPrize = (data["expectedPrize"] as? Number)?.toInt() ?: 0,
+                full = data["full"] == true
             )
         } catch (e: Exception) {
             Log.e("Leaderboard", "Could not load the board: ${e.message}")
             null
+        }
+    }
+
+    /**
+     * Buys into this week's tournament.
+     *
+     * [expectedFee] is the fee the player was shown. The server charges its
+     * own fee and only compares this one, refusing on a mismatch - so the
+     * player is never charged a number they did not see. The balance itself
+     * updates through the user snapshot; nothing here needs to write it.
+     */
+    suspend fun enterTournament(expectedFee: Int): TournamentEntryResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("enterTournament")
+                .call(mapOf("expectedFee" to expectedFee))
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return TournamentEntryResult.Error("Unexpected entry response")
+            syncClock(data)
+
+            TournamentEntryResult.Entered(
+                feePaid = (data["feePaid"] as? Number)?.toInt() ?: expectedFee,
+                remainingPoints = (data["remainingPoints"] as? Number)?.toInt() ?: 0
+            )
+        } catch (e: FirebaseFunctionsException) {
+            // The rejection is the message; see enterTournament on the server.
+            if (e.code != FirebaseFunctionsException.Code.FAILED_PRECONDITION) {
+                Log.e("Tournament", "Entry failed: ${e.code} ${e.message}")
+                return TournamentEntryResult.Error(e.message ?: "Could not enter")
+            }
+            when (e.message) {
+                "already_entered" -> TournamentEntryResult.AlreadyEntered
+                "insufficient_stars" -> TournamentEntryResult.InsufficientStars
+                "fee_changed" -> TournamentEntryResult.FeeChanged(
+                    ((e.details as? Map<*, *>)?.get("fee") as? Number)?.toInt()
+                )
+                else -> TournamentEntryResult.Error(e.message ?: "Could not enter")
+            }
+        } catch (e: Exception) {
+            Log.e("Tournament", "Entry failed: ${e.message}")
+            TournamentEntryResult.Error(e.message ?: "Could not enter")
         }
     }
 
@@ -1705,6 +1864,9 @@ class UserRepository {
         private const val FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards"
         private const val FIELD_LAST_RESET_TIME = "last_reset_time"
         private const val FIELD_LAST_LEADERBOARD_PRIZE = "lastLeaderboardPrize"
+        private const val FIELD_WEEKLY_XP = "weeklyXp"
+        private const val FIELD_WEEK_KEY = "weekKey"
+        private const val FIELD_TOURNAMENT_WEEK = "tournamentWeek"
         private const val FIELD_QUIZ_ATTEMPTS = "quiz_attempts"
         private const val FIELD_GAME_ATTEMPTS = "game_attempts"
         private const val FIELD_BONUS_QUIZ_ATTEMPTS = "bonus_quiz_attempts"

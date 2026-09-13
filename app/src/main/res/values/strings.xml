@@ -472,11 +472,10 @@
     <string name="leaderboard_sheet_subtitle">Top %1$d share %2$s ★. Resets Monday.</string>
     <string name="leaderboard_rank">#%1$s</string>
     <string name="leaderboard_unranked">Unranked</string>
-    <string name="leaderboard_play_to_enter">Play to enter</string>
     <string name="leaderboard_you">You</string>
     <string name="leaderboard_xp">%1$s XP</string>
     <string name="leaderboard_prize">%1$d ★</string>
-    <string name="leaderboard_empty">Nobody has played yet this week. Be first.</string>
+    <string name="leaderboard_empty">Nobody has scored yet this week. Enter and be first.</string>
     <!-- Leaderboard screen -->
     <string name="leaderboard_pool">%1$s ★ prize pool</string>
     <string name="leaderboard_resets_in">Resets in %1$s</string>
@@ -485,7 +484,8 @@
     <string name="leaderboard_your_prize">Winning %1$d ★</string>
     <string name="leaderboard_no_prize">Reach the top %1$d to win</string>
     <string name="leaderboard_rules_title">How it works</string>
-    <string name="leaderboard_rules_body">XP from quizzes and games counts toward your weekly score. Streak and referral XP still level you up, but do not place you here.
+    <!-- %1$s is the live entry fee. -->
+    <string name="leaderboard_rules_body">Entry costs %1$s ★ a week and is not refundable. All the quiz and game XP you earn this week counts toward your score, but only players who enter appear on the board and win prizes. Streak and referral XP still level you up, but do not place you here.
 
 The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_prizes_title">Prizes</string>
@@ -518,7 +518,6 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_band_one_winner">1 winner</string>
     <string name="leaderboard_band_each">%1$d each</string>
     <string name="leaderboard_you_label">You</string>
-    <string name="leaderboard_unranked_label">Unranked</string>
     <string name="leaderboard_xp_this_week">%1$s XP this week</string>
     <string name="leaderboard_gap_behind">%1$s XP behind #%2$s</string>
     <string name="leaderboard_climb">Climb</string>
@@ -534,6 +533,30 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="leaderboard_loading_standing">Loading your standing…</string>
     <string name="leaderboard_placeholder">—</string>
     <string name="leaderboard_subtitle_loading">Weekly prize pool</string>
+
+    <!-- Paid entry. The fee is always the server's figure, never a constant
+         here: what the button says is what enterTournament is told to expect. -->
+    <string name="leaderboard_not_entered_label">Not in</string>
+    <!-- Under a rank the player would take, not one they hold. Short: the
+         label column is 52dp at 9sp caps. -->
+    <string name="leaderboard_expected_label">If in</string>
+    <string name="leaderboard_entered_label">Entered</string>
+    <string name="leaderboard_enter_cta">Enter · %1$s ★</string>
+    <string name="leaderboard_enter_prompt">Enter to compete for prizes</string>
+    <string name="leaderboard_enter_hint">All your XP this week counts when you enter</string>
+    <string name="leaderboard_expected_prize">Enter now to win %1$s ★</string>
+    <string name="leaderboard_entered_no_xp">You\'re in - play to score</string>
+    <string name="leaderboard_entering">Entering…</string>
+    <string name="leaderboard_enter_title">Enter this week\'s tournament?</string>
+    <string name="leaderboard_enter_message">%1$s ★ will be taken from your balance, and the entry is not refundable. All the XP you earn this week counts.\n\nThis week ends in %2$s.</string>
+    <string name="leaderboard_enter_message_ranked">%1$s ★ will be taken from your balance, and the entry is not refundable.\n\nYour %2$s XP this week already counts, so you would start at #%3$s.\n\nThis week ends in %4$s.</string>
+    <string name="leaderboard_short_title">Not enough stars</string>
+    <string name="leaderboard_short_message">Entry costs %1$s ★ and you have %2$s ★. Earn more from level rewards, streaks and daily goals.</string>
+    <string name="leaderboard_fee_changed_title">Entry fee updated</string>
+    <string name="leaderboard_fee_changed_message">The entry fee is now %1$s ★. Nothing was charged.</string>
+    <string name="leaderboard_entered_toast">You\'re in! You\'re on this week\'s board.</string>
+    <string name="leaderboard_already_entered">You\'re already in this week.</string>
+    <string name="leaderboard_enter_failed">Could not enter. Check your connection and try again.</string>
 
     <!-- The weekly prize congratulation. Shown once per settled week, on
          whichever screen the winner opens next. The copy never says "claim"
@@ -677,6 +700,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="activity_source_goals">Daily goals bonus</string>
     <string name="activity_source_offerwall">Offer reward</string>
     <string name="activity_source_admin">Adjustment</string>
+    <string name="activity_source_tournament_entry">Tournament entry</string>
     <string name="activity_source_other">Reward</string>
     <string name="activity_redeemed">Redeemed %1$s</string>
     <string name="activity_redeemed_generic">Redemption</string>

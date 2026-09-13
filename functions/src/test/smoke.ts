@@ -1618,12 +1618,14 @@ async function run() {
   // --- claimDoubleXp: a week that rolls over mid-offer ---------------------
   //
   // The gap between a claim and its double is exactly one rewarded ad wide,
-  // and the week boundary does not care. Reading through nextWeeklyXp rather
+  // and the week boundary does not care. Reading through weeklyRollover rather
   // than incrementing blindly is what stops the bonus being added to a total
   // that belongs to last week's tournament - which would seed the new week
-  // with a standing the player did not earn in it.
+  // with a standing the player did not earn in it - and what preserves an
+  // entered week's closing total for its settlement.
   {
     const user = await makeUser("doublerollover");
+    const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
     await seedUserDoc(user.uid, "DBLROLL1");
     const claimReward = httpsCallable(clientFunctions, "claimReward");
     const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
@@ -1636,17 +1638,19 @@ async function run() {
     const eventId = (base.data as {eventId: string}).eventId;
 
     // Rewind the stored week to last week's, as if the boundary passed while
-    // the ad was on screen. The claim above left a total for a week that is
-    // now over.
-    const lastWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7) - 1;
-    await db.collection("users").doc(user.uid).update({weekKey: lastWeek, weeklyXp: 400});
+    // the ad was on screen. The player had entered last week's tournament.
+    const lastWeek = thisWeek - 1;
+    await db.collection("users").doc(user.uid)
+      .update({weekKey: lastWeek, weeklyXp: 400, tournamentWeek: lastWeek});
 
     await claimDoubleXp({eventId});
 
     const snap = await db.collection("users").doc(user.uid).get();
     assertEq("a rolled-over week starts from the bonus alone",
       snap.get("weeklyXp"), 42);
-    assertEq("the double stamps the current week", snap.get("weekKey"), lastWeek + 1);
+    assertEq("the double stamps the current week", snap.get("weekKey"), thisWeek);
+    assertEq("...and carries the entered week's total for its settlement",
+      snap.get("lastWeeklyXp"), 400);
     // The lifetime total is untouched by any of this - only the weekly
     // standing resets.
     assertEq("lifetime xp still has both halves", snap.get("xp"), 84);
@@ -2287,6 +2291,160 @@ async function run() {
       utcDayOf(snap.get("last_reset_time").toMillis()), utcDayOf(Date.now()));
   }
 
+  // --- enterTournament: paid entry ----------------------------------------
+  //
+  // No config/tournament document exists in the emulator, so the fee is the
+  // deployed fallback of 20.
+  {
+    const user = await makeUser("tournament");
+    const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
+    const lastWeek = thisWeek - 1;
+    // In last week's tournament, unsettled, with enough stars for one entry.
+    await seedUserDoc(user.uid, "TOURNEY1", {
+      points: 30, weekKey: lastWeek, weeklyXp: 500, tournamentWeek: lastWeek,
+    });
+    const claimReward = httpsCallable(clientFunctions, "claimReward");
+    const getLeaderboard = httpsCallable(clientFunctions, "getLeaderboard");
+    const enterTournament = httpsCallable(clientFunctions, "enterTournament");
+
+    const before = (await getLeaderboard({})).data as {
+      entered: boolean; entryFee: number; myXp: number; expectedRank: number;
+    };
+    assertEq("the board reports the entry fee", before.entryFee, 20);
+    assertEq("a player who has not paid is not entered", before.entered, false);
+    assertEq("...and has no xp this week yet", before.myXp, 0);
+    assertEq("...so no rank to offer", before.expectedRank, 0);
+
+    // Everybody's weekly XP accrues. Entry decides who is ranked and paid.
+    const unpaidSession = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, unpaidSession, 60_000);
+    await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 30, sessionId: unpaidSession,
+    });
+    const unpaidSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("a non-entrant's play earns lifetime xp", unpaidSnap.get("xp"), 30);
+    assertEq("...and weekly xp", unpaidSnap.get("weeklyXp"), 30);
+    assertEq("...on the running week", unpaidSnap.get("weekKey"), thisWeek);
+    assertEq("last week, which was entered, is carried for its settlement",
+      unpaidSnap.get("lastWeeklyXp"), 500);
+
+    const unpaidBoard = (await getLeaderboard({full: true})).data as {
+      entered: boolean; myXp: number; myRank: number; expectedRank: number;
+      entries: Array<{isMe: boolean}>;
+    };
+    assertEq("a non-entrant sees their weekly xp", unpaidBoard.myXp, 30);
+    assertEq("...is not ranked", unpaidBoard.myRank, 0);
+    assertEq("...is offered the rank entering would give them",
+      unpaidBoard.expectedRank > 0, true);
+    assertEq("...and is not on the board",
+      unpaidBoard.entries.some((entry) => entry.isMe), false);
+
+    await assertThrows(
+      "entering without naming the fee is refused",
+      () => enterTournament({}),
+      "invalid-argument"
+    );
+    await assertThrows(
+      "entering at a fee other than the live one is refused",
+      () => enterTournament({expectedFee: 10}),
+      "failed-precondition"
+    );
+    const refusedSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("a refused entry charges nothing", refusedSnap.get("points"), 30);
+
+    const entered = (await enterTournament({expectedFee: 20})).data as {
+      weekKey: number; feePaid: number; remainingPoints: number;
+    };
+    assertEq("entry charges the fee", entered.feePaid, 20);
+    assertEq("entry reports the balance left", entered.remainingPoints, 10);
+    assertEq("entry joins the running week", entered.weekKey, thisWeek);
+
+    const enteredSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("the stars are debited", enteredSnap.get("points"), 10);
+    assertEq("the player is marked entered for this week",
+      enteredSnap.get("tournamentWeek"), thisWeek);
+    assertEq("xp already earned this week counts", enteredSnap.get("weeklyXp"), 30);
+    assertEq("last week's carried total is untouched",
+      enteredSnap.get("lastWeeklyXp"), 500);
+    assertEq("entering awards no xp", enteredSnap.get("xp"), 30);
+
+    const entryEvent = await db.collection("users").doc(user.uid)
+      .collection("rewardEvents").doc(`tournament:${thisWeek}`).get();
+    assertEq("the entry has a ledger entry", entryEvent.exists, true);
+    assertEq("...recorded as a tournament entry", entryEvent.get("source"), "TOURNAMENT_ENTRY");
+    assertEq("...as a debit", entryEvent.get("finalPoints"), -20);
+    assertEq("...that shows in the stars activity", entryEvent.get("affectsPoints"), true);
+
+    await assertThrows(
+      "a second entry in the same week is refused",
+      () => enterTournament({expectedFee: 20}),
+      "failed-precondition"
+    );
+    const twiceSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("the refused second entry charges nothing", twiceSnap.get("points"), 10);
+
+    const paidSession = await openGameSession("floppy_bird");
+    await backdateSession(user.uid, paidSession, 60_000);
+    await claimReward({
+      rewardType: "game", gameId: "floppy_bird", score: 42, sessionId: paidSession,
+    });
+    const scoredSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("an entrant's play keeps adding to the week", scoredSnap.get("weeklyXp"), 72);
+
+    // The board was cached a moment ago without this player, and the cache
+    // lives a minute. The caller's own row must not wait for it.
+    const after = (await getLeaderboard({full: true})).data as {
+      entered: boolean; myXp: number; myRank: number; expectedRank: number;
+      entries: Array<{rank: number; xp: number; isMe: boolean}>;
+    };
+    assertEq("the board now reports the player entered", after.entered, true);
+    assertEq("...with their weekly xp", after.myXp, 72);
+    assertEq("...and a real rank", after.myRank > 0, true);
+    assertEq("...and no hypothetical one", after.expectedRank, 0);
+    const myRow = after.entries.find((entry) => entry.isMe);
+    assertEq("a new entrant is on the board at once, cache or not", myRow !== undefined, true);
+    assertEq("...with their fresh xp", myRow?.xp, 72);
+    assertEq("...at the rank the card reports", myRow?.rank, after.myRank);
+  }
+
+  // --- enterTournament: entering before playing this week -----------------
+  //
+  // The board filters on weekKey as well as on entry, so an entrant who has
+  // not played yet this week must be moved onto it - or last week's figure
+  // would sit under this week's entry.
+  {
+    const user = await makeUser("tournamentfresh");
+    const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
+    // Played last week without entering it.
+    await seedUserDoc(user.uid, "TOURNEY3", {
+      points: 20, weekKey: thisWeek - 1, weeklyXp: 800,
+    });
+    const enterTournament = httpsCallable(clientFunctions, "enterTournament");
+
+    await enterTournament({expectedFee: 20});
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("entry moves a stale week onto the running one", snap.get("weekKey"), thisWeek);
+    assertEq("...at zero, not last week's figure", snap.get("weeklyXp"), 0);
+    assertEq("...and an unentered week is not carried", snap.get("lastWeeklyXp"), undefined);
+    assertEq("exactly the fee can be spent", snap.get("points"), 0);
+  }
+
+  // --- enterTournament: not enough stars ----------------------------------
+  {
+    const user = await makeUser("tournamentpoor");
+    await seedUserDoc(user.uid, "TOURNEY2", {points: 19});
+    const enterTournament = httpsCallable(clientFunctions, "enterTournament");
+
+    await assertThrows(
+      "a player one star short cannot enter",
+      () => enterTournament({expectedFee: 20}),
+      "failed-precondition"
+    );
+    const snap = await db.collection("users").doc(user.uid).get();
+    assertEq("a refused entry leaves the balance alone", snap.get("points"), 19);
+    assertEq("...and does not enter the player", snap.get("tournamentWeek"), undefined);
+  }
+
   // --- weekly leaderboard settlement --------------------------------------
   //
   // SETTLED INTO A WEEK OF ITS OWN, a long way back, rather than into "last
@@ -2301,6 +2459,7 @@ async function run() {
     const winner = await makeUser("boardfirst");
     const runnerUp = await makeUser("boardsecond");
     const idle = await makeUser("boardidle");
+    const freeloader = await makeUser("boardfreeloader");
 
     const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
     const settledWeek = thisWeek - 100;
@@ -2310,17 +2469,27 @@ async function run() {
     // on to the current week and a query for the settled one cannot see them.
     // Before the rollover carried the closing total across, they were paid
     // nothing and the runner-up took first prize.
+    //
+    // Still marked as entering the settled week, which is also what proves the
+    // live half filters on weekKey: without it, their 5 XP from this week
+    // would be read as a settled-week score.
     await seedUserDoc(carried.uid, "BOARD0", {
       weekKey: thisWeek,
       weeklyXp: 5,
+      tournamentWeek: settledWeek,
       lastWeekKey: settledWeek,
       lastWeeklyXp: 900,
     });
-    // Players who have not opened the app since the week ended. Their live
+    // Entrants who have not opened the app since the week ended. Their live
     // counters still name the settled week.
-    await seedUserDoc(winner.uid, "BOARD1", {weekKey: settledWeek, weeklyXp: 400});
-    await seedUserDoc(runnerUp.uid, "BOARD2", {weekKey: settledWeek, weeklyXp: 250});
-    await seedUserDoc(idle.uid, "BOARD3", {weekKey: settledWeek, weeklyXp: 0});
+    await seedUserDoc(winner.uid, "BOARD1",
+      {weekKey: settledWeek, weeklyXp: 400, tournamentWeek: settledWeek});
+    await seedUserDoc(runnerUp.uid, "BOARD2",
+      {weekKey: settledWeek, weeklyXp: 250, tournamentWeek: settledWeek});
+    await seedUserDoc(idle.uid, "BOARD3",
+      {weekKey: settledWeek, weeklyXp: 0, tournamentWeek: settledWeek});
+    // The top score of the week, from somebody who never paid to enter.
+    await seedUserDoc(freeloader.uid, "BOARD5", {weekKey: settledWeek, weeklyXp: 5000});
 
     await admin.auth().setCustomUserClaims(winner.uid, {admin: true});
     await signInWithEmailAndPassword(clientAuth, winner.email!, "Test1234!");
@@ -2341,6 +2510,9 @@ async function run() {
     assertEq("the live board is paid behind them", winnerSnap.get("points"), 200);
     const idleSnap = await db.collection("users").doc(idle.uid).get();
     assertEq("a player with no XP is not paid", idleSnap.get("points") || 0, 0);
+    const freeloaderSnap = await db.collection("users").doc(freeloader.uid).get();
+    assertEq("the week's top score is not paid without an entry",
+      freeloaderSnap.get("points") || 0, 0);
 
     // The prize is announced, not just credited - see FIELD_LAST_LEADERBOARD_PRIZE.
     const prize = carriedSnap.get("lastLeaderboardPrize");
@@ -2378,6 +2550,43 @@ async function run() {
       () => settle({weekKey: thisWeek}),
       "failed-precondition"
     );
+  }
+
+  // --- tie order: the live query and the settlement agree -----------------
+  //
+  // compareStanding claims Firestore breaks equal weeklyXp on document id
+  // DESCENDING. Checked against the real query shape here, and then through
+  // a settlement, because a tie across a band edge is where the two orders
+  // disagreeing would pay the wrong player.
+  {
+    const thisWeek = Math.floor((Math.floor(Date.now() / 86_400_000) + 3) / 7);
+    const tieWeek = thisWeek - 200;
+    const first = await makeUser("tiefirst");
+    const second = await makeUser("tiesecond");
+    for (const [user, code] of [[first, "TIE1"], [second, "TIE2"]] as const) {
+      await seedUserDoc(user.uid, code,
+        {weekKey: tieWeek, weeklyXp: 500, tournamentWeek: tieWeek});
+    }
+
+    const live = await db.collection("users")
+      .where("tournamentWeek", "==", tieWeek)
+      .where("weekKey", "==", tieWeek)
+      .orderBy("weeklyXp", "desc")
+      .get();
+    const liveOrder = live.docs.map((doc) => doc.id);
+    const expected = [first.uid, second.uid].sort((a, b) => (a < b ? 1 : -1));
+    assertEq("Firestore orders a tie by uid descending", liveOrder, expected);
+
+    await admin.auth().setCustomUserClaims(first.uid, {admin: true});
+    await signInWithEmailAndPassword(clientAuth, first.email!, "Test1234!");
+    await clientAuth.currentUser!.getIdToken(true);
+    await httpsCallable(clientFunctions, "settleLeaderboardNow")({weekKey: tieWeek});
+
+    const topSnap = await db.collection("users").doc(liveOrder[0]).get();
+    const nextSnap = await db.collection("users").doc(liveOrder[1]).get();
+    assertEq("settlement pays first prize to the player the board lists first",
+      topSnap.get("points"), 350);
+    assertEq("...and second prize to the one below", nextSnap.get("points"), 200);
   }
 
   // --- settlement is admin-only -------------------------------------------

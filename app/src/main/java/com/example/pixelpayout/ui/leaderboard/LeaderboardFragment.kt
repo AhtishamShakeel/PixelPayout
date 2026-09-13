@@ -2,6 +2,7 @@ package com.example.pixelpayout.ui.leaderboard
 
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.app.Dialog
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -11,6 +12,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
@@ -23,6 +25,8 @@ import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.ServerClock
+import com.example.pixelpayout.utils.setStarText
+import com.example.pixelpayout.utils.showAppDialog
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentLeaderboardBinding
 import kotlinx.coroutines.launch
@@ -72,6 +76,19 @@ class LeaderboardFragment : Fragment() {
     private var segment = SEGMENT_STANDINGS
 
     /**
+     * True while an entry is in flight. The button is disabled too, but a
+     * flag is what survives the dialog's own button being tapped twice.
+     */
+    private var entering = false
+
+    /**
+     * Whether to open the entry confirmation once the board lands - set when
+     * Earn's "Enter tournament" button brought the player here. Consumed once,
+     * and not restored after a rotation, so it cannot reappear uninvited.
+     */
+    private var promptEntryPending = false
+
+    /**
      * The reset countdown, redrawn when the minute it shows actually changes
      * rather than once a second. The label is measured in days, hours and
      * minutes; a per-second timer would rewrite the same string sixty times
@@ -104,7 +121,17 @@ class LeaderboardFragment : Fragment() {
         binding.leaderboardBack.setOnClickListener { findNavController().popBackStack() }
         binding.segmentStandings.setOnClickListener { selectSegment(SEGMENT_STANDINGS) }
         binding.segmentPrizes.setOnClickListener { selectSegment(SEGMENT_PRIZES) }
-        binding.leaderboardClimb.setOnClickListener { openPlay() }
+        binding.leaderboardClimb.setOnClickListener { onPinnedAction() }
+
+        promptEntryPending = savedInstanceState == null &&
+            arguments?.getBoolean(ARG_PROMPT_ENTRY) == true
+
+        // The pinned card follows the user snapshot between fetches: an entry
+        // flips it the moment the server writes it. The rows come from the
+        // fetch, which already carries the caller's own row fresh.
+        mainViewModel.tournamentSelf.observe(viewLifecycleOwner) {
+            if (!entering) board?.let { renderMyPlace(live(it)) }
+        }
 
         // Drawn BEFORE the fetch, not after it. getLeaderboard is a callable
         // on a Cloud Function that is usually cold on the first call of the
@@ -210,6 +237,12 @@ class LeaderboardFragment : Fragment() {
 
             board = full
             render(full)
+
+            if (promptEntryPending) {
+                promptEntryPending = false
+                val current = live(full)
+                if (!current.entered) confirmEntry(current)
+            }
         }
     }
 
@@ -248,7 +281,7 @@ class LeaderboardFragment : Fragment() {
             binding.leaderboardRules.visibility = View.GONE
         }
 
-        renderMyPlace(data)
+        renderMyPlace(live(data))
     }
 
     /** What is at stake this week, and when it stops being at stake. */
@@ -304,6 +337,11 @@ class LeaderboardFragment : Fragment() {
         binding.leaderboardBody.removeAllViews()
         binding.leaderboardColumns.visibility = if (standings) View.VISIBLE else View.GONE
         binding.leaderboardRules.visibility = if (standings) View.GONE else View.VISIBLE
+        // Bound rather than static: the fee is the server's, and a rules line
+        // quoting a different figure from the Enter button would be a lie.
+        binding.leaderboardRules.setStarText(
+            getString(R.string.leaderboard_rules_body, formatCount(data.entryFee))
+        )
 
         // No heading is set here any more. There was one, and it repeated the
         // segment button the user had just pressed - "Standings" under
@@ -470,8 +508,23 @@ class LeaderboardFragment : Fragment() {
      * climb to the next band up; outside them, it measures the climb to the
      * last paying place currently on the board.
      */
+    /** [data] with the caller's own standing kept live from the user snapshot. */
+    private fun live(data: UserRepository.Leaderboard): UserRepository.Leaderboard =
+        mainViewModel.tournamentSelf.value
+            ?.let { data.withLiveStanding(it.weeklyXp, it.entered) }
+            ?: data
+
     private fun renderMyPlace(data: UserRepository.Leaderboard) {
         val binding = _binding ?: return
+        binding.leaderboardClimb.isEnabled = !entering
+
+        if (!data.entered) {
+            renderEntryOffer(data)
+            return
+        }
+
+        // Entered, but possibly not yet scored: the board only lists players
+        // with XP, so an entrant on zero is in the tournament and unranked.
         val ranked = data.isRanked
 
         binding.leaderboardMyRank.text = if (ranked) {
@@ -480,12 +533,12 @@ class LeaderboardFragment : Fragment() {
             UNRANKED_RANK
         }
         binding.leaderboardMyRankLabel.setText(
-            if (ranked) R.string.leaderboard_you_label else R.string.leaderboard_unranked_label
+            if (ranked) R.string.leaderboard_you_label else R.string.leaderboard_entered_label
         )
         binding.leaderboardMyXp.text = if (ranked) {
             getString(R.string.leaderboard_xp_this_week, formatCount(data.myXp))
         } else {
-            getString(R.string.leaderboard_play_to_enter)
+            getString(R.string.leaderboard_entered_no_xp)
         }
         binding.leaderboardClimb.setText(
             if (ranked) R.string.leaderboard_climb else R.string.leaderboard_play
@@ -493,6 +546,210 @@ class LeaderboardFragment : Fragment() {
 
         renderGapLine(data, ranked)
         renderClimbBar(data, ranked)
+    }
+
+    /**
+     * The pinned card for a player who has not paid into this week.
+     *
+     * Their XP has been counting all along, so the card leads with what it
+     * would buy: the place entering now would give them and, if that place is
+     * paid, the prize. That is the whole pitch for the fee. Labelled "if in"
+     * rather than as a rank, because they do not hold it - the board they are
+     * looking at does not contain them.
+     *
+     * No climb bar: a distance to the next band belongs to a place held.
+     */
+    private fun renderEntryOffer(data: UserRepository.Leaderboard) {
+        val binding = _binding ?: return
+        val hasStanding = data.expectedRank > 0
+
+        binding.leaderboardMyRank.text = if (hasStanding) {
+            getString(R.string.leaderboard_rank, formatCount(data.expectedRank))
+        } else {
+            UNRANKED_RANK
+        }
+        binding.leaderboardMyRankLabel.setText(
+            if (hasStanding) R.string.leaderboard_expected_label
+            else R.string.leaderboard_not_entered_label
+        )
+        binding.leaderboardMyXp.text = if (data.myXp > 0) {
+            getString(R.string.leaderboard_xp_this_week, formatCount(data.myXp))
+        } else {
+            getString(R.string.leaderboard_enter_prompt)
+        }
+
+        val gap = binding.leaderboardMyGap
+        gap.visibility = View.VISIBLE
+        when {
+            data.expectedPrize > 0 -> {
+                gap.setStarText(
+                    getString(R.string.leaderboard_expected_prize, formatCount(data.expectedPrize))
+                )
+                gap.setTextColor(color(R.color.gold))
+            }
+            hasStanding -> {
+                gap.text = getString(R.string.leaderboard_no_prize, data.size)
+                gap.setTextColor(color(R.color.text_faint))
+            }
+            else -> {
+                gap.setText(R.string.leaderboard_enter_hint)
+                gap.setTextColor(color(R.color.text_faint))
+            }
+        }
+        binding.leaderboardClimbBar.visibility = View.GONE
+        binding.leaderboardClimbCaption.visibility = View.GONE
+
+        if (entering) {
+            binding.leaderboardClimb.setText(R.string.leaderboard_entering)
+        } else {
+            binding.leaderboardClimb.setStarText(
+                getString(R.string.leaderboard_enter_cta, formatCount(data.entryFee))
+            )
+        }
+    }
+
+    /** The pinned button: Enter for a non-entrant, Play or Climb otherwise. */
+    private fun onPinnedAction() {
+        val data = board?.let { live(it) }
+        if (data != null && !data.entered) confirmEntry(data) else openPlay()
+    }
+
+    /**
+     * Asks before spending. Stars are real value and the entry is not
+     * refundable; the dialog also says where the player would start, since
+     * that is what they are paying for.
+     *
+     * The balance check is a courtesy that saves a doomed round trip; the
+     * server refuses a short balance whatever this decides.
+     */
+    private fun confirmEntry(data: UserRepository.Leaderboard) {
+        if (entering || _binding == null) return
+        val fee = data.entryFee
+
+        val balance = mainViewModel.points.value
+        if (balance != null && balance < fee) {
+            showShortOfStars(fee, balance)
+            return
+        }
+
+        val remaining = data.weekEndsAtMillis - ServerClock.now()
+        val endsIn = if (remaining > 0) {
+            remainingLabel(remaining)
+        } else {
+            getString(R.string.leaderboard_resets_now)
+        }
+
+        val message = if (data.expectedRank > 0) {
+            getString(
+                R.string.leaderboard_enter_message_ranked,
+                formatCount(fee), formatCount(data.myXp), formatCount(data.expectedRank), endsIn
+            )
+        } else {
+            getString(R.string.leaderboard_enter_message, formatCount(fee), endsIn)
+        }
+
+        requireContext().showAppDialog(
+            title = getString(R.string.leaderboard_enter_title),
+            message = message,
+            icon = R.drawable.ic_trophy,
+            accent = R.color.stars_accent,
+            positiveText = getString(R.string.leaderboard_enter_cta, formatCount(fee)),
+            negativeText = getString(R.string.cancel),
+            onPositive = { enter(fee) }
+        ).drawStars()
+    }
+
+    /**
+     * Pays the fee the player was just shown.
+     *
+     * [fee] is sent as the expected fee, never as an amount: the server
+     * charges its own figure and refuses if the two differ.
+     */
+    private fun enter(fee: Int) {
+        if (entering) return
+        entering = true
+        board?.let { renderMyPlace(live(it)) }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val result = try {
+                mainViewModel.enterTournament(fee)
+            } finally {
+                // Reset even if the view goes away mid-call, or the button
+                // would come back dead the next time this screen is opened.
+                entering = false
+            }
+            if (!isAdded || _binding == null) return@launch
+
+            when (result) {
+                is UserRepository.TournamentEntryResult.Entered -> {
+                    toast(R.string.leaderboard_entered_toast)
+                    showEntered()
+                }
+                UserRepository.TournamentEntryResult.AlreadyEntered -> {
+                    toast(R.string.leaderboard_already_entered)
+                    showEntered()
+                }
+                UserRepository.TournamentEntryResult.InsufficientStars -> {
+                    board?.let { renderMyPlace(live(it)) }
+                    showShortOfStars(fee, mainViewModel.points.value)
+                }
+                is UserRepository.TournamentEntryResult.FeeChanged -> {
+                    loadBoard()
+                    requireContext().showAppDialog(
+                        title = getString(R.string.leaderboard_fee_changed_title),
+                        message = getString(
+                            R.string.leaderboard_fee_changed_message,
+                            result.fee?.let { formatCount(it) } ?: PLACEHOLDER
+                        ),
+                        accent = R.color.stars_accent
+                    ).drawStars()
+                }
+                is UserRepository.TournamentEntryResult.Error -> {
+                    board?.let { renderMyPlace(live(it)) }
+                    toast(R.string.leaderboard_enter_failed)
+                }
+            }
+        }
+    }
+
+    /**
+     * Flips the pinned card to entered straight away - the server has just
+     * said so - taking the expected place as the held one until the board
+     * is re-read for the real standing.
+     */
+    private fun showEntered() {
+        board = board?.let {
+            it.copy(
+                entered = true,
+                myRank = it.expectedRank,
+                myPrize = it.expectedPrize,
+                expectedRank = 0,
+                expectedPrize = 0
+            )
+        }?.also { renderMyPlace(live(it)) }
+        loadBoard()
+    }
+
+    private fun showShortOfStars(fee: Int, balance: Int?) {
+        requireContext().showAppDialog(
+            title = getString(R.string.leaderboard_short_title),
+            message = balance?.let {
+                getString(R.string.leaderboard_short_message, formatCount(fee), formatCount(it))
+            },
+            icon = R.drawable.ic_star,
+            accent = R.color.stars_accent
+        ).drawStars()
+    }
+
+    /** AppDialog takes plain text, so its star characters are swapped here. */
+    private fun Dialog.drawStars() {
+        listOf(R.id.appDialogMessage, R.id.appDialogPositive).forEach { id ->
+            findViewById<TextView>(id)?.let { it.setStarText(it.text) }
+        }
+    }
+
+    private fun toast(message: Int) {
+        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
     }
 
     private fun renderGapLine(data: UserRepository.Leaderboard, ranked: Boolean) {
@@ -684,6 +941,9 @@ class LeaderboardFragment : Fragment() {
     }
 
     companion object {
+        /** Boolean argument: open the entry confirmation once the board loads. */
+        const val ARG_PROMPT_ENTRY = "promptEntry"
+
         private const val SEGMENT_STANDINGS = 0
         private const val SEGMENT_PRIZES = 1
 

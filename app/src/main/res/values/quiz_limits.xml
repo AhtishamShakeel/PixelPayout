@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quiz_limits_remaining">%1$d of %2$d quizzes left</string>
+    <string name="quiz_limits_bonus_action">Watch ad · +1 quiz</string>
+    <string name="quiz_limits_shared_note">Shared across all quiz categories.</string>
+</resources>

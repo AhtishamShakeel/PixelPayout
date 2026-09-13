@@ -174,13 +174,11 @@ class QuizListFragment : Fragment() {
     }
 
     private fun renderAllowance(allowance: MainViewModel.Allowance) {
-        val used = allowance.used
-
         buildPips(allowance.allowance)
 
         binding.tvQuizzesLeft.text = when {
             allowance.remaining > 0 ->
-                getString(R.string.quizzes_attempts_left, allowance.remaining, allowance.allowance)
+                getString(R.string.quiz_limits_remaining, allowance.remaining, allowance.allowance)
 
             // "Back tomorrow" stops being true while the pill is on screen.
             allowance.canBuyMore -> getString(R.string.quizzes_attempts_spent_buyable)
@@ -198,11 +196,10 @@ class QuizListFragment : Fragment() {
         )
         refreshBonusButtonState()
 
-        // Spent pips grey from the left, so the violet that remains reads as
-        // what is left rather than as what has been used.
+        // Fill remaining attempts from the left, matching the Games meter.
         binding.quizPips.children.forEachIndexed { index, pip ->
             pip.setBackgroundResource(
-                if (index < used) R.drawable.bg_pip_spent else R.drawable.bg_pip_remaining
+                if (index < allowance.remaining) R.drawable.bg_games_pip else R.drawable.bg_pip_spent
             )
         }
     }
@@ -337,7 +334,7 @@ class QuizListFragment : Fragment() {
 
     private fun endBonusAttempt() {
         bonusInFlight = false
-        _binding?.quizBonusLabel?.setText(R.string.bonus_attempt_action)
+        _binding?.quizBonusLabel?.setText(R.string.quiz_limits_bonus_action)
         refreshBonusButtonState()
     }
 
@@ -347,6 +344,8 @@ class QuizListFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        timerHandler.removeCallbacks(timerRunnable)
         _binding = null
+        pipCount = 0
     }
 }

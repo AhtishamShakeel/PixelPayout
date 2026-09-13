@@ -1,383 +1,347 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-    Play > Games, following the Games.dc.html handoff.
-
-    Structure is the handoff's; every colour resolves to an existing token
-    (see the "Play > Games" block in colors.xml for the Nocturne mapping).
-
-    Three parts of the handoff are deliberately not here:
-
-      * Its header ("PixelPayout" / "Play games") and its bottom nav. This is
-        a tab body inside PlayFragment, which already sits under the app bar,
-        the Games/Quizzes tabs and MainActivity's nav bar. Redrawing them here
-        would double them up.
-      * The Stars balance chip and the "5-30 Stars" pill on each row. Games
-        award XP and nothing else, so a Stars figure here would promise a
-        payout claimReward never makes.
-      * "Best 84 gates". Best score lives in the WebView's own localStorage,
-        not on the user document, so the app has no honest number to print.
-        The row's second line carries the real description instead.
--->
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@color/games_page"
+  android:fillViewport="true"
+  android:scrollbars="none">
+  <LinearLayout
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/background_dark"
-    android:fillViewport="true"
-    android:scrollbars="none">
-
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="17dp"
+    android:paddingEnd="17dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="24dp">
     <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:background="@drawable/bg_games_panel"
+      android:orientation="vertical"
+      android:paddingStart="14dp"
+      android:paddingEnd="14dp"
+      android:paddingTop="8dp"
+      android:paddingBottom="8dp">
+      <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="17dp"
-        android:paddingEnd="17dp"
-        android:paddingTop="8dp"
-        android:paddingBottom="24dp">
-
-        <!-- ===== Plays counter ===== -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_nocturne_card"
-            android:orientation="vertical"
-            android:paddingStart="14dp"
-            android:paddingEnd="14dp"
-            android:paddingTop="11dp"
-            android:paddingBottom="11dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_game"
-                    app:tint="@color/text_faint" />
-
-                <TextView
-                    android:id="@+id/playsLeftNote"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:textColor="@color/text_dim"
-                    android:textSize="13sp"
-                    tools:text="6 of 10 plays left today" />
-
-                <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:layout_marginStart="8dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_clock_countdown"
-                    app:tint="@color/text_ghost" />
-
-                <TextView
-                    android:id="@+id/playsResetTimer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
-                    android:fontFamily="@font/mono_medium"
-                    android:letterSpacing="0.02"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="14sp"
-                    tools:text="04:12:38" />
-            </LinearLayout>
-
-            <!-- One pip per play in the daily allowance, filled programmatically
-                 from MAX_DAILY_GAME_SESSIONS so the row can never disagree with
-                 the cap it is drawing. -->
-            <LinearLayout
-                android:id="@+id/playsPips"
-                android:layout_width="match_parent"
-                android:layout_height="3dp"
-                android:layout_marginTop="11dp"
-                android:orientation="horizontal" />
-
-            <!-- Buys one more attempt with a rewarded ad. Hidden once the day's
-                 bonus cap is spent, so the offer is never open-ended. -->
-            <LinearLayout
-                android:id="@+id/gameBonusRow"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="11dp"
-                android:baselineAligned="false"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                tools:visibility="visible">
-
-                <LinearLayout
-                    android:id="@+id/gameBonusButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_bonus_attempt"
-                    android:baselineAligned="false"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="11dp"
-                    android:paddingTop="6dp"
-                    android:paddingEnd="12dp"
-                    android:paddingBottom="6dp">
-
-                    <ImageView
-                        android:layout_width="13dp"
-                        android:layout_height="13dp"
-                        android:contentDescription="@null"
-                        android:src="@drawable/ic_video"
-                        app:tint="@color/brand_violet_light" />
-
-                    <TextView
-                        android:id="@+id/gameBonusLabel"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="7dp"
-                        android:text="@string/bonus_attempt_action"
-                        android:textColor="@color/brand_violet_light"
-                        android:textSize="12.5sp" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/gameBonusNote"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="11.5sp"
-                    tools:text="3 extra left today" />
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- ===== Section header ===== -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="17dp"
-            android:layout_marginBottom="8dp"
-            android:baselineAligned="true"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/games_section_title"
-                android:textColor="@color/text_strong"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/gamesAvailable"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/text_ghost"
-                android:textSize="12sp"
-                tools:text="2 available" />
-        </LinearLayout>
-
-        <!-- ===== Neon Flap ===== -->
-        <LinearLayout
-            android:id="@+id/playFlappy"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_game_card"
-            android:baselineAligned="false"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="14dp">
-
-            <FrameLayout
-                android:layout_width="68dp"
-                android:layout_height="68dp"
-                android:background="@drawable/bg_game_art_violet">
-
-                <ImageView
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_game_flappy"
-                    app:tint="@color/brand_violet_light" />
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/game_flappy_name"
-                    android:textColor="@color/text_strong"
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="@string/game_flappy_desc"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/flappyXpChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:background="@drawable/bg_chip_xp"
-                    android:drawableStart="@drawable/ic_bolt"
-                    android:drawablePadding="3dp"
-                    android:paddingStart="7dp"
-                    android:paddingEnd="7dp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="11sp"
-                    app:drawableTint="@color/brand_violet_light"
-                    tools:text="Up to 30 XP" />
-            </LinearLayout>
-
-            <ImageView
-                android:id="@+id/flappyAction"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="10dp"
-                android:background="@drawable/bg_play_action"
-                android:contentDescription="@string/game_flappy_name"
-                android:padding="10dp"
-                android:src="@drawable/ic_play_fill"
-                app:tint="@color/brand_violet_light" />
-        </LinearLayout>
-
-        <!-- ===== Tower Building ===== -->
-        <LinearLayout
-            android:id="@+id/playTower"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_game_card"
-            android:baselineAligned="false"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="14dp">
-
-            <FrameLayout
-                android:layout_width="68dp"
-                android:layout_height="68dp"
-                android:background="@drawable/bg_game_art_violet">
-
-                <ImageView
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_game_tower"
-                    app:tint="@color/xp_accent" />
-            </FrameLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/game_tower_name"
-                    android:textColor="@color/text_strong"
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="5dp"
-                    android:text="@string/game_tower_desc"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="11sp" />
-
-                <TextView
-                    android:id="@+id/towerXpChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
-                    android:background="@drawable/bg_chip_xp"
-                    android:drawableStart="@drawable/ic_bolt"
-                    android:drawablePadding="3dp"
-                    android:paddingStart="7dp"
-                    android:paddingEnd="7dp"
-                    android:paddingTop="3dp"
-                    android:paddingBottom="3dp"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="11sp"
-                    app:drawableTint="@color/brand_violet_light"
-                    tools:text="Up to 30 XP" />
-            </LinearLayout>
-
-            <ImageView
-                android:id="@+id/towerAction"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="10dp"
-                android:background="@drawable/bg_play_action"
-                android:contentDescription="@string/game_tower_name"
-                android:padding="10dp"
-                android:src="@drawable/ic_play_fill"
-                app:tint="@color/brand_violet_light" />
-        </LinearLayout>
-
-        <!-- ===== More coming ===== -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/bg_coming_soon"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="11dp">
-
-            <ImageView
-                android:layout_width="15dp"
-                android:layout_height="15dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_plus_circle"
-                app:tint="@color/brand_violet_deep" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/games_more_coming"
-                android:textColor="@color/text_ghost"
-                android:textSize="12sp" />
-        </LinearLayout>
-
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+          android:layout_width="16dp"
+          android:layout_height="16dp"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_game"
+          app:tint="@color/text_faint" />
         <TextView
-            android:id="@+id/gamesFootnote"
-            android:layout_width="match_parent"
+          android:id="@+id/playsLeftNote"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="8dp"
+          android:layout_weight="1"
+          android:textColor="@color/white"
+          android:textSize="13sp"
+          tools:text="6 of 10 plays left today" />
+        <ImageView
+          android:layout_width="14dp"
+          android:layout_height="14dp"
+          android:layout_marginStart="8dp"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_clock_countdown"
+          app:tint="@color/games_muted" />
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="5dp"
+          android:text="@string/games_reset_label"
+          android:textColor="@color/games_muted"
+          android:textSize="9sp" />
+        <TextView
+          android:id="@+id/playsResetTimer"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="6dp"
+          android:fontFamily="@font/mono_medium"
+          android:letterSpacing="0.02"
+          android:textColor="@color/brand_violet_light"
+          android:textSize="12sp"
+          tools:text="04:12:38" />
+      </LinearLayout>
+      <LinearLayout
+        android:id="@+id/playsPips"
+        android:layout_width="match_parent"
+        android:layout_height="6dp"
+        android:layout_marginTop="9dp"
+        android:orientation="horizontal" />
+      <LinearLayout
+        android:id="@+id/gameBonusRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="9dp"
+        android:baselineAligned="false"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        tools:visibility="visible">
+        <LinearLayout
+          android:id="@+id/gameBonusButton"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:background="@drawable/bg_games_chip"
+          android:baselineAligned="false"
+          android:clickable="true"
+          android:focusable="true"
+          android:gravity="center_vertical"
+          android:orientation="horizontal"
+          android:paddingStart="11dp"
+          android:paddingTop="6dp"
+          android:paddingEnd="12dp"
+          android:paddingBottom="6dp">
+          <ImageView
+            android:layout_width="13dp"
+            android:layout_height="13dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_video"
+            app:tint="@color/brand_violet_light" />
+          <TextView
+            android:id="@+id/gameBonusLabel"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:lineSpacingMultiplier="1.5"
-            android:textColor="@color/text_ghost"
-            android:textSize="11sp"
-            tools:text="Plays are shared across both games and reset at 00:00 UTC." />
+            android:layout_marginStart="7dp"
+            android:text="@string/games_bonus_action"
+            android:textColor="@color/brand_violet_light"
+            android:textSize="12.5sp" />
+        </LinearLayout>
+        <TextView
+          android:id="@+id/gameBonusNote"
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="10dp"
+          android:layout_weight="1"
+          android:textColor="@color/games_muted"
+          android:textSize="11.5sp"
+          tools:text="3 extra left today" />
+      </LinearLayout>
+      <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="@string/games_shared_note"
+        android:textColor="@color/games_muted"
+        android:textSize="10sp" />
     </LinearLayout>
-</ScrollView>
+    <androidx.constraintlayout.widget.ConstraintLayout
+      android:id="@+id/playFlappy"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:minHeight="136dp"
+      android:layout_marginTop="10dp"
+      android:background="@drawable/bg_games_outline"
+      android:foreground="@drawable/fg_games_border"
+      android:clipToOutline="true"
+      android:clickable="true"
+      android:focusable="true">
+      <com.example.pixelpayout.ui.play.ReferenceGameArtView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintWidth_percent="0.60"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:tag="flappy"
+        android:importantForAccessibility="no" />
+      <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="52"
+          android:orientation="vertical">
+          <androidx.appcompat.widget.AppCompatTextView
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:text="@string/game_flappy_name"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_extrabold"
+            android:textSize="20sp"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="16sp"
+            app:autoSizeMaxTextSize="20sp"
+            app:autoSizeStepGranularity="1sp" />
+          <TextView
+            android:layout_width="136dp"
+            android:layout_height="wrap_content"
+            android:minHeight="28dp"
+            android:layout_marginTop="3dp"
+            android:text="@string/game_flappy_desc"
+            android:textColor="@color/games_muted"
+            android:fontFamily="@font/jakarta_medium"
+            android:textSize="11sp" />
+          <TextView
+            android:id="@+id/flappyXpChip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:background="@drawable/bg_games_chip"
+            android:drawableStart="@drawable/ic_games_bolt"
+            android:drawablePadding="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:gravity="center_vertical"
+            android:textColor="@color/games_muted"
+            android:textSize="10sp"
+            app:drawableTint="@color/games_violet"
+            tools:text="Up to 30 XP/min" />
+          <TextView
+            android:id="@+id/flappyAction"
+            android:layout_width="124dp"
+            android:layout_height="34dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_games_button"
+            android:gravity="center"
+            android:fontFamily="@font/jakarta_bold"
+            android:text="@string/games_step_play"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            android:importantForAccessibility="no" />
+        </LinearLayout>
+        <View
+          android:layout_width="0dp"
+          android:layout_height="1dp"
+          android:layout_weight="48" />
+      </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+    <androidx.constraintlayout.widget.ConstraintLayout
+      android:id="@+id/playTower"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:minHeight="136dp"
+      android:layout_marginTop="10dp"
+      android:background="@drawable/bg_games_outline"
+      android:foreground="@drawable/fg_games_border"
+      android:clipToOutline="true"
+      android:clickable="true"
+      android:focusable="true">
+      <com.example.pixelpayout.ui.play.ReferenceGameArtView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintWidth_percent="0.60"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:tag="tower"
+        android:importantForAccessibility="no" />
+      <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="52"
+          android:orientation="vertical">
+          <androidx.appcompat.widget.AppCompatTextView
+            android:layout_width="match_parent"
+            android:layout_height="24dp"
+            android:text="@string/game_tower_name"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_extrabold"
+            android:textSize="20sp"
+            android:maxLines="1"
+            app:autoSizeTextType="uniform"
+            app:autoSizeMinTextSize="16sp"
+            app:autoSizeMaxTextSize="20sp"
+            app:autoSizeStepGranularity="1sp" />
+          <TextView
+            android:layout_width="136dp"
+            android:layout_height="wrap_content"
+            android:minHeight="28dp"
+            android:layout_marginTop="3dp"
+            android:text="@string/games_tower_description"
+            android:textColor="@color/games_muted"
+            android:fontFamily="@font/jakarta_medium"
+            android:textSize="11sp" />
+          <TextView
+            android:id="@+id/towerXpChip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:background="@drawable/bg_games_chip"
+            android:drawableStart="@drawable/ic_games_bolt"
+            android:drawablePadding="3dp"
+            android:paddingHorizontal="6dp"
+            android:paddingVertical="2dp"
+            android:gravity="center_vertical"
+            android:textColor="@color/games_muted"
+            android:textSize="10sp"
+            app:drawableTint="@color/games_violet"
+            tools:text="Up to 30 XP/min" />
+          <TextView
+            android:id="@+id/towerAction"
+            android:layout_width="124dp"
+            android:layout_height="34dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_games_button"
+            android:gravity="center"
+            android:fontFamily="@font/jakarta_bold"
+            android:text="@string/games_step_play"
+            android:textColor="@color/white"
+            android:textSize="15sp"
+            android:importantForAccessibility="no" />
+        </LinearLayout>
+        <View
+          android:layout_width="0dp"
+          android:layout_height="1dp"
+          android:layout_weight="48" />
+      </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="8dp"
+      android:background="@drawable/bg_coming_soon"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:padding="11dp">
+      <ImageView
+        android:layout_width="15dp"
+        android:layout_height="15dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_plus_circle"
+        app:tint="@color/brand_violet_deep" />
+      <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="@string/games_more_coming"
+        android:textColor="@color/games_muted"
+        android:textSize="12sp" />
+    </LinearLayout>
+    <TextView
+      android:id="@+id/gamesFootnote"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="14dp"
+      android:lineSpacingMultiplier="1.5"
+      android:textColor="@color/games_muted"
+      android:textSize="11sp"
+      tools:text="Plays are shared across both games and reset at 00:00 UTC." />
+  </LinearLayout>
+</androidx.core.widget.NestedScrollView>

@@ -7,7 +7,7 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
+import android.widget.TextView
 import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -27,7 +27,7 @@ import com.pixelpayout.databinding.FragmentGameBinding
 import java.util.concurrent.TimeUnit
 
 /**
- * Play > Games, built from the Games.dc.html handoff.
+ * Play > Games, with the reference design rendered over the existing allowance state.
  *
  * The daily allowance is read straight off the shared user snapshot, the same
  * way QuizListFragment reads the quiz one - both counters live on the user
@@ -76,7 +76,6 @@ class GameFragment : Fragment() {
         val xpChip = getString(R.string.game_xp_chip, GAME_XP_PER_MINUTE)
         binding.flappyXpChip.text = xpChip
         binding.towerXpChip.text = xpChip
-        binding.gamesAvailable.text = getString(R.string.games_available, GAME_COUNT)
         binding.gamesFootnote.text =
             getString(R.string.games_xp_footnote)
 
@@ -150,14 +149,13 @@ class GameFragment : Fragment() {
     }
 
     private fun renderAllowance(allowance: MainViewModel.Allowance) {
-        val used = allowance.used
         val hasPlaysLeft = allowance.remaining > 0
 
         buildPips(allowance.allowance)
 
         binding.playsLeftNote.text = when {
             hasPlaysLeft ->
-                getString(R.string.games_plays_left, allowance.remaining, allowance.allowance)
+                getString(R.string.games_plays_left_short, allowance.remaining, allowance.allowance)
 
             // "Back tomorrow" stops being true while the pill is on screen,
             // so the spent line has to know whether one more can still be
@@ -177,11 +175,10 @@ class GameFragment : Fragment() {
         )
         refreshBonusButtonState()
 
-        // Spent pips go grey from the left, so the violet that remains reads as
-        // what is left rather than as what has been used.
+        // Remaining plays fill from the left, matching the reference meter.
         binding.playsPips.children.forEachIndexed { index, pip ->
             pip.setBackgroundResource(
-                if (index < used) R.drawable.bg_pip_spent else R.drawable.bg_pip_remaining
+                if (index < allowance.remaining) R.drawable.bg_games_pip else R.drawable.bg_pip_spent
             )
         }
 
@@ -194,20 +191,22 @@ class GameFragment : Fragment() {
      * clock - the handoff's "Limit reached" state. Hiding the rows instead
      * would make the screen look like it had lost its content.
      */
-    private fun setRowEnabled(row: View, action: ImageView, enabled: Boolean) {
+    private fun setRowEnabled(row: View, action: TextView, enabled: Boolean) {
         row.isEnabled = enabled
         row.alpha = if (enabled) 1f else 0.55f
 
-        action.setBackgroundResource(
-            if (enabled) R.drawable.bg_play_action else R.drawable.bg_play_action_locked
-        )
-        action.setImageResource(
+        action.isEnabled = enabled
+        action.setText(if (enabled) R.string.games_step_play else R.string.games_action_locked)
+        val icon = ContextCompat.getDrawable(requireContext(),
             if (enabled) R.drawable.ic_play_fill else R.drawable.ic_clock_countdown
-        )
-        action.imageTintList = ContextCompat.getColorStateList(
-            requireContext(),
-            if (enabled) R.color.brand_violet_light else R.color.text_ghost
-        )
+        )?.mutate()
+        val size = (16 * resources.displayMetrics.density).toInt()
+        icon?.setBounds(0, 0, size, size)
+        icon?.setTint(ContextCompat.getColor(requireContext(), R.color.white))
+        action.setCompoundDrawablesRelative(icon, null, null, null)
+        action.compoundDrawablePadding = (6 * resources.displayMetrics.density).toInt()
+        val padding = (28 * resources.displayMetrics.density).toInt()
+        action.setPaddingRelative(padding, 0, padding, 0)
     }
 
     private fun updateResetCountdown() {
@@ -321,7 +320,7 @@ class GameFragment : Fragment() {
 
     private fun endBonusAttempt() {
         bonusInFlight = false
-        _binding?.gameBonusLabel?.setText(R.string.bonus_attempt_action)
+        _binding?.gameBonusLabel?.setText(R.string.games_bonus_action)
         refreshBonusButtonState()
     }
 
@@ -333,6 +332,7 @@ class GameFragment : Fragment() {
         super.onDestroyView()
         timerHandler.removeCallbacks(timerRunnable)
         _binding = null
+        pipCount = 0
     }
 
     private companion object {
@@ -344,7 +344,5 @@ class GameFragment : Fragment() {
          */
         const val GAME_XP_PER_MINUTE = 30
 
-        /** Games wired up on this screen, for the "N available" count. */
-        const val GAME_COUNT = 2
     }
 }

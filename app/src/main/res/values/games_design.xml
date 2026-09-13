@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color
+    name="games_page">#0B0B1D</color>
+  <color
+    name="games_panel">#141429</color>
+  <color
+    name="games_border">#302754</color>
+  <color
+    name="games_muted">#B8B4E4</color>
+  <color
+    name="games_violet">#914DFF</color>
+  <string
+    name="games_hero_title">Play &amp; <font
+      color="#8B49FF">level up</font></string>
+  <string
+    name="games_hero_subtitle">Play games and quizzes to earn XP and level up.</string>
+  <string
+    name="games_earn_xp">Earn XP</string>
+  <string
+    name="games_step_play">Play</string>
+  <string
+    name="games_step_level">Level up</string>
+  <string
+    name="games_step_stars">Get stars</string>
+  <string
+    name="games_reset_label">Resets in</string>
+  <string
+    name="games_shared_note">Shared across both games.</string>
+  <string
+    name="games_bonus_action">Watch ad · +1 play</string>
+  <string
+    name="games_tower_description">Drop each floor. Build your tower.</string>
+  <string
+    name="games_action_locked">Locked</string>
+    <string name="games_plays_left_short">%1$d of %2$d plays left</string>
+    <style name="TextAppearance.PixelPayout.GamesTab" parent="TextAppearance.PixelPayout.Tab">
+        <item name="android:fontFamily">@font/jakarta_semibold</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+</resources>

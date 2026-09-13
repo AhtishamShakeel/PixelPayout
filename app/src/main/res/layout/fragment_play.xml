@@ -1,41 +1,200 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-    Play hosts the two earning activities that used to be separate bottom-nav
-    tabs. Games and Quizzes do the same job for the user - low-effort earning
-    that feels like play - so they read better as one destination with two
-    tabs than as two competing tabs.
-
-    Deliberately NOT a ViewPager2: QuizListFragment has a SwipeRefreshLayout,
-    and horizontal pager swipes fight vertical pull-to-refresh at the edges.
-    A TabLayout driving a plain container avoids that entirely, keeps the
-    dependency list as it was, and lets the child fragments be hidden rather
-    than destroyed so neither list reloads on every tab switch.
--->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@color/games_page">
+  <com.google.android.material.appbar.AppBarLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@color/games_page"
+    app:elevation="0dp">
+    <LinearLayout
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical"
+      app:layout_scrollFlags="scroll|enterAlways"
+      android:paddingHorizontal="17dp">
+      <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="66dp">
+        <com.example.pixelpayout.ui.play.ReferenceGameArtView
+          android:layout_width="118dp"
+          android:layout_height="64dp"
+          android:layout_gravity="end|top"
+          android:tag="controller"
+          android:importantForAccessibility="no" />
+        <LinearLayout
+          android:layout_width="match_parent"
+          android:layout_height="wrap_content"
+          android:layout_gravity="bottom"
+          android:paddingBottom="10dp"
+          android:orientation="vertical">
+          <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <TextView
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text="@string/games_hero_title"
+              android:textColor="@color/white"
+              android:fontFamily="@font/jakarta_extrabold"
+              android:textSize="23sp" />
+            <TextView
+              android:layout_width="wrap_content"
+              android:layout_height="22dp"
+              android:layout_marginStart="8dp"
+              android:background="@drawable/bg_games_chip"
+              android:paddingHorizontal="7dp"
+              android:gravity="center"
+              android:text="@string/games_earn_xp"
+              android:textColor="@color/games_muted"
+              android:textSize="10sp" />
+          </LinearLayout>
+          <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/games_hero_subtitle"
+            android:textColor="@color/games_muted"
+            android:fontFamily="@font/jakarta_medium"
+            android:textSize="11sp" />
+        </LinearLayout>
+      </FrameLayout>
+      <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="64dp"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/bg_games_panel"
+        android:orientation="horizontal"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="5dp"
+        android:gravity="center_vertical">
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical"
+          android:gravity="center">
+          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+            android:layout_width="40dp"
+            android:layout_height="36dp"
+            android:tag="step_play"
+            android:importantForAccessibility="no" />
+          <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="@string/games_step_play"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textSize="11sp" />
+        </LinearLayout>
+        <ImageView
+          android:layout_width="20dp"
+          android:layout_height="36dp"
+          android:layout_gravity="top"
+          android:src="@drawable/ic_games_arrow"
+          android:contentDescription="@null" />
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical"
+          android:gravity="center">
+          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+            android:layout_width="40dp"
+            android:layout_height="36dp"
+            android:tag="step_xp"
+            android:importantForAccessibility="no" />
+          <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="@string/games_earn_xp"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textSize="11sp" />
+        </LinearLayout>
+        <ImageView
+          android:layout_width="20dp"
+          android:layout_height="36dp"
+          android:layout_gravity="top"
+          android:src="@drawable/ic_games_arrow"
+          android:contentDescription="@null" />
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical"
+          android:gravity="center">
+          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+            android:layout_width="40dp"
+            android:layout_height="36dp"
+            android:tag="step_level"
+            android:importantForAccessibility="no" />
+          <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="@string/games_step_level"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textSize="11sp" />
+        </LinearLayout>
+        <ImageView
+          android:layout_width="20dp"
+          android:layout_height="36dp"
+          android:layout_gravity="top"
+          android:src="@drawable/ic_games_arrow"
+          android:contentDescription="@null" />
+        <LinearLayout
+          android:layout_width="0dp"
+          android:layout_height="wrap_content"
+          android:layout_weight="1"
+          android:orientation="vertical"
+          android:gravity="center">
+          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+            android:layout_width="40dp"
+            android:layout_height="36dp"
+            android:tag="step_star"
+            android:importantForAccessibility="no" />
+          <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:text="@string/games_step_stars"
+            android:textColor="@color/white"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textSize="11sp" />
+        </LinearLayout>
+      </LinearLayout>
+    </LinearLayout>
+    <com.google.android.material.tabs.TabLayout
+      android:id="@+id/playTabs"
+      android:layout_width="match_parent"
+      android:layout_height="30dp"
+      android:layout_marginHorizontal="17dp"
+      android:background="@drawable/bg_games_tabs"
+      app:tabGravity="fill"
+      app:tabIndicator="@drawable/bg_games_tab"
+      app:tabIndicatorColor="@android:color/transparent"
+      app:tabIndicatorFullWidth="true"
+      app:tabIndicatorGravity="stretch"
+      app:tabMode="fixed"
+      app:tabPaddingTop="0dp"
+      app:tabPaddingBottom="0dp"
+      app:tabRippleColor="@color/primary_transparent"
+      app:tabSelectedTextColor="@color/white"
+      app:tabTextAppearance="@style/TextAppearance.PixelPayout.GamesTab"
+      app:tabTextColor="@color/games_muted" />
+  </com.google.android.material.appbar.AppBarLayout>
+  <FrameLayout
+    android:id="@+id/playContainer"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background_dark"
-    android:orientation="vertical">
-
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/playTabs"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@color/background_dark"
-        app:tabGravity="fill"
-        app:tabIndicatorColor="@color/primary"
-        app:tabIndicatorFullWidth="false"
-        app:tabIndicatorHeight="3dp"
-        app:tabMode="fixed"
-        app:tabRippleColor="@color/primary_transparent"
-        app:tabSelectedTextColor="@color/white"
-        app:tabTextAppearance="@style/TextAppearance.PixelPayout.Tab"
-        app:tabTextColor="@color/text_secondary" />
-
-    <FrameLayout
-        android:id="@+id/playContainer"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1" />
-
-</LinearLayout>
+    app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

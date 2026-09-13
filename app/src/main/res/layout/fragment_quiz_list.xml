@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!--
     Play > Quizzes.
 
     The category grid below is unchanged - same staggered two-column layout,
@@ -9,158 +10,153 @@
     number off the same day stamp, so they should not look like two unrelated
     features. See fragment_game.xml for the handoff it comes from.
 -->
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <!-- ===== Attempts counter ===== -->
+<androidx.constraintlayout.widget.ConstraintLayout
+  xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:app="http://schemas.android.com/apk/res-auto"
+  xmlns:tools="http://schemas.android.com/tools"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent">
+  <!-- ===== Attempts counter ===== -->
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_games_panel"
+    android:orientation="vertical"
+    android:paddingStart="14dp"
+    android:paddingEnd="14dp"
+    android:paddingTop="8dp"
+    android:paddingBottom="8dp"
+    android:id="@+id/cardQuizzesLeft"
+    android:layout_marginStart="17dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginEnd="17dp"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toTopOf="parent">
     <LinearLayout
-        android:id="@+id/cardQuizzesLeft"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:baselineAligned="false"
+      android:gravity="center_vertical"
+      android:orientation="horizontal">
+      <ImageView
+        android:layout_width="16dp"
+        android:layout_height="16dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_quiz"
+        app:tint="@color/text_faint" />
+      <TextView
+        android:id="@+id/tvQuizzesLeft"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="16dp"
-        android:background="@drawable/bg_nocturne_card"
-        android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingEnd="14dp"
-        android:paddingTop="11dp"
-        android:paddingBottom="11dp"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_quiz"
-                app:tint="@color/text_faint" />
-
-            <TextView
-                android:id="@+id/tvQuizzesLeft"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1"
-                android:textColor="@color/text_dim"
-                android:textSize="13sp"
-                tools:text="6 of 10 quizzes left today" />
-
-            <ImageView
-                android:layout_width="14dp"
-                android:layout_height="14dp"
-                android:layout_marginStart="8dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_clock_countdown"
-                app:tint="@color/text_ghost" />
-
-            <TextView
-                android:id="@+id/tvResetTimer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:fontFamily="@font/mono_medium"
-                android:letterSpacing="0.02"
-                android:textColor="@color/brand_violet_light"
-                android:textSize="14sp"
-                tools:text="04:12:38" />
-        </LinearLayout>
-
-        <!-- One pip per attempt, filled from MAX_DAILY_QUIZ_ATTEMPTS in code so
-             the row can never disagree with the cap it is drawing. -->
-        <LinearLayout
-            android:id="@+id/quizPips"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_marginTop="11dp"
-            android:orientation="horizontal" />
-
-        <!-- Buys one more attempt with a rewarded ad. Hidden once the day's
-             bonus cap is spent, so the offer is never open-ended. -->
-        <LinearLayout
-            android:id="@+id/quizBonusRow"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="11dp"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:visibility="gone"
-            tools:visibility="visible">
-
-            <LinearLayout
-                android:id="@+id/quizBonusButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_bonus_attempt"
-                android:baselineAligned="false"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="11dp"
-                android:paddingTop="6dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="6dp">
-
-                <ImageView
-                    android:layout_width="13dp"
-                    android:layout_height="13dp"
-                    android:contentDescription="@null"
-                    android:src="@drawable/ic_video"
-                    app:tint="@color/brand_violet_light" />
-
-                <TextView
-                    android:id="@+id/quizBonusLabel"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="7dp"
-                    android:text="@string/bonus_attempt_action"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="12.5sp" />
-            </LinearLayout>
-
-            <TextView
-                android:id="@+id/quizBonusNote"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:layout_weight="1"
-                android:textColor="@color/text_ghost"
-                android:textSize="11.5sp"
-                tools:text="3 extra left today" />
-        </LinearLayout>
-
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:textColor="@color/white"
+        android:textSize="13sp"
+        tools:text="10 of 10 quizzes left" />
+      <ImageView
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_clock_countdown"
+        app:tint="@color/games_muted" />
+      <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="5dp"
+        android:text="@string/games_reset_label"
+        android:textColor="@color/games_muted"
+        android:textSize="9sp" />
+      <TextView
+        android:id="@+id/tvResetTimer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:fontFamily="@font/mono_medium"
+        android:letterSpacing="0.02"
+        android:textColor="@color/brand_violet_light"
+        android:textSize="12sp"
+        tools:text="04:12:38" />
     </LinearLayout>
-
     <LinearLayout
-        android:id="@+id/swipeRefresh"
+      android:id="@+id/quizPips"
+      android:layout_width="match_parent"
+      android:layout_height="6dp"
+      android:layout_marginTop="9dp"
+      android:orientation="horizontal" />
+    <LinearLayout
+      android:id="@+id/quizBonusRow"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="9dp"
+      android:baselineAligned="false"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:visibility="gone"
+      tools:visibility="visible">
+      <LinearLayout
+        android:id="@+id/quizBonusButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_games_chip"
+        android:baselineAligned="false"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="11dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp">
+        <ImageView
+          android:layout_width="13dp"
+          android:layout_height="13dp"
+          android:contentDescription="@null"
+          android:src="@drawable/ic_video"
+          app:tint="@color/brand_violet_light" />
+        <TextView
+          android:id="@+id/quizBonusLabel"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="7dp"
+          android:text="@string/quiz_limits_bonus_action"
+          android:textColor="@color/brand_violet_light"
+          android:textSize="12.5sp" />
+      </LinearLayout>
+      <TextView
+        android:id="@+id/quizBonusNote"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cardQuizzesLeft">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:clipChildren="false"
-            android:clipToPadding="false"
-            android:padding="8dp" />
+        android:layout_height="wrap_content"
+        android:layout_marginStart="10dp"
+        android:layout_weight="1"
+        android:textColor="@color/games_muted"
+        android:textSize="11.5sp"
+        tools:text="3 extra left today" />
     </LinearLayout>
-
+    <TextView
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="6dp"
+      android:text="@string/quiz_limits_shared_note"
+      android:textColor="@color/games_muted"
+      android:textSize="10sp" />
+  </LinearLayout>
+  <LinearLayout
+    android:id="@+id/swipeRefresh"
+    android:layout_width="0dp"
+    android:layout_height="0dp"
+    android:layout_marginTop="8dp"
+    app:layout_constraintBottom_toBottomOf="parent"
+    app:layout_constraintEnd_toEndOf="parent"
+    app:layout_constraintStart_toStartOf="parent"
+    app:layout_constraintTop_toBottomOf="@id/cardQuizzesLeft">
+    <androidx.recyclerview.widget.RecyclerView
+      android:id="@+id/recyclerView"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:clipChildren="false"
+      android:clipToPadding="false"
+      android:padding="8dp" />
+  </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

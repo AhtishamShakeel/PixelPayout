@@ -117,13 +117,23 @@ class RedemptionFragment : Fragment() {
             val firstRedeem = result.getBoolean(KEY_FIRST_REDEEM)
             viewLifecycleOwner.lifecycleScope.launch {
                 viewLifecycleOwner.withResumed {
-                    showOrders(false)
-                    if (firstRedeem) {
-                        openFirstRedeem()
-                    } else {
-                        mainViewModel.redemptionGames.value.orEmpty()
-                            .firstOrNull { it.id == gameId }
-                            ?.let { game -> openRedeemSheet { RedeemSheetFragment.newInstance(game) } }
+                    // Posted, not run inline. withResumed fires from inside
+                    // the tab-switch transaction that is resuming this
+                    // fragment, and the sheet's showNow() is a transaction of
+                    // its own - "FragmentManager is already executing
+                    // transactions". One tick later that one has finished.
+                    view.post {
+                        if (_binding == null) return@post
+                        showOrders(false)
+                        if (firstRedeem) {
+                            openFirstRedeem()
+                        } else {
+                            mainViewModel.redemptionGames.value.orEmpty()
+                                .firstOrNull { it.id == gameId }
+                                ?.let { game ->
+                                    openRedeemSheet { RedeemSheetFragment.newInstance(game) }
+                                }
+                        }
                     }
                 }
             }

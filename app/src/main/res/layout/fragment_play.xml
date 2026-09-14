@@ -67,6 +67,7 @@
       <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="64dp"
+          android:visibility="gone"
         android:layout_marginBottom="10dp"
         android:background="@drawable/bg_games_panel"
         android:orientation="horizontal"

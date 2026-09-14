@@ -115,7 +115,6 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         setupClickListeners()
-        setupDebugControls()
         // Warmed here so the claim button does not sit through a cold load.
         AdManager.getInstance().loadRewardedAd(requireContext())
         mainViewModel.loadStreakCycle()
@@ -144,36 +143,45 @@ class HomeFragment : Fragment() {
     }
 
     private fun observeViewModel(){
-        mainViewModel.points.observe(viewLifecycleOwner) { points ->
-            binding.totalPoints.text = points.toString()
+        mainViewModel.firstRedeemFinished.observe(viewLifecycleOwner) { finished ->
+            binding.rewardTitle.setText(if (finished) R.string.home_your_reward else R.string.home_first_reward)
         }
-
         // Fills toward the cheapest redemption not yet affordable in the
         // chosen game. No target means the bar is hidden rather than full.
         mainViewModel.starsCard.observe(viewLifecycleOwner) { card ->
             val next = card?.next
             if (next == null) {
                 binding.nextTierGroup.visibility = View.GONE
+                binding.rewardAmount.setRewardAmount(card?.redeemable?.amount
+                    ?: mainViewModel.preferredGame.value?.displayName
+                    ?: getString(R.string.home_choose_reward))
             } else {
                 binding.nextTierGroup.visibility = View.VISIBLE
+                binding.rewardAmount.setRewardAmount(next.title)
                 binding.redemptionProgress.progress = next.percent
-                // Names the prize, not just the price. "30 UC at 600 stars"
-                // replaced a pair of lines that between them said the target,
-                // the shortfall and the prize - three rows for one fact.
                 val cost = formatCount(next.pointsCost)
                 binding.balanceTarget.setStarText(
-                    getString(R.string.balance_target, next.title, cost),
-                    emphasise = cost
+                    getString(R.string.home_unlock, cost),
+                    emphasise = getString(R.string.home_star_cost, cost),
+                    emphasisColor = R.color.stars_accent
                 )
-                binding.balanceCurrent.text = formatCount(next.pointsHeld)
-                binding.balanceRequired.text = cost
+                binding.balanceCurrent.setStarText(getString(R.string.home_star_ratio, formatCount(next.pointsHeld), cost))
             }
             renderRedeemButton(card?.redeemable)
         }
 
         mainViewModel.preferredGame.observe(viewLifecycleOwner) { game ->
             binding.starsGameSwitch.isVisible = game != null
-            if (game != null) binding.starsGameSwitch.text = "${game.displayName} ⇄"
+            binding.starsGameSwitch.setText(R.string.home_change)
+            // A new Coil request clears any previous game's image, including
+            // when the catalogue has no artwork or the download fails.
+            binding.rewardArtwork.load(game?.currencyImageUrl?.takeIf { it.isNotBlank() } ?: game?.imageUrl) {
+                crossfade(true)
+                placeholder(R.drawable.ic_gift)
+                error(R.drawable.ic_gift)
+                fallback(R.drawable.ic_gift)
+            }
+            binding.rewardArtwork.contentDescription = game?.displayName
         }
 
         // First run, or the chosen game was switched off in the console.
@@ -183,6 +191,7 @@ class HomeFragment : Fragment() {
 
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
             binding.levelTitle.text = getString(R.string.level_card_title, progress.level)
+            binding.levelBadgeNumber.text = progress.level.toString()
 
             // The way into the ladder becomes an errand while stars are owed.
             // Level bonuses are released by a rewarded ad now (see
@@ -192,12 +201,10 @@ class HomeFragment : Fragment() {
             val owed = progress.pendingLevelRewards.size
             renderLevelRewardsButton(progress, owed)
 
-            // The bar always describes the climb; only the CAPTION changes.
-            // Splitting them is what lets an unclaimed reward take the line
-            // without also having to decide what the bar should show at max
-            // level or before the curve has landed.
+            // Progress and the next bonus remain visible while the button
+            // offers any previously earned, unclaimed stars.
             renderLevelBar(progress)
-            renderLevelCaption(progress, owed)
+            renderLevelCaption(progress)
         }
 
         // The badge only appears while a buff is running; the countdown is
@@ -323,11 +330,12 @@ class HomeFragment : Fragment() {
     private fun updateQuizStatusText() {
         val remaining = mainViewModel.quizAllowanceNow().remaining
 
-        binding.quizTileSubtitle.text = if (remaining > 0) {
+        val availability = if (remaining > 0) {
             resources.getQuantityString(R.plurals.quizzes_left, remaining, remaining)
         } else {
             resetCountdownText()
         }
+        binding.quizTile.contentDescription = getString(R.string.home_quiz_accessibility, availability)
     }
 
     /**
@@ -352,15 +360,11 @@ class HomeFragment : Fragment() {
 
     private fun setupClickListeners() {
         binding.apply {
-            // The tiles are fully described in XML now - only the quiz
-            // subtitle is dynamic, and the per-second timer owns that.
+            // Each illustrated tile keeps its existing destination.
             playTile.setOnClickListener { navigateToGame() }
             quizTile.setOnClickListener { navigateToQuizzes() }
 
-            // The section's "View all" link and its offer tile both land on
-            // Earn. The tile lost its separate button in the redesign - at a
-            // third of the row's width there is no room for one, and the
-            // whole tile was already the larger target.
+            // The activity hint and offer tile both open Earn.
             earnAction.setOnClickListener { navigateToRewards() }
             offerCard.setOnClickListener { navigateToRewards() }
             referAction.setOnClickListener { navigateToReferral() }
@@ -376,22 +380,12 @@ class HomeFragment : Fragment() {
     }
 
     /**
-     * "View rewards" in the quiet outline while nothing is affordable;
-     * "Redeem 60 UC now" in solid gold once something is. Both directions are
-     * set every pass - the view is rebound on each balance change.
+     * "See rewards" while nothing is affordable;
+     * "Redeem 60 UC now" once something is. The action updates with the balance.
      */
     private fun renderRedeemButton(redeemable: MainViewModel.Redeemable?) {
-        val button = binding.btnPayout
-        if (redeemable == null) {
-            button.setBackgroundResource(R.drawable.bg_button_stars_outline)
-            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.stars_accent))
-            button.setText(R.string.stars_redeem_cta)
-        } else {
-            button.setBackgroundResource(R.drawable.bg_button_stars_filled)
-            // Ink on gold, as on the level-rewards claim button.
-            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
-            button.text = getString(R.string.stars_redeem_now, redeemable.amount)
-        }
+        binding.btnPayout.text = if (redeemable == null) getString(R.string.home_see_rewards)
+            else getString(R.string.stars_redeem_now, redeemable.amount)
     }
 
     /**
@@ -482,38 +476,13 @@ class HomeFragment : Fragment() {
      * emission, so a one-way change would leave the card gold for the rest of
      * the session after the queue emptied.
      */
-    private fun renderLevelRewardsButton(
-        progress: MainViewModel.LevelProgress,
-        owed: Int
-    ) {
-        val button = binding.levelRewardsButton
-
-        if (owed == 0) {
-            button.setBackgroundResource(R.drawable.bg_button_xp_outline)
-            button.setTextColor(ContextCompat.getColor(requireContext(), R.color.xp_accent))
-            button.text = getString(R.string.level_rewards_button)
-            return
-        }
-
-        // The stars owed, not the number of levels: the figure that makes
-        // somebody tap is what they get, not how many taps it takes. It comes
-        // from the same published table the server pinned each reward from,
-        // and is left at the plain label until that table lands rather than
-        // quoting a total of zero.
+    private fun renderLevelRewardsButton(progress: MainViewModel.LevelProgress, owed: Int) {
         val rewards = mainViewModel.levelCurve.value?.levelRewards.orEmpty()
         val stars = progress.pendingLevelRewards.sumOf { rewards[it] ?: 0 }
-
-        button.setBackgroundResource(R.drawable.bg_button_stars_filled)
-        // Ink on gold. The accent colours every other button uses are all
-        // light, and any of them on this fill would be unreadable.
-        button.setTextColor(ContextCompat.getColor(requireContext(), R.color.background_dark))
-        if (stars > 0) {
-            button.setStarText(
-                getString(R.string.level_rewards_button_claim, stars),
-                starColor = R.color.background_dark
-            )
+        if (owed > 0 && stars > 0) {
+            binding.levelRewardsButton.setStarText(getString(R.string.level_rewards_button_claim, stars))
         } else {
-            button.text = getString(R.string.level_rewards_button)
+            binding.levelRewardsButton.setText(R.string.home_view_levels)
         }
     }
 
@@ -526,7 +495,6 @@ class HomeFragment : Fragment() {
                 // as no progress at all.
                 binding.levelProgressBar.progress = 100
                 binding.levelXpCurrent.text = ""
-                binding.levelXpRequired.text = ""
             }
 
             // The curve is fetched once per session and can still be in
@@ -536,60 +504,36 @@ class HomeFragment : Fragment() {
             progress.xpForNextLevel <= 0 -> {
                 binding.levelProgressBar.progress = 0
                 binding.levelXpCurrent.text = ""
-                binding.levelXpRequired.text = ""
             }
 
             else -> {
                 binding.levelProgressBar.progress =
                     (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
-                binding.levelXpCurrent.text = formatCount(progress.xpIntoLevel)
-                binding.levelXpRequired.text = formatCount(progress.xpForNextLevel)
+                binding.levelXpCurrent.text = getString(R.string.home_xp_full_ratio, formatCount(progress.xpIntoLevel), formatCount(progress.xpForNextLevel))
             }
         }
     }
 
-    /**
-     * The one line above the bar.
-     *
-     * [owed] outranks everything else it could say, max level included: an
-     * unclaimed reward is the only state on this card the player can act on,
-     * and the bar below still shows the progress this line would otherwise
-     * have described.
-     */
-    private fun renderLevelCaption(progress: MainViewModel.LevelProgress, owed: Int) {
-        // Set in both directions rather than only when owed - this view is
-        // rebound on every emission, so painting it gold once would leave the
-        // next ordinary render gold too.
-        binding.levelReward.setTextColor(
-            ContextCompat.getColor(
-                requireContext(),
-                if (owed > 0) R.color.stars_accent else R.color.text_dim
-            )
-        )
-
+    /** The next level's star bonus; pending claims remain on the action button. */
+    private fun renderLevelCaption(progress: MainViewModel.LevelProgress) {
+        binding.levelRewardContext.isVisible = true
+        binding.levelRewardContext.setText(R.string.home_next_level)
         when {
-            owed > 0 -> binding.levelReward.setText(R.string.level_reward_pending)
-
-            progress.isMaxLevel -> binding.levelReward.setText(R.string.level_reached_max)
-
-            progress.xpForNextLevel <= 0 -> binding.levelReward.text = ""
-
+            progress.isMaxLevel -> {
+                binding.levelReward.setText(R.string.level_reached_max)
+                binding.levelRewardContext.isVisible = false
+            }
+            progress.xpForNextLevel <= 0 -> {
+                binding.levelReward.text = ""
+                binding.levelRewardContext.isVisible = false
+            }
             else -> {
-                // Leads with what the next level PAYS rather than only how
-                // far it is - the question the level number invites is "worth
-                // what?". Levels the published curve pays nothing for fall
-                // back to the distance alone; "claim 0 stars" would be a
-                // promise the server never makes.
-                val xpToGo = progress.xpForNextLevel - progress.xpIntoLevel
                 if (progress.nextLevelReward > 0) {
-                    val reward = formatCount(progress.nextLevelReward)
                     binding.levelReward.setStarText(
-                        getString(R.string.level_reward_next, xpToGo, reward),
-                        emphasise = reward
+                        getString(R.string.home_level_bonus, formatCount(progress.nextLevelReward))
                     )
                 } else {
-                    binding.levelReward.text =
-                        getString(R.string.level_to_next, xpToGo, progress.level + 1)
+                    binding.levelReward.setText(R.string.home_no_star_bonus)
                 }
             }
         }
@@ -675,7 +619,7 @@ class HomeFragment : Fragment() {
         val rewardedToday = streak.rewardedOn(todayUtc) ||
             confirmedRewardDayUtc == todayUtc
 
-        binding.streakTitle.text = if (streak.isAlive(todayUtc) && streak.count > 0) {
+        binding.streakCard.contentDescription = if (streak.isAlive(todayUtc) && streak.count > 0) {
             getString(R.string.streak_title, streak.count)
         } else {
             getString(R.string.streak_title_none)
@@ -706,14 +650,14 @@ class HomeFragment : Fragment() {
             val filled = index < done
             val isNext = index == nextIndex
 
-            cell.setBackgroundResource(
-                when {
-                    filled && isNext -> R.drawable.bg_streak_cell_done_next
-                    filled -> R.drawable.bg_streak_cell_done
-                    isNext -> R.drawable.bg_streak_cell_next
-                    else -> R.drawable.bg_streak_cell_todo
-                }
-            )
+            val claimed = filled && !isNext
+            val today = (rewardedToday && index == claimPosition - 1) || isNext
+            cell.tag = when { today -> "reference_day_active"; claimed -> "reference_day_claimed"; else -> "reference_day" }
+            cell.setBackgroundResource(when {
+                today -> R.drawable.bg_home_day_active
+                claimed -> R.drawable.bg_home_day_claimed
+                else -> R.drawable.bg_home_day
+            })
             // A CLAIMED day drops its figure for a tick. What day three paid
             // stops being information the moment it is banked, and seven spent
             // figures compete with the days still to come, which are the only
@@ -723,15 +667,13 @@ class HomeFragment : Fragment() {
             // else - the box already said reached, in play, or ahead. A Stars
             // day is gold, as a star is on every screen in this app; an XP day
             // is neutral, and leans brighter while it is the one in play.
-            if (filled) {
-                // Nothing to draw here: the cell's background carries both
-                // the fill and the tick, centred. This used to set a compound
-                // drawable, which Android pins to the view's edge rather than
-                // centring, and which made the claimed cell measure
-                // differently from the six beside it.
-                cell.text = ""
+            val dayLabel = getString(R.string.home_day, index + 1)
+            if (claimed) {
+                cell.text = getString(R.string.home_claimed_day, dayLabel,
+                    getString(if (today) R.string.home_today else R.string.home_day_done))
+                cell.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
-                cell.text = reward?.let { cellLabel(it) }.orEmpty()
+                cell.text = "$dayLabel\n${reward?.let { cellLabel(it) }.orEmpty()}"
                 cell.setTextColor(
                     ContextCompat.getColor(
                         requireContext(),
@@ -743,6 +685,12 @@ class HomeFragment : Fragment() {
                     )
                 )
             }
+            cell.contentDescription = getString(R.string.home_checkin_day_desc, index + 1,
+                reward?.let { describeReward(it) }.orEmpty(), getString(when {
+                    claimed -> R.string.home_claimed
+                    isNext -> R.string.home_available
+                    else -> R.string.home_upcoming
+                }))
         }
         // Only meaningful once today is settled; "tomorrow" is the day after
         // whichever day the current claim belongs to.
@@ -763,6 +711,7 @@ class HomeFragment : Fragment() {
 
         binding.streakClaimButton.visibility =
             if (rewardedToday) View.GONE else View.VISIBLE
+        binding.streakFooter.isVisible = rewardedToday
         // A day whose streak already moved on but paid nothing is a retry, and
         // saying so is the difference between "come back tomorrow" and "have
         // another go".
@@ -784,7 +733,7 @@ class HomeFragment : Fragment() {
         binding.streakCell7
     )
 
-    /** Two lines - the figure, then its unit - because a cell is ~22dp wide. */
+    /** Reward lines underneath the day label in the seven-day strip. */
     private fun cellLabel(reward: UserRepository.StreakDayReward): String = when {
         reward.points > 0 -> "${reward.points}\n\u2605"
         else -> "${reward.xp}\nXP"
@@ -987,13 +936,12 @@ class HomeFragment : Fragment() {
         if (goals == null || goals.goals.isEmpty()) {
             binding.goalsHeader.visibility = View.GONE
             binding.goalsCard.visibility = View.GONE
-            binding.goalsDoneCount.text = ""
             return
         }
         binding.goalsHeader.visibility = View.VISIBLE
         binding.goalsCard.visibility = View.VISIBLE
 
-        binding.goalsDoneCount.text =
+        binding.goalsCard.contentDescription =
             getString(R.string.goals_done_count, goals.doneCount, goals.goals.size)
         val bonus = formatCount(goals.bonusPoints)
         binding.goalsBonus.setStarText(
@@ -1001,8 +949,6 @@ class HomeFragment : Fragment() {
             emphasise = bonus,
             emphasisColor = R.color.stars_accent
         )
-        binding.goalsProgressBar.progress =
-            goals.doneCount * 100 / goals.goals.size
 
         // The figure is gold in both states - it is Stars either way. What
         // changes on completion is the WORD beside it, which goes green: the
@@ -1018,6 +964,7 @@ class HomeFragment : Fragment() {
 
         binding.goalsClaimButton.visibility =
             if (goals.allDone && !goals.bonusClaimed) View.VISIBLE else View.GONE
+        binding.goalsBonus.isVisible = !binding.goalsClaimButton.isVisible
         binding.goalsClaimButton.renderClaimState(
             inFlight = goalClaimInFlight,
             idleText = getString(R.string.goals_claim)
@@ -1031,22 +978,23 @@ class HomeFragment : Fragment() {
         // The card is not hidden outright: a claimed set is a thing the user
         // did, and a card that vanishes on the last tap reads as a bug.
         val settled = goals.allDone && goals.bonusClaimed
-        binding.goalsSubtitle.setText(
-            if (settled) R.string.goals_subtitle_claimed else R.string.goals_subtitle
-        )
-        binding.goalsProgressBar.visibility = if (settled) View.GONE else View.VISIBLE
+        binding.goalsSubtitle.text = if (settled) getString(R.string.goals_subtitle_claimed)
+            else resources.getQuantityString(R.plurals.home_finish_tasks, goals.goals.size, goals.goals.size)
+        binding.goalsCard.designHeight = if (settled) 90f else 267f
+        binding.goalsCard.minimumHeight = ((if (settled) 80 else 240) * resources.displayMetrics.density).toInt()
         binding.goalRows.visibility = if (settled) View.GONE else View.VISIBLE
         if (settled) return
 
         val rows = listOf(
-            Triple(binding.goalRow1, binding.goalMark1, binding.goalLabel1),
-            Triple(binding.goalRow2, binding.goalMark2, binding.goalLabel2),
-            Triple(binding.goalRow3, binding.goalMark3, binding.goalLabel3)
+            Triple(binding.goalRow1, binding.goalImage1, binding.goalLabel1),
+            Triple(binding.goalRow2, binding.goalImage2, binding.goalLabel2),
+            Triple(binding.goalRow3, binding.goalImage3, binding.goalLabel3)
         )
         val progressViews = listOf(
             binding.goalProgress1, binding.goalProgress2, binding.goalProgress3
         )
         val rings = listOf(binding.goalRing1, binding.goalRing2, binding.goalRing3)
+        val actions = listOf(binding.goalAction1, binding.goalAction2, binding.goalAction3)
 
         rows.forEachIndexed { index, (row, mark, label) ->
             val goal = goals.goals.getOrNull(index)
@@ -1056,20 +1004,18 @@ class HomeFragment : Fragment() {
             }
             row.visibility = View.VISIBLE
 
-            mark.text = if (goal.done) "✓" else (index + 1).toString()
-            mark.setBackgroundResource(
-                if (goal.done) R.drawable.bg_goal_mark_done
-                else android.R.color.transparent
-            )
-            mark.setTextColor(
-                ContextCompat.getColor(
-                    requireContext(),
-                    if (goal.done) R.color.surface_card else R.color.text_faint
-                )
-            )
+            mark.tag = if (goal.kind == DailyGoalEngine.KIND_PLAY_GAMES) "goal_game" else "goal_quiz"
+            mark.invalidate()
+            val action = actions[index]
+            action.setText(when {
+                goal.done -> R.string.home_done
+                goal.kind == DailyGoalEngine.KIND_PLAY_GAMES -> R.string.home_play
+                else -> R.string.home_start
+            })
+            action.contentDescription = "${goalLabel(goal)}: ${action.text}"
+            action.setOnClickListener { openGoalTarget(goal.kind) }
 
-            // The ring carries partial progress; a finished goal is the filled
-            // disc instead, so the two never fight over the same 24dp.
+            // The illustration stays inside the progress ring in every state.
             val ring = rings[index]
             ring.setIndicatorColor(
                 ContextCompat.getColor(
@@ -1344,7 +1290,7 @@ class HomeFragment : Fragment() {
         // circles means three real payouts - a cell with nothing behind it is
         // hidden instead of filled with a placeholder.
         listOf(
-            binding.payoutAvatar1, binding.payoutAvatar2, binding.payoutAvatar3
+            binding.payoutAvatar1
         ).forEachIndexed { index, avatar ->
             val initial = entries.getOrNull(index)?.name.orEmpty().firstOrNull()
             if (initial == null) {
@@ -1484,4 +1430,4 @@ class HomeFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
-} 
+}

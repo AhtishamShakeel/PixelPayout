@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_your_reward">Your next reward</string>
+    <string name="home_first_reward">Your first reward</string>
+    <string name="home_welcome">Welcome back!</string>
+    <string name="home_activities_hint">Complete activities to earn rewards</string>
+    <string name="home_star_ratio">%1$s / %2$s ★</string>
+    <string name="home_xp_full_ratio">%1$s / %2$s XP</string>
+    <string name="home_quiz_accessibility">Quizzes. Earn XP. %1$s</string>
+    <string name="home_your_level">Your level</string>
+    <string name="home_choose_reward">Choose reward</string>
+    <string name="home_change">Change</string>
+    <string name="home_see_rewards">See rewards →</string>
+    <string name="home_view_levels">View levels →</string>
+    <string name="home_next_level">On next level</string>
+    <string name="home_unlock">%1$s stars to unlock</string>
+    <string name="home_star_cost">%1$s stars</string>
+    <string name="home_level_bonus">+%1$s ★</string>
+    <string name="home_play_quiz">Play &amp; quiz</string>
+    <string name="home_earn_xp">Earn XP</string>
+    <string name="home_level_tournament">Level up\nTournament</string>
+    <string name="home_get_stars">Get stars</string>
+    <string name="home_flow_description">Play games and quizzes to earn XP. Level up and compete in tournaments to get stars.</string>
+    <string name="home_start_earning">Start earning</string>
+    <string name="home_view_all">View all →</string>
+    <string name="home_games">Games</string>
+    <string name="home_quizzes">Quizzes</string>
+    <string name="home_offers">Offers</string>
+    <string name="home_earn_stars">Earn stars</string>
+    <string name="home_today_bonus">Today\'s bonus</string>
+    <plurals name="home_finish_tasks">
+        <item quantity="one">Finish %1$d task to claim</item>
+        <item quantity="other">Finish all %1$d tasks to claim</item>
+    </plurals>
+    <string name="home_daily_checkin">Daily check-in</string>
+    <string name="home_start">Start</string>
+    <string name="home_play">Play</string>
+    <string name="home_done">Done ✓</string>
+    <string name="home_day">Day %1$d</string>
+    <string name="home_today">Today</string>
+    <string name="home_day_done">Done</string>
+    <string name="home_claimed_day">%1$s\n✓\n%2$s</string>
+    <string name="home_balance_ratio">/ %1$s ★</string>
+    <string name="home_xp_ratio">/ %1$s XP</string>
+    <string name="home_no_star_bonus">Keep going</string>
+    <string name="home_checkin_day_desc">Day %1$d, %2$s, %3$s</string>
+    <string name="home_claimed">Claimed</string>
+    <string name="home_upcoming">Upcoming</string>
+    <string name="home_available">Available</string>
+</resources>

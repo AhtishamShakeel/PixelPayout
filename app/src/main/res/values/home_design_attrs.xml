@@ -1,0 +1,16 @@
+<resources>
+    <declare-styleable name="HomeDesignLayout">
+        <attr name="designWidth" format="float" />
+        <attr name="designHeight" format="float" />
+        <attr name="designFlow" format="boolean" />
+    </declare-styleable>
+    <declare-styleable name="HomeDesignLayout_Layout">
+        <attr name="designX" format="float" />
+        <attr name="designY" format="float" />
+        <attr name="designW" format="float" />
+        <attr name="designH" format="float" />
+        <attr name="designTextSize" format="float" />
+        <attr name="designTextSp" format="dimension" />
+        <attr name="designGap" format="dimension" />
+    </declare-styleable>
+</resources>

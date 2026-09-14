@@ -67,7 +67,6 @@
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">6dp</item>
     </style>
-
     <!-- The redeem sheet. Transparent so bg_sheet_surface draws the rounded
          top itself; the default sheet background would square it off. -->
     <style name="Theme.PixelPayout.BottomSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
@@ -139,6 +138,45 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!-- The reward amount on both Wallet goal cards: "1,080 FF Diamonds",
+         coloured by setRewardAmount the way Home's Stars card is - white
+         figure, smaller lilac currency on the same baseline. Auto-sizes so
+         a long currency still fits one line. -->
+    <style name="WalletRewardAmount">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:fontFamily">@font/jakarta_extrabold</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">22sp</item>
+        <item name="autoSizeTextType">uniform</item>
+        <item name="autoSizeMaxTextSize">22sp</item>
+        <item name="autoSizeMinTextSize">14sp</item>
+        <item name="autoSizeStepGranularity">1sp</item>
+    </style>
+
+    <!-- The underlined "Change" under the amount, on both goal cards. The
+         underline is set in code (paintFlags), since text set from code
+         drops string markup. Vertical padding widens the tap target without
+         moving the text away from the amount. -->
+    <style name="WalletChangeLink">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">-2dp</item>
+        <item name="android:paddingTop">6dp</item>
+        <item name="android:paddingBottom">6dp</item>
+        <item name="android:paddingEnd">12dp</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:fontFamily">@font/jakarta_bold</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/brand_violet_light</item>
+        <item name="android:text">@string/wallet_change</item>
     </style>
 
 </resources>

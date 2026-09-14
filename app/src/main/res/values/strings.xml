@@ -637,19 +637,37 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="wallet_balance_placeholder">—</string>
     <!-- x / y under the progress bar toward the next affordable pack. -->
     <string name="wallet_reach_ratio">%1$s / %2$s</string>
-    <string name="wallet_reach_short">%1$s more stars for %2$s</string>
-    <string name="wallet_reach_none">Start earning to unlock your first pack</string>
+    <string name="wallet_more_to_unlock">%1$s ★ more to unlock</string>
+    <string name="wallet_ready_to_redeem">You have enough stars. Redeem it now.</string>
+    <!-- The goal card. %1$s is the currency the user chose ("UC"), never
+         the game. -->
+    <string name="wallet_reward_header_next">Your next reward</string>
+    <string name="wallet_reward_header_ready">Your reward</string>
+    <string name="wallet_redeem_amount">Redeem %1$s</string>
+    <!-- The pill beside the reward amount that opens the currency chooser;
+         Choose before a game has been picked. -->
+    <string name="wallet_change">Change</string>
+    <string name="wallet_choose">Choose</string>
     <string name="wallet_pending_one">1 order processing</string>
     <string name="wallet_pending_many">%1$d orders processing</string>
 
     <!-- The discounted first redeem. The exact price lives on the pack in
          Firestore, so no number appears here. -->
-    <string name="first_redeem_kicker">One-time offer</string>
+    <string name="first_redeem_kicker">First-time offer</string>
     <string name="first_redeem_once">One time only</string>
-    <string name="first_redeem_title">Your first pack costs less</string>
-    <string name="first_redeem_body">Get a small pack for fewer stars.</string>
-    <string name="first_redeem_uid_note">One per person</string>
+    <string name="first_redeem_subtitle">Get your first reward for less</string>
+    <!-- Above the amount when there is no single pack to name: no game
+         chosen, or the chosen one has no discounted pack. -->
+    <string name="first_redeem_pick">Pick your reward</string>
+    <string name="first_redeem_arrow">→</string>
+    <string name="first_redeem_percent_off">%1$d%% off</string>
+    <!-- A bare Stars figure; the star is swapped for ic_star by StarText. -->
+    <string name="wallet_star_amount">%1$s ★</string>
+    <string name="first_redeem_uid_note">One per account</string>
     <string name="first_redeem_cta">Use my discount</string>
+    <!-- On the offer button while the discount is still out of reach and
+         there is no Earn tab to send the user to. -->
+    <string name="first_redeem_view">See offer</string>
     <!-- Shown when the server refuses the discount because the GAME ACCOUNT
          has already had one - almost always the user's own older sign-in.
          Says what happened and that it is final, because the card is about to

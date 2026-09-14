@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    One game in the Wallet grid.
+
+    Artwork on top, text below it on the tile's own ground: the image ends
+    right above the currency name instead of running under the text behind
+    a fade, so the art is shown whole and the text never sits on a busy
+    picture.
+-->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -10,52 +18,48 @@
     android:clickable="true"
     android:focusable="true"
     android:padding="2dp">
+    <!-- The placeholder well, the same box as the art. It stays behind the
+         image so a failed load still leaves a labelled tile. -->
     <TextView
         android:id="@+id/gameCode"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintDimensionRatio="H,1:1"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
         android:background="@drawable/bg_code_tile"
         android:fontFamily="@font/mono_bold"
-        android:gravity="top|center_horizontal"
+        android:gravity="center"
         android:letterSpacing="0.08"
         android:textColor="@color/brand_violet"
         android:textSize="16sp"
-        tools:text="UC"
-        android:paddingTop="24dp" />
-    <com.google.android.material.imageview.ShapeableImageView
+        app:layout_constraintDimensionRatio="H,4:3"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="UC" />
+    <!-- Transparent PNGs, drawn whole and centred on the tile's own ground:
+         fitCenter with padding rather than a crop, and no clipping shape. -->
+    <ImageView
         android:id="@+id/gameImage"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintStart_toStartOf="@id/gameCode"
-        app:layout_constraintEnd_toEndOf="@id/gameCode"
-        app:layout_constraintTop_toTopOf="@id/gameCode"
-        app:layout_constraintBottom_toBottomOf="@id/gameCode"
         android:contentDescription="@null"
-        android:scaleType="centerCrop"
+        android:padding="3dp"
+        android:scaleType="fitCenter"
         android:visibility="gone"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.GameArt" />
-    <View
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:background="@drawable/bg_reward_art_fade"
-        android:importantForAccessibility="no"
-        app:layout_constraintStart_toStartOf="@id/gameCode"
-        app:layout_constraintEnd_toEndOf="@id/gameCode"
         app:layout_constraintBottom_toBottomOf="@id/gameCode"
+        app:layout_constraintEnd_toEndOf="@id/gameCode"
+        app:layout_constraintStart_toStartOf="@id/gameCode"
         app:layout_constraintTop_toTopOf="@id/gameCode" />
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="10dp"
-        app:layout_constraintStart_toStartOf="parent"
+        android:paddingStart="10dp"
+        android:paddingTop="3dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="10dp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/gameCode">
         <TextView
             android:id="@+id/gameName"
             android:layout_width="match_parent"

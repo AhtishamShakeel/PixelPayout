@@ -33,70 +33,63 @@
                 <TextView
                     android:id="@+id/segmentWallet"
                     android:layout_width="0dp"
-                    android:layout_height="38dp"
+                    android:layout_height="26dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_segment_on"
                     android:fontFamily="@font/jakarta_semibold"
                     android:gravity="center"
                     android:text="@string/nav_wallet"
                     android:textColor="@color/white"
-                    android:textSize="15sp" />
+                    android:textSize="13sp" />
                 <TextView
                     android:id="@+id/segmentOrders"
                     android:layout_width="0dp"
-                    android:layout_height="38dp"
+                    android:layout_height="26dp"
                     android:layout_weight="1"
                     android:fontFamily="@font/jakarta_medium"
                     android:gravity="center"
                     android:text="@string/wallet_orders"
                     android:textColor="@color/text_faint"
-                    android:textSize="15sp" />
+                    android:textSize="13sp" />
             </LinearLayout>
             <LinearLayout
                 android:id="@+id/walletView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
+                <!--
+                    The balance, on its own slim row. The card below carries
+                    the goal, and the switch for which game it is measured in.
+                -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_wallet_balance"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical"
+                    android:layout_marginTop="14dp"
                     android:baselineAligned="false"
-                    android:padding="10dp">
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="2dp"
+                    android:paddingEnd="0dp">
                     <LinearLayout
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="0dp"
-                        android:layout_weight="1">
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.14"
+                            android:text="@string/wallet_stars_label"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_dim"
+                            android:textSize="11sp" />
                         <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
                             android:gravity="center_vertical"
                             android:orientation="horizontal">
-                            <ImageView
-                                android:layout_width="13dp"
-                                android:layout_height="13dp"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_star_gold" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:fontFamily="@font/jakarta_semibold"
-                                android:letterSpacing="0.14"
-                                android:text="@string/wallet_stars_label"
-                                android:textAllCaps="true"
-                                android:textColor="@color/text_faint"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-                        <androidx.constraintlayout.widget.ConstraintLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp">
                             <TextView
                                 android:id="@+id/walletBalance"
                                 android:layout_width="wrap_content"
@@ -104,53 +97,287 @@
                                 android:fontFamily="@font/jakarta_extrabold"
                                 android:includeFontPadding="false"
                                 android:letterSpacing="-0.035"
+                                android:maxLines="1"
                                 android:text="@string/wallet_balance_placeholder"
                                 android:textColor="@color/text_strong"
-                                android:textSize="30sp"
-                                tools:text="14,820"
-                                android:maxLines="1"
-                                app:autoSizeTextType="uniform"
-                                app:autoSizeMinTextSize="20sp"
-                                app:autoSizeMaxTextSize="30sp"
-                                app:autoSizeStepGranularity="1sp"
-                                app:layout_constraintTop_toTopOf="parent"
-                                app:layout_constraintHorizontal_chainStyle="packed"
-                                app:layout_constrainedWidth="true"
-                                app:layout_constraintStart_toStartOf="parent"
-                                app:layout_constraintEnd_toStartOf="@id/walletBalanceStar"
-                                app:layout_constraintHorizontal_bias="0" />
+                                android:textSize="26sp"
+                                tools:text="1,240" />
                             <ImageView
-                                android:layout_width="22dp"
-                                android:layout_height="22dp"
-                                android:layout_marginStart="7dp"
-                                android:layout_marginBottom="3dp"
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:layout_marginStart="6dp"
                                 android:contentDescription="@null"
-                                android:src="@drawable/ic_star_gold"
-                                android:id="@+id/walletBalanceStar"
-                                app:layout_constraintEnd_toEndOf="parent"
-                                app:layout_constraintStart_toEndOf="@id/walletBalance"
-                                app:layout_constraintBottom_toBottomOf="@id/walletBalance" />
-                        </androidx.constraintlayout.widget.ConstraintLayout>
-                        <TextView
-                            android:id="@+id/walletReachLine"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:fontFamily="@font/jakarta_medium"
-                            android:maxLines="3"
-                            android:textColor="@color/text_dim"
-                            android:textSize="12sp"
-                            tools:text="600 more stars for 30 UC" />
+                                android:src="@drawable/ic_star_gold" />
+                        </LinearLayout>
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!--
+                    THE OFFER, while this account still has it. Its price is
+                    the next thing the balance is climbing toward, so the bar
+                    lives here rather than on a second card repeating it.
+                -->
+                <LinearLayout
+                    android:id="@+id/firstRedeemCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_wallet_offer"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
                         <LinearLayout
-                            android:id="@+id/walletReachGroup"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:background="@drawable/bg_chip_violet"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="8dp"
+                            android:paddingTop="3dp"
+                            android:paddingEnd="8dp"
+                            android:paddingBottom="3dp">
+                            <ImageView
+                                android:layout_width="13dp"
+                                android:layout_height="13dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_gift"
+                                app:tint="@color/brand_violet_light" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:letterSpacing="0.06"
+                                android:text="@string/first_redeem_kicker"
+                                android:textAllCaps="true"
+                                android:textColor="@color/brand_violet_light"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+                        <TextView
+                            android:id="@+id/firstRedeemAmount"
+                            style="@style/WalletRewardAmount"
+                            android:layout_marginTop="8dp"
+                            tools:text="20 CP" />
+                        <TextView
+                            android:id="@+id/firstRedeemChange"
+                            style="@style/WalletChangeLink" />
+                        <TextView
+                            android:id="@+id/firstRedeemTitle"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:text="@string/first_redeem_subtitle"
+                            android:textColor="@color/text_dim"
+                            android:textSize="13sp" />
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+                            <TextView
+                                android:id="@+id/firstRedeemListPrice"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:maxLines="1"
+                                android:textColor="@color/text_faint"
+                                android:textSize="14sp"
+                                tools:text="700 ★" />
+                            <TextView
+                                android:id="@+id/firstRedeemArrow"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="5dp"
+                                android:layout_marginEnd="5dp"
+                                android:fontFamily="@font/jakarta_semibold"
+                                android:importantForAccessibility="no"
+                                android:text="@string/first_redeem_arrow"
+                                android:textColor="@color/text_faint"
+                                android:textSize="14sp" />
+                            <TextView
+                                android:id="@+id/firstRedeemPrice"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/jakarta_extrabold"
+                                android:maxLines="1"
+                                android:textColor="@color/stars_accent"
+                                android:textSize="20sp"
+                                tools:text="150 stars" />
+                            <TextView
+                                android:id="@+id/firstRedeemBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:background="@drawable/bg_chip_violet"
+                                android:fontFamily="@font/jakarta_bold"
+                                android:maxLines="1"
+                                android:paddingStart="7dp"
+                                android:paddingTop="2dp"
+                                android:paddingEnd="7dp"
+                                android:paddingBottom="2dp"
+                                android:textColor="@color/brand_violet_light"
+                                android:textSize="11.5sp"
+                                tools:text="75% off" />
+                        </LinearLayout>
+                        <LinearLayout
+                            android:id="@+id/firstRedeemProgressGroup"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
                             android:baselineAligned="false"
                             android:gravity="center_vertical"
                             android:orientation="horizontal">
                             <ProgressBar
-                                android:id="@+id/walletReachBar"
+                                android:id="@+id/firstRedeemBar"
+                                style="@android:style/Widget.ProgressBar.Horizontal"
+                                android:layout_width="0dp"
+                                android:layout_height="6dp"
+                                android:layout_weight="1"
+                                android:max="100"
+                                android:progress="0"
+                                android:progressDrawable="@drawable/progress_wallet_stars"
+                                tools:progress="26" />
+                            <TextView
+                                android:id="@+id/firstRedeemRatio"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="8dp"
+                                android:fontFamily="@font/mono_medium"
+                                android:textColor="@color/text_dim"
+                                android:textSize="11sp"
+                                tools:text="40 / 150" />
+                        </LinearLayout>
+                        <TextView
+                            android:id="@+id/firstRedeemLine"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:textColor="@color/text_dim"
+                            android:textSize="12sp"
+                            tools:text="110 more stars to unlock" />
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+                            <ImageView
+                                android:layout_width="14dp"
+                                android:layout_height="14dp"
+                                android:contentDescription="@null"
+                                android:src="@drawable/ic_shield_check"
+                                app:tint="@color/brand_violet_light" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="6dp"
+                                android:fontFamily="@font/jakarta_medium"
+                                android:text="@string/first_redeem_uid_note"
+                                android:textColor="@color/text_faint"
+                                android:textSize="11.5sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+                    <LinearLayout
+                        android:layout_width="112dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:gravity="center_horizontal"
+                        android:orientation="vertical">
+                        <ImageView
+                            android:id="@+id/firstRedeemArt"
+                            android:layout_width="88dp"
+                            android:layout_height="80dp"
+                            android:adjustViewBounds="true"
+                            android:contentDescription="@null"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/wallet_gift_art" />
+                        <TextView
+                            android:id="@+id/firstRedeemButton"
+                            android:layout_width="match_parent"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_button_violet_12"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:gravity="center"
+                            android:maxLines="2"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="6dp"
+                            android:text="@string/first_redeem_cta"
+                            android:textColor="@color/white"
+                            android:textSize="12.5sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!--
+                    THE GOAL, once the offer is gone: the next pack in the
+                    chosen game, or what the balance can already buy.
+                -->
+                <LinearLayout
+                    android:id="@+id/rewardCard"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@drawable/bg_wallet_balance"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="14dp"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+                        <TextView
+                            android:id="@+id/rewardHeader"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:maxLines="1"
+                            android:textColor="@color/white"
+                            android:textSize="15sp"
+                            tools:text="Your next reward" />
+                        <TextView
+                            android:id="@+id/rewardTarget"
+                            style="@style/WalletRewardAmount"
+                            android:layout_marginTop="6dp"
+                            tools:text="1,080 FF Diamonds" />
+                        <TextView
+                            android:id="@+id/rewardChange"
+                            style="@style/WalletChangeLink" />
+                        <TextView
+                            android:id="@+id/rewardLine"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:textColor="@color/text_dim"
+                            android:textSize="12.5sp"
+                            tools:text="150 more stars to unlock" />
+                        <LinearLayout
+                            android:id="@+id/rewardProgressGroup"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:baselineAligned="false"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+                            <ProgressBar
+                                android:id="@+id/rewardBar"
                                 style="@android:style/Widget.ProgressBar.Horizontal"
                                 android:layout_width="0dp"
                                 android:layout_height="6dp"
@@ -160,59 +387,54 @@
                                 android:progressDrawable="@drawable/progress_wallet_stars"
                                 tools:progress="35" />
                             <TextView
-                                android:id="@+id/walletReachRatio"
+                                android:id="@+id/rewardRatio"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="10dp"
+                                android:layout_marginStart="8dp"
                                 android:fontFamily="@font/mono_medium"
                                 android:textColor="@color/text_dim"
                                 android:textSize="11sp"
-                                tools:text="0 / 600" />
+                                tools:text="0 / 150" />
                         </LinearLayout>
                     </LinearLayout>
                     <LinearLayout
                         android:layout_width="112dp"
                         android:layout_height="wrap_content"
-                        android:orientation="vertical"
+                        android:layout_marginStart="8dp"
                         android:gravity="center_horizontal"
-                        android:layout_marginStart="8dp">
+                        android:orientation="vertical">
                         <ImageView
-                            android:id="@+id/walletHeroArt"
-                            android:layout_width="80dp"
-                            android:layout_height="72dp"
-                            android:layout_marginEnd="0dp"
+                            android:id="@+id/rewardArt"
+                            android:layout_width="88dp"
+                            android:layout_height="80dp"
                             android:adjustViewBounds="true"
                             android:contentDescription="@null"
                             android:scaleType="fitCenter"
-                            android:visibility="visible"
-                            tools:visibility="visible"
                             android:src="@drawable/wallet_stars_art" />
                         <TextView
-                            android:id="@+id/walletEarnMore"
+                            android:id="@+id/rewardButton"
                             android:layout_width="match_parent"
                             android:layout_height="48dp"
-                            android:layout_marginTop="4dp"
+                            android:layout_marginTop="6dp"
                             android:background="@drawable/bg_button_stars_outline"
                             android:clickable="true"
-                            android:drawablePadding="3dp"
                             android:focusable="true"
                             android:fontFamily="@font/jakarta_bold"
                             android:gravity="center"
-                            android:minWidth="0dp"
+                            android:maxLines="2"
                             android:paddingStart="6dp"
                             android:paddingEnd="6dp"
                             android:text="@string/wallet_earn_stars"
                             android:textColor="@color/stars_accent"
-                            android:textSize="12sp"
-                            app:drawableEndCompat="@drawable/ic_arrow_right"
-                            app:drawableTint="@color/stars_accent" />
+                            android:textSize="12.5sp" />
                     </LinearLayout>
                 </LinearLayout>
+
                 <LinearLayout
                     android:id="@+id/walletPendingRow"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="11dp"
+                    android:layout_marginTop="10dp"
                     android:background="@drawable/bg_pending_banner"
                     android:baselineAligned="false"
                     android:gravity="center_vertical"
@@ -258,125 +480,6 @@
                         android:contentDescription="@null"
                         android:src="@drawable/ic_caret_right"
                         app:tint="@color/text_ghost" />
-                </LinearLayout>
-                <LinearLayout
-                    android:id="@+id/firstRedeemCard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/bg_wallet_offer"
-                    android:visibility="gone"
-                    tools:visibility="visible"
-                    android:orientation="horizontal"
-                    android:padding="10dp"
-                    android:gravity="center_vertical"
-                    android:baselineAligned="false">
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:padding="0dp"
-                        android:layout_weight="1">
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:background="@drawable/bg_chip_violet"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
-                            android:paddingStart="6dp"
-                            android:paddingTop="3dp"
-                            android:paddingEnd="6dp"
-                            android:paddingBottom="3dp">
-                            <ImageView
-                                android:layout_width="13dp"
-                                android:layout_height="13dp"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_gift"
-                                app:tint="@color/brand_violet_light" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:fontFamily="@font/jakarta_semibold"
-                                android:letterSpacing="0.04"
-                                android:text="@string/first_redeem_kicker"
-                                android:textAllCaps="true"
-                                android:textColor="@color/brand_violet_light"
-                                android:textSize="11sp" />
-                        </LinearLayout>
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:fontFamily="@font/jakarta_extrabold"
-                            android:letterSpacing="-0.02"
-                            android:text="@string/first_redeem_title"
-                            android:textColor="@color/white"
-                            android:textSize="16sp" />
-                        <TextView
-                            android:id="@+id/firstRedeemBody"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="3dp"
-                            android:layout_marginEnd="0dp"
-                            android:fontFamily="@font/jakarta_medium"
-                            android:lineSpacingMultiplier="1.0"
-                            android:text="@string/first_redeem_body"
-                            android:textColor="@color/text_faint"
-                            android:textSize="12sp" />
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-                            <ImageView
-                                android:layout_width="15dp"
-                                android:layout_height="15dp"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_shield_check"
-                                app:tint="@color/brand_violet" />
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="7dp"
-                                android:fontFamily="@font/jakarta_medium"
-                                android:text="@string/first_redeem_uid_note"
-                                android:textColor="@color/text_ghost"
-                                android:textSize="11.5sp" />
-                        </LinearLayout>
-                    </LinearLayout>
-                    <LinearLayout
-                        android:layout_width="112dp"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:gravity="center_horizontal"
-                        android:layout_marginStart="8dp">
-                        <ImageView
-                            android:id="@+id/firstRedeemArt"
-                            android:layout_width="80dp"
-                            android:layout_height="72dp"
-                            android:layout_marginEnd="0dp"
-                            android:adjustViewBounds="true"
-                            android:contentDescription="@null"
-                            android:scaleType="fitCenter"
-                            android:visibility="visible"
-                            tools:visibility="visible"
-                            android:src="@drawable/wallet_gift_art" />
-                        <TextView
-                            android:id="@+id/firstRedeemButton"
-                            android:layout_width="match_parent"
-                            android:layout_height="48dp"
-                            android:layout_marginTop="4dp"
-                            android:background="@drawable/bg_button_accent_outline"
-                            android:fontFamily="@font/jakarta_bold"
-                            android:gravity="center"
-                            android:text="@string/first_redeem_cta"
-                            android:textColor="@color/brand_violet_light"
-                            android:textSize="12sp"
-                            android:paddingStart="6dp"
-                            android:paddingEnd="6dp" />
-                    </LinearLayout>
                 </LinearLayout>
                 <LinearLayout
                     android:layout_width="match_parent"

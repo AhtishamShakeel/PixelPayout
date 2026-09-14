@@ -27,6 +27,7 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentHomeBinding
 import com.example.pixelpayout.ui.main.MainActivity
 import com.example.pixelpayout.ui.main.MainViewModel
+import com.example.pixelpayout.ui.main.showGameChooser
 import com.example.pixelpayout.ui.play.PlayFragment
 import com.example.pixelpayout.ui.profile.ProfileFragment
 import com.example.pixelpayout.data.repository.UserRepository
@@ -415,56 +416,10 @@ class HomeFragment : Fragment() {
 
     private var gameChooser: Dialog? = null
 
-    /**
-     * The currency chooser.
-     *
-     * [required] is the first-run case: there is no choice yet, so the dialog
-     * cannot be dismissed without making one - a card with no game to measure
-     * would fall back to quoting every currency at once, which is the
-     * confusion this exists to end. From the switch chip it is cancellable,
-     * because a choice already stands.
-     */
+    /** The currency chooser; see [com.example.pixelpayout.ui.main.showGameChooser]. */
     private fun showGameChooser(required: Boolean) {
         if (gameChooser?.isShowing == true) return
-        val games = mainViewModel.redemptionGames.value.orEmpty()
-        if (games.isEmpty()) return
-
-        val view = layoutInflater.inflate(R.layout.dialog_game_choice, null)
-        val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
-            setContentView(view)
-            setCancelable(!required)
-            setCanceledOnTouchOutside(!required)
-        }
-
-        val options = view.findViewById<ViewGroup>(R.id.gameChoiceOptions)
-        val selectedId = mainViewModel.preferredGame.value?.id
-        games.forEach { game ->
-            val row = layoutInflater.inflate(R.layout.item_game_choice, options, false)
-            row.setBackgroundResource(
-                if (game.id == selectedId) R.drawable.bg_chip_server_selected
-                else R.drawable.bg_chip_server
-            )
-            row.findViewById<TextView>(R.id.gameChoiceName).text = game.displayName
-
-            val code = row.findViewById<TextView>(R.id.gameChoiceCode)
-            code.text = game.code
-            game.currencyImageUrl?.let { url ->
-                row.findViewById<ImageView>(R.id.gameChoiceImage).load(url) {
-                    crossfade(true)
-                    listener(onSuccess = { _, _ -> code.visibility = View.INVISIBLE })
-                }
-            }
-
-            row.setOnClickListener {
-                mainViewModel.setPreferredGame(game.id)
-                dialog.dismiss()
-            }
-            options.addView(row)
-        }
-
-        dialog.setOnDismissListener { gameChooser = null }
-        gameChooser = dialog
-        dialog.show()
+        gameChooser = showGameChooser(mainViewModel, required)
     }
 
     /**

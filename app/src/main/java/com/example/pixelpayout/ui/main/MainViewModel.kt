@@ -11,6 +11,7 @@ import android.os.SystemClock
 import androidx.lifecycle.viewModelScope
 import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.model.RedemptionGame
+import com.example.pixelpayout.data.model.RedemptionPack
 import com.example.pixelpayout.data.repository.DailyGoalEngine
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.utils.ServerClock
@@ -180,12 +181,40 @@ class MainViewModel(
         val viaFirstRedeem: Boolean
     )
 
+    /**
+     * The first-redeem offer as Wallet advertises it.
+     *
+     * [game] and [pack] are set when the user's chosen game carries a taster:
+     * the card can then name it ("Your first 30 UC costs less"), strike its
+     * list price, and open the sheet straight at it. Both null means the offer
+     * is live but not in their game, or no game is chosen - the card falls
+     * back to the generic wording and the cross-game picker, at [price], the
+     * cheapest discounted price in reach.
+     *
+     * [listPrice] is the pack's own pointsCost. A taster is never SOLD at that
+     * price, but it is set at the same per-unit rate as the packs above it,
+     * which is what makes it an honest anchor. Null when there is no specific
+     * pack, or when the console left it at or below the discount.
+     */
+    data class FirstRedeemOffer(
+        val game: RedemptionGame?,
+        val pack: RedemptionPack?,
+        val price: Int,
+        val listPrice: Int?
+    ) {
+        /** Whole percent off, or null when there is no anchor to measure from. */
+        val percentOff: Int?
+            get() = listPrice?.let { ((it - price) * 100L / it).toInt() }?.takeIf { it > 0 }
+    }
+
     /** Everything the Stars card draws below the balance. */
     data class StarsCard(
         /** Null when nothing is left to climb toward; the bar hides. */
         val next: NextRedemption?,
         /** Null when nothing is affordable yet; the button says View. */
-        val redeemable: Redeemable?
+        val redeemable: Redeemable?,
+        /** Null once the offer is finished for this account or nothing carries one. */
+        val offer: FirstRedeemOffer? = null
     )
 
     private val _preferredGameId = MutableLiveData<String?>()
@@ -340,7 +369,32 @@ class MainViewModel(
                         ?.let { Redeemable(game, it.amount, viaFirstRedeem = true) }
             }
 
-            value = StarsCard(next, redeemable)
+            // The chosen game's own taster when it has one - cheapest first,
+            // should the console ever give a game two. Otherwise the cheapest
+            // discounted price anywhere in reach, with no pack to name.
+            val offer = if (!offerLive) null else {
+                val own = preferred?.takeIf { it.minLevel <= user.level }
+                    ?.packs
+                    ?.filter { it.isFirstRedeemOffer }
+                    ?.minByOrNull { it.firstRedeemCost ?: Int.MAX_VALUE }
+                if (own != null && preferred != null) {
+                    val price = own.firstRedeemCost ?: own.pointsCost
+                    FirstRedeemOffer(
+                        game = preferred,
+                        pack = own,
+                        price = price,
+                        listPrice = own.pointsCost.takeIf { it > price }
+                    )
+                } else {
+                    games.filter { it.minLevel <= user.level }
+                        .flatMap { it.packs }
+                        .mapNotNull { it.firstRedeemCost }
+                        .minOrNull()
+                        ?.let { FirstRedeemOffer(game = null, pack = null, price = it, listPrice = null) }
+                }
+            }
+
+            value = StarsCard(next, redeemable, offer)
         }
 
         addSource(userRepository.userData) { recompute() }

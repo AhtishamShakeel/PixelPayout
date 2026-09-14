@@ -3,6 +3,7 @@ package com.example.pixelpayout.ui.redemption
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.view.isInvisible
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -68,12 +69,23 @@ class RedemptionAdapter(
                 binding.gameFrom.text = ""
             }
 
-            // The dashed code well stays behind the artwork rather than being
-            // replaced by it: if the image fails to load there is still a
-            // labelled tile instead of a hole.
-            binding.gameImage.isVisible = !game.imageUrl.isNullOrBlank()
-            if (!game.imageUrl.isNullOrBlank()) {
-                binding.gameImage.load(game.imageUrl) { crossfade(true) }
+            // The artwork is a transparent PNG meant to sit on the tile's own
+            // ground, so the dashed code well cannot stay behind it - its fill
+            // and dashed border would show through. The well is made
+            // INVISIBLE rather than GONE because the image is sized from it,
+            // and comes back if the image fails, so a broken load still
+            // leaves a labelled tile instead of a hole.
+            val art = game.imageUrl?.takeIf { it.isNotBlank() }
+            binding.gameImage.isVisible = art != null
+            binding.gameCode.isInvisible = art != null
+            if (art != null) {
+                binding.gameImage.load(art) {
+                    crossfade(true)
+                    listener(onError = { _, _ ->
+                        binding.gameImage.isVisible = false
+                        binding.gameCode.isInvisible = false
+                    })
+                }
             }
 
             val locked = currentLevel < game.minLevel

@@ -91,10 +91,11 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
 
         if (isFirstRedeem) {
             // The offer spans the catalogue, so there is no game yet - the
-            // picker chooses one. Everything game-specific is bound in
-            // bindGame() once that choice is made.
-            setupGiftPicker()
+            // picker chooses one, unless the caller already named a pack.
+            // Everything game-specific is bound in bindGame() once that
+            // choice is made.
             showStep(Step.GIFT)
+            setupGiftPicker()
             return
         }
 
@@ -154,6 +155,21 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
         giftAdapter.submitList(offers)
         giftAdapter.updateBalance(balance)
 
+        // Wallet's card names one game's taster, so it opens straight at it:
+        // the picker is still built underneath, and Back from the ID step
+        // lands there with every other offer on show. Balance is read here
+        // rather than from the observer, which has not delivered yet - and
+        // an unaffordable preselection simply leaves the picker up, dimmed.
+        val preselect = offers.firstOrNull {
+            it.game.id == arguments?.getString(ARG_GAME_ID) &&
+                it.pack.id == arguments?.getString(ARG_PACK_ID)
+        }
+        val points = mainViewModel.userState.value?.points ?: 0
+        if (preselect != null && priceOf(preselect.pack) <= points) {
+            selectedPack = preselect.pack
+            bindGame(preselect.game)
+            showStep(Step.DETAILS)
+        }
     }
 
     private fun setupHeader(game: RedemptionGame) {
@@ -521,6 +537,8 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
 
         private const val ARG_GAME = "game"
         private const val ARG_FIRST_REDEEM = "firstRedeem"
+        private const val ARG_GAME_ID = "gameId"
+        private const val ARG_PACK_ID = "packId"
 
         /** Enough of the id to be quotable in support without being a URL. */
         private const val ORDER_ID_TAIL = 8
@@ -534,12 +552,17 @@ class RedeemSheetFragment : BottomSheetDialogFragment() {
             }
 
         /**
-         * The first-redeem offer. Takes no game: the picker inside the sheet
-         * chooses one from every discounted pack in the catalogue.
+         * The first-redeem offer. With no pack, the picker inside the sheet
+         * chooses one from every discounted pack in the catalogue; with one,
+         * the sheet opens at its ID step and the picker is only a Back away.
          */
-        fun newInstanceFirstRedeem() =
+        fun newInstanceFirstRedeem(gameId: String? = null, packId: String? = null) =
             RedeemSheetFragment().apply {
-                arguments = Bundle().apply { putBoolean(ARG_FIRST_REDEEM, true) }
+                arguments = Bundle().apply {
+                    putBoolean(ARG_FIRST_REDEEM, true)
+                    putString(ARG_GAME_ID, gameId)
+                    putString(ARG_PACK_ID, packId)
+                }
             }
     }
 }

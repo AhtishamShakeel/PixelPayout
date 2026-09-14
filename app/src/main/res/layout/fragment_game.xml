@@ -91,30 +91,32 @@
           android:id="@+id/gameBonusButton"
           android:layout_width="wrap_content"
           android:layout_height="wrap_content"
-          android:background="@drawable/bg_games_chip"
+          android:background="@drawable/bg_bonus_ad_button"
           android:baselineAligned="false"
           android:clickable="true"
           android:focusable="true"
           android:gravity="center_vertical"
           android:orientation="horizontal"
-          android:paddingStart="11dp"
-          android:paddingTop="6dp"
-          android:paddingEnd="12dp"
-          android:paddingBottom="6dp">
+          android:minHeight="36dp"
+          android:paddingStart="12dp"
+          android:paddingTop="8dp"
+          android:paddingEnd="14dp"
+          android:paddingBottom="8dp">
           <ImageView
-            android:layout_width="13dp"
-            android:layout_height="13dp"
+            android:layout_width="15dp"
+            android:layout_height="15dp"
             android:contentDescription="@null"
             android:src="@drawable/ic_video"
-            app:tint="@color/brand_violet_light" />
+            app:tint="@color/white" />
           <TextView
             android:id="@+id/gameBonusLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="7dp"
+            android:fontFamily="@font/jakarta_bold"
             android:text="@string/games_bonus_action"
-            android:textColor="@color/brand_violet_light"
-            android:textSize="12.5sp" />
+            android:textColor="@color/white"
+            android:textSize="13sp" />
         </LinearLayout>
         <TextView
           android:id="@+id/gameBonusNote"

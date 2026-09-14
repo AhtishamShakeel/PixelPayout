@@ -1,6 +1,8 @@
 package com.example.pixelpayout.ui.rewards
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
 import android.view.LayoutInflater
@@ -24,6 +26,7 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentRewardsBinding
 import java.text.NumberFormat
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /**
  * Earn: the weekly leaderboard, then the offerwall list.
@@ -102,6 +105,27 @@ class RewardsFragment : Fragment() {
         // Throttled inside the view model, so returning to this tab a dozen
         // times does not cost a dozen reads of the board.
         mainViewModel.refreshLeaderboard()
+        countdownTick.run()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        tickHandler.removeCallbacks(countdownTick)
+    }
+
+    private val tickHandler = Handler(Looper.getMainLooper())
+
+    /**
+     * Redraws the card from the board already held - no read - once a minute
+     * while the tab is on screen, so the deadline line counts down and the
+     * Enter button gives way the moment entry closes.
+     */
+    private val countdownTick = object : Runnable {
+        override fun run() {
+            tickHandler.removeCallbacks(this)
+            renderLeaderboard(mainViewModel.tournament.value)
+            tickHandler.postDelayed(this, TimeUnit.MINUTES.toMillis(1))
+        }
     }
 
     /**
@@ -127,9 +151,20 @@ class RewardsFragment : Fragment() {
         if (board == null) return
 
         val pool = formatCount(board.prizePool)
-        binding.leaderboardSubtitle.text = getString(R.string.earn_pool_summary, board.size, pool)
+        val now = ServerClock.now()
+        val open = board.entriesOpen(now)
 
-        val open = board.entriesOpen(ServerClock.now())
+        // The pool split is already in the prize panel below, so this line
+        // carries the deadline instead: when entry shuts for somebody who
+        // can still enter, otherwise when the week ends. Server clock, since
+        // both boundaries are the server's.
+        val endsIn = board.weekEndsAtMillis - now
+        binding.leaderboardSubtitle.text = when {
+            !board.entered && open ->
+                getString(R.string.earn_entry_closes_in, durationLabel(board.entriesCloseAtMillis - now))
+            endsIn > 0 -> getString(R.string.earn_tournament_ends_in, durationLabel(endsIn))
+            else -> getString(R.string.earn_tournament_ending)
+        }
 
         binding.leaderboardRank.text = when {
             !board.entered && !open -> getString(R.string.earn_entries_closed_you)
@@ -176,6 +211,31 @@ class RewardsFragment : Fragment() {
             R.id.leaderboardFragment,
             bundleOf(LeaderboardFragment.ARG_PROMPT_ENTRY to promptEntry)
         )
+    }
+
+    /**
+     * "2 days, 5 hours", dropping to "5 hours, 12 minutes" and then
+     * "12 minutes" as the deadline nears, so the line never reads "0 days".
+     */
+    private fun durationLabel(remainingMs: Long): String {
+        val safe = remainingMs.coerceAtLeast(TimeUnit.MINUTES.toMillis(1))
+        val days = TimeUnit.MILLISECONDS.toDays(safe).toInt()
+        val hours = (TimeUnit.MILLISECONDS.toHours(safe) % 24).toInt()
+        val minutes = (TimeUnit.MILLISECONDS.toMinutes(safe) % 60).toInt()
+        val res = resources
+        return when {
+            days > 0 -> getString(
+                R.string.earn_duration_pair,
+                res.getQuantityString(R.plurals.earn_days, days, days),
+                res.getQuantityString(R.plurals.earn_hours, hours, hours)
+            )
+            hours > 0 -> getString(
+                R.string.earn_duration_pair,
+                res.getQuantityString(R.plurals.earn_hours, hours, hours),
+                res.getQuantityString(R.plurals.earn_minutes, minutes, minutes)
+            )
+            else -> res.getQuantityString(R.plurals.earn_minutes, minutes.coerceAtLeast(1), minutes.coerceAtLeast(1))
+        }
     }
 
     /** Thousands separators - a rank of 24247 is unreadable without them. */

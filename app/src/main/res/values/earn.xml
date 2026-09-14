@@ -5,8 +5,27 @@
     <color name="earn_text_secondary">#B9B4E4</color>
     <string name="earn_weekly">Weekly</string>
     <string name="earn_tournament">tournament</string>
-    <string name="earn_rank_by_xp">Rank by XP</string>
-    <string name="earn_pool_summary" tools:ignore="PluralsCandidate">Top %1$d share %2$s stars</string>
+    <!-- XP in the XP colour (xp_accent, #A48CFF), as everywhere else. -->
+    <string name="earn_rank_by_xp">Rank by <font color="#A48CFF">XP</font></string>
+    <!-- The line under the hero. Before the entry window shuts, a
+         non-entrant is told when it does; after that, and for anybody who
+         has entered, when the week ends. %1$s is earn_duration_*. -->
+    <string name="earn_entry_closes_in">Entry closes in %1$s</string>
+    <string name="earn_tournament_ends_in">Tournament ends in %1$s</string>
+    <string name="earn_tournament_ending">Tournament ending…</string>
+    <string name="earn_duration_pair">%1$s, %2$s</string>
+    <plurals name="earn_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
+    </plurals>
+    <plurals name="earn_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
+    <plurals name="earn_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
     <string name="earn_rank_you">#%1$s · You</string>
     <string name="earn_unranked_you">Unranked · You</string>
     <string name="earn_not_entered_you">Not entered · You</string>

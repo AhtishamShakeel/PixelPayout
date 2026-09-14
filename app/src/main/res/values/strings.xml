@@ -644,10 +644,13 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="wallet_reward_header_next">Your next reward</string>
     <string name="wallet_reward_header_ready">Your reward</string>
     <string name="wallet_redeem_amount">Redeem %1$s</string>
-    <!-- The pill beside the reward amount that opens the currency chooser;
-         Choose before a game has been picked. -->
-    <string name="wallet_change">Change</string>
-    <string name="wallet_choose">Choose</string>
+    <!-- The "Selected reward" row at the top of both goal cards, which opens
+         the currency chooser. The Choose pair is for before a game has been
+         picked. -->
+    <string name="wallet_selected_reward">Selected reward</string>
+    <string name="wallet_selected_none">No reward chosen</string>
+    <string name="wallet_change_reward">Change reward</string>
+    <string name="wallet_choose_reward">Choose reward</string>
     <string name="wallet_pending_one">1 order processing</string>
     <string name="wallet_pending_many">%1$d orders processing</string>
 

@@ -183,8 +183,8 @@ class RedemptionFragment : Fragment() {
             if (gameChooser?.isShowing == true) return@OnClickListener
             gameChooser = showGameChooser(mainViewModel, required = false)
         }
-        binding.firstRedeemChange.setOnClickListener(openChooser)
-        binding.rewardChange.setOnClickListener(openChooser)
+        binding.firstRedeemSelected.root.setOnClickListener(openChooser)
+        binding.rewardSelected.root.setOnClickListener(openChooser)
 
         binding.firstRedeemButton.setOnClickListener { onOfferButton() }
         binding.rewardButton.setOnClickListener { onRewardButton() }
@@ -421,12 +421,29 @@ class RedemptionFragment : Fragment() {
         val canEarn = mainViewModel.offerwallAvailable.value == true
         val games = viewModel.games.value.orEmpty()
 
-        // "Change" once a game is chosen; before that, an invitation. Both
-        // cards carry the pill, and only one card is ever on screen.
-        val changeText = getString(if (preferred != null) R.string.wallet_change else R.string.wallet_choose)
-        listOf(binding.firstRedeemChange, binding.rewardChange).forEach { link ->
-            link.text = changeText
-            link.paintFlags = link.paintFlags or Paint.UNDERLINE_TEXT_FLAG
+        // Both cards carry the same "Selected reward" row, and only one card
+        // is ever on screen. It names the currency; the amount is the body's.
+        listOf(binding.firstRedeemSelected, binding.rewardSelected).forEach { row ->
+            if (preferred != null) {
+                row.selectedName.text = preferred.displayName
+                row.selectedChange.setText(R.string.wallet_change_reward)
+            } else {
+                row.selectedName.setText(R.string.wallet_selected_none)
+                row.selectedChange.setText(R.string.wallet_choose_reward)
+            }
+            // Same art order as the goal card's picture below.
+            val icon = preferred?.let {
+                it.currencyImageUrl?.takeIf(String::isNotBlank)
+                    ?: it.imageUrl?.takeIf(String::isNotBlank)
+            }
+            row.selectedIcon.isVisible = icon != null
+            if (icon != null && row.selectedIcon.tag != icon) {
+                row.selectedIcon.tag = icon
+                row.selectedIcon.load(icon) {
+                    crossfade(true)
+                    listener(onError = { _, _ -> row.selectedIcon.isVisible = false })
+                }
+            }
         }
 
         val offer = card?.offer

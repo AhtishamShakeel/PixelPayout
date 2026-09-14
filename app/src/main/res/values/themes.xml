@@ -159,24 +159,4 @@
         <item name="autoSizeStepGranularity">1sp</item>
     </style>
 
-    <!-- The underlined "Change" under the amount, on both goal cards. The
-         underline is set in code (paintFlags), since text set from code
-         drops string markup. Vertical padding widens the tap target without
-         moving the text away from the amount. -->
-    <style name="WalletChangeLink">
-        <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">-2dp</item>
-        <item name="android:paddingTop">6dp</item>
-        <item name="android:paddingBottom">6dp</item>
-        <item name="android:paddingEnd">12dp</item>
-        <item name="android:clickable">true</item>
-        <item name="android:focusable">true</item>
-        <item name="android:maxLines">1</item>
-        <item name="android:fontFamily">@font/jakarta_bold</item>
-        <item name="android:textSize">13sp</item>
-        <item name="android:textColor">@color/brand_violet_light</item>
-        <item name="android:text">@string/wallet_change</item>
-    </style>
-
 </resources>

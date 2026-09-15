@@ -13,7 +13,7 @@
     <string name="home_choose">Choose</string>
     <string name="home_redeem_now">Redeem %1$s now →</string>
     <string name="home_level_progress">Level progress</string>
-    <string name="home_offers_tournament">Offers &amp; Tournament</string>
+    <string name="home_offers_tournament">Offers &amp; Leaderboard</string>
     <string name="home_see_rewards">See rewards →</string>
     <string name="home_view_levels">View levels →</string>
     <string name="home_next_level">On next level</string>
@@ -24,7 +24,7 @@
     <string name="home_earn_xp">Earn XP</string>
     <string name="home_level_tournament">Level up\nTournament</string>
     <string name="home_get_stars">Get stars</string>
-    <string name="home_flow_description">Play games and quizzes to earn XP. Level up and compete in tournaments to get stars.</string>
+    <string name="home_flow_description">Play games and quizzes to earn XP. Level up and compete on the weekly leaderboard to get stars.</string>
     <string name="home_start_earning">Start earning</string>
     <string name="home_view_all">View all →</string>
     <string name="home_games">Games</string>

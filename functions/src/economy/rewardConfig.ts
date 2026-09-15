@@ -23,8 +23,7 @@ export type RewardSource =
   | "PROMOTION"
   | "LEVEL_UP"
   | "ADMIN_GRANT"
-  | "REDEMPTION"
-  | "TOURNAMENT_ENTRY";
+  | "REDEMPTION";
 
 /**
  * Whether a source's Points are eligible for the (future) temporary points
@@ -52,7 +51,6 @@ export const MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   LEVEL_UP: false,
   ADMIN_GRANT: false,
   REDEMPTION: false, // spends, never earns
-  TOURNAMENT_ENTRY: false, // spends, never earns
 };
 
 /**
@@ -85,7 +83,6 @@ export const XP_MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   LEVEL_UP: false, // the milestone award itself is never scaled
   ADMIN_GRANT: false,
   REDEMPTION: false, // spends, never earns
-  TOURNAMENT_ENTRY: false, // spends, never earns
 };
 
 // --- Quiz -------------------------------------------------------------------

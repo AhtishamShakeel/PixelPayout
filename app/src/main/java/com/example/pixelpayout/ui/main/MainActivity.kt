@@ -22,6 +22,7 @@ import com.example.pixelpayout.ui.quiz.QuizListViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.utils.AndroidConnectivityCheck
 import com.example.pixelpayout.utils.ServerClock
+import com.example.pixelpayout.utils.showAppDialog
 import com.example.pixelpayout.utils.showLeaderboardPrize
 import com.example.pixelpayout.utils.showPendingLevelRewards
 import com.example.pixelpayout.utils.showRedemptionResult
@@ -62,7 +63,10 @@ class MainActivity : AppCompatActivity() {
 
     /** Guards the weekly prize dialog the same way the two above are guarded. */
     private var announcingLeaderboardPrize = false
-    
+
+    /** Guards the one-time "Tournament unlocked" dialog. */
+    private var announcingTournamentUnlock = false
+
     // Cache for Lottie compositions
     private val lottieCache = mutableMapOf<Int, LottieComposition>()
 
@@ -124,6 +128,7 @@ class MainActivity : AppCompatActivity() {
         observeLevelRewards()
         observeRedemptionResults()
         observeLeaderboardPrize()
+        viewModel.levelProgress.observe(this) { maybeAnnounceTournamentUnlock() }
     }
 
     /**
@@ -186,7 +191,12 @@ class MainActivity : AppCompatActivity() {
                 level = progress.level,
                 pendingLevels = pending,
                 rewards = rewards,
-                onDismissed = { announcingLevelRewards = false },
+                onDismissed = {
+                    announcingLevelRewards = false
+                    // Reaching level 10 queues a level reward too; the unlock
+                    // news waits for that dialog rather than stacking on it.
+                    maybeAnnounceTournamentUnlock()
+                },
                 onClaim = { openLevelRewards() }
             )
 
@@ -373,6 +383,45 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Tells the player the tournament has opened to them, once, when they
+     * reach its unlock level.
+     *
+     * Only at the unlock level itself or the one after (a single claim cannot
+     * jump further), so a player who installs the app long past level 10 is
+     * not congratulated on something that happened months ago. Waits for the
+     * level-reward dialog, which the same level-up queues.
+     */
+    private fun maybeAnnounceTournamentUnlock() {
+        if (announcingTournamentUnlock || announcingLevelRewards) return
+
+        val level = viewModel.levelProgress.value?.level ?: return
+        val unlockLevel = viewModel.leaderboard.value?.unlockLevel
+            ?.takeIf { it > 0 } ?: DEFAULT_TOURNAMENT_UNLOCK_LEVEL
+        if (level < unlockLevel || level > unlockLevel + 1) return
+
+        lifecycleScope.launch {
+            if (userPreferences.tournamentUnlockAnnounced.firstOrNull() == true) return@launch
+            if (announcingTournamentUnlock || announcingLevelRewards || isFinishing) return@launch
+
+            announcingTournamentUnlock = true
+            showAppDialog(
+                title = getString(R.string.tournament_unlocked_title),
+                message = getString(
+                    R.string.tournament_unlocked_message,
+                    unlockLevel,
+                    viewModel.leaderboard.value?.size ?: DEFAULT_BOARD_SIZE
+                ),
+                icon = R.drawable.ic_trophy,
+                accent = R.color.stars_accent,
+                positiveText = getString(R.string.tournament_unlocked_view),
+                negativeText = getString(R.string.tournament_unlocked_later),
+                onPositive = { openLeaderboard() }
+            ).setOnDismissListener { announcingTournamentUnlock = false }
+            userPreferences.setTournamentUnlockAnnounced()
+        }
+    }
+
     private fun observeLeaderboardPrize() {
         viewModel.leaderboardPrize.observe(this) { maybeAnnounceLeaderboardPrize() }
     }
@@ -450,6 +499,7 @@ class MainActivity : AppCompatActivity() {
         maybeAnnounceLevelRewards()
         maybeAnnounceRedemptionResult()
         maybeAnnounceLeaderboardPrize()
+        maybeAnnounceTournamentUnlock()
     }
 
     private fun setupConnectivityCheck() {
@@ -714,6 +764,9 @@ class MainActivity : AppCompatActivity() {
          * and arrives well before any callable answers.
          */
         private const val DEFAULT_BOARD_SIZE = 30
+
+        /** The server's TOURNAMENT_UNLOCK_LEVEL, until a board has been fetched. */
+        private const val DEFAULT_TOURNAMENT_UNLOCK_LEVEL = 10
 
         fun handleInternetDisconnection(activity: AppCompatActivity) {
             if (activity !is MainActivity) {

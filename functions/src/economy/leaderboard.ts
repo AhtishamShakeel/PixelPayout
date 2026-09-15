@@ -9,12 +9,15 @@
  * friends and opening the app once a day rather than by playing. Those still
  * level you up; they just do not place you.
  *
- * ENTRY IS PAID, SCORING IS NOT. Every player's weekly XP accrues whether or
- * not they have entered, but only players who bought into the week with Stars
- * (see resolveTournamentEntry) appear on the board or are paid by it. Entry is
- * marked by FIELD_TOURNAMENT_WEEK; a non-entrant is shown the rank their XP
- * would take, which is the prompt to enter.
+ * ENTRY IS FREE AND AUTOMATIC, FROM LEVEL [TOURNAMENT_UNLOCK_LEVEL]. There is
+ * no fee and nothing to tap: every player at or past the unlock level is in
+ * every week they score. What decides a place is only the XP earned AFTER
+ * unlocking - see [weeklyXpGain] - so the climb to level 10 itself never
+ * counts, and a player does not arrive on the board already holding a place.
+ * Taking part in a week is marked by FIELD_TOURNAMENT_WEEK, stamped by the
+ * same claim that scores.
  */
+import {XP_THRESHOLDS} from "./levelCurve";
 
 /**
  * A week, counted as whole weeks since the epoch, starting Monday.
@@ -91,6 +94,44 @@ export const LEADERBOARD_PRIZES: PrizeBand[] = [
 export const LEADERBOARD_SETTLEMENTS_COLLECTION = "leaderboardSettlements";
 
 /**
+ * The level at which the tournament unlocks. Below it a player earns no
+ * weekly XP, is not on the board and cannot be paid by it.
+ */
+export const TOURNAMENT_UNLOCK_LEVEL = 10;
+
+/** The total XP at which [TOURNAMENT_UNLOCK_LEVEL] is reached. */
+export function tournamentUnlockXp(): number {
+  return XP_THRESHOLDS[TOURNAMENT_UNLOCK_LEVEL - 2];
+}
+
+/** Whether a player with [totalXp] has the tournament unlocked. */
+export function isTournamentUnlocked(totalXp: number): boolean {
+  return Number.isFinite(totalXp) && totalXp >= tournamentUnlockXp();
+}
+
+/**
+ * How much of an XP gain counts toward the weekly board.
+ *
+ * Only the part earned at or past the unlock threshold. A gain that starts
+ * below it and ends above it counts only what lies above, so reaching level
+ * 10 is not itself a score - a player who takes 954 XP to get there starts
+ * the board on zero, exactly like everyone else who unlocked earlier.
+ *
+ * `countedGain` is what the source is allowed to add (claimReward passes the
+ * pre-buff figure, a double passes its bonus), and it is capped by the part of
+ * the real XP movement - `xpBefore` to `xpAfter` - that lies past the
+ * threshold. So a buff can never make more of a gain count than was earned
+ * after unlocking.
+ */
+export function weeklyXpGain(xpBefore: number, xpAfter: number, countedGain: number): number {
+  const gain = Math.max(Math.trunc(countedGain) || 0, 0);
+  const before = Math.max(Math.trunc(xpBefore) || 0, 0);
+  const after = Math.max(Math.trunc(xpAfter) || 0, 0);
+  const pastUnlock = after - Math.max(before, tournamentUnlockXp());
+  return Math.min(gain, Math.max(pastUnlock, 0));
+}
+
+/**
  * Last week's finished total, kept on the user document beside this week's.
  *
  * The reason it has to exist: the live counters are overwritten the moment a
@@ -103,20 +144,22 @@ export const LEADERBOARD_SETTLEMENTS_COLLECTION = "leaderboardSettlements";
  *
  * So the rollover copies the closing total across rather than discarding it,
  * and the settlement reads both. Two fields, written only on the one write
- * that crosses a boundary, and only for a player who had ENTERED the week
- * being closed - so everything under lastWeekKey is an entrant, and the
+ * that crosses a boundary, and only for a player who was RANKED IN the week
+ * being closed - so everything under lastWeekKey is a participant, and the
  * settlement's carried query needs no second filter.
  */
 export const FIELD_LAST_WEEKLY_XP = "lastWeeklyXp";
 export const FIELD_LAST_WEEK_KEY = "lastWeekKey";
 
 /**
- * The week a player last bought into. Written only by enterTournament.
+ * The week a player last took part in, as an unlocked player.
  *
- * Kept apart from weekKey on purpose: weekKey says which week weeklyXp belongs
- * to and moves on every player's first claim of a week, entered or not, while
- * this moves only when Stars are paid. The board and the settlement filter on
- * both - see the composite index on (tournamentWeek, weekKey, weeklyXp).
+ * Stamped automatically by every claim that scores weekly XP while the
+ * tournament is unlocked - there is no entry step. Kept apart from weekKey on
+ * purpose: weekKey says which week weeklyXp belongs to and moves on every
+ * player's first claim of a week, unlocked or not, while this moves only for
+ * players the board can rank. The board and the settlement filter on both -
+ * see the composite index on (tournamentWeek, weekKey, weeklyXp).
  */
 export const FIELD_TOURNAMENT_WEEK = "tournamentWeek";
 
@@ -314,10 +357,11 @@ export interface WeeklyRollover {
 }
 
 /**
- * @param storedTournamentWeek the week the player last entered. The closing
- *   total is carried only when it names the week being closed: a non-entrant's
- *   week can never be paid, so carrying it would be a write for nothing and a
- *   row the settlement would then have to filter back out.
+ * @param storedTournamentWeek the week the player last took part in. The
+ *   closing total is carried only when it names the week being closed: a week
+ *   the player was not ranked in can never be paid, so carrying it would be a
+ *   write for nothing and a row the settlement would then have to filter back
+ *   out.
  */
 export function weeklyRollover(
   storedWeekKey: number | null | undefined,
@@ -342,83 +386,6 @@ export function weeklyRollover(
   rollover.lastWeekKey = storedWeekKey;
   rollover.lastWeeklyXp = closing;
   return rollover;
-}
-
-/**
- * The fallback entry fee, in Stars.
- *
- * The live value is config/tournament.entryFee - see resolveEntryFee - so it
- * can be retuned from the console without a deploy. This applies when that
- * document is missing or unreadable.
- *
- * THE PRIZE POOL DOES NOT SCALE WITH IT. The bands above are fixed, so below
- * totalWeeklyPrizePool() / fee entrants a week pays out more than it collects,
- * and with fewer entrants than LEADERBOARD_SIZE every entrant who scores wins
- * more than they paid. That was chosen knowingly over an entry-funded pool.
- *
- * XP EARNED BEFORE ENTERING COUNTS, also knowingly: a non-entrant is shown the
- * rank they would take, as the reason to enter. What stops a player waiting
- * until late in the week and paying only once that rank is a winning one is
- * the entry window - see TOURNAMENT_ENTRY_WINDOW_DAYS.
- */
-export const TOURNAMENT_ENTRY_FEE = 20;
-
-/**
- * The ceiling on the configured fee.
- *
- * config/tournament is edited by hand, and an extra zero there would charge
- * every entrant ten times over. The client also refuses to pay a fee other
- * than the one it showed, but a cap keeps the worst typo bounded regardless.
- */
-export const MAX_TOURNAMENT_ENTRY_FEE = 1000;
-
-/** The document holding the tunable fee and entry window. */
-export const TOURNAMENT_CONFIG_DOC = "tournament";
-
-/**
- * How many days into the week entry stays open - the fallback for
- * config/tournament.entryWindowDays.
- *
- * The lock is what makes pre-entry XP counting safe to keep: without it a
- * player could watch their expected rank all week and pay only on Sunday, once
- * they already knew they would win. Weeks start Monday 00:00 UTC, so three
- * days closes entry at Thursday 00:00 UTC.
- */
-export const TOURNAMENT_ENTRY_WINDOW_DAYS = 3;
-
-/**
- * The window to actually apply, from whatever the config document holds.
- *
- * Whole days from 1 to 7; seven means entry never closes before the week does.
- * Anything else falls back to the deployed window rather than to zero, which
- * would silently lock every week before it began.
- */
-export function resolveEntryWindowDays(raw: unknown): number {
-  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 1 || raw > 7) {
-    return TOURNAMENT_ENTRY_WINDOW_DAYS;
-  }
-  return raw;
-}
-
-/** When entry into [weekKey] closes, as epoch millis. */
-export function entriesCloseMillis(weekKey: number, windowDays: number): number {
-  return weekStartMillis(weekKey) + windowDays * 86_400_000;
-}
-
-/**
- * The fee to actually charge, from whatever the config document holds.
- *
- * Zero is a legitimate setting - a free week - so it is honoured. Anything
- * absent, negative, fractional or not a number falls back to the built-in fee:
- * type-checked before coercion because Number(null) and Number("") are both 0,
- * and a blank console field must not silently make entry free.
- */
-export function resolveEntryFee(raw: unknown): number {
-  if (typeof raw !== "number") return TOURNAMENT_ENTRY_FEE;
-  if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 0) {
-    return TOURNAMENT_ENTRY_FEE;
-  }
-  return Math.min(raw, MAX_TOURNAMENT_ENTRY_FEE);
 }
 
 /** One place on the live board, as getLeaderboard serves it. */
@@ -458,89 +425,11 @@ export function withCallerRow(
   return [...others, caller].sort(compareStanding).slice(0, size);
 }
 
-/** Whether the player has paid into the running week. */
-export function hasEnteredWeek(
+/** Whether the player took part in the running week. */
+export function isRankedInWeek(
   storedTournamentWeek: number | null | undefined,
   currentWeekKey: number
 ): boolean {
   return typeof storedTournamentWeek === "number" &&
     storedTournamentWeek === currentWeekKey;
-}
-
-/**
- * The rank a non-entrant's XP would take among this week's entrants, if the
- * board alone can say - or null when a count query has to.
- *
- * Counts the entrants strictly ahead, so a tie reads as the better of the two
- * places. That is the optimistic reading, and it is labelled "if you enter"
- * rather than promised: an actual tie is decided by uid, exactly as it is for
- * entrants (see buildSettlement).
- *
- * The board is sorted descending and capped at [boardSize]. When somebody on
- * it has no more XP than the caller, or the board is not full, everyone ahead
- * is on it and the count is exact. Only a full board of players all ahead of
- * the caller leaves the answer somewhere below it.
- *
- * Zero means no XP this week, and so no rank to show.
- */
-export function expectedRankFromBoard(
-  boardXp: number[],
-  myXp: number,
-  boardSize: number = LEADERBOARD_SIZE
-): number | null {
-  if (!(myXp > 0)) return 0;
-  const ahead = boardXp.filter((xp) => xp > myXp).length;
-  if (ahead < boardXp.length || boardXp.length < boardSize) return ahead + 1;
-  return null;
-}
-
-export type TournamentEntryRejection =
-  | "already_entered"
-  /** Past the week's entry window - see TOURNAMENT_ENTRY_WINDOW_DAYS. */
-  | "entries_closed"
-  | "insufficient_stars"
-  /** The fee the client showed is not the fee now configured. */
-  | "fee_changed";
-
-export type TournamentEntryDecision =
-  | {ok: true; fee: number}
-  | {ok: false; rejection: TournamentEntryRejection};
-
-/**
- * Whether a player may buy into the running week.
- *
- * `expectedFee` is the figure the button showed. It is compared, never
- * charged: the server's fee is what is taken, and a mismatch refuses rather
- * than charging a number the player did not agree to - which is what a console
- * retune between loading the board and tapping Enter would otherwise do.
- *
- * Checked in this order so the message is the useful one: somebody already in
- * is told so even if the fee has since moved.
- */
-export function resolveTournamentEntry(input: {
-  storedTournamentWeek: number | null | undefined;
-  currentWeekKey: number;
-  points: number;
-  fee: number;
-  expectedFee: number;
-  nowMillis: number;
-  entriesCloseAt: number;
-}): TournamentEntryDecision {
-  if (hasEnteredWeek(input.storedTournamentWeek, input.currentWeekKey)) {
-    return {ok: false, rejection: "already_entered"};
-  }
-  // Before the fee and the balance: once entry is closed neither matters, and
-  // "top up your stars" would be the wrong thing to tell somebody who could
-  // not enter anyway.
-  if (input.nowMillis >= input.entriesCloseAt) {
-    return {ok: false, rejection: "entries_closed"};
-  }
-  if (input.expectedFee !== input.fee) {
-    return {ok: false, rejection: "fee_changed"};
-  }
-  const points = Number.isFinite(input.points) ? input.points : 0;
-  if (points < input.fee) {
-    return {ok: false, rejection: "insufficient_stars"};
-  }
-  return {ok: true, fee: input.fee};
 }

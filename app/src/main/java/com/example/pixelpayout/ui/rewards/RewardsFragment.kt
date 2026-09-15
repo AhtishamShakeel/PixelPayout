@@ -8,7 +8,7 @@ import android.widget.Toast
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.os.bundleOf
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -17,7 +17,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.model.OfferwallEntry
 import com.example.pixelpayout.data.repository.OfferwallCatalogStore
 import com.example.pixelpayout.data.repository.UserRepository
-import com.example.pixelpayout.ui.leaderboard.LeaderboardFragment
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.ServerClock
 import com.example.pixelpayout.utils.TapjoyOfferwall
@@ -82,21 +81,23 @@ class RewardsFragment : Fragment() {
         // SpacingItemDecoration casts to StaggeredGridLayoutManager.LayoutParams
         // and would throw under the linear manager this list uses.
         binding.offerwallList.layoutManager = LinearLayoutManager(requireContext())
-        // The button carries the entry offer when there is one; the card itself
-        // only ever opens the board, so a stray tap never starts a purchase.
-        binding.viewTournament.setOnClickListener {
-            val board = mainViewModel.tournament.value
-            openLeaderboard(
-                promptEntry = board != null && !board.entered &&
-                    board.entriesOpen(ServerClock.now())
-            )
-        }
-        binding.leaderboardRow.setOnClickListener { openLeaderboard(promptEntry = false) }
+        // Entry is free and automatic, so the button and the card both just
+        // open the board.
+        binding.viewTournament.setOnClickListener { openLeaderboard() }
+        binding.leaderboardRow.setOnClickListener { openLeaderboard() }
 
-        // The live view, not the raw board: the caller's XP and entry follow
+        // The live view, not the raw board: the caller's XP and level follow
         // the user snapshot, so a finished quiz shows here without waiting out
         // the board's refresh throttle.
         mainViewModel.tournament.observe(viewLifecycleOwner) { renderLeaderboard(it) }
+        // The locked panel quotes the XP still needed, which moves with XP and
+        // needs the curve to state at all.
+        mainViewModel.levelProgress.observe(viewLifecycleOwner) {
+            renderLeaderboard(mainViewModel.tournament.value)
+        }
+        mainViewModel.levelCurve.observe(viewLifecycleOwner) {
+            renderLeaderboard(mainViewModel.tournament.value)
+        }
         observeWalls()
     }
 
@@ -117,8 +118,7 @@ class RewardsFragment : Fragment() {
 
     /**
      * Redraws the card from the board already held - no read - once a minute
-     * while the tab is on screen, so the deadline line counts down and the
-     * Enter button gives way the moment entry closes.
+     * while the tab is on screen, so the deadline line counts down.
      */
     private val countdownTick = object : Runnable {
         override fun run() {
@@ -152,42 +152,64 @@ class RewardsFragment : Fragment() {
 
         val pool = formatCount(board.prizePool)
         val now = ServerClock.now()
-        val open = board.entriesOpen(now)
 
         // The pool split is already in the prize panel below, so this line
-        // carries the deadline instead: when entry shuts for somebody who
-        // can still enter, otherwise when the week ends. Server clock, since
-        // both boundaries are the server's.
+        // carries either what unlocks the tournament or when the week ends.
+        // Server clock, since the boundary is the server's.
         val endsIn = board.weekEndsAtMillis - now
         binding.leaderboardSubtitle.text = when {
-            !board.entered && open ->
-                getString(R.string.earn_entry_closes_in, durationLabel(board.entriesCloseAtMillis - now))
+            !board.unlocked -> getString(R.string.earn_unlocks_at_level, board.unlockLevel)
             endsIn > 0 -> getString(R.string.earn_tournament_ends_in, durationLabel(endsIn))
             else -> getString(R.string.earn_tournament_ending)
         }
 
         binding.leaderboardRank.text = when {
-            !board.entered && !open -> getString(R.string.earn_entries_closed_you)
-            // The place their XP would take - the reason to tap Enter below.
-            !board.entered && board.expectedRank > 0 ->
-                getString(R.string.earn_expected_rank_you, formatCount(board.expectedRank))
-            !board.entered -> getString(R.string.earn_not_entered_you)
+            !board.unlocked -> getString(R.string.earn_locked_you, board.unlockLevel)
             board.isRanked -> getString(R.string.earn_rank_you, formatCount(board.myRank))
-            else -> getString(R.string.earn_entered_you)
+            else -> getString(R.string.earn_unranked_you)
         }
 
-        binding.leaderboardMyXp.text = getString(R.string.earn_xp, formatCount(board.myXp))
+        renderMyPanel(board)
         binding.leaderboardPrizePool.setStarText(getString(R.string.earn_pool_value, pool))
         binding.leaderboardPrizeShare.text = getString(R.string.earn_pool_share, board.size)
+    }
 
-        // Past the entry window there is nothing to buy, so the button goes
-        // back to simply opening the board.
-        if (board.entered || !open) {
-            binding.viewTournament.setText(R.string.earn_view_tournament)
+    /**
+     * The player's own panel. Unlocked, it is the weekly XP figure. Locked,
+     * it greys out and says how far away the unlock is instead - a "0 XP"
+     * figure there would only say what the lock already says.
+     */
+    private fun renderMyPanel(board: UserRepository.Leaderboard) {
+        val binding = _binding ?: return
+        val locked = !board.unlocked
+
+        val accent = ContextCompat.getColor(
+            requireContext(),
+            if (locked) R.color.text_faint else R.color.brand_violet_light
+        )
+        binding.leaderboardMeIcon.setColorFilter(accent)
+        binding.leaderboardRank.setTextColor(
+            ContextCompat.getColor(requireContext(), if (locked) R.color.text_faint else R.color.white)
+        )
+
+        binding.leaderboardMyXp.isVisible = !locked
+        binding.leaderboardMyXpCaption.isVisible = !locked
+        binding.leaderboardUnlockNeed.isVisible = locked
+
+        if (!locked) {
+            binding.leaderboardMyXp.text = getString(R.string.earn_xp, formatCount(board.myXp))
+            return
+        }
+
+        // From the published curve; until it lands, the line waits rather
+        // than quoting a guessed figure.
+        val curve = mainViewModel.levelCurve.value
+        val xp = mainViewModel.levelProgress.value?.totalXp
+        binding.leaderboardUnlockNeed.text = if (curve != null && xp != null) {
+            val needed = (curve.xpRequiredFor(board.unlockLevel) - xp).coerceAtLeast(1)
+            getString(R.string.earn_unlock_need, formatCount(needed))
         } else {
-            binding.viewTournament.setStarText(
-                getString(R.string.earn_enter_tournament, formatCount(board.entryFee))
-            )
+            ""
         }
     }
 
@@ -198,19 +220,12 @@ class RewardsFragment : Fragment() {
      * asynchronous, so a fast thumb could fire this several times before the
      * first one arrived, and every tap would push another copy of the screen
      * onto the stack. Asking where we are is the check that cannot race.
-     *
-     * [promptEntry] opens the entry confirmation there rather than here: the
-     * leaderboard is the one place that buys an entry, so the confirmation,
-     * the balance check and every refusal are handled once.
      */
-    private fun openLeaderboard(promptEntry: Boolean) {
+    private fun openLeaderboard() {
         val controller = findNavController()
         if (controller.currentDestination?.id != R.id.navigation_rewards) return
 
-        controller.navigate(
-            R.id.leaderboardFragment,
-            bundleOf(LeaderboardFragment.ARG_PROMPT_ENTRY to promptEntry)
-        )
+        controller.navigate(R.id.leaderboardFragment)
     }
 
     /**

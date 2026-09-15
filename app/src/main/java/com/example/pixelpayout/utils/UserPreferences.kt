@@ -76,6 +76,10 @@ class UserPreferences(private val context: Context) {
         private val LAST_ANNOUNCED_LEADERBOARD_WEEK =
             intPreferencesKey("lastAnnouncedLeaderboardWeek")
 
+        /** Whether the "Tournament unlocked" dialog has been shown on this install. */
+        private val TOURNAMENT_UNLOCK_ANNOUNCED =
+            booleanPreferencesKey("tournamentUnlockAnnounced")
+
         /**
          * The redemption game (catalogue document id) the Stars card on Home
          * measures against.
@@ -95,6 +99,15 @@ class UserPreferences(private val context: Context) {
     suspend fun setPreferredGameId(value: String) {
         context.dataStore.edit { preferences ->
             preferences[PREFERRED_GAME_ID] = value
+        }
+    }
+
+    val tournamentUnlockAnnounced: Flow<Boolean> = context.dataStore.data
+        .map { preferences -> preferences[TOURNAMENT_UNLOCK_ANNOUNCED] ?: false }
+
+    suspend fun setTournamentUnlockAnnounced() {
+        context.dataStore.edit { preferences ->
+            preferences[TOURNAMENT_UNLOCK_ANNOUNCED] = true
         }
     }
 

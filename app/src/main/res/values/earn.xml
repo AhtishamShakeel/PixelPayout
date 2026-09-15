@@ -4,15 +4,15 @@
     <color name="earn_accent">#8A42FF</color>
     <color name="earn_text_secondary">#B9B4E4</color>
     <string name="earn_weekly">Weekly</string>
-    <string name="earn_tournament">tournament</string>
+    <string name="earn_tournament">leaderboard</string>
     <!-- XP in the XP colour (xp_accent, #A48CFF), as everywhere else. -->
     <string name="earn_rank_by_xp">Rank by <font color="#A48CFF">XP</font></string>
-    <!-- The line under the hero. Before the entry window shuts, a
-         non-entrant is told when it does; after that, and for anybody who
-         has entered, when the week ends. %1$s is earn_duration_*. -->
-    <string name="earn_entry_closes_in">Entry closes in %1$s</string>
-    <string name="earn_tournament_ends_in">Tournament ends in %1$s</string>
-    <string name="earn_tournament_ending">Tournament ending…</string>
+    <!-- The line under the hero: what unlocks the leaderboard for a player
+         below the unlock level, otherwise when the week ends. %1$s is
+         earn_duration_*. -->
+    <string name="earn_unlocks_at_level">Unlocks at level %1$d · free to join</string>
+    <string name="earn_tournament_ends_in">Leaderboard resets in %1$s</string>
+    <string name="earn_tournament_ending">Leaderboard resetting…</string>
     <string name="earn_duration_pair">%1$s, %2$s</string>
     <plurals name="earn_days">
         <item quantity="one">%d day</item>
@@ -28,17 +28,15 @@
     </plurals>
     <string name="earn_rank_you">#%1$s · You</string>
     <string name="earn_unranked_you">Unranked · You</string>
-    <string name="earn_not_entered_you">Not entered · You</string>
-    <string name="earn_entries_closed_you">Entries closed · You</string>
-    <string name="earn_expected_rank_you">#%1$s if you enter</string>
-    <string name="earn_entered_you">Entered · You</string>
-    <string name="earn_enter_tournament">Enter tournament · %1$s ★</string>
+    <string name="earn_locked_you">Locked · Lv %1$d</string>
     <string name="earn_xp">%1$s XP</string>
-    <string name="earn_your_xp">Your tournament XP</string>
+    <string name="earn_your_xp">Your leaderboard XP</string>
+    <!-- In place of the XP figure while locked. %1$s is the XP still needed. -->
+    <string name="earn_unlock_need">Need %1$s XP more to unlock</string>
     <string name="earn_prize_pool">Prize pool</string>
     <string name="earn_pool_value">%1$s ★</string>
     <string name="earn_pool_share" tools:ignore="PluralsCandidate">Top %1$d share</string>
-    <string name="earn_view_tournament">View tournament</string>
+    <string name="earn_view_tournament">View leaderboard</string>
     <string name="earn_offers_heading">Earn with <font color="#8A42FF">offers</font></string>
     <string name="earn_offers_subtitle">Complete offers to earn stars</string>
     <string name="earn_step_choose">Choose offer</string>

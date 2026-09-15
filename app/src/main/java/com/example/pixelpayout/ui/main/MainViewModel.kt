@@ -629,24 +629,25 @@ class MainViewModel(
         }
 
     /** The caller's own tournament standing, as the user snapshot has it. */
-    data class TournamentSelf(val weeklyXp: Int, val entered: Boolean)
+    data class TournamentSelf(val weeklyXp: Int, val level: Int) {
+        /** Whether [level] has unlocked a board that unlocks at [unlockLevel]. */
+        fun unlocks(unlockLevel: Int): Boolean = unlockLevel > 0 && level >= unlockLevel
+    }
 
     /**
-     * Live weekly XP and entry, straight off the user document listener.
+     * Live weekly XP and level, straight off the user document listener.
      *
-     * claimReward and enterTournament both write to that document, so this
-     * moves the moment a quiz, a game or an entry lands - with no call of its
-     * own. The week is reckoned on the server's clock, the same boundary the
-     * server resets on.
+     * claimReward writes both to that document, so this moves the moment a
+     * quiz or a game lands - with no call of its own. The week is reckoned on
+     * the server's clock, the same boundary the server resets on.
      */
     val tournamentSelf: LiveData<TournamentSelf> = userRepository.userData.map { user ->
-        val week = currentWeekKey()
-        TournamentSelf(user.weeklyXpFor(week), user.hasEnteredWeek(week))
+        TournamentSelf(user.weeklyXpFor(currentWeekKey()), user.level)
     }.distinctUntilChanged()
 
     /**
      * The board as the tournament cards should draw it: the last server
-     * answer, with the caller's own XP, entry, rank and prize kept live from
+     * answer, with the caller's own XP, unlock, rank and prize kept live from
      * [tournamentSelf]. See Leaderboard.withLiveStanding.
      */
     val tournament: LiveData<UserRepository.Leaderboard?> =
@@ -655,7 +656,7 @@ class MainViewModel(
                 val board = _leaderboard.value
                 val self = tournamentSelf.value
                 value = if (board != null && self != null) {
-                    board.withLiveStanding(self.weeklyXp, self.entered)
+                    board.withLiveStanding(self.weeklyXp, self.unlocks(board.unlockLevel))
                 } else {
                     board
                 }
@@ -667,24 +668,6 @@ class MainViewModel(
     /** Whole weeks since the epoch, starting Monday - the server's utcWeekFor. */
     fun currentWeekKey(): Int =
         ((Math.floorDiv(ServerClock.now(), MILLIS_PER_DAY) + 3) / 7).toInt()
-
-    /**
-     * Buys into this week's tournament, then re-reads the shared board so the
-     * Earn card stops offering an entry the player already holds. The refresh
-     * is forced past the throttle: the entry is exactly the change it exists
-     * to wait out, and waiting three minutes for it would look like a failure.
-     */
-    suspend fun enterTournament(expectedFee: Int): UserRepository.TournamentEntryResult {
-        val result = userRepository.enterTournament(expectedFee)
-        if (result is UserRepository.TournamentEntryResult.Entered ||
-            result is UserRepository.TournamentEntryResult.AlreadyEntered ||
-            result is UserRepository.TournamentEntryResult.EntriesClosed ||
-            result is UserRepository.TournamentEntryResult.FeeChanged
-        ) {
-            refreshLeaderboard(force = true)
-        }
-        return result
-    }
 
     private val _streakCycle = MutableLiveData<List<UserRepository.StreakDayReward>>(emptyList())
 

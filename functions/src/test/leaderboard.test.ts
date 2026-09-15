@@ -5,28 +5,24 @@
 import {
   buildSettlement,
   compareStanding,
-  entriesCloseMillis,
-  expectedRankFromBoard,
-  resolveEntryWindowDays,
-  TOURNAMENT_ENTRY_WINDOW_DAYS,
-  hasEnteredWeek,
+  isRankedInWeek,
+  isTournamentUnlocked,
   mergeSettlementBoard,
   nextWeeklyXp,
-  resolveEntryFee,
-  resolveTournamentEntry,
   weeklyRollover,
+  weeklyXpGain,
   withCallerRow,
   prizeForRank,
   settlementCost,
   settlementWeekFor,
   totalWeeklyPrizePool,
+  tournamentUnlockXp,
   utcWeekFor,
   weekEndMillis,
   weekStartMillis,
   LEADERBOARD_PRIZES,
   LEADERBOARD_SIZE,
-  MAX_TOURNAMENT_ENTRY_FEE,
-  TOURNAMENT_ENTRY_FEE,
+  TOURNAMENT_UNLOCK_LEVEL,
 } from "../economy/leaderboard";
 
 let passed = 0;
@@ -336,52 +332,52 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   assertEq("an empty week costs nothing", settlementCost([]), 0);
 }
 
-// --- the entry fee, as configured --------------------------------------------
+// --- the level-10 unlock ------------------------------------------------------
 {
-  assertEq("the fallback fee is 20 stars", TOURNAMENT_ENTRY_FEE, 20);
-  assertEq("a configured fee is honoured", resolveEntryFee(35), 35);
-  assertEq("a free week is a legitimate setting", resolveEntryFee(0), 0);
+  assertEq("the tournament unlocks at level 10", TOURNAMENT_UNLOCK_LEVEL, 10);
+  assertEq("level 10 takes 954 XP on the current curve", tournamentUnlockXp(), 954);
 
-  // A blank or broken console field must not make entry free.
-  assertEq("a missing fee falls back", resolveEntryFee(undefined), TOURNAMENT_ENTRY_FEE);
-  assertEq("a null fee falls back", resolveEntryFee(null), TOURNAMENT_ENTRY_FEE);
-  assertEq("an empty-string fee falls back", resolveEntryFee(""), TOURNAMENT_ENTRY_FEE);
-  assertEq("a numeric string falls back", resolveEntryFee("20"), TOURNAMENT_ENTRY_FEE);
-  assertEq("a negative fee falls back", resolveEntryFee(-5), TOURNAMENT_ENTRY_FEE);
-  assertEq("a fractional fee falls back", resolveEntryFee(19.5), TOURNAMENT_ENTRY_FEE);
-  assertEq("NaN falls back", resolveEntryFee(NaN), TOURNAMENT_ENTRY_FEE);
-
-  assertEq("an extra-zero typo is capped",
-    resolveEntryFee(200_000), MAX_TOURNAMENT_ENTRY_FEE);
+  assertEq("one XP short is locked", isTournamentUnlocked(953), false);
+  assertEq("the threshold itself is unlocked", isTournamentUnlocked(954), true);
+  assertEq("a new account is locked", isTournamentUnlocked(0), false);
+  assertEq("a corrupt XP figure is locked", isTournamentUnlocked(NaN), false);
 }
 
-// --- the entry window --------------------------------------------------------
+// --- only XP earned after unlocking counts ------------------------------------
 {
-  assertEq("the fallback window is three days", TOURNAMENT_ENTRY_WINDOW_DAYS, 3);
-  assertEq("a configured window is honoured", resolveEntryWindowDays(5), 5);
-  assertEq("seven days is the whole week", resolveEntryWindowDays(7), 7);
-  assertEq("zero would lock every week, so falls back", resolveEntryWindowDays(0), 3);
-  assertEq("more than a week falls back", resolveEntryWindowDays(8), 3);
-  assertEq("a fractional window falls back", resolveEntryWindowDays(2.5), 3);
-  assertEq("a missing window falls back", resolveEntryWindowDays(undefined), 3);
-  assertEq("a string window falls back", resolveEntryWindowDays("3"), 3);
+  const unlock = tournamentUnlockXp();
 
-  const monday = Date.UTC(2026, 8, 7, 0, 0, 0); // Mon 7 Sep 2026
-  const week = utcWeekFor(monday);
-  assertEq("three days closes entry at Thursday midnight UTC",
-    new Date(entriesCloseMillis(week, 3)).toISOString(), "2026-09-10T00:00:00.000Z");
-  assertEq("seven days closes entry when the week ends",
-    entriesCloseMillis(week, 7), weekEndMillis(week));
+  assertEq("a gain entirely below the unlock counts nothing",
+    weeklyXpGain(100, 160, 60), 0);
+  assertEq("the gain that reaches exactly level 10 counts nothing",
+    weeklyXpGain(unlock - 60, unlock, 60), 0);
+  assertEq("a gain that crosses the unlock counts only the part past it",
+    weeklyXpGain(unlock - 20, unlock + 40, 60), 40);
+  assertEq("a gain made entirely after unlocking counts in full",
+    weeklyXpGain(unlock + 500, unlock + 560, 60), 60);
+
+  // The 954 XP it took to get here is never on the board.
+  assertEq("climbing from zero to level 10 scores nothing",
+    weeklyXpGain(0, unlock, unlock), 0);
+
+  // A buff can move more XP than the source may count, never the reverse.
+  assertEq("a buffed gain counts no more than the source allows",
+    weeklyXpGain(unlock + 10, unlock + 130, 60), 60);
+  assertEq("...and no more than was earned past the unlock",
+    weeklyXpGain(unlock - 100, unlock + 20, 60), 20);
+
+  assertEq("a negative gain counts nothing", weeklyXpGain(unlock, unlock + 10, -5), 0);
+  assertEq("corrupt figures count nothing", weeklyXpGain(NaN, NaN, 60), 0);
 }
 
-// --- who has entered ---------------------------------------------------------
+// --- who is ranked this week -------------------------------------------------
 {
   const week = 2900;
 
-  assertEq("the running week means entered", hasEnteredWeek(week, week), true);
-  assertEq("last week does not", hasEnteredWeek(week - 1, week), false);
-  assertEq("a new account has not", hasEnteredWeek(undefined, week), false);
-  assertEq("null has not", hasEnteredWeek(null, week), false);
+  assertEq("the running week means ranked", isRankedInWeek(week, week), true);
+  assertEq("last week does not", isRankedInWeek(week - 1, week), false);
+  assertEq("a new account is not", isRankedInWeek(undefined, week), false);
+  assertEq("null is not", isRankedInWeek(null, week), false);
 }
 
 // --- one ordering for every board -------------------------------------------
@@ -437,81 +433,6 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
     withCallerRow(full, "me", row("me", 1)).some((r) => r.uid === "me"), false);
 
   assertEq("the cached board is not mutated", full.length, LEADERBOARD_SIZE);
-}
-
-// --- the rank a non-entrant would take ---------------------------------------
-{
-  const board = [900, 500, 500, 300];
-
-  assertEq("no xp means no rank to offer", expectedRankFromBoard(board, 0), 0);
-  assertEq("top of the board", expectedRankFromBoard(board, 1000), 1);
-  assertEq("between two entrants", expectedRankFromBoard(board, 600), 2);
-  // Ties read as the better place - the prompt says "if you enter", and an
-  // actual tie is decided by uid when it is real.
-  assertEq("a tie takes the better place", expectedRankFromBoard(board, 500), 2);
-  assertEq("below everyone on a short board", expectedRankFromBoard(board, 10), 5);
-  assertEq("an empty board puts you first", expectedRankFromBoard([], 40), 1);
-
-  const full = Array.from({length: LEADERBOARD_SIZE}, (_, i) => 1000 - i);
-  assertEq("inside a full board is exact",
-    expectedRankFromBoard(full, 985), 16);
-  assertEq("level with the last place on a full board is exact",
-    expectedRankFromBoard(full, full[full.length - 1]), LEADERBOARD_SIZE);
-  // Everyone shown is ahead, and more may be ahead beyond them.
-  assertEq("below a full board needs a count", expectedRankFromBoard(full, 5), null);
-}
-
-// --- buying into a week ------------------------------------------------------
-{
-  const week = 2900;
-  const closeAt = entriesCloseMillis(week, 3);
-  const entry = (overrides: Partial<Parameters<typeof resolveTournamentEntry>[0]>) =>
-    resolveTournamentEntry({
-      storedTournamentWeek: week - 1,
-      currentWeekKey: week,
-      points: 100,
-      fee: 20,
-      expectedFee: 20,
-      nowMillis: weekStartMillis(week) + 86_400_000,
-      entriesCloseAt: closeAt,
-      ...overrides,
-    });
-
-  assertEq("entry is open a moment before the cutoff",
-    entry({nowMillis: closeAt - 1}), {ok: true, fee: 20});
-  assertEq("entry is closed at the cutoff",
-    entry({nowMillis: closeAt}), {ok: false, rejection: "entries_closed"});
-  assertEq("...and after it",
-    entry({nowMillis: closeAt + 86_400_000}), {ok: false, rejection: "entries_closed"});
-  assertEq("a closed week is reported before a short balance",
-    entry({nowMillis: closeAt, points: 0}), {ok: false, rejection: "entries_closed"});
-  assertEq("somebody already in is told so, not that entry closed",
-    entry({nowMillis: closeAt, storedTournamentWeek: week}),
-    {ok: false, rejection: "already_entered"});
-
-  assertEq("a player with enough stars may enter", entry({}), {ok: true, fee: 20});
-  assertEq("exactly the fee is enough", entry({points: 20}), {ok: true, fee: 20});
-  assertEq("a new account may enter", entry({storedTournamentWeek: undefined}), {ok: true, fee: 20});
-
-  assertEq("one star short is refused",
-    entry({points: 19}), {ok: false, rejection: "insufficient_stars"});
-  assertEq("a corrupt balance is refused",
-    entry({points: NaN}), {ok: false, rejection: "insufficient_stars"});
-
-  assertEq("paying twice in one week is refused",
-    entry({storedTournamentWeek: week}), {ok: false, rejection: "already_entered"});
-  assertEq("...even if the fee has moved since",
-    entry({storedTournamentWeek: week, expectedFee: 10}),
-    {ok: false, rejection: "already_entered"});
-
-  // The player agreed to the number on the button, and nothing else.
-  assertEq("a fee raised after the board loaded is refused",
-    entry({fee: 30, expectedFee: 20}), {ok: false, rejection: "fee_changed"});
-  assertEq("a fee lowered after the board loaded is refused too",
-    entry({fee: 10, expectedFee: 20}), {ok: false, rejection: "fee_changed"});
-
-  assertEq("a free week needs no stars",
-    entry({points: 0, fee: 0, expectedFee: 0}), {ok: true, fee: 0});
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

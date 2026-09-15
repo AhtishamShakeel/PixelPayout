@@ -39,8 +39,8 @@ private const val MILLIS_PER_DAY = 86_400_000L
 /** Mirrors the server's DEFAULT_DAILY_BONUS_ATTEMPTS, until config is read. */
 private const val DEFAULT_BONUS_CAP = 5
 
-/** Mirrors the server's DAILY_GOAL_BONUS_POINTS fallback. */
-private const val DEFAULT_GOAL_BONUS_POINTS = 30
+/** Mirrors the server's DAILY_GOAL_BONUS_XP fallback. */
+private const val DEFAULT_GOAL_BONUS_XP = 100
 
 /** Mirrors the server's MAX_DAILY_QUIZ_ATTEMPTS. */
 const val MAX_DAILY_QUIZ_ATTEMPTS = 10
@@ -471,8 +471,15 @@ class MainViewModel(
         userRepository.resolvedRedemptions
 
     /** Claims today's streak reward. The server owns every rule about it. */
-    suspend fun claimDailyStreak(adWatched: Boolean): UserRepository.StreakClaimResult =
-        userRepository.claimDailyStreak(adWatched)
+    suspend fun claimDailyStreak(): UserRepository.StreakClaimResult =
+        userRepository.claimDailyStreak()
+
+    /**
+     * Doubles a daily login or daily goal claim after a rewarded ad. The
+     * server reads the amount from its own ledger entry [eventId].
+     */
+    suspend fun claimDoubleXp(eventId: String): UserRepository.DoubleXpResult =
+        userRepository.claimDoubleXp(eventId)
 
     /**
      * Releases the lowest locked level bonus. No level parameter by design -
@@ -534,8 +541,8 @@ class MainViewModel(
                             done = DailyGoalEngine.isDone(template, stats)
                         )
                     },
-                    bonusPoints = userRepository.goalBonusPoints.value
-                        ?: DEFAULT_GOAL_BONUS_POINTS,
+                    bonusXp = userRepository.goalBonusXp.value
+                        ?: DEFAULT_GOAL_BONUS_XP,
                     bonusClaimed = user.lastGoalBonusDayUtc == todayUtc,
                     dayUtc = todayUtc
                 )
@@ -543,7 +550,7 @@ class MainViewModel(
 
             addSource(userRepository.userData) { recompute() }
             addSource(userRepository.goalPool) { recompute() }
-            addSource(userRepository.goalBonusPoints) { recompute() }
+            addSource(userRepository.goalBonusXp) { recompute() }
         }
 
     /**
@@ -562,8 +569,8 @@ class MainViewModel(
      * pays stamps `lastGoalBonusDayUtc` on the user document, and the snapshot
      * listener turns that into a redraw on its own.
      */
-    suspend fun claimDailyGoalBonus(adWatched: Boolean): UserRepository.GoalBonusResult =
-        userRepository.claimDailyGoalBonus(adWatched)
+    suspend fun claimDailyGoalBonus(): UserRepository.GoalBonusResult =
+        userRepository.claimDailyGoalBonus()
 
     /**
      * The last weekly prize this account won, straight off the user snapshot.

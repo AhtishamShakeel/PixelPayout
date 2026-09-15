@@ -15,7 +15,7 @@ import com.pixelpayout.R
  * game rather than a quiz.
  *
  * [LevelUpEvent.milestonePoints] is what the level-up LOCKED, not what it
- * paid: reaching the level earns the stars and a rewarded ad releases them
+ * paid: reaching the level earns the stars and a claim tap releases them
  * (see claimLevelReward). So the wording says the stars are waiting and where
  * to collect them.
  *

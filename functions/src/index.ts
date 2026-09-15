@@ -55,11 +55,12 @@ import {
   weeklyXpGain,
 } from "./economy/leaderboard";
 import {
-  resolveBonusPoints,
+  resolveBonusXp,
   resolveGoalBonus,
   selectDailyGoals,
   statsForDay,
   DAILY_GOALS_CONFIG_DOC,
+  MAX_DAILY_GOAL_BONUS_XP,
   DAILY_GOAL_POOL,
   GOAL_KINDS,
   DailyStats,
@@ -69,6 +70,7 @@ import {
   resolveStreakReward,
   streakRewardForDay,
   utcDayFor,
+  MAX_STREAK_DAY_XP,
   STREAK_CYCLE_DAYS,
   STREAK_REWARDS,
 } from "./economy/streak";
@@ -152,12 +154,9 @@ const FIELD_LEVEL = "level";
 const FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards";
 const FIELD_STREAK_COUNT = "streakCount";
 const FIELD_LAST_STREAK_DAY = "lastStreakDayUtc";
-// Tracked apart from the streak day: the streak advances whether or not an ad
-// played, the reward does not, and the reward stays claimable all day.
+// Tracked apart from the streak day, so the once-a-day gate is on the reward
+// itself rather than inferred from the streak having moved.
 const FIELD_LAST_STREAK_REWARD_DAY = "lastStreakRewardDayUtc";
-// How often a claim moved the streak on without an ad. The number that decides
-// whether AdMob server-side verification is worth building.
-const FIELD_ADLESS_STREAK_CLAIMS = "adlessStreakClaims";
 // Per-day activity counters behind the daily goals. One map field rather than
 // a subcollection: claimReward already reads and writes this document, so
 // tracking costs no extra read.
@@ -213,10 +212,8 @@ const FIELD_BONUS_GAME_ATTEMPTS = "bonus_game_attempts";
 // Lifetime bonus attempts granted, never reset.
 //
 // This is the abuse signal, and it is deliberately NOT "grants that arrived
-// without an ad" the way FIELD_ADLESS_STREAK_CLAIMS is. That counter works
-// for the streak because an honest client calls dailyStreak with or without
-// an ad; here an honest client only ever calls after one, so a client that
-// lies simply sends adWatched: true and the adless count stays zero. A
+// without an ad": an honest client only ever calls after one, so a client
+// that lies simply sends adWatched: true and such a count stays zero. A
 // lifetime total is comparable against the ad network's own reported
 // impressions, which is the one number a lying client cannot forge.
 const FIELD_BONUS_GRANTS_TOTAL = "bonusAttemptsGranted";
@@ -957,16 +954,12 @@ export const grantPointsBuff = functions.https.onCall(async (request: CallableRe
 });
 
 /**
- * Advances the daily streak, and pays today's reward if an ad was watched.
+ * Advances the daily streak and pays today's reward.
  *
- * Two independent once-per-day gates, which is the whole design:
- *
- *   the STREAK advances on the first call of a new day, always. It is the
- *   retention mechanic and must not be lost to an ad that would not load.
- *
- *   the REWARD pays only when an ad was watched, and only once. Until it does,
- *   it stays claimable for the rest of the day, so a user whose ad failed can
- *   simply tap again rather than losing the day.
+ * Two once-per-day gates: the STREAK advances on the first call of a new day,
+ * and the REWARD pays once a day. No ad is involved any more - the reward is
+ * XP, paid at once, and the app then offers a rewarded ad to double it through
+ * claimDoubleXp against the `eventId` returned here.
  *
  * The decision and the write share one transaction, so two taps racing cannot
  * both pass either gate.
@@ -977,7 +970,6 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
   }
 
   const userId = request.auth.uid;
-  const adWatched = request.data?.adWatched === true;
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
 
@@ -1003,8 +995,7 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
     );
     const reward = resolveStreakReward(
       (userDoc.get(FIELD_LAST_STREAK_REWARD_DAY) as number | undefined) ?? null,
-      todayUtc,
-      adWatched
+      todayUtc
     );
 
     const day = claim.day;
@@ -1015,10 +1006,6 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
     }
 
     if (!reward.pay) {
-      // A day that moved on without paying is the case worth counting.
-      if (reward.reason === "no_ad" && claim.status === "claimed") {
-        updates[FIELD_ADLESS_STREAK_CLAIMS] = FieldValue.increment(1);
-      }
       if (Object.keys(updates).length > 0) {
         transaction.update(
           userRef,
@@ -1052,11 +1039,13 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
     );
 
     // Keyed by the day, so a retry that somehow passed the gate above writes
-    // the same document rather than paying twice.
+    // the same document rather than paying twice. Also the handle the
+    // double is claimed against.
+    const eventRef = userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`streak:${todayUtc}`);
     writeAward(
       transaction,
       userRef,
-      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`streak:${todayUtc}`),
+      eventRef,
       award,
       {...updates, [FIELD_LAST_STREAK_REWARD_DAY]: todayUtc}
     );
@@ -1085,10 +1074,11 @@ export const claimDailyStreak = functions.https.onCall(async (request: CallableR
       rewarded: true as const,
       pointsAwarded: award.pointsAwarded,
       xpAwarded: award.xpAwarded,
+      eventId: eventRef.id,
     };
   });
 
-  console.log("Daily streak", {userId, adWatched, ...result});
+  console.log("Daily streak", {userId, ...result});
   return {
     success: true,
     serverTime: Date.now(),
@@ -1118,14 +1108,6 @@ export const getStreakConfig = functions.https.onCall(async (request: CallableRe
   };
 });
 
-/**
- * The daily goal bonus, as configured.
- *
- * Cached in the instance for a minute. getDailyGoals runs on every return to
- * Home, and a Firestore read per resume per user is a real bill for a number
- * that changes about once a month. A minute of staleness after a console edit
- * is the trade.
- */
 /**
  * The daily ad-bonus cap, as configured in config/attempts.maxBonusAttempts.
  *
@@ -1160,30 +1142,31 @@ async function configuredBonusCap(): Promise<number> {
   return cap;
 }
 
-let goalConfigCache: {points: number; readAt: number} | null = null;
+let goalConfigCache: {xp: number; readAt: number} | null = null;
 const GOAL_CONFIG_TTL_MS = 60_000;
 
+/** config/dailyGoals.bonusXp, cached for a minute per instance. */
 async function configuredGoalBonus(): Promise<number> {
   const now = Date.now();
   if (goalConfigCache && now - goalConfigCache.readAt < GOAL_CONFIG_TTL_MS) {
-    return goalConfigCache.points;
+    return goalConfigCache.xp;
   }
 
-  let points: number;
+  let xp: number;
   try {
     const snapshot = await getFirestore()
       .collection(CONFIG_COLLECTION)
       .doc(DAILY_GOALS_CONFIG_DOC)
       .get();
-    points = resolveBonusPoints(snapshot.get("bonusPoints"));
+    xp = resolveBonusXp(snapshot.get("bonusXp"));
   } catch (error) {
     // A config read that fails must not stop the goals paying out.
     console.error("Daily goal config unreadable", error);
-    points = resolveBonusPoints(undefined);
+    xp = resolveBonusXp(undefined);
   }
 
-  goalConfigCache = {points, readAt: now};
-  return points;
+  goalConfigCache = {xp, readAt: now};
+  return xp;
 }
 
 // getDailyGoals was REMOVED. DailyGoalEngine on the client derives the same
@@ -1194,10 +1177,13 @@ async function configuredGoalBonus(): Promise<number> {
 // that decides whether the bonus pays.
 
 /**
- * Pays the bonus for finishing all three of today's goals.
+ * Pays the XP bonus for finishing all three of today's goals.
  *
  * Every condition is re-derived here from the counters and the day. The client
  * is told what it may do, never trusted about what it has done.
+ *
+ * No ad gates the claim; the app offers one afterwards to double it through
+ * claimDoubleXp against the returned `eventId`.
  */
 export const claimDailyGoalBonus = functions.https.onCall(async (request: CallableRequest) => {
   if (!request.auth) {
@@ -1205,7 +1191,6 @@ export const claimDailyGoalBonus = functions.https.onCall(async (request: Callab
   }
 
   const userId = request.auth.uid;
-  const adWatched = request.data?.adWatched === true;
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
 
@@ -1216,7 +1201,7 @@ export const claimDailyGoalBonus = functions.https.onCall(async (request: Callab
   // Read outside the transaction: it is not part of what has to stay
   // consistent with the user document, and pulling it in would widen the read
   // set for no reason.
-  const bonusPoints = await configuredGoalBonus();
+  const bonusXp = await configuredGoalBonus();
 
   const result = await firestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
@@ -1235,12 +1220,11 @@ export const claimDailyGoalBonus = functions.https.onCall(async (request: Callab
       (userDoc.get(FIELD_LAST_GOAL_BONUS_DAY) as number | undefined) ?? null,
       todayUtc,
       goals,
-      stats,
-      adWatched
+      stats
     );
 
     if (!decision.pay) {
-      return {claimed: false as const, reason: decision.reason, pointsAwarded: 0};
+      return {claimed: false as const, reason: decision.reason, xpAwarded: 0};
     }
 
     const award = buildAward(
@@ -1248,30 +1232,32 @@ export const claimDailyGoalBonus = functions.https.onCall(async (request: Callab
       Number(userDoc.get(FIELD_XP) || 0),
       {
         source: "MISSION",
-        basePoints: bonusPoints,
-        baseXp: 0,
+        basePoints: 0,
+        baseXp: bonusXp,
         metadata: {goals: goals.map((goal) => goal.id), dayUtc: todayUtc},
         storedLevel: Number(userDoc.get(FIELD_LEVEL) || 1),
       }
     );
 
     // Keyed by the day, so a retry writes the same document rather than
-    // paying twice.
+    // paying twice. Also the handle the double is claimed against.
+    const eventRef = userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`goals:${todayUtc}`);
     writeAward(
       transaction,
       userRef,
-      userRef.collection(REWARD_EVENTS_SUBCOLLECTION).doc(`goals:${todayUtc}`),
+      eventRef,
       award,
       {[FIELD_LAST_GOAL_BONUS_DAY]: todayUtc}
     );
 
     return {
       claimed: true as const,
-      pointsAwarded: award.pointsAwarded,
+      xpAwarded: award.xpAwarded,
+      eventId: eventRef.id,
     };
   });
 
-  console.log("Daily goal bonus", {userId, adWatched, ...result});
+  console.log("Daily goal bonus", {userId, ...result});
   return {success: true, serverTime: Date.now(), ...result};
 });
 
@@ -2313,8 +2299,22 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
  */
 const DOUBLE_XP_WINDOW_MS = 10 * 60 * 1000;
 
-/** The play sources a double is offered on. Both are XP-only and capped. */
-const DOUBLEABLE_SOURCES: ReadonlySet<string> = new Set(["GAME", "QUIZ"]);
+/**
+ * The sources a double is offered on, and the most one base entry of each may
+ * have paid. All are XP-only and once-per-attempt or once-per-day.
+ *
+ * GAME and QUIZ are play; STREAK and MISSION are the daily login reward and
+ * the daily goal bonus, whose claims are free and whose ad doubles them.
+ */
+const DOUBLE_XP_CEILINGS: Readonly<Record<string, number>> = {
+  GAME: GAME_XP_PER_SESSION_CAP,
+  QUIZ: QUIZ_CORRECT_XP,
+  STREAK: MAX_STREAK_DAY_XP,
+  MISSION: MAX_DAILY_GOAL_BONUS_XP,
+};
+
+/** Doubles that count toward the weekly tournament: play only. */
+const WEEKLY_DOUBLE_SOURCES: ReadonlySet<string> = new Set(["GAME", "QUIZ"]);
 
 /** Suffix marking an entry as the bonus half of a pair. */
 const DOUBLE_SUFFIX = ":double";
@@ -2421,10 +2421,11 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     }
 
     const source = String(baseDoc.get("source") || "");
-    // Only play earns a double. Referral, streak and level-up awards are
-    // fixed by design and a redemption is a debit - none of them are things
-    // an ad may re-pay.
-    if (!DOUBLEABLE_SOURCES.has(source)) {
+    // Play and the two daily claims earn a double. Referral and level-up
+    // awards are fixed by design and a redemption is a debit - none of them
+    // are things an ad may re-pay.
+    const ceiling = DOUBLE_XP_CEILINGS[source];
+    if (ceiling === undefined) {
       throw new functions.https.HttpsError("invalid-argument", "That reward cannot be doubled");
     }
     if (baseDoc.get("status") !== "applied") {
@@ -2459,7 +2460,6 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     // buffed number. Comparing it against the unscaled ceiling would quietly
     // pay a boosted player LESS for their double than the ad promised, and
     // the further the booster went above 1x the worse it would get.
-    const ceiling = source === "GAME" ? GAME_XP_PER_SESSION_CAP : QUIZ_CORRECT_XP;
     const recordedMultiplier = Number(baseDoc.get("xpMultiplierApplied"));
     // A missing or nonsensical multiplier falls back to 1 rather than being
     // trusted: this value only ever widens the ceiling, so it is exactly the
@@ -2508,24 +2508,28 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     // Counted by the same unlock rule as the base claim: a double that lands
     // below TOURNAMENT_UNLOCK_LEVEL adds nothing, and one that carries the
     // player across it counts only the part past the threshold.
-    const currentWeek = utcWeekFor(Date.now());
-    const weekly = weeklyRollover(
-      userDoc.get(FIELD_WEEK_KEY) as number | undefined,
-      userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
-      currentWeek,
-      weeklyXpGain(currentXp, award.level.xp, bonusXp),
-      userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
-    );
-    const extraUpdates: Record<string, FieldValue | number> = {
-      [FIELD_WEEKLY_XP]: weekly.weeklyXp,
-      [FIELD_WEEK_KEY]: weekly.weekKey,
-    };
-    if (isTournamentUnlocked(award.level.xp)) {
-      extraUpdates[FIELD_TOURNAMENT_WEEK] = currentWeek;
-    }
-    if (weekly.lastWeekKey !== undefined) {
-      extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
-      extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+    //
+    // Streak and goal doubles skip all of this: their base claims never feed
+    // the weekly board, so neither may the ad on top of them.
+    const extraUpdates: Record<string, FieldValue | number> = {};
+    if (WEEKLY_DOUBLE_SOURCES.has(source)) {
+      const currentWeek = utcWeekFor(Date.now());
+      const weekly = weeklyRollover(
+        userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+        userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+        currentWeek,
+        weeklyXpGain(currentXp, award.level.xp, bonusXp),
+        userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
+      );
+      extraUpdates[FIELD_WEEKLY_XP] = weekly.weeklyXp;
+      extraUpdates[FIELD_WEEK_KEY] = weekly.weekKey;
+      if (isTournamentUnlocked(award.level.xp)) {
+        extraUpdates[FIELD_TOURNAMENT_WEEK] = currentWeek;
+      }
+      if (weekly.lastWeekKey !== undefined) {
+        extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
+        extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+      }
     }
 
     const {milestonePoints, milestoneLevels} =

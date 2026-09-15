@@ -1516,6 +1516,54 @@ async function run() {
     assertEq("floppy_bird ledger entry not multiplier eligible", floppyEvent?.multiplierEligible, false);
   }
 
+  // --- daily login and daily goals: free XP claims, doubled by an ad ------
+  {
+    const user = await makeUser("dailyclaims");
+    const todayUtc = Math.floor(Date.now() / 86_400_000);
+    await seedUserDoc(user.uid, "DAILYCLM1", {
+      dailyStats: {dayUtc: todayUtc, games: 99, quizzes: 99, correct: 99},
+    });
+    const claimDailyStreak = httpsCallable(clientFunctions, "claimDailyStreak");
+    const claimDailyGoalBonus = httpsCallable(clientFunctions, "claimDailyGoalBonus");
+    const claimDoubleXp = httpsCallable(clientFunctions, "claimDoubleXp");
+
+    const streak = (await claimDailyStreak({})).data as {
+      rewarded: boolean; xpAwarded: number; pointsAwarded: number; eventId: string;
+    };
+    assertEq("the login reward pays without an ad", streak.rewarded, true);
+    assertEq("day 1 pays 10 xp", streak.xpAwarded, 10);
+    assertEq("the login reward pays no stars", streak.pointsAwarded, 0);
+    assertEq("the login claim returns its ledger id", streak.eventId, `streak:${todayUtc}`);
+    const again = (await claimDailyStreak({})).data as {rewarded: boolean};
+    assertEq("the login reward is once a day", again.rewarded, false);
+
+    const goal = (await claimDailyGoalBonus({})).data as {
+      claimed: boolean; xpAwarded: number; eventId: string;
+    };
+    assertEq("the goal bonus pays without an ad", goal.claimed, true);
+    assertEq("the goal bonus pays 100 xp by default", goal.xpAwarded, 100);
+    assertEq("the goal claim returns its ledger id", goal.eventId, `goals:${todayUtc}`);
+
+    const beforeSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("both claims reach xp", beforeSnap.get("xp"), 110);
+    assertEq("neither claim pays stars", beforeSnap.get("points"), 0);
+
+    const streakDouble = (await claimDoubleXp({eventId: streak.eventId})).data as {xpAwarded: number};
+    assertEq("the login double pays the same again", streakDouble.xpAwarded, 10);
+    const goalDouble = (await claimDoubleXp({eventId: goal.eventId})).data as {xpAwarded: number};
+    assertEq("the goal double pays the same again", goalDouble.xpAwarded, 100);
+
+    const afterSnap = await db.collection("users").doc(user.uid).get();
+    assertEq("doubles reach xp", afterSnap.get("xp"), 220);
+    assertEq("daily doubles do NOT feed the weekly leaderboard",
+      Number(afterSnap.get("weeklyXp") || 0), Number(beforeSnap.get("weeklyXp") || 0));
+    await assertThrows(
+      "a login reward cannot be doubled twice",
+      () => claimDoubleXp({eventId: streak.eventId}),
+      "already-exists"
+    );
+  }
+
   // --- claimDoubleXp: the rewarded-ad double ------------------------------
   //
   // Weekly XP IS counted: the tournament pot is fixed, so ad-boosted XP

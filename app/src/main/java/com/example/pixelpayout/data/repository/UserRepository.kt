@@ -45,10 +45,10 @@ class UserRepository {
      */
     val goalPool: LiveData<DailyGoalEngine.GoalPool> = LevelCurveStore.goalPool
 
-    private val _goalBonusPoints = MutableLiveData(DEFAULT_GOAL_BONUS_POINTS)
+    private val _goalBonusXp = MutableLiveData(DEFAULT_GOAL_BONUS_XP)
 
     /**
-     * What finishing all three pays.
+     * The XP finishing all three pays (config/dailyGoals.bonusXp).
      *
      * Read from config/dailyGoals directly rather than copied onto the curve
      * document, and that is deliberate: the console edits this value, and a
@@ -56,7 +56,7 @@ class UserRepository {
      * claimDailyGoalBonus paid another. One read per sign-in keeps the number
      * on screen and the number paid the same for the whole session.
      */
-    val goalBonusPoints: LiveData<Int> = _goalBonusPoints
+    val goalBonusXp: LiveData<Int> = _goalBonusXp
 
     private val _bonusAttemptsCap = MutableLiveData(DEFAULT_BONUS_ATTEMPTS_CAP)
 
@@ -64,7 +64,7 @@ class UserRepository {
      * Extra attempts a rewarded ad can buy per activity per day.
      *
      * Console-tuned at config/attempts.maxBonusAttempts, and read once per
-     * sign-in for the same reason as [goalBonusPoints]: the screens offering
+     * sign-in for the same reason as [goalBonusXp]: the screens offering
      * "+1" and the server refusing it have to agree on the number. Every
      * grant response also carries the live cap, so a retune reaches a running
      * session on the next ad. Display only - the server enforces its own read.
@@ -102,17 +102,16 @@ class UserRepository {
 
     /**
      * One read per sign-in for the goal bonus. Clamped the same way the
-     * server's resolveBonusPoints clamps it, so a console typo shows the same
+     * server's resolveBonusXp clamps it, so a console typo shows the same
      * capped figure the server would actually pay.
      */
     private fun fetchGoalBonus() {
         firestore.collection(COLLECTION_CONFIG).document(DOC_DAILY_GOALS).get()
             .addOnSuccessListener { snapshot ->
-                val raw = snapshot.get("bonusPoints")
-                val points = (raw as? Number)?.toInt()
-                _goalBonusPoints.postValue(
-                    if (points == null || points < 0) DEFAULT_GOAL_BONUS_POINTS
-                    else minOf(points, MAX_GOAL_BONUS_POINTS)
+                val value = (snapshot.get("bonusXp") as? Number)?.toDouble()
+                _goalBonusXp.postValue(
+                    if (value == null || value < 0 || value != Math.floor(value)) DEFAULT_GOAL_BONUS_XP
+                    else minOf(value.toInt(), MAX_GOAL_BONUS_XP)
                 )
             }
     }
@@ -949,7 +948,7 @@ class UserRepository {
 
     data class DailyGoals(
         val goals: List<DailyGoal>,
-        val bonusPoints: Int,
+        val bonusXp: Int,
         val bonusClaimed: Boolean,
         val dayUtc: Long
     ) {
@@ -1049,31 +1048,25 @@ class UserRepository {
     data class StreakDayReward(val points: Int, val xp: Int)
 
     sealed class StreakClaimResult {
-        /** The reward was paid. */
+        /** The reward was paid. [eventId] is the handle to double it with. */
         data class Rewarded(
             val day: Int,
             val pointsAwarded: Int,
-            val xpAwarded: Int
+            val xpAwarded: Int,
+            val eventId: String
         ) : StreakClaimResult()
 
-        /**
-         * The streak moved on but nothing was paid - no ad was watched, or
-         * today was already rewarded. Not an error: with no ad the reward is
-         * simply still waiting, and the user can try again all day.
-         */
+        /** Nothing was paid - today was already rewarded. */
         data class NotRewarded(val day: Int, val reason: String?) : StreakClaimResult()
 
         data class Error(val message: String) : StreakClaimResult()
     }
 
     /**
-     * Advances the streak and, if [adWatched], pays today's reward.
-     *
-     * [adWatched] is only ever true when AdMob's onRewarded callback fired.
-     * The server treats it as a claim, not proof - see resolveStreakReward for
-     * why that is still worth gating on.
+     * Advances the streak and pays today's XP. No ad: the ad is offered
+     * afterwards to double it, through [claimDoubleXp].
      */
-    suspend fun claimDailyStreak(adWatched: Boolean): StreakClaimResult {
+    suspend fun claimDailyStreak(): StreakClaimResult {
         return try {
             // Well under the 70s default. This call happens with the user
             // watching the button, and offline it would otherwise hang for
@@ -1083,7 +1076,7 @@ class UserRepository {
             val result = functions
                 .getHttpsCallable("claimDailyStreak")
                 .withTimeout(20, TimeUnit.SECONDS)
-                .call(mapOf("adWatched" to adWatched))
+                .call()
                 .await()
             val data = result.data as? Map<*, *>
                 ?: return StreakClaimResult.Error("Unexpected response")
@@ -1095,7 +1088,8 @@ class UserRepository {
                 StreakClaimResult.Rewarded(
                     day = day,
                     pointsAwarded = (data["pointsAwarded"] as? Number)?.toInt() ?: 0,
-                    xpAwarded = (data["xpAwarded"] as? Number)?.toInt() ?: 0
+                    xpAwarded = (data["xpAwarded"] as? Number)?.toInt() ?: 0,
+                    eventId = data["eventId"] as? String ?: ""
                 )
             } else {
                 StreakClaimResult.NotRewarded(day, data["reason"] as? String)
@@ -1685,24 +1679,27 @@ class UserRepository {
     // step with the one claimDailyGoalBonus actually enforces.
 
     sealed class GoalBonusResult {
-        data class Claimed(val pointsAwarded: Int) : GoalBonusResult()
+        data class Claimed(val xpAwarded: Int, val eventId: String) : GoalBonusResult()
         data class NotClaimed(val reason: String?) : GoalBonusResult()
         data class Error(val message: String) : GoalBonusResult()
     }
 
-    suspend fun claimDailyGoalBonus(adWatched: Boolean): GoalBonusResult {
+    suspend fun claimDailyGoalBonus(): GoalBonusResult {
         return try {
             val result = functions
                 .getHttpsCallable("claimDailyGoalBonus")
                 .withTimeout(20, TimeUnit.SECONDS)
-                .call(mapOf("adWatched" to adWatched))
+                .call()
                 .await()
             val data = result.data as? Map<*, *>
                 ?: return GoalBonusResult.Error("Unexpected response")
             syncClock(data)
 
             if (data["claimed"] == true) {
-                GoalBonusResult.Claimed((data["pointsAwarded"] as? Number)?.toInt() ?: 0)
+                GoalBonusResult.Claimed(
+                    xpAwarded = (data["xpAwarded"] as? Number)?.toInt() ?: 0,
+                    eventId = data["eventId"] as? String ?: ""
+                )
             } else {
                 GoalBonusResult.NotClaimed(data["reason"] as? String)
             }
@@ -1840,9 +1837,9 @@ class UserRepository {
         private const val FIELD_DAILY_STATS = "dailyStats"
         private const val FIELD_LAST_GOAL_BONUS_DAY = "lastGoalBonusDayUtc"
         private const val DOC_DAILY_GOALS = "dailyGoals"
-        /** Mirrors DAILY_GOAL_BONUS_POINTS / MAX_DAILY_GOAL_BONUS_POINTS. */
-        private const val DEFAULT_GOAL_BONUS_POINTS = 30
-        private const val MAX_GOAL_BONUS_POINTS = 200
+        /** Mirrors DAILY_GOAL_BONUS_XP / MAX_DAILY_GOAL_BONUS_XP. */
+        private const val DEFAULT_GOAL_BONUS_XP = 100
+        private const val MAX_GOAL_BONUS_XP = 500
         private const val DOC_ATTEMPTS = "attempts"
         /** Mirrors DEFAULT_DAILY_BONUS_ATTEMPTS / MAX_DAILY_BONUS_ATTEMPTS_CEILING. */
         private const val DEFAULT_BONUS_ATTEMPTS_CAP = 5

@@ -9,6 +9,7 @@ import {
   utcDayFor,
   STREAK_CYCLE_DAYS,
   STREAK_REWARDS,
+  MAX_STREAK_DAY_XP,
 } from "../economy/streak";
 
 let passed = 0;
@@ -101,10 +102,10 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   assertEq("day 1 pays 10 xp", streakRewardForDay(1), {points: 0, xp: 10});
   assertEq("day 2 pays 20 xp", streakRewardForDay(2), {points: 0, xp: 20});
   assertEq("day 3 pays 30 xp", streakRewardForDay(3), {points: 0, xp: 30});
-  assertEq("day 4 pays 10 points", streakRewardForDay(4), {points: 10, xp: 0});
+  assertEq("day 4 pays 40 xp", streakRewardForDay(4), {points: 0, xp: 40});
   assertEq("day 5 pays 50 xp", streakRewardForDay(5), {points: 0, xp: 50});
   assertEq("day 6 pays 60 xp", streakRewardForDay(6), {points: 0, xp: 60});
-  assertEq("day 7 pays 20 points", streakRewardForDay(7), {points: 20, xp: 0});
+  assertEq("day 7 pays 70 xp", streakRewardForDay(7), {points: 0, xp: 70});
 
   assertEq("day 8 wraps to the day 1 reward",
     streakRewardForDay(8), streakRewardForDay(1));
@@ -119,48 +120,23 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   assertEq("a negative day falls back to the first day",
     streakRewardForDay(-5), STREAK_REWARDS[0]);
 
-  // Only the marked days may cost real money.
-  const payingDays = STREAK_REWARDS
-    .map((r, i) => (r.points > 0 ? i + 1 : 0))
-    .filter((d) => d > 0);
-  assertEq("only days 4 and 7 award points", payingDays, [4, 7]);
-
-  const total = STREAK_REWARDS.reduce((sum, r) => sum + r.points, 0);
-  assertEq("a full cycle costs 30 points", total, 30);
+  // The claim is free and an unverified ad doubles it, so no day may pay Stars.
+  const payingDays = STREAK_REWARDS.filter((r) => r.points > 0).length;
+  assertEq("no day awards points", payingDays, 0);
+  assertEq("the double ceiling is the largest day", MAX_STREAK_DAY_XP, 70);
 }
 
 // --- the reward gate ---------------------------------------------------------
-// Deliberately independent of the streak gate: the streak advances whether or
-// not an ad played, the reward does not.
 {
   const today = utcDayFor(Date.UTC(2026, 7, 31));
 
-  assertEq("an ad on an unrewarded day pays",
-    resolveStreakReward(null, today, true), {pay: true});
-
-  assertEq("no ad means no reward",
-    resolveStreakReward(null, today, false),
-    {pay: false, reason: "no_ad"});
-
-  // The whole point of the retry design: a failed ad leaves the day open.
-  assertEq("a day left unrewarded stays claimable",
-    resolveStreakReward(today - 1, today, true), {pay: true});
-
+  assertEq("an unrewarded day pays without any ad",
+    resolveStreakReward(null, today), {pay: true});
+  assertEq("yesterday's reward does not block today",
+    resolveStreakReward(today - 1, today), {pay: true});
   assertEq("a rewarded day cannot be rewarded twice",
-    resolveStreakReward(today, today, true),
+    resolveStreakReward(today, today),
     {pay: false, reason: "already_rewarded"});
-
-  assertEq("already rewarded outranks a missing ad",
-    resolveStreakReward(today, today, false),
-    {pay: false, reason: "already_rewarded"});
-
-  // Advancing the streak without an ad must not consume the reward: the two
-  // gates read different fields.
-  assertEq("an adless claim still advances the streak",
-    resolveStreakClaim(today - 1, today, 3),
-    {status: "claimed", day: 4, continued: true});
-  assertEq("and leaves the reward open for a later retry",
-    resolveStreakReward(null, today, true), {pay: true});
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

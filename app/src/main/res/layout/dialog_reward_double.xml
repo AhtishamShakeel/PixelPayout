@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    Shown right after a free daily claim (login reward or daily goal): what was
+    earned, and a rewarded ad offer to double it. The XP is already banked
+    when this opens, so closing it costs nothing.
+
+    Shown through CustomDialogTheme, whose window background is transparent, so
+    the rounded card below is the whole visible dialog.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="24dp"
+    android:layout_marginEnd="24dp"
+    android:background="@drawable/bg_level_card">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="30dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="22dp">
+
+        <TextView
+            android:id="@+id/rewardDoubleTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/jakarta_bold"
+            android:gravity="center"
+            android:text="@string/reward_double_title"
+            android:textColor="@color/white"
+            android:textSize="20sp" />
+
+        <TextView
+            android:id="@+id/rewardDoubleMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:gravity="center"
+            android:lineSpacingMultiplier="1.2"
+            android:textColor="@color/text_faint"
+            android:textSize="14sp"
+            tools:text="You completed the Daily Goal and earned" />
+
+        <TextView
+            android:id="@+id/rewardDoubleAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:fontFamily="@font/mono_bold"
+            android:includeFontPadding="false"
+            android:letterSpacing="-0.03"
+            android:textColor="@color/xp_accent"
+            android:textSize="36sp"
+            tools:text="100 XP" />
+
+        <LinearLayout
+            android:id="@+id/rewardDoubleButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:background="@drawable/bg_bonus_ad_button"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:minHeight="48dp"
+            android:orientation="horizontal"
+            android:paddingStart="22dp"
+            android:paddingEnd="24dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_video"
+                app:tint="@color/white" />
+
+            <TextView
+                android:id="@+id/rewardDoubleLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="9dp"
+                android:fontFamily="@font/jakarta_bold"
+                android:text="@string/reward_double_action"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- The ad's progress and failures, and the doubled confirmation. -->
+        <TextView
+            android:id="@+id/rewardDoubleStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:textColor="@color/text_faint"
+            android:textSize="13sp"
+            android:visibility="gone"
+            tools:text="Finding an ad…"
+            tools:visibility="visible" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/rewardDoubleClose"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="top|end"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/reward_double_close"
+        android:padding="14dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/ic_close"
+        app:tint="@color/text_faint" />
+</FrameLayout>

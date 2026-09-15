@@ -4,16 +4,16 @@
  */
 import {
   allGoalsDone,
-  resolveBonusPoints,
+  resolveBonusXp,
   goalProgress,
   isGoalDone,
   resolveGoalBonus,
   selectDailyGoals,
   statsForDay,
-  DAILY_GOAL_BONUS_POINTS,
+  DAILY_GOAL_BONUS_XP,
   DAILY_GOAL_COUNT,
   DAILY_GOAL_POOL,
-  MAX_DAILY_GOAL_BONUS_POINTS,
+  MAX_DAILY_GOAL_BONUS_XP,
   GOAL_KINDS,
   GoalTemplate,
 } from "../economy/dailyGoals";
@@ -165,34 +165,22 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
   };
   const nothing = {dayUtc: today, games: 0, quizzes: 0, correct: 0};
 
-  assertEq("a finished set pays",
-    resolveGoalBonus(null, today, goals, done, true), {pay: true});
+  assertEq("a finished set pays, no ad needed",
+    resolveGoalBonus(null, today, goals, done), {pay: true});
 
   assertEq("an unfinished set does not",
-    resolveGoalBonus(null, today, goals, nothing, true),
+    resolveGoalBonus(null, today, goals, nothing),
     {pay: false, reason: "not_complete"});
 
   assertEq("the bonus cannot be claimed twice in a day",
-    resolveGoalBonus(today, today, goals, done, true),
+    resolveGoalBonus(today, today, goals, done),
     {pay: false, reason: "already_claimed"});
 
   assertEq("yesterday's claim does not block today",
-    resolveGoalBonus(today - 1, today, goals, done, true), {pay: true});
-
-  assertEq("a finished set without an ad pays nothing",
-    resolveGoalBonus(null, today, goals, done, false),
-    {pay: false, reason: "no_ad"});
-
-  // Nothing is consumed by refusing the ad, so the day stays claimable.
-  assertEq("and leaves the day open to try again",
-    resolveGoalBonus(null, today, goals, done, true), {pay: true});
-
-  assertEq("an unfinished set fails on the set, not the ad",
-    resolveGoalBonus(null, today, goals, nothing, false),
-    {pay: false, reason: "not_complete"});
+    resolveGoalBonus(today - 1, today, goals, done), {pay: true});
 
   assertEq("already claimed outranks an unfinished set",
-    resolveGoalBonus(today, today, goals, nothing, true),
+    resolveGoalBonus(today, today, goals, nothing),
     {pay: false, reason: "already_claimed"});
 }
 
@@ -200,22 +188,23 @@ function assertEq(desc: string, actual: unknown, expected: unknown) {
 // config/dailyGoals is edited by hand in a console, so every way that edit can
 // be wrong has to land somewhere safe.
 {
-  assertEq("a sensible value is used as given", resolveBonusPoints(45), 45);
-  assertEq("zero is a legitimate setting", resolveBonusPoints(0), 0);
+  assertEq("a sensible value is used as given", resolveBonusXp(150), 150);
+  assertEq("zero is a legitimate setting", resolveBonusXp(0), 0);
 
   // The failure that matters: an extra zero must cost a capped amount.
   assertEq("an enormous value is capped",
-    resolveBonusPoints(999999), MAX_DAILY_GOAL_BONUS_POINTS);
+    resolveBonusXp(999999), MAX_DAILY_GOAL_BONUS_XP);
 
   // A broken config must leave the economy as it was, never switch the
   // reward silently off.
   for (const bad of [undefined, null, "", "thirty", NaN, Infinity, -5, 12.5]) {
     assertEq(`${JSON.stringify(bad)} falls back to the built-in value`,
-      resolveBonusPoints(bad), DAILY_GOAL_BONUS_POINTS);
+      resolveBonusXp(bad), DAILY_GOAL_BONUS_XP);
   }
 
+  assertEq("the fallback is 100 xp", DAILY_GOAL_BONUS_XP, 100);
   assertEq("the fallback is itself within the cap",
-    DAILY_GOAL_BONUS_POINTS <= MAX_DAILY_GOAL_BONUS_POINTS, true);
+    DAILY_GOAL_BONUS_XP <= MAX_DAILY_GOAL_BONUS_XP, true);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

@@ -1,5 +1,5 @@
 /**
- * Daily goals: three tasks a day, and a Points bonus for finishing all three.
+ * Daily goals: three tasks a day, and an XP bonus for finishing all three.
  *
  * Pure, like the rest of this folder - it decides, the caller writes.
  *
@@ -56,29 +56,29 @@ export const GOAL_KINDS: GoalKind[] = [
 export const DAILY_GOAL_COUNT = GOAL_KINDS.length;
 
 /**
- * The fallback for what finishing all three pays.
+ * The fallback for the XP finishing all three pays.
  *
- * The live value is read from Firestore - see resolveBonusPoints - so it can
- * be retuned from the console without a deploy. This is what applies when that
- * document is missing or unreadable, which must never mean "pay nothing" or
- * the goals would silently stop rewarding on a config mistake.
+ * The live value is read from Firestore (config/dailyGoals.bonusXp) - see
+ * resolveBonusXp - so it can be retuned from the console without a deploy.
+ * This is what applies when that document is missing or unreadable, which must
+ * never mean "pay nothing" or the goals would silently stop rewarding on a
+ * config mistake.
  *
- * At 30 a day this is 210 Points a week per active user, seven times what the
- * streak pays, so it wants setting against what a user actually earns in ad
- * and offerwall revenue rather than by feel.
+ * XP rather than Stars: the claim is free and a rewarded ad doubles it, and
+ * the ad is unverified - doubling Stars on the client's word would be minting
+ * currency. XP reaches Stars only through the level curve.
  */
-export const DAILY_GOAL_BONUS_POINTS = 30;
+export const DAILY_GOAL_BONUS_XP = 100;
 
 /**
  * The ceiling on the configured bonus.
  *
  * config/dailyGoals is edited by hand in a console, and the failure that
- * matters is an extra zero. Points are real money once redeemed, so a typo
- * must cost a capped amount rather than an unbounded one. Raising the cap is
- * a deploy - which is the point: minting currency should be harder than
- * editing a field.
+ * matters is an extra zero. XP levels players up and levels pay Stars, so a
+ * typo must cost a capped amount rather than an unbounded one. This is also
+ * the ceiling claimDoubleXp holds a goal double to.
  */
-export const MAX_DAILY_GOAL_BONUS_POINTS = 200;
+export const MAX_DAILY_GOAL_BONUS_XP = 500;
 
 /** The document holding the tunable values, read by the goal callables. */
 export const DAILY_GOALS_CONFIG_DOC = "dailyGoals";
@@ -90,17 +90,17 @@ export const DAILY_GOALS_CONFIG_DOC = "dailyGoals";
  * built-in value rather than to zero: a broken config should leave the economy
  * as it was, not quietly switch the reward off.
  */
-export function resolveBonusPoints(raw: unknown): number {
+export function resolveBonusXp(raw: unknown): number {
   // Type-checked before any coercion, because Number(null) and Number("") are
   // both 0 - so a field left null, or an empty string typed into the console,
   // would coerce cleanly to a zero reward and pass every numeric guard below
   // it. Switching the bonus silently off is the one outcome a bad config must
   // never produce.
-  if (typeof raw !== "number") return DAILY_GOAL_BONUS_POINTS;
+  if (typeof raw !== "number") return DAILY_GOAL_BONUS_XP;
   if (!Number.isFinite(raw) || !Number.isInteger(raw) || raw < 0) {
-    return DAILY_GOAL_BONUS_POINTS;
+    return DAILY_GOAL_BONUS_XP;
   }
-  return Math.min(raw, MAX_DAILY_GOAL_BONUS_POINTS);
+  return Math.min(raw, MAX_DAILY_GOAL_BONUS_XP);
 }
 
 /** Per-day activity counters, reset when the day rolls over. */
@@ -175,37 +175,26 @@ export function allGoalsDone(goals: GoalTemplate[], stats: DailyStats): boolean 
 
 export type GoalBonusDecision =
   | {pay: true}
-  | {pay: false; reason: "already_claimed" | "not_complete" | "no_ad"};
+  | {pay: false; reason: "already_claimed" | "not_complete"};
 
 /**
  * Whether the bonus is payable now.
  *
- * Claimed rather than granted automatically, and gated on a rewarded ad: the
- * claim is the moment the user most wants the reward, which is the moment an
- * ad is worth the least friction.
- *
- * adWatched is asserted by the client and cannot be proven - see
- * resolveStreakReward for why it is still worth asking, and what would have
- * to change to actually verify it.
+ * Claimed rather than granted automatically, but no longer behind an ad: the
+ * claim pays at once, and the rewarded ad is offered afterwards to double it
+ * (claimDoubleXp) - so an ad that will not load costs the player nothing.
  */
 export function resolveGoalBonus(
   lastBonusDayUtc: number | null | undefined,
   todayUtc: number,
   goals: GoalTemplate[],
-  stats: DailyStats,
-  adWatched: boolean
+  stats: DailyStats
 ): GoalBonusDecision {
   if (lastBonusDayUtc === todayUtc) {
     return {pay: false, reason: "already_claimed"};
   }
   if (!allGoalsDone(goals, stats)) {
     return {pay: false, reason: "not_complete"};
-  }
-  // Unlike the streak, a refused ad costs the user nothing here: there is no
-  // run to keep alive, so the day is simply left unclaimed and they can try
-  // again whenever an ad will play. Nothing is consumed by failing.
-  if (!adWatched) {
-    return {pay: false, reason: "no_ad"};
   }
   return {pay: true};
 }

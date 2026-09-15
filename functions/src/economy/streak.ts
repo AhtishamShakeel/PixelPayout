@@ -43,9 +43,10 @@ export interface StreakDayReward {
  * be retuned by feel, not derived. Editing this array is the whole change -
  * nothing reads day numbers directly.
  *
- * XP on most days and Points on the milestones: XP is the cheap, frequent
- * reward that keeps the streak feeling alive, and Points are the ones that
- * cost real money to honour, so they sit where they buy the most retention.
+ * XP only, every day. Days 4 and 7 used to pay Stars; the claim is now free
+ * and a rewarded ad doubles it (see claimDoubleXp), and a Star day that an
+ * unverified ad could double is real money on the client's word. XP reaches
+ * value only through the level curve, which bounds it.
  *
  * The cycle repeats: day 8 pays what day 1 pays. A streak that runs for months
  * should not pay unboundedly more each week, and the card only ever shows
@@ -55,11 +56,14 @@ export const STREAK_REWARDS: StreakDayReward[] = [
   {points: 0, xp: 10},
   {points: 0, xp: 20},
   {points: 0, xp: 30},
-  {points: 10, xp: 0},
+  {points: 0, xp: 40},
   {points: 0, xp: 50},
   {points: 0, xp: 60},
-  {points: 20, xp: 0},
+  {points: 0, xp: 70},
 ];
+
+/** The largest XP any one day pays - the ceiling on doubling a streak claim. */
+export const MAX_STREAK_DAY_XP = Math.max(...STREAK_REWARDS.map((r) => r.xp));
 
 /** Length of one full cycle - what the seven-cell strip on Home draws. */
 export const STREAK_CYCLE_DAYS = STREAK_REWARDS.length;
@@ -114,35 +118,22 @@ export function resolveStreakClaim(
 
 export type StreakRewardDecision =
   | {pay: true}
-  | {pay: false; reason: "already_rewarded" | "no_ad"};
+  | {pay: false; reason: "already_rewarded"};
 
 /**
- * Whether today's reward should be paid, which is a SEPARATE question from
- * whether the streak advances.
+ * Whether today's reward should be paid, which is still a SEPARATE question
+ * from whether the streak advances.
  *
- * The streak is retention and must never be lost to something outside the
- * user's control - an ad that would not load, a region with no fill. The
- * reward is what the ad buys. So a claim without a watched ad still moves the
- * streak on, pays nothing, and leaves the reward claimable for the rest of the
- * day: the user can retry as often as they like until an ad actually plays.
- *
- * adWatched is asserted by the client, which cannot be proven. It is still
- * worth gating on, because the case it defends against - a user blocking ads
- * with a VPN or a DNS blocker - never reaches the callback that sets it. Only
- * a repackaged app can lie here, which is a different and much smaller
- * problem. AdMob server-side verification is the real answer if the numbers
- * ever justify it; the adlessStreakClaims counter is there to tell you.
+ * No ad is needed any more: the claim pays at once, and the rewarded ad is
+ * offered afterwards to double it (claimDoubleXp). The day gate stays on its
+ * own field so that it is the reward, not the streak, that is once a day.
  */
 export function resolveStreakReward(
   lastRewardedDayUtc: number | null | undefined,
-  todayUtc: number,
-  adWatched: boolean
+  todayUtc: number
 ): StreakRewardDecision {
   if (lastRewardedDayUtc === todayUtc) {
     return {pay: false, reason: "already_rewarded"};
-  }
-  if (!adWatched) {
-    return {pay: false, reason: "no_ad"};
   }
   return {pay: true};
 }

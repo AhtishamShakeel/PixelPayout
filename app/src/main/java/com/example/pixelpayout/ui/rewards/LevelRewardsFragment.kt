@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
@@ -14,7 +13,6 @@ import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
-import com.example.pixelpayout.utils.AdManager
 import com.pixelpayout.R
 import com.pixelpayout.databinding.FragmentLevelRewardsBinding
 import com.pixelpayout.databinding.ViewLevelRewardsFooterBinding
@@ -31,8 +29,8 @@ import java.util.Locale
  *
  * THIS IS ALSO WHERE LEVEL STARS ARE COLLECTED. Crossing a level earns its
  * bonus; awardReward writes it LOCKED and queues the level on the user
- * document, and a rewarded ad releases it here - one level per ad, lowest
- * first, so somebody who climbed to 5 without claiming works up through 2, 3
+ * document, and a tap on the claim card releases it here - one level per tap,
+ * lowest first, so somebody who climbed to 5 without claiming works up through 2, 3
  * and 4 to get there. The order is the server's (claimLevelReward drains its
  * own queue and ignores anything the client might name); this screen only has
  * to show which one is next and why the others are waiting.
@@ -84,13 +82,7 @@ class LevelRewardsFragment : Fragment() {
      */
     private var screen: Screen = Screen(null, null)
 
-    /**
-     * True from the moment the ad starts until the claim call returns.
-     *
-     * Guards the whole round trip rather than just the network call, because
-     * the ad is the long part: without it a second tap during playback would
-     * queue a second claim and release two levels for one ad.
-     */
+    /** True while a claim call is in flight, so a double tap sends one. */
     private var claimInFlight = false
 
     private data class Screen(
@@ -137,11 +129,6 @@ class LevelRewardsFragment : Fragment() {
             adapter = ConcatAdapter(header, rungAdapter, footer)
         }
 
-
-        // Warms the pool for the claim button. A no-op when an ad is already
-        // ready or the pacer says wait, so opening the screen repeatedly costs
-        // nothing - see AdManager.loadRewardedAd.
-        AdManager.getInstance().loadRewardedAd(requireContext())
 
         // Four independent sources, any of which can land last. Each one just
         // asks for a redraw rather than trying to sequence them - the render
@@ -248,67 +235,22 @@ class LevelRewardsFragment : Fragment() {
             setText(
                 if (claimInFlight) R.string.level_claim_working else R.string.level_claim_watch
             )
-            setOnClickListener { playAdThenClaim() }
+            setOnClickListener { claim() }
         }
     }
 
     /**
-     * The ad, then the claim.
-     *
-     * Fired from the REWARD callback rather than from dismissal, and the
-     * difference is the point: onRewarded is the moment AdMob says the ad was
-     * genuinely watched, and an ad can be dismissed without it ever firing.
-     *
-     * If no ad plays, NOTHING is claimed - unlike the daily streak, where the
-     * ad gates only the payout and the streak itself has to advance either
-     * way. Here the stars are the whole transaction and nothing is lost by
-     * waiting: the level stays queued, the card stays on screen, and the user
-     * can try again when fill comes back.
+     * Releases the lowest owed level. No ad in front of it any more - the
+     * server never checked for one; the amount and the order are its own.
      */
-    private fun playAdThenClaim() {
+    private fun claim() {
         if (claimInFlight) return
         claimInFlight = true
         headerAdapter?.redraw()
 
-        // Held rather than looked up in the callbacks. Those fire after a
-        // full-screen ad has come and gone, and requireActivity() from a
-        // fragment that was detached in the meantime throws - on the one path
-        // where a reward has already been earned and must not be dropped.
-        val host = requireActivity()
-
-        var earned = false
-        AdManager.getInstance().showRewardedAdWhenReady(
-            activity = host,
-            onRewarded = { earned = true },
-            onAdClosed = {
-                if (earned) {
-                    submitClaim(host)
-                } else {
-                    // Closed early. Nothing was earned for it, so the level
-                    // stays queued and the button comes back.
-                    claimInFlight = false
-                    headerAdapter?.redraw()
-                }
-            },
-            onAdFailedToShow = {
-                claimInFlight = false
-                if (isAdded) {
-                    Toast.makeText(
-                        requireContext(),
-                        R.string.level_claim_ad_unavailable,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                headerAdapter?.redraw()
-            }
-        )
-    }
-
-    private fun submitClaim(host: FragmentActivity) {
-        // Deliberately the ACTIVITY's scope rather than the view's. The ad has
-        // already been watched by the time this runs, so the claim is owed;
-        // backing out of the screen mid-call must not cancel it.
-        host.lifecycleScope.launch {
+        // The ACTIVITY's scope rather than the view's, so backing out of the
+        // screen mid-call does not cancel a claim already sent.
+        requireActivity().lifecycleScope.launch {
             val result = mainViewModel.claimLevelReward()
             claimInFlight = false
 

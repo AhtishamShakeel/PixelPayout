@@ -82,10 +82,8 @@ class HomeFragment : Fragment() {
 
     private var goalClaimInFlight = false
 
-    /** What the next claim would pay, and which day, for the dialog. */
-    private var pendingRewardLabel: String? = null
-    private var pendingRewardIsStars = false
-    private var pendingClaimDay: Int = 1
+    /** The congratulations popup with its double-it offer, while one is open. */
+    private var rewardDialog: Dialog? = null
 
     /**
      * The day a claim was confirmed for, held until the user document catches
@@ -203,7 +201,7 @@ class HomeFragment : Fragment() {
             binding.levelBadgeNumber.text = progress.level.toString()
 
             // The way into the ladder becomes an errand while stars are owed.
-            // Level bonuses are released by a rewarded ad now (see
+            // Level bonuses are claimed on the Level rewards screen (see
             // claimLevelReward), and a level-up happens inside a game or quiz
             // that has since closed - so without this the only sign that
             // something is waiting would be a toast the player has dismissed.
@@ -680,28 +678,17 @@ class HomeFragment : Fragment() {
             // figures compete with the days still to come, which are the only
             // ones the strip is really for.
             //
-            // Everywhere else the label carries the REWARD TYPE and nothing
-            // else - the box already said reached, in play, or ahead. A Stars
-            // day is gold, as a star is on every screen in this app; an XP day
-            // is neutral, and leans brighter while it is the one in play.
-            // No "Day N" line: the strip's order already says which day is
-            // which, and the content description still names it.
+            // Everywhere else the label carries the XP figure, in the XP
+            // purple used on every screen. No "Day N" line: the strip's order
+            // already says which day is which, and the content description
+            // still names it.
             if (claimed) {
                 cell.text = getString(R.string.home_claimed_day,
                     getString(if (today) R.string.home_today else R.string.home_day_done))
                 cell.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
                 cell.text = reward?.let { cellLabel(it) }.orEmpty()
-                cell.setTextColor(
-                    ContextCompat.getColor(
-                        requireContext(),
-                        when {
-                            reward != null && reward.points > 0 -> R.color.stars_accent
-                            isNext -> R.color.text_soft
-                            else -> R.color.text_faint
-                        }
-                    )
-                )
+                cell.setTextColor(ContextCompat.getColor(requireContext(), R.color.xp_accent))
             }
             cell.contentDescription = getString(R.string.home_checkin_day_desc, index + 1,
                 reward?.let { describeReward(it) }.orEmpty(), getString(when {
@@ -714,7 +701,6 @@ class HomeFragment : Fragment() {
         // whichever day the current claim belongs to.
         val tomorrowPosition = claimPosition % STREAK_CYCLE_DAYS + 1
 
-        val claimReward = cycleRewards.getOrNull(claimPosition - 1)
         val tomorrowReward = cycleRewards.getOrNull(tomorrowPosition - 1)
 
         binding.streakFooter.text = when {
@@ -730,19 +716,10 @@ class HomeFragment : Fragment() {
         binding.streakClaimButton.visibility =
             if (rewardedToday) View.GONE else View.VISIBLE
         binding.streakFooter.isVisible = rewardedToday
-        // A day whose streak already moved on but paid nothing is a retry, and
-        // saying so is the difference between "come back tomorrow" and "have
-        // another go".
         binding.streakClaimButton.renderClaimState(
             inFlight = streakClaimInFlight,
-            idleText = getString(
-                if (streakMovedToday) R.string.streak_try_again else R.string.streak_claim
-            )
+            idleText = getString(R.string.streak_claim)
         )
-
-        pendingClaimDay = claimPosition
-        pendingRewardLabel = claimReward?.let { describeReward(it) }
-        pendingRewardIsStars = (claimReward?.points ?: 0) > 0
     }
 
     private fun streakCells(binding: FragmentHomeBinding) = listOf(
@@ -752,161 +729,45 @@ class HomeFragment : Fragment() {
     )
 
     /** Reward lines underneath the day label in the seven-day strip. */
-    private fun cellLabel(reward: UserRepository.StreakDayReward): String = when {
-        reward.points > 0 -> "${reward.points}\n\u2605"
-        else -> "${reward.xp}\nXP"
-    }
+    private fun cellLabel(reward: UserRepository.StreakDayReward): String = "${reward.xp}\nXP"
 
-    private fun describeReward(reward: UserRepository.StreakDayReward): String = when {
-        reward.points > 0 -> getString(R.string.streak_reward_points, reward.points)
-        else -> getString(R.string.streak_reward_xp, reward.xp)
-    }
+    private fun describeReward(reward: UserRepository.StreakDayReward): String =
+        getString(R.string.streak_reward_xp, reward.xp)
 
     /**
-     * Asks before spending the user's time on an ad, and names what it buys.
-     * Starting a fullscreen ad straight off a tap reads as an accident.
-     *
-     * Built from its own layout rather than MaterialAlertDialogBuilder, whose
-     * default paints from colorSurface and the platform typeface - on top of
-     * the redrawn home screen that read as a different app.
+     * Claims today's login reward straight away - no ad in front of it - and
+     * then offers the ad to double it in the congratulations popup.
      */
     private fun confirmStreakClaim() {
         if (streakClaimInFlight) return
-        showAdClaimDialog(
-            title = getString(R.string.streak_dialog_title, pendingClaimDay),
-            reward = pendingRewardLabel,
-            rewardIsStars = pendingRewardIsStars,
-            dotRes = R.drawable.bg_dot_streak,
-            onWatch = { playAdThenClaim() }
-        )
+        submitStreakClaim()
     }
 
-    /**
-     * The confirmation shown before any rewarded ad.
-     *
-     * Shared by the streak and the daily goals rather than duplicated: two
-     * dialogs asking the same question in the same words would drift apart the
-     * first time one of them was touched.
-     */
-    private fun showAdClaimDialog(
-        title: String,
-        reward: String?,
-        dotRes: Int,
-        /**
-         * Which currency [reward] is quoted in. The figure was painted gold
-         * unconditionally, which was right for the Stars days of the streak
-         * and for the goal bonus, and wrong for its four XP days - a gold
-         * "+30 XP" reads as a payout that never arrives.
-         */
-        rewardIsStars: Boolean,
-        onWatch: () -> Unit
-    ) {
-        val view = layoutInflater.inflate(R.layout.dialog_ad_claim, null)
-        val dialog = Dialog(requireContext(), R.style.CustomDialogTheme).apply {
-            setContentView(view)
-        }
-
-        view.findViewById<TextView>(R.id.adClaimTitle).text = title
-        view.findViewById<View>(R.id.adClaimDot).setBackgroundResource(dotRes)
-
-        val rewardView = view.findViewById<TextView>(R.id.adClaimReward)
-        if (reward != null) {
-            rewardView.text = getString(R.string.streak_dialog_reward, reward)
-            rewardView.setTextColor(
-                ContextCompat.getColor(
-                    requireContext(),
-                    if (rewardIsStars) R.color.stars_accent else R.color.xp_accent
-                )
-            )
-        } else {
-            // Better to say nothing than a figure the claim might not pay.
-            rewardView.visibility = View.GONE
-        }
-        view.findViewById<TextView>(R.id.adClaimMessage)
-            .setText(R.string.streak_dialog_message_short)
-
-        view.findViewById<View>(R.id.adClaimWatch).setOnClickListener {
-            dialog.dismiss()
-            onWatch()
-        }
-        view.findViewById<View>(R.id.adClaimCancel).setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialog.show()
-    }
-
-    /**
-     * The ad gates the reward, not the streak.
-     *
-     * If no ad plays the claim still goes through with adWatched=false: the
-     * streak moves on, nothing is paid, and the day stays claimable so the
-     * user can retry. Ad fill is our problem, and losing a streak to it would
-     * break the one promise the feature makes.
-     */
-    private fun playAdThenClaim() {
+    private fun submitStreakClaim() {
         streakClaimInFlight = true
         binding.streakClaimButton.renderClaimState(inFlight = true)
 
-        var earned = false
-        AdManager.getInstance().showRewardedAd(
-            activity = requireActivity(),
-            onRewarded = { earned = true },
-            onAdClosed = { submitStreakClaim(adWatched = earned) },
-            onAdFailedToShow = {
-                if (isAdded) {
-                    Toast.makeText(
-                        requireContext(),
-                        R.string.streak_ad_unavailable,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                submitStreakClaim(adWatched = false)
-            }
-        )
-    }
-
-    private fun submitStreakClaim(adWatched: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
-            when (val result = mainViewModel.claimDailyStreak(adWatched)) {
+            when (val result = mainViewModel.claimDailyStreak()) {
                 is UserRepository.StreakClaimResult.Rewarded -> {
                     // Believe the response immediately; the snapshot only
                     // confirms what the server already told us.
                     confirmedRewardDayUtc = ServerClock.now() / MILLIS_PER_DAY
                     if (isAdded) {
-                        val awarded = if (result.pointsAwarded > 0) {
-                            getString(R.string.streak_reward_points, result.pointsAwarded)
-                        } else {
-                            getString(R.string.streak_reward_xp, result.xpAwarded)
-                        }
                         // The server counts absolutely (day 8 of an unbroken
                         // run); the card counts within the cycle it draws.
-                        // Showing the absolute number here would contradict
-                        // the dialog that just said "Day 1 reward".
                         val cycleDay = (result.day - 1) % STREAK_CYCLE_DAYS + 1
-                        Toast.makeText(
-                            requireContext(),
-                            getString(R.string.streak_claimed_toast, cycleDay, awarded),
-                            Toast.LENGTH_LONG
-                        ).show()
+                        showDoubleRewardDialog(
+                            message = getString(R.string.reward_double_login_message, cycleDay),
+                            xpAwarded = result.xpAwarded,
+                            eventId = result.eventId
+                        )
                     }
                 }
 
                 is UserRepository.StreakClaimResult.NotRewarded -> {
-                    // The server treats today as settled either way, so stop
-                    // offering the button once it says so.
-                    if (result.reason == "already_rewarded") {
-                        confirmedRewardDayUtc = ServerClock.now() / MILLIS_PER_DAY
-                    }
-                    // Only worth saying when the user expected a reward; an
-                    // already-rewarded day is just a repeat tap.
-                    if (isAdded && result.reason != "already_rewarded") {
-                        Toast.makeText(
-                            requireContext(),
-                            R.string.streak_no_reward,
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
+                    // Already rewarded today: stop offering the button.
+                    confirmedRewardDayUtc = ServerClock.now() / MILLIS_PER_DAY
                 }
 
                 is UserRepository.StreakClaimResult.Error -> {
@@ -923,6 +784,101 @@ class HomeFragment : Fragment() {
             // listener; this only restores the button.
             mainViewModel.streak.value?.let { renderStreak(it) }
         }
+    }
+
+    /**
+     * "Congrats, you earned 100 XP - Double it?"
+     *
+     * Opened after a free daily claim has ALREADY paid, so closing it, or an
+     * ad that never fills, costs the player nothing. The double is
+     * claimDoubleXp against the claim's own ledger entry: the server reads the
+     * amount from there, so nothing here can inflate it.
+     *
+     * Runs on the activity's scope rather than the view's, so a double whose
+     * ad was watched still lands if Home is left while it is in flight.
+     */
+    private fun showDoubleRewardDialog(message: String, xpAwarded: Int, eventId: String) {
+        rewardDialog?.dismiss()
+        val activity = requireActivity()
+        val view = layoutInflater.inflate(R.layout.dialog_reward_double, null)
+        val dialog = Dialog(activity, R.style.CustomDialogTheme).apply {
+            setContentView(view)
+            // Only the cross closes it, so a stray tap cannot throw the offer away.
+            setCanceledOnTouchOutside(false)
+        }
+        rewardDialog = dialog
+
+        val amount = view.findViewById<TextView>(R.id.rewardDoubleAmount)
+        val button = view.findViewById<View>(R.id.rewardDoubleButton)
+        val status = view.findViewById<TextView>(R.id.rewardDoubleStatus)
+        val close = view.findViewById<View>(R.id.rewardDoubleClose)
+
+        view.findViewById<TextView>(R.id.rewardDoubleMessage).text = message
+        amount.text = getString(R.string.reward_double_amount, formatCount(xpAwarded))
+        // Nothing to double without a ledger entry or an amount.
+        button.isVisible = xpAwarded > 0 && eventId.isNotBlank()
+
+        var inFlight = false
+        fun setBusy(busy: Boolean) {
+            inFlight = busy
+            button.isEnabled = !busy
+            button.alpha = if (busy) 0.5f else 1f
+            close.isEnabled = !busy
+        }
+        fun showStatus(text: String) {
+            status.visibility = View.VISIBLE
+            status.text = text
+        }
+
+        button.setOnClickListener {
+            if (inFlight) return@setOnClickListener
+            setBusy(true)
+            showStatus(activity.getString(R.string.reward_double_finding))
+
+            var rewarded = false
+            AdManager.getInstance().showRewardedAdWhenReady(
+                activity = activity,
+                onRewarded = {
+                    if (!rewarded) {
+                        rewarded = true
+                        showStatus(activity.getString(R.string.reward_double_claiming))
+                        activity.lifecycleScope.launch {
+                            when (mainViewModel.claimDoubleXp(eventId)) {
+                                is UserRepository.DoubleXpResult.Paid,
+                                UserRepository.DoubleXpResult.AlreadyDoubled -> {
+                                    amount.text = activity.getString(
+                                        R.string.reward_double_amount, formatCount(xpAwarded * 2)
+                                    )
+                                    showStatus(activity.getString(
+                                        R.string.reward_double_done, formatCount(xpAwarded)
+                                    ))
+                                }
+                                else -> showStatus(activity.getString(R.string.reward_double_failed))
+                            }
+                            button.visibility = View.GONE
+                            setBusy(false)
+                        }
+                    }
+                },
+                // Closed early: nothing was spent, so the offer comes back.
+                onAdClosed = {
+                    if (!rewarded) {
+                        setBusy(false)
+                        status.visibility = View.GONE
+                    }
+                },
+                onAdFailedToShow = {
+                    if (!rewarded) {
+                        setBusy(false)
+                        showStatus(activity.getString(R.string.reward_double_unavailable))
+                    }
+                }
+            )
+        }
+        close.setOnClickListener { dialog.dismiss() }
+        dialog.setOnDismissListener { if (rewardDialog === dialog) rewardDialog = null }
+
+        dialog.show()
     }
 
     /** Thousands separators - a rank of 24247 is unreadable without them. */
@@ -942,7 +898,7 @@ class HomeFragment : Fragment() {
      *
      * Every figure here comes from the server, including whether a goal is
      * done. The card cannot decide that for itself - a goal the client can
-     * mark complete is a button that prints Points - so this only draws what
+     * mark complete is a button that prints rewards - so this only draws what
      * it was told.
      */
     private fun renderGoals(goals: UserRepository.DailyGoals?) {
@@ -961,24 +917,8 @@ class HomeFragment : Fragment() {
 
         binding.goalsCard.contentDescription =
             getString(R.string.goals_done_count, goals.doneCount, goals.goals.size)
-        val bonus = formatCount(goals.bonusPoints)
-        binding.goalsBonus.setStarText(
-            getString(R.string.goals_bonus, bonus),
-            emphasise = bonus,
-            emphasisColor = R.color.stars_accent
-        )
-
-        // The figure is gold in both states - it is Stars either way. What
-        // changes on completion is the WORD beside it, which goes green: the
-        // reward reads as earned rather than as another number on the card.
-        // Set before the star text above would be overwritten by it, so this
-        // paints the surrounding sentence only.
-        binding.goalsBonus.setTextColor(
-            ContextCompat.getColor(
-                requireContext(),
-                if (goals.allDone) R.color.success else R.color.text_ghost
-            )
-        )
+        binding.goalsBonus.text = getString(R.string.goals_bonus, formatCount(goals.bonusXp))
+        binding.goalsBonus.setTextColor(ContextCompat.getColor(requireContext(), R.color.xp_accent))
 
         binding.goalsClaimButton.visibility =
             if (goals.allDone && !goals.bonusClaimed) View.VISIBLE else View.GONE
@@ -1135,70 +1075,32 @@ class HomeFragment : Fragment() {
         }
     }
 
+    /** Claims the goal bonus straight away, then offers the ad to double it. */
     private fun confirmGoalClaim() {
         if (goalClaimInFlight) return
-        val goals = mainViewModel.dailyGoals.value ?: return
-        showAdClaimDialog(
-            title = getString(R.string.goals_dialog_title),
-            reward = getString(R.string.streak_reward_points, goals.bonusPoints),
-            rewardIsStars = true,
-            dotRes = R.drawable.bg_dot_success,
-            onWatch = { playAdThenClaimGoals() }
-        )
-    }
-
-    /**
-     * As with the streak, a missing ad is not the user's fault - but here
-     * there is no run to protect, so nothing is claimed and nothing is spent.
-     * The set stays finished and the button stays available.
-     */
-    private fun playAdThenClaimGoals() {
+        if (mainViewModel.dailyGoals.value == null) return
         goalClaimInFlight = true
         binding.goalsClaimButton.renderClaimState(inFlight = true)
 
-        var earned = false
-        AdManager.getInstance().showRewardedAd(
-            activity = requireActivity(),
-            onRewarded = { earned = true },
-            onAdClosed = { claimGoalBonus(adWatched = earned) },
-            onAdFailedToShow = {
-                if (isAdded) {
-                    Toast.makeText(
-                        requireContext(),
-                        R.string.streak_ad_unavailable,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-                goalClaimInFlight = false
-                _binding?.goalsClaimButton
-                    ?.renderClaimState(false, getString(R.string.goals_claim))
-            }
-        )
-    }
-
-    private fun claimGoalBonus(adWatched: Boolean) {
         viewLifecycleOwner.lifecycleScope.launch {
-            when (val result = mainViewModel.claimDailyGoalBonus(adWatched)) {
+            when (val result = mainViewModel.claimDailyGoalBonus()) {
                 is UserRepository.GoalBonusResult.Claimed -> {
                     if (isAdded) {
-                        Toast.makeText(
-                            requireContext(),
-                            getString(R.string.goals_claimed_toast, result.pointsAwarded),
-                            Toast.LENGTH_LONG
-                        ).show()
+                        showDoubleRewardDialog(
+                            message = getString(R.string.reward_double_goal_message),
+                            xpAwarded = result.xpAwarded,
+                            eventId = result.eventId
+                        )
                     }
                 }
 
                 is UserRepository.GoalBonusResult.NotClaimed -> {
                     // "Already claimed" needs no comment; the card will have
                     // hidden the button by the time the user looks again.
-                    val message = when (result.reason) {
-                        "not_complete" -> R.string.goals_not_complete
-                        "no_ad" -> R.string.goals_no_reward
-                        else -> null
-                    }
-                    if (isAdded && message != null) {
-                        Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+                    if (isAdded && result.reason == "not_complete") {
+                        Toast.makeText(
+                            requireContext(), R.string.goals_not_complete, Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
 
@@ -1426,6 +1328,8 @@ class HomeFragment : Fragment() {
         // could not open a replacement past the isShowing guard.
         gameChooser?.dismiss()
         gameChooser = null
+        rewardDialog?.dismiss()
+        rewardDialog = null
         super.onDestroyView()
         _binding = null
     }

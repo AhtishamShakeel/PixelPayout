@@ -293,12 +293,12 @@
          turn is coming" rather than "locked", which would read as not yet
          earned. -->
     <string name="level_rewards_tag_queued">In queue</string>
-    <string name="level_rewards_locked_label">Waiting on an ad</string>
+    <string name="level_rewards_locked_label">Ready to claim</string>
     <string name="level_claim_title">Level %1$d reward ready</string>
     <string name="level_claim_amount">+%1$d ★</string>
-    <string name="level_claim_watch">Watch ad to claim</string>
+    <string name="level_claim_watch">Claim</string>
     <string name="level_claim_working">Claiming…</string>
-    <string name="level_claim_note_single">Watch a short ad and these stars are yours.</string>
+    <string name="level_claim_note_single">Tap claim and these stars are yours.</string>
     <plurals name="level_claim_note_queued">
         <item quantity="one">%1$d more level is waiting behind this one — they are claimed in order.</item>
         <item quantity="other">%1$d more levels are waiting behind this one — they are claimed in order.</item>
@@ -311,7 +311,7 @@
          the message because tapping Later builds a queue, and the next claim
          pays the bottom of it rather than the level on screen. -->
     <string name="level_up_dialog_title">Level %1$d reached!</string>
-    <string name="level_up_dialog_message_one">Level %1$d\u2019s reward is waiting. Watch a short ad on the rewards screen to collect it.</string>
+    <string name="level_up_dialog_message_one">Level %1$d\u2019s reward is waiting. Collect it on the rewards screen.</string>
     <!-- A range, not a list: someone who has left this alone can be owed a
          dozen levels, and naming each one stops being readable long before it
          stops being accurate. "Oldest first" is stated because the screen
@@ -319,10 +319,9 @@
     <string name="level_up_dialog_message_many">%1$d rewards are waiting, from level %2$d to level %3$d. They are claimed one at a time, oldest first.</string>
     <string name="level_up_dialog_claim">Claim now</string>
     <string name="level_up_dialog_later">Later</string>
-    <string name="level_claim_ad_unavailable">No ad available right now — your reward is still saved.</string>
     <string name="level_rewards_loading">Level rewards are still loading.</string>
-    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Reaching a level earns its stars; watch a short ad to collect them, one level at a time starting from the lowest you have not claimed. Level 1 is where you start, so it is not on the ladder.</string>
-    <string name="level_perk_stars">+%1$d ★, claim with an ad</string>
+    <string name="level_rewards_note">Levels come from XP, so they never go down when you cash out. Reaching a level earns its stars; collect them one level at a time starting from the lowest you have not claimed. Level 1 is where you start, so it is not on the ladder.</string>
+    <string name="level_perk_stars">+%1$d ★</string>
     <!-- %1$d is the XP threshold the server actually tests, not the level:
          the level is reached slightly before it. -->
     <string name="level_perk_referral">Referral rewards — friends you invited start paying out, and your own chance to enter a code ends at level %1$d</string>
@@ -405,16 +404,22 @@
     <string name="streak_reward_points">%1$d ★</string>
     <string name="streak_reward_xp">%1$d XP</string>
     <string name="streak_claimed_toast">Day %1$d claimed: +%2$s</string>
-    <string name="streak_try_again">Try again</string>
     <string name="streak_reward_waiting">Day %1$d reward waiting</string>
-    <string name="streak_dialog_title">Day %1$d reward</string>
-    <string name="streak_dialog_reward">+%1$s</string>
-    <string name="streak_dialog_message_short">Watch a short ad to claim it. Your streak continues either way.</string>
-    <string name="streak_dialog_message_generic">Watch a short ad to claim the reward for today.</string>
+    <!-- Still used by dialog_ad_claim, which the level-up prompt shares. -->
     <string name="streak_dialog_watch">Watch ad</string>
     <string name="streak_dialog_cancel">Not now</string>
-    <string name="streak_no_reward">Ad not completed - reward still waiting</string>
-    <string name="streak_ad_unavailable">No ad available right now</string>
+    <!-- The popup after a free daily claim, offering an ad to double it. -->
+    <string name="reward_double_title">Congrats!</string>
+    <string name="reward_double_goal_message">You completed the Daily Goal and earned</string>
+    <string name="reward_double_login_message">You claimed your Day %1$d login reward and earned</string>
+    <string name="reward_double_amount">%1$s XP</string>
+    <string name="reward_double_action">Double it?</string>
+    <string name="reward_double_close">Close</string>
+    <string name="reward_double_finding">Finding an ad…</string>
+    <string name="reward_double_claiming">Adding your XP…</string>
+    <string name="reward_double_unavailable">No ad ready just yet — try again in a moment.</string>
+    <string name="reward_double_failed">Could not add the bonus XP. The XP you earned is safe.</string>
+    <string name="reward_double_done">Doubled! +%1$s XP</string>
     <!-- Pending redeem -->
     <!-- The countdown runs against a 48 hour service target, not against
          anything the server enforces - approval is still a human step. Once
@@ -456,7 +461,7 @@
     <!-- Replaces the subtitle once the bonus is paid, which is also when the
          rows and the bar are hidden - so this line is the whole card. -->
     <string name="goals_subtitle_claimed">Daily set claimed</string>
-    <string name="goals_bonus">+%1$s ★</string>
+    <string name="goals_bonus">+%1$s XP</string>
     <string name="goals_claim">Claim</string>
     <string name="goals_claimed">Claimed</string>
     <string name="goals_progress">%1$d/%2$d</string>
@@ -472,10 +477,7 @@
         <item quantity="one">Answer 1 correctly</item>
         <item quantity="other">Answer %1$d correctly</item>
     </plurals>
-    <string name="goals_claimed_toast">Daily set complete: +%1$d ★</string>
     <string name="goals_not_complete">Finish all three first</string>
-    <string name="goals_dialog_title">Daily set complete</string>
-    <string name="goals_no_reward">Ad not completed - bonus still waiting</string>
     <!-- Weekly leaderboard -->
     <string name="leaderboard_title">Weekly leaderboard</string>
     <string name="leaderboard_subtitle">Top %1$d share %2$s ★</string>

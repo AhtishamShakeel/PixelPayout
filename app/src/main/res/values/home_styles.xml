@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- A Start earning tile: a third of the row, height from the 312 x 184
-         design grid, so the reference art keeps its proportions at any width. -->
+    <!-- Three equal-width tiles with room for artwork, a two-line title and
+         a larger reward chip. Keep a readable height even on compact phones. -->
     <dimen name="home_tile_gap">8dp</dimen>
 
     <style name="HomeEarnTile">
@@ -12,7 +12,9 @@
         <item name="android:focusable">true</item>
         <item name="android:importantForAccessibility">yes</item>
         <item name="designWidth">312</item>
-        <item name="designHeight">184</item>
+        <item name="designHeight">320</item>
+        <item name="android:minHeight">124dp</item>
+        <item name="android:foreground">?attr/selectableItemBackground</item>
     </style>
 
     <!-- The tile's name. Positions and sizes are the reference's; the text
@@ -21,15 +23,15 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">0dp</item>
         <item name="designX">18</item>
-        <item name="designY">100</item>
+        <item name="designY">146</item>
         <item name="designW">276</item>
-        <item name="designH">36</item>
+        <item name="designH">86</item>
         <item name="designTextSp">14sp</item>
         <item name="android:fontFamily">@font/jakarta_bold</item>
         <item name="android:textColor">@color/white</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:gravity">center_vertical</item>
-        <item name="android:maxLines">1</item>
+        <item name="android:gravity">bottom</item>
+        <item name="android:maxLines">2</item>
         <item name="android:importantForAccessibility">no</item>
     </style>
 
@@ -37,11 +39,11 @@
     <style name="HomeEarnTileChip">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">0dp</item>
-        <item name="designX">52</item>
-        <item name="designY">145</item>
-        <item name="designW">184</item>
-        <item name="designH">28</item>
-        <item name="designTextSp">10sp</item>
+        <item name="designX">62</item>
+        <item name="designY">248</item>
+        <item name="designW">178</item>
+        <item name="designH">48</item>
+        <item name="designTextSp">11sp</item>
         <item name="android:fontFamily">@font/jakarta_bold</item>
         <item name="android:textColor">@color/white</item>
         <item name="android:includeFontPadding">false</item>
@@ -54,9 +56,9 @@
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">0dp</item>
         <item name="designX">256</item>
-        <item name="designY">142</item>
+        <item name="designY">250</item>
         <item name="designW">46</item>
-        <item name="designH">32</item>
+        <item name="designH">44</item>
         <item name="android:src">@drawable/ic_games_arrow</item>
         <item name="android:scaleType">fitCenter</item>
         <item name="android:padding">3dp</item>

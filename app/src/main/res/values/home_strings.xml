@@ -13,7 +13,8 @@
     <string name="home_choose">Choose</string>
     <string name="home_redeem_now">Redeem %1$s now →</string>
     <string name="home_level_progress">Level progress</string>
-    <string name="home_offers_tournament">Offers &amp; Leaderboard</string>
+    <string name="home_offers_tournament">Offers and Tournments</string>
+    <string name="home_offers_card_description">Offers and Tournments. Earn Stars. Open offers and leaderboard.</string>
     <string name="home_see_rewards">See rewards →</string>
     <string name="home_view_levels">View levels →</string>
     <string name="home_next_level">On next level</string>
@@ -30,7 +31,7 @@
     <string name="home_games">Games</string>
     <string name="home_quizzes">Quizzes</string>
     <string name="home_offers">Offers</string>
-    <string name="home_earn_stars">Earn stars</string>
+    <string name="home_earn_stars">Earn Stars</string>
     <string name="home_today_bonus">Today\'s bonus</string>
     <plurals name="home_finish_tasks">
         <item quantity="one">Finish %1$d task to claim</item>

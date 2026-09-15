@@ -68,10 +68,7 @@
             <TextView android:id="@+id/payoutFeedTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="10dp" android:fontFamily="@font/jakarta_medium" android:includeFontPadding="false" android:maxLines="1" android:textColor="@color/home_text" android:textSize="12sp" tools:text="1d ago" />
         </LinearLayout>
 
-        <!-- START EARNING: the reference's illustrated tiles, three across as
-             in the reference. Every tile keeps the reference's own 312 x 184
-             grid, so it draws the same at any width. Offers & Tournament has
-             no art yet: its tile is the gradient alone. -->
+        <!-- START EARNING: three taller cards with native titles and reward chips. -->
         <LinearLayout android:id="@+id/quickActions" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" app:designX="0" app:designY="0" app:designW="946" app:designH="0" app:designGap="16dp">
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">
                 <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:fontFamily="@font/jakarta_bold" android:includeFontPadding="false" android:maxLines="1" android:text="@string/home_start_earning" android:textColor="@color/white" android:textSize="20sp" />
@@ -79,26 +76,27 @@
             </LinearLayout>
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:baselineAligned="false" android:orientation="horizontal">
                 <com.example.pixelpayout.ui.home.HomeDesignLayout android:id="@+id/playTile" style="@style/HomeEarnTile" android:background="@drawable/bg_home_tile_games" android:contentDescription="@string/home_games">
-                    <com.example.pixelpayout.ui.home.HomeReferenceArt android:layout_width="0dp" android:layout_height="0dp" app:designX="0" app:designY="0" app:designW="312" app:designH="184" android:tag="games_background" android:importantForAccessibility="no" />
-                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="139" app:designW="234" app:designH="39" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
+                    <com.example.pixelpayout.ui.home.HomeReferenceArt android:layout_width="0dp" android:layout_height="0dp" app:designX="0" app:designY="0" app:designW="312" app:designH="320" android:tag="games_background" android:importantForAccessibility="no" />
+                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="238" app:designW="234" app:designH="68" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
                     <TextView style="@style/HomeEarnTileTitle" android:text="@string/home_games" />
                     <TextView style="@style/HomeEarnTileChip" android:text="@string/home_earn_xp" />
-                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="16" app:designY="146" app:designW="29" app:designH="25" android:src="@drawable/ic_bolt" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="20" app:designY="254" app:designW="36" app:designH="36" android:src="@drawable/ic_bolt" android:scaleType="fitCenter" android:importantForAccessibility="no" />
                     <ImageView style="@style/HomeEarnTileArrow" />
                 </com.example.pixelpayout.ui.home.HomeDesignLayout>
                 <com.example.pixelpayout.ui.home.HomeDesignLayout android:id="@+id/quizTile" style="@style/HomeEarnTile" android:layout_marginStart="@dimen/home_tile_gap" android:background="@drawable/bg_home_tile_quizzes" android:contentDescription="@string/home_quizzes">
-                    <com.example.pixelpayout.ui.home.HomeReferenceArt android:layout_width="0dp" android:layout_height="0dp" app:designX="0" app:designY="0" app:designW="312" app:designH="184" android:tag="quizzes_background" android:importantForAccessibility="no" />
-                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="139" app:designW="234" app:designH="39" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
+                    <com.example.pixelpayout.ui.home.HomeReferenceArt android:layout_width="0dp" android:layout_height="0dp" app:designX="0" app:designY="0" app:designW="312" app:designH="320" android:tag="quizzes_background" android:importantForAccessibility="no" />
+                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="238" app:designW="234" app:designH="68" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
                     <TextView style="@style/HomeEarnTileTitle" android:text="@string/home_quizzes" />
                     <TextView style="@style/HomeEarnTileChip" android:text="@string/home_earn_xp" />
-                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="16" app:designY="146" app:designW="29" app:designH="25" android:src="@drawable/ic_bolt" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="20" app:designY="254" app:designW="36" app:designH="36" android:src="@drawable/ic_bolt" android:scaleType="fitCenter" android:importantForAccessibility="no" />
                     <ImageView style="@style/HomeEarnTileArrow" />
                 </com.example.pixelpayout.ui.home.HomeDesignLayout>
-                <com.example.pixelpayout.ui.home.HomeDesignLayout android:id="@+id/offerCard" style="@style/HomeEarnTile" android:layout_marginStart="@dimen/home_tile_gap" android:background="@drawable/bg_home_tile_offers" android:contentDescription="@string/home_offers_tournament">
-                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="139" app:designW="234" app:designH="39" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
-                    <TextView style="@style/HomeEarnTileTitle" app:designY="60" app:designH="78" android:maxLines="2" android:gravity="bottom" android:text="@string/home_offers_tournament" />
+                <com.example.pixelpayout.ui.home.HomeDesignLayout android:id="@+id/offerCard" style="@style/HomeEarnTile" android:layout_marginStart="@dimen/home_tile_gap" android:background="@drawable/bg_home_tile_offers" android:contentDescription="@string/home_offers_card_description">
+                    <com.example.pixelpayout.ui.home.HomeReferenceArt android:layout_width="0dp" android:layout_height="0dp" app:designX="0" app:designY="0" app:designW="312" app:designH="320" android:tag="offers_background" android:importantForAccessibility="no" />
+                    <View android:layout_width="0dp" android:layout_height="0dp" app:designX="12" app:designY="238" app:designW="234" app:designH="68" android:tag="reference_xp_chip" android:importantForAccessibility="no" />
+                    <TextView style="@style/HomeEarnTileTitle" android:text="@string/home_offers_tournament" />
                     <TextView style="@style/HomeEarnTileChip" android:text="@string/home_earn_stars" android:textColor="@color/stars_accent" />
-                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="16" app:designY="146" app:designW="29" app:designH="25" android:src="@drawable/ic_star_gold" android:scaleType="fitCenter" android:importantForAccessibility="no" />
+                    <ImageView android:layout_width="0dp" android:layout_height="0dp" app:designX="20" app:designY="254" app:designW="36" app:designH="36" android:src="@drawable/ic_star_gold" android:scaleType="fitCenter" android:importantForAccessibility="no" />
                     <ImageView style="@style/HomeEarnTileArrow" />
                 </com.example.pixelpayout.ui.home.HomeDesignLayout>
             </LinearLayout>

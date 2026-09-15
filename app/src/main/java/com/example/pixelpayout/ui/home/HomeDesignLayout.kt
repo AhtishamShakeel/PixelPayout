@@ -63,6 +63,7 @@ class HomeDesignLayout @JvmOverloads constructor(context: Context, attrs: Attrib
         val height = resolveSize(desiredHeight, heightMeasureSpec)
         verticalFactor = if (!flow && designHeight > 0) height / designHeight else factor
         var total = 0f
+        var firstVisible = true
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility == GONE) continue
@@ -107,23 +108,35 @@ class HomeDesignLayout @JvmOverloads constructor(context: Context, attrs: Attrib
                     child.measure(MeasureSpec.makeMeasureSpec(cw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(ch, MeasureSpec.EXACTLY))
                 }
             }
-            if (flow) total += (if (p.gap >= 0) p.gap else p.y * factor) + child.measuredHeight
+            if (flow) total += flowGap(p, firstVisible) + child.measuredHeight
+            firstVisible = false
         }
         setMeasuredDimension(width, if (flow) total.roundToInt() else height)
     }
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         var cursor = 0f
+        var first = true
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility == GONE) continue
             val p = child.layoutParams as Params
             val x = (p.x * factor).roundToInt()
-            val y = if (flow) (cursor + (if (p.gap >= 0) p.gap else p.y * factor)).roundToInt()
+            val y = if (flow) (cursor + flowGap(p, first)).roundToInt()
                 else (p.y * verticalFactor).roundToInt()
             child.layout(x, y, x + child.measuredWidth, y + child.measuredHeight)
             if (flow) cursor = y + child.measuredHeight.toFloat()
+            first = false
         }
     }
+
+    /**
+     * The space above a flowed child. None above the first VISIBLE one: Home
+     * shows or hides its top rows at runtime (How it works, the pending
+     * redemption), and whichever card ends up first should not sit below a
+     * gap meant to separate it from a card that is not there.
+     */
+    private fun flowGap(p: Params, first: Boolean): Float =
+        if (first) 0f else if (p.gap >= 0) p.gap else p.y * factor
     private fun style(view: View, scale: Float) {
         val palette = when (view.tag) {
             "reference_reward" -> intArrayOf(0xFF0D1036.toInt(), 0xFF061A39.toInt(), 0xFF34358A.toInt())

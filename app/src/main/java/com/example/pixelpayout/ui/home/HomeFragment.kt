@@ -1,6 +1,7 @@
 package com.example.pixelpayout.ui.home
 
 import android.app.Dialog
+import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import android.util.Log
@@ -35,6 +36,7 @@ import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.startLoading
 import com.example.pixelpayout.utils.stopLoading
 import com.google.android.material.button.MaterialButton
+import com.google.firebase.auth.FirebaseAuth
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.example.pixelpayout.data.repository.DailyGoalEngine
 import com.example.pixelpayout.utils.ServerClock
@@ -48,6 +50,10 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private const val MILLIS_PER_DAY = 86_400_000L
+
+/** Device-local Home state; see updateGuideVisibility. Keyed per account. */
+private const val HOME_PREFS = "home"
+private const val KEY_HAS_REDEEMED = "has_redeemed_"
 
 /**
  * How long a redemption is expected to take. A service target we are choosing
@@ -146,6 +152,7 @@ class HomeFragment : Fragment() {
     private fun observeViewModel(){
         mainViewModel.firstRedeemFinished.observe(viewLifecycleOwner) { finished ->
             binding.rewardTitle.setText(if (finished) R.string.home_your_reward else R.string.home_first_reward)
+            updateGuideVisibility()
         }
         // Fills toward the cheapest redemption not yet affordable in the
         // chosen game. No target means the bar is hidden rather than full.
@@ -223,7 +230,10 @@ class HomeFragment : Fragment() {
             mainViewModel.streak.value?.let { renderStreak(it) }
         }
 
-        mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) { renderPending(it) }
+        mainViewModel.pendingRedemptions.observe(viewLifecycleOwner) {
+            renderPending(it)
+            updateGuideVisibility()
+        }
 
         mainViewModel.payoutFeed.observe(viewLifecycleOwner) { renderPayoutFeed(it) }
 
@@ -559,6 +569,53 @@ class HomeFragment : Fragment() {
     }
 
     /**
+     * Where the check-in card sits. Unclaimed, it is today's first errand and
+     * goes above Start earning; once claimed it has nothing left to ask, and
+     * drops below Today's bonus. Moved rather than duplicated, so there is
+     * one card and one set of bindings, and only when its place actually
+     * changes - this runs on every streak emission.
+     */
+    private fun placeStreakCard(claimedToday: Boolean) {
+        val binding = _binding ?: return
+        val card = binding.streakCard
+        val parent = card.parent as? ViewGroup ?: return
+        val anchor = if (claimedToday) binding.goalsCard else binding.quickActions
+        val current = parent.indexOfChild(card)
+        val anchorIndex = parent.indexOfChild(anchor)
+        val inPlace = if (claimedToday) current == anchorIndex + 1 else current == anchorIndex - 1
+        if (inPlace) return
+        parent.removeView(card)
+        val target = parent.indexOfChild(anchor).let { if (claimedToday) it + 1 else it }
+        parent.addView(card, target)
+    }
+
+    /**
+     * How it works is for accounts that have not redeemed yet. Once one has -
+     * the discounted first redeem, a normal pack, or a first redeem refused
+     * because the UID already had one - the card goes for good, and the
+     * pending row takes its place at the top while an order is open.
+     *
+     * The user document only records the FIRST-REDEEM outcome, so a plain
+     * first redemption is recognised by its pending order instead, and
+     * remembered on this device so the card does not return once that order
+     * settles. Only a hint about which card to show; nothing is gated on it.
+     */
+    private fun updateGuideVisibility() {
+        val binding = _binding ?: return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        val prefs = requireContext().getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
+        val key = "$KEY_HAS_REDEEMED$uid"
+        val pendingNow = (mainViewModel.pendingRedemptions.value?.count ?: 0) > 0
+        if (uid != null && pendingNow && !prefs.getBoolean(key, false)) {
+            prefs.edit().putBoolean(key, true).apply()
+        }
+        val redeemed = mainViewModel.firstRedeemFinished.value == true ||
+            pendingNow ||
+            (uid != null && prefs.getBoolean(key, false))
+        binding.earningGuide.isVisible = !redeemed
+    }
+
+    /**
      * The seven-cell strip, the footer and the claim button.
      *
      * Everything is derived from the streak fields plus the reward table; the
@@ -576,6 +633,8 @@ class HomeFragment : Fragment() {
         val streakMovedToday = streak.movedOn(todayUtc)
         val rewardedToday = streak.rewardedOn(todayUtc) ||
             confirmedRewardDayUtc == todayUtc
+
+        placeStreakCard(claimedToday = rewardedToday)
 
         binding.streakCard.contentDescription = if (streak.isAlive(todayUtc) && streak.count > 0) {
             getString(R.string.streak_title, streak.count)
@@ -1184,12 +1243,9 @@ class HomeFragment : Fragment() {
         // full picture lives - this row can only ever describe the oldest one.
         binding.pendingRedeemRow.setOnClickListener { openWalletOrders() }
 
-        // One request names itself; several would not fit, so they are counted.
-        val subject = if (pending.count == 1 && pending.title.isNotBlank()) {
-            pending.title
-        } else {
-            getString(R.string.pending_redeem_many, pending.count)
-        }
+        // "4 Pending Redeems · ready in 41h" - the count is the subject, and
+        // the time is the oldest order's, the one that settles first.
+        val subject = resources.getQuantityString(R.plurals.pending_redeem_count, pending.count, pending.count)
 
         val readyAt = pending.requestedAtMillis?.plus(REDEEM_TARGET_MILLIS)
         val remaining = readyAt?.minus(ServerClock.now()) ?: 0L

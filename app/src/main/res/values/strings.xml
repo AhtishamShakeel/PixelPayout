@@ -416,14 +416,16 @@
     <string name="streak_no_reward">Ad not completed - reward still waiting</string>
     <string name="streak_ad_unavailable">No ad available right now</string>
     <!-- Pending redeem -->
-    <string name="pending_redeem">Pending redeem</string>
     <!-- The countdown runs against a 48 hour service target, not against
          anything the server enforces - approval is still a human step. Once
          the window passes the row says "in review" rather than showing a
          negative timer or a deadline that has already been missed. -->
     <string name="pending_redeem_value">%1$s · ready in %2$s</string>
     <string name="pending_redeem_overdue">%1$s · in review</string>
-    <string name="pending_redeem_many">%1$d pending</string>
+    <plurals name="pending_redeem_count">
+        <item quantity="one">%1$d Pending Redeem</item>
+        <item quantity="other">%1$d Pending Redeems</item>
+    </plurals>
     <string name="pending_redeem_hours">%1$dh</string>
     <string name="pending_redeem_minutes">%1$dm</string>
 

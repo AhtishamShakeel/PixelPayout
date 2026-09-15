@@ -105,24 +105,51 @@ export const GAME_XP_PER_SESSION_CAP = 60;
 export const MAX_DAILY_GAME_SESSIONS = 10;
 
 /**
- * Extra attempts bought with a rewarded ad, per activity, per day.
+ * Extra attempts bought with a rewarded ad, per activity, per day - the
+ * fallback for config/attempts.maxBonusAttempts.
  *
- * The day's ceiling is therefore 13 games plus 13 quizzes for someone who
- * watches every ad, and the predictable 10 plus 10 for everyone else. It is
- * bounded either way, which is the property that matters: nothing here is an
+ * At 5 the day's ceiling is 15 games plus 15 quizzes for someone who watches
+ * every ad, and the predictable 10 plus 10 for everyone else. It is bounded
+ * either way, which is the property that matters: nothing here is an
  * open-ended grind.
  *
- * THIS NUMBER IS THE SECURITY. The ad is taken on the client's word - there
- * is no server-side ad verification - so a client that lies about having
- * watched one still gets no further than a patient honest user does. Every
- * other defence would be defeated by the same lie; this one is not.
+ * THE CAP IS THE SECURITY. The ad is taken on the client's word - there is no
+ * server-side ad verification - so a client that lies about having watched
+ * one still gets no further than a patient honest user does. Every other
+ * defence would be defeated by the same lie; this one is not.
  *
  * Retuning it is a payout decision rather than a UX one. Extra attempts feed
  * XP, and through XP the level curve and its milestone stars; they also feed
  * the daily-goal targets, whose bonus pays redeemable Points, and weekly
  * leaderboard standing, which settles for real.
  */
-export const MAX_DAILY_BONUS_ATTEMPTS = 3;
+export const DEFAULT_DAILY_BONUS_ATTEMPTS = 5;
+
+/**
+ * The ceiling on the configured cap.
+ *
+ * config/attempts is edited by hand, and since the cap is the only thing
+ * bounding a lying client, an extra zero there would open the day to anyone
+ * willing to fake an ad. Raising this is a deploy on purpose.
+ */
+export const MAX_DAILY_BONUS_ATTEMPTS_CEILING = 20;
+
+/** The document holding the tunable cap. */
+export const ATTEMPTS_CONFIG_DOC = "attempts";
+
+/**
+ * The cap to actually enforce, from whatever the config document holds.
+ *
+ * Zero is honoured - it switches the ad offer off. Anything absent, negative,
+ * fractional or not a number falls back to the deployed default; anything
+ * above the ceiling is clamped to it.
+ */
+export function resolveBonusAttemptsCap(raw: unknown): number {
+  if (typeof raw !== "number" || !Number.isInteger(raw) || raw < 0) {
+    return DEFAULT_DAILY_BONUS_ATTEMPTS;
+  }
+  return Math.min(raw, MAX_DAILY_BONUS_ATTEMPTS_CEILING);
+}
 
 /**
  * How many attempts an activity actually allows today.
@@ -132,10 +159,15 @@ export const MAX_DAILY_BONUS_ATTEMPTS = 3;
  * must not open the day up. The floor earns its place too - a negative would
  * silently take the allowance BELOW what every user is entitled to without
  * watching anything, which is the more embarrassing of the two failures.
+ *
+ * [cap] is the live configured cap. Lowering it in the console also lowers
+ * the allowance of anyone who had already bought past the new figure today -
+ * a retune applies at once, rather than honouring a cap that no longer exists.
  */
-export function attemptsAllowance(base: number, bonusGranted: number): number {
+export function attemptsAllowance(base: number, bonusGranted: number, cap: number): number {
   const bonus = Number.isFinite(bonusGranted) ? Math.floor(bonusGranted) : 0;
-  return base + Math.min(Math.max(bonus, 0), MAX_DAILY_BONUS_ATTEMPTS);
+  const limit = Number.isFinite(cap) ? Math.max(Math.floor(cap), 0) : 0;
+  return base + Math.min(Math.max(bonus, 0), limit);
 }
 export const GAME_XP_SCORE_DIVISOR: Record<string, number> = {
   floppy_bird: 1,

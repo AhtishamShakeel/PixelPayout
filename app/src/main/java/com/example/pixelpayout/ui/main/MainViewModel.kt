@@ -36,6 +36,9 @@ private const val GOALS_REFRESH_MS = 60 * 1000L
 
 private const val MILLIS_PER_DAY = 86_400_000L
 
+/** Mirrors the server's DEFAULT_DAILY_BONUS_ATTEMPTS, until config is read. */
+private const val DEFAULT_BONUS_CAP = 5
+
 /** Mirrors the server's DAILY_GOAL_BONUS_POINTS fallback. */
 private const val DEFAULT_GOAL_BONUS_POINTS = 30
 
@@ -44,16 +47,6 @@ const val MAX_DAILY_QUIZ_ATTEMPTS = 10
 
 /** Mirrors the server's MAX_DAILY_GAME_SESSIONS. */
 const val MAX_DAILY_GAME_SESSIONS = 10
-
-/**
- * Mirrors the server's MAX_DAILY_BONUS_ATTEMPTS - extra attempts buyable with
- * a rewarded ad, per activity, per day.
- *
- * Display only, like the two above it. The server clamps against its own copy
- * inside the grant transaction, so a client out of step with a retune shows a
- * wrong button rather than buying a wrong allowance.
- */
-const val MAX_DAILY_BONUS_ATTEMPTS = 3
 
 class MainViewModel(
     private val userRepository: UserRepository,
@@ -732,9 +725,18 @@ class MainViewModel(
         val used: Int,
         /** Base cap plus the bonuses already bought today. */
         val allowance: Int,
-        /** Bonuses bought today, against [MAX_DAILY_BONUS_ATTEMPTS]. */
-        val bonusBought: Int
+        /** Bonuses bought today, against [cap]. */
+        val bonusBought: Int,
+        /**
+         * Today's ad-bonus cap, console-tuned - see
+         * UserRepository.bonusAttemptsCap. Display only; the server enforces
+         * its own read inside the grant.
+         */
+        val cap: Int
     ) {
+        /** How many more "+1" ads are still on offer today. */
+        val bonusLeft: Int get() = (cap - bonusBought).coerceAtLeast(0)
+
         val remaining: Int get() = (allowance - used).coerceAtLeast(0)
 
         /**
@@ -742,21 +744,24 @@ class MainViewModel(
          * the allowance being spent: an attempt can be bought at any point in
          * the day, so a user can bank one before they need it.
          */
-        val canBuyMore: Boolean get() = bonusBought < MAX_DAILY_BONUS_ATTEMPTS
+        val canBuyMore: Boolean get() = bonusBought < cap
     }
 
     private fun allowanceOf(
         base: Int,
         used: Int,
-        bonusBought: Int
+        bonusBought: Int,
+        cap: Int = currentBonusCap()
     ): Allowance {
         // Clamped the same way the server clamps, so a field edited in the
-        // console cannot draw a card with thirty pips on it.
-        val bonus = bonusBought.coerceIn(0, MAX_DAILY_BONUS_ATTEMPTS)
+        // console cannot draw a card with thirty pips on it - and so a cap
+        // lowered mid-day shrinks the allowance here exactly as it does there.
+        val bonus = bonusBought.coerceIn(0, cap.coerceAtLeast(0))
         return Allowance(
             used = used.coerceIn(0, base + bonus),
             allowance = base + bonus,
-            bonusBought = bonus
+            bonusBought = bonus,
+            cap = cap
         )
     }
 
@@ -773,22 +778,39 @@ class MainViewModel(
      * counters: a user who has not played since yesterday carries yesterday's
      * numbers until their next claim resets them.
      */
-    val quizAllowance: LiveData<Allowance> = userRepository.userData.map {
-        val today = ServerClock.now() / MILLIS_PER_DAY
+    val quizAllowance: LiveData<Allowance> = allowanceLiveData { user, today ->
         allowanceOf(
             MAX_DAILY_QUIZ_ATTEMPTS,
-            it.quizAttemptsToday(today),
-            it.bonusQuizAttemptsToday(today)
+            user.quizAttemptsToday(today),
+            user.bonusQuizAttemptsToday(today)
         )
     }
 
-    val gameAllowance: LiveData<Allowance> = userRepository.userData.map {
-        val today = ServerClock.now() / MILLIS_PER_DAY
+    val gameAllowance: LiveData<Allowance> = allowanceLiveData { user, today ->
         allowanceOf(
             MAX_DAILY_GAME_SESSIONS,
-            it.gameAttemptsToday(today),
-            it.bonusGameAttemptsToday(today)
+            user.gameAttemptsToday(today),
+            user.bonusGameAttemptsToday(today)
         )
+    }
+
+    /** The configured cap, or the deployed default before it has been read. */
+    private fun currentBonusCap(): Int = userRepository.bonusAttemptsCap.value ?: DEFAULT_BONUS_CAP
+
+    /**
+     * An allowance that redraws on either input: the user snapshot, or the
+     * cap arriving from config after sign-in. Mapping the snapshot alone would
+     * keep the card on the default cap until the next claim happened to land.
+     */
+    private fun allowanceLiveData(
+        build: (UserRepository.UserData, Long) -> Allowance
+    ): LiveData<Allowance> = MediatorLiveData<Allowance>().apply {
+        fun update() {
+            val user = userRepository.userData.value ?: return
+            value = build(user, ServerClock.now() / MILLIS_PER_DAY)
+        }
+        addSource(userRepository.userData) { update() }
+        addSource(userRepository.bonusAttemptsCap) { update() }
     }
 
     /** The same figures for callers on a timer, which cannot await LiveData. */

@@ -8,7 +8,9 @@ import {
   gameXpForScore,
   GAME_XP_PER_SESSION_CAP,
   LEVEL_UP_POINTS,
-  MAX_DAILY_BONUS_ATTEMPTS,
+  DEFAULT_DAILY_BONUS_ATTEMPTS,
+  MAX_DAILY_BONUS_ATTEMPTS_CEILING,
+  resolveBonusAttemptsCap,
   MAX_DAILY_GAME_SESSIONS,
   MAX_DAILY_QUIZ_ATTEMPTS,
   attemptsAllowance,
@@ -406,23 +408,48 @@ assertEq(
 // for - or, in the negative case, take away part of a day everybody is
 // entitled to.
 {
+  const cap = DEFAULT_DAILY_BONUS_ATTEMPTS;
+
+  assertEq("the default cap is five", DEFAULT_DAILY_BONUS_ATTEMPTS, 5);
   assertEq("no bonus leaves the base allowance alone",
-    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 0), 10);
+    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 0, cap), 10);
   assertEq("one bonus adds one",
-    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 1), 11);
+    attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, 1, cap), 11);
   assertEq("a full day of bonuses is the base plus the cap",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, MAX_DAILY_BONUS_ATTEMPTS), 13);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, cap, cap), 15);
 
   assertEq("a stored count above the cap is clamped to it",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 99), 13);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 99, cap), 15);
   assertEq("a negative count cannot reduce the base allowance",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, -5), 10);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, -5, cap), 10);
   assertEq("a fractional count is floored, never rounded up",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 1.9), 11);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 1.9, cap), 11);
   assertEq("a non-numeric count reads as no bonus",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, NaN), 10);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, NaN, cap), 10);
   assertEq("an infinite count is not a free day",
-    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, Infinity), 10);
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, Infinity, cap), 10);
+
+  // A console retune applies at once, including to bonuses already bought.
+  assertEq("a lowered cap lowers today's allowance",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 5, 3), 13);
+  assertEq("a cap of zero switches the bonus off",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 5, 0), 10);
+  assertEq("a corrupt cap never opens the day up",
+    attemptsAllowance(MAX_DAILY_GAME_SESSIONS, 5, NaN), 10);
+}
+
+// --- The configured cap -----------------------------------------------------
+{
+  assertEq("a configured cap is honoured", resolveBonusAttemptsCap(8), 8);
+  assertEq("zero is honoured - it turns the offer off", resolveBonusAttemptsCap(0), 0);
+  assertEq("a missing cap falls back", resolveBonusAttemptsCap(undefined), DEFAULT_DAILY_BONUS_ATTEMPTS);
+  assertEq("a null cap falls back", resolveBonusAttemptsCap(null), DEFAULT_DAILY_BONUS_ATTEMPTS);
+  assertEq("a string cap falls back", resolveBonusAttemptsCap("8"), DEFAULT_DAILY_BONUS_ATTEMPTS);
+  assertEq("a negative cap falls back", resolveBonusAttemptsCap(-1), DEFAULT_DAILY_BONUS_ATTEMPTS);
+  assertEq("a fractional cap falls back", resolveBonusAttemptsCap(4.5), DEFAULT_DAILY_BONUS_ATTEMPTS);
+  // The cap is the only bound on a faked ad, so a typo must stay bounded.
+  assertEq("an extra-zero typo is clamped to the ceiling",
+    resolveBonusAttemptsCap(50), MAX_DAILY_BONUS_ATTEMPTS_CEILING);
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`);

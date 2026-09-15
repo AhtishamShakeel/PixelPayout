@@ -98,7 +98,8 @@ import {
   GAME_XP_PER_SESSION_CAP,
   GAME_XP_SCORE_DIVISOR,
   LEVEL_UP_POINTS,
-  MAX_DAILY_BONUS_ATTEMPTS,
+  ATTEMPTS_CONFIG_DOC,
+  resolveBonusAttemptsCap,
   MAX_DAILY_GAME_SESSIONS,
   MAX_DAILY_QUIZ_ATTEMPTS,
   QUIZ_CORRECT_XP,
@@ -1125,6 +1126,40 @@ export const getStreakConfig = functions.https.onCall(async (request: CallableRe
  * that changes about once a month. A minute of staleness after a console edit
  * is the trade.
  */
+/**
+ * The daily ad-bonus cap, as configured in config/attempts.maxBonusAttempts.
+ *
+ * Read on every claim and every grant, so it is cached in the instance for a
+ * minute like the goal bonus: at most one read a minute per instance on the
+ * hottest path in the app. A console edit therefore takes up to a minute to
+ * reach a warm instance. A failed read enforces the deployed default rather
+ * than refusing claims.
+ */
+let bonusCapCache: {cap: number; readAt: number} | null = null;
+const BONUS_CAP_TTL_MS = 60_000;
+
+async function configuredBonusCap(): Promise<number> {
+  const now = Date.now();
+  if (bonusCapCache && now - bonusCapCache.readAt < BONUS_CAP_TTL_MS) {
+    return bonusCapCache.cap;
+  }
+
+  let cap: number;
+  try {
+    const snapshot = await getFirestore()
+      .collection(CONFIG_COLLECTION)
+      .doc(ATTEMPTS_CONFIG_DOC)
+      .get();
+    cap = resolveBonusAttemptsCap(snapshot.get("maxBonusAttempts"));
+  } catch (error) {
+    console.error("Attempts config unreadable", error);
+    cap = resolveBonusAttemptsCap(undefined);
+  }
+
+  bonusCapCache = {cap, readAt: now};
+  return cap;
+}
+
 let goalConfigCache: {points: number; readAt: number} | null = null;
 const GOAL_CONFIG_TTL_MS = 60_000;
 
@@ -1821,12 +1856,12 @@ export const startGameSession = functions.https.onCall(async (request: CallableR
   // Checked but NOT incremented here. The counter moves when a run is actually
   // claimed, so abandoning a game costs the player nothing; this read only
   // stops the app opening a session it already knows can never be paid out.
-  const userDoc = await userRef.get();
+  const [userDoc, bonusCap] = await Promise.all([userRef.get(), configuredBonusCap()]);
   const daily = readDailyAttempts(userDoc);
   // The bonus counter has to be read HERE as well as at the claim, or an
   // attempt the user just paid an ad for would be refused a session and never
   // reach the claim that honours it.
-  if (daily.game >= attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame)) {
+  if (daily.game >= attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame, bonusCap)) {
     throw new functions.https.HttpsError("failed-precondition", "Daily game limit reached");
   }
 
@@ -1847,14 +1882,14 @@ export const startGameSession = functions.https.onCall(async (request: CallableR
  * Buys one extra attempt for today with a rewarded ad.
  *
  * RAISES THE CEILING; it does not refund a spent attempt. The user may call
- * it with attempts still in hand, so a day runs 0..13 rather than resetting
+ * it with attempts still in hand, so a day runs 0..(10 + cap) rather than resetting
  * to 10 only once emptied - and whatever is left, bought or not, is gone at
  * the UTC rollover.
  *
  * THE AD IS TAKEN ON THE CLIENT'S WORD, exactly as dailyStreak takes it.
  * That is safe for the streak because its reward is capped at once a day; it
  * is safe here for the same reason and no other, which is why
- * MAX_DAILY_BONUS_ATTEMPTS is described as the security rather than as a
+ * the bonus cap (see DEFAULT_DAILY_BONUS_ATTEMPTS) is described as the security rather than as a
  * tuning knob. There is no impression id to deduplicate on without
  * server-side verification, so a lying client cannot be caught - only
  * bounded. FIELD_BONUS_GRANTS_TOTAL is what makes the lying visible, by being
@@ -1885,6 +1920,9 @@ export const grantBonusAttempt = functions.https.onCall(async (request: Callable
   const isQuiz = activity === "quiz";
   const firestore = getFirestore();
   const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+  // Outside the transaction: it is not part of what has to stay consistent
+  // with the user document.
+  const bonusCap = await configuredBonusCap();
 
   const result = await firestore.runTransaction(async (transaction) => {
     const userDoc = await transaction.get(userRef);
@@ -1897,13 +1935,13 @@ export const grantBonusAttempt = functions.https.onCall(async (request: Callable
     const base = isQuiz ? MAX_DAILY_QUIZ_ATTEMPTS : MAX_DAILY_GAME_SESSIONS;
     const used = isQuiz ? daily.quiz : daily.game;
 
-    if (granted >= MAX_DAILY_BONUS_ATTEMPTS) {
+    if (granted >= bonusCap) {
       return {
         granted: false as const,
         reason: "daily_bonus_limit" as const,
         bonusAttempts: granted,
         attemptsUsed: used,
-        allowance: attemptsAllowance(base, granted),
+        allowance: attemptsAllowance(base, granted, bonusCap),
       };
     }
 
@@ -1937,7 +1975,7 @@ export const grantBonusAttempt = functions.https.onCall(async (request: Callable
       granted: true as const,
       bonusAttempts,
       attemptsUsed: daily.stale ? 0 : used,
-      allowance: attemptsAllowance(base, bonusAttempts),
+      allowance: attemptsAllowance(base, bonusAttempts, bonusCap),
     };
   });
 
@@ -1946,7 +1984,7 @@ export const grantBonusAttempt = functions.https.onCall(async (request: Callable
   return {
     success: true,
     activity,
-    bonusCap: MAX_DAILY_BONUS_ATTEMPTS,
+    bonusCap,
     ...result,
   };
 });
@@ -1965,6 +2003,8 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
   // Refreshed before the transaction, because writeAward reads the reward
   // table synchronously from inside one. See ensureLevelRewardsFresh.
   await ensureLevelRewardsFresh();
+  // The live ad-bonus cap, which the allowance below is enforced against.
+  const bonusCap = await configuredBonusCap();
 
   let xpAward = 0;
   let incrementQuizAttempt = false;
@@ -2077,8 +2117,8 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     // ad is only worth anything if the cap that actually refuses claims knows
     // about it. This is the enforcement point - startGameSession's identical
     // test is a courtesy that saves a doomed session, nothing more.
-    const quizAllowance = attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, daily.bonusQuiz);
-    const gameAllowance = attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame);
+    const quizAllowance = attemptsAllowance(MAX_DAILY_QUIZ_ATTEMPTS, daily.bonusQuiz, bonusCap);
+    const gameAllowance = attemptsAllowance(MAX_DAILY_GAME_SESSIONS, daily.bonusGame, bonusCap);
 
     if (incrementQuizAttempt && currentAttempts >= quizAllowance) {
       throw new functions.https.HttpsError("failed-precondition", "Daily quiz limit reached");

@@ -58,6 +58,19 @@ class UserRepository {
      */
     val goalBonusPoints: LiveData<Int> = _goalBonusPoints
 
+    private val _bonusAttemptsCap = MutableLiveData(DEFAULT_BONUS_ATTEMPTS_CAP)
+
+    /**
+     * Extra attempts a rewarded ad can buy per activity per day.
+     *
+     * Console-tuned at config/attempts.maxBonusAttempts, and read once per
+     * sign-in for the same reason as [goalBonusPoints]: the screens offering
+     * "+1" and the server refusing it have to agree on the number. Every
+     * grant response also carries the live cap, so a retune reaches a running
+     * session on the next ad. Display only - the server enforces its own read.
+     */
+    val bonusAttemptsCap: LiveData<Int> = _bonusAttemptsCap
+
     init {
         waitForUserLogin()
     }
@@ -71,6 +84,7 @@ class UserRepository {
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
                 LevelCurveStore.load()
                 fetchGoalBonus()
+                fetchBonusAttemptsCap()
                 listenToRedemptions(userId)
                 listenToPayoutFeed()
                 // Seed only. The live listener costs a read per document
@@ -101,6 +115,21 @@ class UserRepository {
                     else minOf(points, MAX_GOAL_BONUS_POINTS)
                 )
             }
+    }
+
+    private fun fetchBonusAttemptsCap() {
+        firestore.collection(COLLECTION_CONFIG).document(DOC_ATTEMPTS).get()
+            .addOnSuccessListener { snapshot ->
+                _bonusAttemptsCap.postValue(resolveBonusAttemptsCap(snapshot.get("maxBonusAttempts")))
+            }
+    }
+
+    /** Mirrors the server's resolveBonusAttemptsCap, so both clamp alike. */
+    private fun resolveBonusAttemptsCap(raw: Any?): Int {
+        val value = raw as? Number ?: return DEFAULT_BONUS_ATTEMPTS_CAP
+        val cap = value.toDouble()
+        if (cap < 0 || cap != Math.floor(cap)) return DEFAULT_BONUS_ATTEMPTS_CAP
+        return minOf(cap.toInt(), MAX_BONUS_ATTEMPTS_CAP)
     }
 
     data class LevelCurve(
@@ -1098,7 +1127,7 @@ class UserRepository {
      * The ad is asserted, not proven: there is no server-side verification,
      * so `adWatched` is taken on trust exactly as claimDailyStreak takes it.
      * What makes that survivable is the server's per-day cap, which a lying
-     * client cannot get past - see MAX_DAILY_BONUS_ATTEMPTS.
+     * client cannot get past - see [bonusAttemptsCap].
      *
      * Short timeout for the same reason the streak claim has one: the user is
      * watching a button, and offline this would otherwise hang for over a
@@ -1117,6 +1146,10 @@ class UserRepository {
             val data = result.data as? Map<*, *>
                 ?: return BonusAttemptResult.Error("Unexpected response")
             syncClock(data)
+            // The server's live cap, fresher than the sign-in read.
+            (data["bonusCap"] as? Number)?.toInt()?.let {
+                _bonusAttemptsCap.postValue(it.coerceIn(0, MAX_BONUS_ATTEMPTS_CAP))
+            }
 
             if (data["granted"] == true) {
                 BonusAttemptResult.Granted(
@@ -1810,6 +1843,10 @@ class UserRepository {
         /** Mirrors DAILY_GOAL_BONUS_POINTS / MAX_DAILY_GOAL_BONUS_POINTS. */
         private const val DEFAULT_GOAL_BONUS_POINTS = 30
         private const val MAX_GOAL_BONUS_POINTS = 200
+        private const val DOC_ATTEMPTS = "attempts"
+        /** Mirrors DEFAULT_DAILY_BONUS_ATTEMPTS / MAX_DAILY_BONUS_ATTEMPTS_CEILING. */
+        private const val DEFAULT_BONUS_ATTEMPTS_CAP = 5
+        private const val MAX_BONUS_ATTEMPTS_CAP = 20
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
         private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"
         private const val FIELD_STREAK_COUNT = "streakCount"

@@ -24,7 +24,6 @@ import java.util.concurrent.TimeUnit
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.main.MainViewModel
-import com.example.pixelpayout.ui.main.MAX_DAILY_BONUS_ATTEMPTS
 import com.example.pixelpayout.ui.main.MAX_DAILY_QUIZ_ATTEMPTS
 import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.ServerClock
@@ -192,7 +191,7 @@ class QuizListFragment : Fragment() {
             if (allowance.canBuyMore) View.VISIBLE else View.GONE
         binding.quizBonusNote.text = getString(
             R.string.bonus_attempt_remaining,
-            MAX_DAILY_BONUS_ATTEMPTS - allowance.bonusBought
+            allowance.bonusLeft
         )
         refreshBonusButtonState()
 

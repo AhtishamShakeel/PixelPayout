@@ -18,7 +18,7 @@ import {
 import {getFunctions, connectFunctionsEmulator, httpsCallable} from "firebase/functions";
 import {
   LEVEL_UP_POINTS,
-  MAX_DAILY_BONUS_ATTEMPTS,
+  DEFAULT_DAILY_BONUS_ATTEMPTS,
   MAX_DAILY_GAME_SESSIONS,
 } from "../economy/rewardConfig";
 
@@ -2225,9 +2225,9 @@ async function run() {
     await seedUserDoc(user.uid, "BONUSC1");
     const grant = httpsCallable(clientFunctions, "grantBonusAttempt");
 
-    for (let i = 1; i <= MAX_DAILY_BONUS_ATTEMPTS; i++) {
+    for (let i = 1; i <= DEFAULT_DAILY_BONUS_ATTEMPTS; i++) {
       const res = await grant({activity: "quiz", adWatched: true});
-      assertEq(`quiz bonus ${i} of ${MAX_DAILY_BONUS_ATTEMPTS} is granted`,
+      assertEq(`quiz bonus ${i} of ${DEFAULT_DAILY_BONUS_ATTEMPTS} is granted`,
         (res.data as {bonusAttempts: number}).bonusAttempts, i);
     }
 
@@ -2240,7 +2240,7 @@ async function run() {
     // Refusing must not have quietly charged the user anyway.
     const capped = await db.collection("users").doc(user.uid).get();
     assertEq("a refused grant does not move the counter",
-      capped.get("bonus_quiz_attempts"), MAX_DAILY_BONUS_ATTEMPTS);
+      capped.get("bonus_quiz_attempts"), DEFAULT_DAILY_BONUS_ATTEMPTS);
 
     const gameGrant = await grant({activity: "game", adWatched: true});
     assertEq("games are capped independently of quizzes",
@@ -2263,8 +2263,8 @@ async function run() {
     await seedUserDoc(user.uid, "BONUSR1", {
       quiz_attempts: 10,
       game_attempts: 10,
-      bonus_quiz_attempts: MAX_DAILY_BONUS_ATTEMPTS,
-      bonus_game_attempts: MAX_DAILY_BONUS_ATTEMPTS,
+      bonus_quiz_attempts: DEFAULT_DAILY_BONUS_ATTEMPTS,
+      bonus_game_attempts: DEFAULT_DAILY_BONUS_ATTEMPTS,
       last_reset_time: Timestamp.fromDate(new Date("2000-01-01T00:00:00Z")),
     });
     const grant = httpsCallable(clientFunctions, "grantBonusAttempt");

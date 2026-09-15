@@ -16,7 +16,6 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import com.example.pixelpayout.data.repository.UserRepository
-import com.example.pixelpayout.ui.main.MAX_DAILY_BONUS_ATTEMPTS
 import com.example.pixelpayout.ui.main.MAX_DAILY_GAME_SESSIONS
 import com.example.pixelpayout.ui.main.MainViewModel
 import com.example.pixelpayout.utils.AdManager
@@ -171,7 +170,7 @@ class GameFragment : Fragment() {
             if (allowance.canBuyMore) View.VISIBLE else View.GONE
         binding.gameBonusNote.text = getString(
             R.string.bonus_attempt_remaining,
-            MAX_DAILY_BONUS_ATTEMPTS - allowance.bonusBought
+            allowance.bonusLeft
         )
         refreshBonusButtonState()
 

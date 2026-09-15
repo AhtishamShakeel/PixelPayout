@@ -10,6 +10,10 @@
     <string name="home_your_level">Your level</string>
     <string name="home_choose_reward">Choose reward</string>
     <string name="home_change">Change</string>
+    <string name="home_choose">Choose</string>
+    <string name="home_redeem_now">Redeem %1$s now →</string>
+    <string name="home_level_progress">Level progress</string>
+    <string name="home_offers_tournament">Offers &amp; Tournament</string>
     <string name="home_see_rewards">See rewards →</string>
     <string name="home_view_levels">View levels →</string>
     <string name="home_next_level">On next level</string>
@@ -36,10 +40,9 @@
     <string name="home_start">Start</string>
     <string name="home_play">Play</string>
     <string name="home_done">Done ✓</string>
-    <string name="home_day">Day %1$d</string>
     <string name="home_today">Today</string>
     <string name="home_day_done">Done</string>
-    <string name="home_claimed_day">%1$s\n✓\n%2$s</string>
+    <string name="home_claimed_day">✓\n%1$s</string>
     <string name="home_balance_ratio">/ %1$s ★</string>
     <string name="home_xp_ratio">/ %1$s XP</string>
     <string name="home_no_star_bonus">Keep going</string>

@@ -172,8 +172,9 @@ class HomeFragment : Fragment() {
         }
 
         mainViewModel.preferredGame.observe(viewLifecycleOwner) { game ->
-            binding.starsGameSwitch.isVisible = game != null
-            binding.starsGameSwitch.setText(R.string.home_change)
+            // Always on the card, beside Redeem: "Change" once a currency is
+            // chosen, "Choose" before.
+            binding.starsGameSwitch.setText(if (game != null) R.string.home_change else R.string.home_choose)
             // A new Coil request clears any previous game's image, including
             // when the catalogue has no artwork or the download fails.
             binding.rewardArtwork.load(game?.currencyImageUrl?.takeIf { it.isNotBlank() } ?: game?.imageUrl) {
@@ -249,7 +250,8 @@ class HomeFragment : Fragment() {
         // is weighted columns, so two tiles simply fill it.
         mainViewModel.offerwallAvailable.observe(viewLifecycleOwner) { available ->
             val binding = _binding ?: return@observe
-            binding.offerCard.isVisible = available
+            // The Offers & Tournament tile stays either way: the tournament
+            // is on Earn whether or not any offerwall is.
             binding.earnAction.isVisible = available
         }
     }
@@ -365,7 +367,8 @@ class HomeFragment : Fragment() {
             playTile.setOnClickListener { navigateToGame() }
             quizTile.setOnClickListener { navigateToQuizzes() }
 
-            // The activity hint and offer tile both open Earn.
+            // The activity hint and the Offers & Tournament tile both open
+            // Earn, which holds the tournament card and the offerwalls.
             earnAction.setOnClickListener { navigateToRewards() }
             offerCard.setOnClickListener { navigateToRewards() }
             referAction.setOnClickListener { navigateToReferral() }
@@ -386,7 +389,7 @@ class HomeFragment : Fragment() {
      */
     private fun renderRedeemButton(redeemable: MainViewModel.Redeemable?) {
         binding.btnPayout.text = if (redeemable == null) getString(R.string.home_see_rewards)
-            else getString(R.string.stars_redeem_now, redeemable.amount)
+            else getString(R.string.home_redeem_now, redeemable.amount)
     }
 
     /**
@@ -622,13 +625,14 @@ class HomeFragment : Fragment() {
             // else - the box already said reached, in play, or ahead. A Stars
             // day is gold, as a star is on every screen in this app; an XP day
             // is neutral, and leans brighter while it is the one in play.
-            val dayLabel = getString(R.string.home_day, index + 1)
+            // No "Day N" line: the strip's order already says which day is
+            // which, and the content description still names it.
             if (claimed) {
-                cell.text = getString(R.string.home_claimed_day, dayLabel,
+                cell.text = getString(R.string.home_claimed_day,
                     getString(if (today) R.string.home_today else R.string.home_day_done))
                 cell.setTextColor(ContextCompat.getColor(requireContext(), R.color.white))
             } else {
-                cell.text = "$dayLabel\n${reward?.let { cellLabel(it) }.orEmpty()}"
+                cell.text = reward?.let { cellLabel(it) }.orEmpty()
                 cell.setTextColor(
                     ContextCompat.getColor(
                         requireContext(),
@@ -936,7 +940,7 @@ class HomeFragment : Fragment() {
         binding.goalsSubtitle.text = if (settled) getString(R.string.goals_subtitle_claimed)
             else resources.getQuantityString(R.plurals.home_finish_tasks, goals.goals.size, goals.goals.size)
         binding.goalsCard.designHeight = if (settled) 90f else 267f
-        binding.goalsCard.minimumHeight = ((if (settled) 80 else 240) * resources.displayMetrics.density).toInt()
+        binding.goalsCard.minimumHeight = ((if (settled) 80 else 190) * resources.displayMetrics.density).toInt()
         binding.goalRows.visibility = if (settled) View.GONE else View.VISIBLE
         if (settled) return
 
@@ -1239,22 +1243,6 @@ class HomeFragment : Fragment() {
             getString(R.string.payout_feed_row, latest.name, latest.label)
         binding.payoutFeedTime.text = relativeTime(latest.atMillis)
         binding.payoutFeedRow.setOnClickListener { showPayoutFeedSheet() }
-
-        // The overlapping circles, one initial per recent payout. Drawn from
-        // the feed's own masked names rather than stock faces, so three
-        // circles means three real payouts - a cell with nothing behind it is
-        // hidden instead of filled with a placeholder.
-        listOf(
-            binding.payoutAvatar1
-        ).forEachIndexed { index, avatar ->
-            val initial = entries.getOrNull(index)?.name.orEmpty().firstOrNull()
-            if (initial == null) {
-                avatar.visibility = View.GONE
-            } else {
-                avatar.visibility = View.VISIBLE
-                avatar.text = initial.toString()
-            }
-        }
     }
 
     /**

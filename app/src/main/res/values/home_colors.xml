@@ -3,4 +3,6 @@
     <color name="home_background">#090B20</color>
     <color name="home_lilac">#C293FF</color>
     <color name="home_text">#BCB7DB</color>
+    <!-- Card headings and the Change control: brighter than home_text. -->
+    <color name="home_title">#DAD3FF</color>
 </resources>

@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import com.example.pixelpayout.utils.AdManager
 import com.example.pixelpayout.utils.TapjoyOfferwall
 import com.example.pixelpayout.utils.InterstitialAdManager
+import com.example.pixelpayout.utils.UnityAdsNetwork
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.FirebaseApp
 
@@ -45,6 +46,10 @@ class PixelPayoutApp : Application() {
                 InterstitialAdManager.getInstance().load(this)
             }, INTERSTITIAL_WARMUP_DELAY_MS)
         }
+
+        // The fallback network. Starts alongside AdMob rather than after it
+        // fails, so a Unity ad is already waiting when AdMob has none.
+        UnityAdsNetwork.initialize(this)
 
         // Connect ONCE per process. Connecting is process-wide, so the old
         // per-fragment call was reconnecting behind a live session every

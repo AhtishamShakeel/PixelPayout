@@ -13,6 +13,7 @@ import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.example.pixelpayout.config.AppConfig
+import com.example.pixelpayout.data.repository.AdNetworkConfigStore
 
 /**
  * The rewarded ads every "watch this to get that" control draws from.
@@ -60,6 +61,14 @@ import com.example.pixelpayout.config.AppConfig
  *     "enough already on order" test read as satisfied for the rest of the
  *     process. In-flight requests now carry a start time and are abandoned
  *     after [LOAD_TIMEOUT_MS].
+ *
+ * UNITY IS THE FALLBACK. The pool here holds AdMob ads only; a Unity rewarded
+ * ad is kept loaded alongside it by [UnityAdsNetwork]. At show time the
+ * network `config/ads` puts first is tried, then the other - see
+ * [AdNetworkConfigStore]. So "ready" means either network, and a dead
+ * AdMob unit - no fill, rate limited, or an account that has been shut off -
+ * degrades to Unity instead of to a greyed-out button. Callers can't tell
+ * which network played.
  */
 class AdManager private constructor() {
 
@@ -134,7 +143,8 @@ class AdManager private constructor() {
      */
     fun isRewardedAdReady(): Boolean {
         sweep()
-        return pool.isNotEmpty()
+        return (AdNetworkConfigStore.admobEnabled && pool.isNotEmpty()) ||
+            UnityAdsNetwork.isRewardedReady()
     }
 
     /**
@@ -152,6 +162,7 @@ class AdManager private constructor() {
         appContext = context.applicationContext
         sweep()
         topUp()
+        UnityAdsNetwork.loadRewarded(context)
     }
 
     /**
@@ -175,6 +186,7 @@ class AdManager private constructor() {
         loadHandler.removeCallbacksAndMessages(null)
         loadScheduled = false
         topUp()
+        appContext?.let { UnityAdsNetwork.loadRewarded(it) }
     }
 
     /** Drops what is stale and abandons what is lost. */
@@ -194,6 +206,8 @@ class AdManager private constructor() {
      */
     private fun topUp() {
         val context = appContext ?: return
+        // Switched off from Firestore: no AdMob requests at all.
+        if (!AdNetworkConfigStore.admobEnabled) return
         if (pool.size >= POOL_SIZE) return
         if (inFlight.isNotEmpty()) return
         if (loadScheduled) return
@@ -413,11 +427,27 @@ class AdManager private constructor() {
         appContext = activity.applicationContext
         sweep()
 
-        val cached = pool.removeFirstOrNull()
-        if (cached == null) {
-            Log.w(TAG, "showRewardedAd with an empty pool")
-            onAdFailedToShow()
+        val unityFirst = AdNetworkConfigStore.primary == AdNetworkConfigStore.Network.UNITY
+        if (unityFirst &&
+            UnityAdsNetwork.showRewarded(activity, onRewarded, onAdClosed, onAdFailedToShow)
+        ) {
+            Log.d(TAG, "Unity is primary - showing Unity rewarded")
             topUp()
+            return
+        }
+
+        val cached = if (AdNetworkConfigStore.admobEnabled) pool.removeFirstOrNull() else null
+        if (cached == null) {
+            topUp()
+            // No AdMob ad: the Unity one, if it has one and wasn't just tried.
+            if (!unityFirst &&
+                UnityAdsNetwork.showRewarded(activity, onRewarded, onAdClosed, onAdFailedToShow)
+            ) {
+                Log.d(TAG, "No AdMob ad - showing Unity rewarded")
+                return
+            }
+            Log.w(TAG, "showRewardedAd with no ad on either network")
+            onAdFailedToShow()
             return
         }
 

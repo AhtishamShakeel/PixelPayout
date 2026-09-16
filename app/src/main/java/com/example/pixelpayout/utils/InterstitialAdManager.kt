@@ -7,6 +7,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import com.example.pixelpayout.config.AppConfig
+import com.example.pixelpayout.data.repository.AdNetworkConfigStore
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
@@ -37,6 +38,10 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
  * One ad cached rather than AdManager's pool of two, because the cadence
  * itself guarantees the spacing a pool would otherwise cover - see
  * [AdCadence]. Nothing can ask for two interstitials inside the minimum gap.
+ *
+ * UNITY IS THE FALLBACK, as for rewarded ads: [UnityAdsNetwork] keeps a Unity
+ * interstitial loaded alongside this cache, and `config/ads` in Firestore
+ * decides which of the two plays first - see [AdNetworkConfigStore]. "Ready" and "could serve" below therefore mean either network.
  */
 class InterstitialAdManager private constructor() {
 
@@ -80,7 +85,8 @@ class InterstitialAdManager private constructor() {
      */
     fun isReady(): Boolean {
         sweep()
-        return cached != null
+        return (AdNetworkConfigStore.admobEnabled && cached != null) ||
+            UnityAdsNetwork.isInterstitialReady()
     }
 
     /**
@@ -102,7 +108,9 @@ class InterstitialAdManager private constructor() {
      */
     fun canServeWithin(windowMs: Long): Boolean {
         sweep()
-        if (cached != null) return true
+        if (AdNetworkConfigStore.admobEnabled && cached != null) return true
+        if (UnityAdsNetwork.canServeInterstitialWithin(windowMs)) return true
+        if (!AdNetworkConfigStore.admobEnabled) return false
         // nextAllowedAt carries the request floor, the failure backoff and the
         // rate-limit cooldown all folded together - see the note on it - so
         // this one comparison covers every reason a request would be refused.
@@ -112,7 +120,10 @@ class InterstitialAdManager private constructor() {
     /** Fills the cache. Safe to call as often as you like. */
     fun load(context: Context) {
         appContext = context.applicationContext
+        UnityAdsNetwork.loadInterstitial(context)
         sweep()
+        // Switched off from Firestore: no AdMob requests at all.
+        if (!AdNetworkConfigStore.admobEnabled) return
         if (cached != null || loadStartedAt != null) return
         if (!AdConsent.canRequestAds(appContext!!)) return
 
@@ -183,10 +194,22 @@ class InterstitialAdManager private constructor() {
     fun show(activity: Activity, onDone: (shown: Boolean) -> Unit) {
         sweep()
 
-        val ad = cached
-        if (ad == null || activity.isFinishing || activity.isDestroyed) {
+        val ad = if (AdNetworkConfigStore.admobEnabled) cached else null
+        if (activity.isFinishing || activity.isDestroyed) {
             load(activity)
             onDone(false)
+            return
+        }
+        if (AdNetworkConfigStore.primary == AdNetworkConfigStore.Network.UNITY &&
+            UnityAdsNetwork.showInterstitial(activity, onDone)
+        ) {
+            load(activity)
+            return
+        }
+        if (ad == null) {
+            load(activity)
+            // No AdMob ad: the Unity one, if it has one. It calls onDone.
+            if (!UnityAdsNetwork.showInterstitial(activity, onDone)) onDone(false)
             return
         }
 

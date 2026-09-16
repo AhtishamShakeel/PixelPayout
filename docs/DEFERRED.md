@@ -46,6 +46,7 @@ Every ad unit is currently Google's public **test** ID (`ca-app-pub-394025609994
 | [`AppConfig.kt:8`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt#L8) | Game banner |
 | [`AppConfig.kt:19`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt#L19) | Interstitial |
 | [`strings.xml:215`](../app/src/main/res/values/strings.xml#L215) | `admob_app_id` |
+| [`AppConfig.kt`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt) | Unity Ads: `UNITY_GAME_ID` (blank = Unity off) and `UNITY_TEST_MODE = true` |
 
 **Why deferred:** deliberate while testing — real IDs on a test device risk the
 AdMob account, and test ads always fill, which is what makes ad-gated flows
@@ -54,7 +55,7 @@ AdMob account, and test ads always fill, which is what makes ad-gated flows
 **Cost of leaving it:** test ads pay nothing. Shipping with these earns £0 while
 looking completely normal, which is exactly why it is easy to miss.
 
-**Doing it:** swap all four, and keep the test IDs reachable for debug builds —
+**Doing it:** swap all four AdMob ids, set `UNITY_TEST_MODE` to false, and keep the test IDs reachable for debug builds —
 a `buildConfigField` per build type is the usual shape, so debug never touches
 live inventory. Verify with a release build that ads still fill before shipping.
 

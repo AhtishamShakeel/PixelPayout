@@ -96,6 +96,10 @@ class UserRepository {
                 // document, so it is one read, and the bottom bar needs the
                 // answer before the user taps anything.
                 OfferwallCatalogStore.start()
+                // Which ad network plays first, and the off switches. One
+                // document, live, so a banned network can be switched off
+                // on every running install from the console.
+                AdNetworkConfigStore.start()
                 // The user's own support tickets: drives the unread dot on
                 // Profile and the Help pages. A handful of documents at most.
                 SupportTicketStore.start(userId)

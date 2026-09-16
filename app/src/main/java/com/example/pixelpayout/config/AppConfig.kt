@@ -17,4 +17,27 @@ object AppConfig {
      * one actually shows.
      */
     const val ADMOB_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+
+    /**
+     * Unity Ads, the fallback behind AdMob - see UnityAdsNetwork.
+     *
+     * The Game ID is on the Unity dashboard under Monetization > Project
+     * settings (the Android one). Blank switches Unity off entirely.
+     *
+     * Which network plays first, and switching either off, is NOT here - it
+     * is the `config/ads` document in Firestore. See AdNetworkConfigStore.
+     *
+     * The placement ids are the Ad Unit IDs Unity creates by default for a
+     * new Android project; change them if yours are named differently.
+     */
+    const val UNITY_GAME_ID = "5816684"
+    const val UNITY_REWARDED_PLACEMENT_ID = "Rewarded_Android"
+    const val UNITY_INTERSTITIAL_PLACEMENT_ID = "Interstitial_Android"
+
+    /**
+     * Test ads only, like the AdMob test units above. Must be false for
+     * release - live ads on a test device, or test ads in production, are
+     * both wrong. See docs/DEFERRED.md item 1.
+     */
+    const val UNITY_TEST_MODE = true
 }

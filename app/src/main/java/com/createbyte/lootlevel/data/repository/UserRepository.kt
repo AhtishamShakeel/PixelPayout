@@ -4,6 +4,7 @@ import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.Source
 import androidx.lifecycle.MutableLiveData
@@ -25,7 +26,8 @@ class UserRepository {
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val functions = FirebaseFunctions.getInstance()
-    private val _userData = MutableLiveData<UserData>()
+    // Process-wide, like everything the sign-in listener feeds - see [waitForUserLogin].
+    private val _userData = sharedUserData
     val userData: LiveData<UserData> = _userData
 
     /**
@@ -45,7 +47,7 @@ class UserRepository {
      */
     val goalPool: LiveData<DailyGoalEngine.GoalPool> = LevelCurveStore.goalPool
 
-    private val _goalBonusXp = MutableLiveData(DEFAULT_GOAL_BONUS_XP)
+    private val _goalBonusXp = sharedGoalBonusXp
 
     /**
      * The XP finishing all three pays (config/dailyGoals.bonusXp).
@@ -58,7 +60,7 @@ class UserRepository {
      */
     val goalBonusXp: LiveData<Int> = _goalBonusXp
 
-    private val _bonusAttemptsCap = MutableLiveData(DEFAULT_BONUS_ATTEMPTS_CAP)
+    private val _bonusAttemptsCap = sharedBonusAttemptsCap
 
     /**
      * Extra attempts a rewarded ad can buy per activity per day.
@@ -78,9 +80,34 @@ class UserRepository {
     fun getCurrentUserId(): String? {
         return auth.currentUser?.uid
     }
+    /**
+     * Opens the signed-in user's listeners - ONCE PER PROCESS, not once per
+     * repository.
+     *
+     * This repository is constructed all over the app (every view model, Earn
+     * on each visit, every game and quiz), and each construction used to add
+     * its own auth listener, which then attached its own listeners on the user
+     * document, the orders and the payout feed, plus two config reads - none
+     * of them ever removed. A long session piled up dozens, every one of them
+     * re-parsing each user-document change on the main thread, which is what
+     * made switching tabs grow sluggish. The LiveData these feed now live in
+     * the companion, so every instance reads the one set.
+     *
+     * A change of account drops the previous user's listeners before opening
+     * the next user's.
+     */
     private fun waitForUserLogin() {
+        if (authListenerRegistered) return
+        authListenerRegistered = true
+
         FirebaseAuth.getInstance().addAuthStateListener { auth ->
-            auth.currentUser?.uid?.let { userId ->
+            val uid = auth.currentUser?.uid
+            if (uid == sessionUid) return@addAuthStateListener
+            sessionRegistrations.forEach { it.remove() }
+            sessionRegistrations.clear()
+            sessionUid = uid
+
+            uid?.let { userId ->
                 setupRealtimeUpdates(userId)  // ✅ Ensure setup runs AFTER login
                 LevelCurveStore.load()
                 fetchGoalBonus()
@@ -188,7 +215,7 @@ class UserRepository {
 
     private fun setupRealtimeUpdates(userId: String) {
         auth.currentUser?.uid?.let { userId ->
-            firestore.collection(COLLECTION_USERS).document(userId)
+            sessionRegistrations += firestore.collection(COLLECTION_USERS).document(userId)
                 .addSnapshotListener { snapshot, error ->
 
                     Log.d("BUFF_DEBUG", "Snapshot listener fired")
@@ -1339,7 +1366,7 @@ class UserRepository {
         val requestedAtMillis: Long?
     )
 
-    private val _pendingRedemptions = MutableLiveData(PendingRedemptions(0, "", null))
+    private val _pendingRedemptions = sharedPendingRedemptions
     val pendingRedemptions: LiveData<PendingRedemptions> = _pendingRedemptions
 
     /**
@@ -1381,7 +1408,7 @@ class UserRepository {
             }
     }
 
-    private val _resolvedRedemptions = MutableLiveData<List<ResolvedRedemption>>(emptyList())
+    private val _resolvedRedemptions = sharedResolvedRedemptions
     val resolvedRedemptions: LiveData<List<ResolvedRedemption>> = _resolvedRedemptions
 
     /**
@@ -1418,7 +1445,7 @@ class UserRepository {
      */
     enum class OrderStatus { PENDING, DELIVERED, REJECTED }
 
-    private val _orders = MutableLiveData<List<Order>>(emptyList())
+    private val _orders = sharedOrders
     val orders: LiveData<List<Order>> = _orders
 
     /**
@@ -1439,7 +1466,7 @@ class UserRepository {
         val label: String get() = packAmount.ifBlank { optionTitle }
     }
 
-    private val _payoutFeed = MutableLiveData<List<PayoutFeedEntry>>(emptyList())
+    private val _payoutFeed = sharedPayoutFeed
     val payoutFeed: LiveData<List<PayoutFeedEntry>> = _payoutFeed
 
     /**
@@ -1455,7 +1482,7 @@ class UserRepository {
      * to prove that up front rather than per document.
      */
     private fun listenToRedemptions(userId: String) {
-        firestore.collection(COLLECTION_REDEMPTIONS)
+        sessionRegistrations += firestore.collection(COLLECTION_REDEMPTIONS)
             .whereEqualTo(FIELD_UID, userId)
             .addSnapshotListener { snapshot, error ->
                 if (error != null || snapshot == null) {
@@ -1702,7 +1729,7 @@ class UserRepository {
      * see economy/payoutFeed.ts for why it is separate from `redemptions`.
      */
     private fun listenToPayoutFeed() {
-        firestore.collection(COLLECTION_PAYOUT_FEED)
+        sessionRegistrations += firestore.collection(COLLECTION_PAYOUT_FEED)
             .orderBy(FIELD_APPROVED_AT, Query.Direction.DESCENDING)
             .limit(PAYOUT_FEED_ROW_LIMIT)
             .addSnapshotListener { snapshot, error ->
@@ -1904,6 +1931,11 @@ class UserRepository {
     }
 
     companion object {
+        // State fed by the one sign-in listener; see waitForUserLogin.
+        private var authListenerRegistered = false
+        private var sessionUid: String? = null
+        private val sessionRegistrations = mutableListOf<ListenerRegistration>()
+
         private const val COLLECTION_USERS = "users"
         private const val COLLECTION_CONFIG = "config"
         private const val FIELD_POINTS = "points"
@@ -1927,6 +1959,15 @@ class UserRepository {
         private const val DOC_ATTEMPTS = "attempts"
         /** Mirrors DEFAULT_DAILY_BONUS_ATTEMPTS / MAX_DAILY_BONUS_ATTEMPTS_CEILING. */
         private const val DEFAULT_BONUS_ATTEMPTS_CAP = 5
+
+        // Below the constants they start from: a companion initialises in order.
+        private val sharedUserData = MutableLiveData<UserData>()
+        private val sharedGoalBonusXp = MutableLiveData(DEFAULT_GOAL_BONUS_XP)
+        private val sharedBonusAttemptsCap = MutableLiveData(DEFAULT_BONUS_ATTEMPTS_CAP)
+        private val sharedPendingRedemptions = MutableLiveData(PendingRedemptions(0, "", null))
+        private val sharedResolvedRedemptions = MutableLiveData<List<ResolvedRedemption>>(emptyList())
+        private val sharedOrders = MutableLiveData<List<Order>>(emptyList())
+        private val sharedPayoutFeed = MutableLiveData<List<PayoutFeedEntry>>(emptyList())
         private const val MAX_BONUS_ATTEMPTS_CAP = 20
         private const val FIELD_ACTIVE_BUFF = "activeBuff"
         private const val FIELD_ACTIVE_XP_BUFF = "activeXpBuff"

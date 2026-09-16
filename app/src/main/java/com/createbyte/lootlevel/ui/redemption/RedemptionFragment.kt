@@ -630,7 +630,11 @@ class RedemptionFragment : Fragment() {
     private fun loadArt(view: ImageView, url: String?, fallback: Int) {
         val source: Any = url ?: fallback
         if (view.tag == source) return
+        // The layout already shows the bundled art. Loading it again through
+        // Coil decoded the same picture a second time on every visit.
+        val showingBundled = view.tag == null
         view.tag = source
+        if (url == null && showingBundled) return
         view.load(source) {
             placeholder(fallback)
             error(fallback)

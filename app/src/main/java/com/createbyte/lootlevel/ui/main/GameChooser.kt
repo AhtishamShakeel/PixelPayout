@@ -4,10 +4,14 @@ import android.app.Dialog
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.view.isInvisible
+import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import coil.load
 import com.createbyte.lootlevel.R
+import com.createbyte.lootlevel.data.model.RedemptionGame
 
 /**
  * The currency chooser - "which do you play".
@@ -38,30 +42,73 @@ fun Fragment.showGameChooser(mainViewModel: MainViewModel, required: Boolean): D
 
     val options = view.findViewById<ViewGroup>(R.id.gameChoiceOptions)
     val selectedId = mainViewModel.preferredGame.value?.id
-    games.forEach { game ->
-        val row = layoutInflater.inflate(R.layout.item_game_choice, options, false)
-        row.setBackgroundResource(
-            if (game.id == selectedId) R.drawable.bg_chip_server_selected
-            else R.drawable.bg_chip_server
-        )
-        row.findViewById<TextView>(R.id.gameChoiceName).text = game.displayName
+    val gap = (10 * resources.displayMetrics.density).toInt()
 
-        val code = row.findViewById<TextView>(R.id.gameChoiceCode)
-        code.text = game.code
-        game.currencyImageUrl?.let { url ->
-            row.findViewById<ImageView>(R.id.gameChoiceImage).load(url) {
-                crossfade(true)
-                listener(onSuccess = { _, _ -> code.visibility = View.INVISIBLE })
-            }
+    // Two to a row. An odd last game gets an empty spacer beside it, so every
+    // tile keeps the same width instead of the last one stretching.
+    games.chunked(2).forEachIndexed { rowIndex, pair ->
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply { if (rowIndex > 0) topMargin = gap }
         }
 
-        row.setOnClickListener {
-            mainViewModel.setPreferredGame(game.id)
-            dialog.dismiss()
+        pair.forEachIndexed { index, game ->
+            val tile = layoutInflater.inflate(R.layout.item_game_choice, row, false)
+            (tile.layoutParams as LinearLayout.LayoutParams).apply {
+                if (index > 0) marginStart = gap
+            }
+            bindTile(tile, game, selected = game.id == selectedId)
+            tile.setOnClickListener {
+                mainViewModel.setPreferredGame(game.id)
+                dialog.dismiss()
+            }
+            row.addView(tile)
+        }
+        if (pair.size == 1) {
+            row.addView(View(requireContext()), LinearLayout.LayoutParams(0, 0, 1f).apply {
+                marginStart = gap
+            })
         }
         options.addView(row)
     }
 
     dialog.show()
     return dialog
+}
+
+/**
+ * One tile: the artwork the catalogue sends, or the code in its dashed well.
+ *
+ * The currency's own art (`currencyImageUrl`) when a game has it, otherwise
+ * the game artwork (`imageUrl`) the Wallet grid already shows - so a game
+ * with either uploaded gets a picture here too.
+ */
+private fun bindTile(tile: View, game: RedemptionGame, selected: Boolean) {
+    tile.setBackgroundResource(
+        if (selected) R.drawable.bg_game_choice_selected else R.drawable.bg_game_tile
+    )
+    tile.findViewById<View>(R.id.gameChoiceCheck).isVisible = selected
+    tile.findViewById<TextView>(R.id.gameChoiceName).text = game.displayName
+    tile.contentDescription = game.displayName
+
+    val code = tile.findViewById<TextView>(R.id.gameChoiceCode)
+    val image = tile.findViewById<ImageView>(R.id.gameChoiceImage)
+    code.text = game.code
+
+    val art = game.currencyImageUrl?.takeIf(String::isNotBlank)
+        ?: game.imageUrl?.takeIf(String::isNotBlank)
+    image.isVisible = art != null
+    code.isInvisible = art != null
+    if (art != null) {
+        image.load(art) {
+            crossfade(true)
+            listener(onError = { _, _ ->
+                image.isVisible = false
+                code.isInvisible = false
+            })
+        }
+    }
 }

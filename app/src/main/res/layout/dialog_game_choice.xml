@@ -1,47 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?><!--
     "What do you want to earn?" - picks the redemption game Home's Stars card
-    measures against. Same card, type and spacing as dialog_ad_claim, shown
-    through CustomDialogTheme.
+    measures against. Shown through CustomDialogTheme.
 
-    The options are inflated into `gameChoiceOptions` from the live catalogue
-    (item_game_choice), so a game added in the console appears here without a
-    release.
+    A gift medallion over the title, then the live catalogue as a two-column
+    grid of artwork tiles built in code (item_game_choice), so a game added in
+    the console appears here without a release.
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginStart="24dp"
-    android:layout_marginEnd="24dp"
-    android:background="@drawable/bg_level_card"
+    android:layout_marginStart="20dp"
+    android:layout_marginEnd="20dp"
+    android:background="@drawable/bg_game_choice_card"
+    android:gravity="center_horizontal"
     android:orientation="vertical"
-    android:paddingStart="22dp"
+    android:paddingStart="16dp"
     android:paddingTop="22dp"
-    android:paddingEnd="22dp"
-    android:paddingBottom="22dp">
+    android:paddingEnd="16dp"
+    android:paddingBottom="16dp">
+
+    <FrameLayout
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:background="@drawable/bg_game_choice_medallion">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_gift"
+            app:tint="@color/gold" />
+    </FrameLayout>
 
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:fontFamily="@font/jakarta_bold"
+        android:layout_marginTop="12dp"
+        android:fontFamily="@font/jakarta_extrabold"
+        android:gravity="center"
         android:text="@string/game_choice_title"
         android:textColor="@color/white"
-        android:textSize="17sp" />
+        android:textSize="20sp" />
 
     <TextView
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:fontFamily="@font/jakarta_medium"
-        android:lineSpacingMultiplier="1.25"
+        android:gravity="center"
+        android:lineSpacingMultiplier="1.2"
         android:text="@string/game_choice_message"
         android:textColor="@color/text_faint"
         android:textSize="13sp" />
 
-    <LinearLayout
-        android:id="@+id/gameChoiceOptions"
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:orientation="vertical" />
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/gameChoiceOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
 
 </LinearLayout>

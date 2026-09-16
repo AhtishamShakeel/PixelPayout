@@ -1,56 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?><!--
-    One option on the currency chooser. The code sits under the image so a
-    game with no `currencyImageUrl` still has a mark, and one whose image is
-    loading does not flash an empty box.
+    One option on the currency chooser: the game's artwork from Firestore on
+    top, the currency name under it - the same tile as the Wallet grid.
+
+    The code sits in a dashed well behind the image, so a game with no
+    artwork, or one whose download fails, still shows a labelled tile. The
+    tick marks the current choice.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
+    android:layout_width="0dp"
     android:layout_height="wrap_content"
-    android:layout_marginTop="8dp"
-    android:background="@drawable/bg_chip_server"
+    android:layout_weight="1"
+    android:background="@drawable/bg_game_tile"
     android:clickable="true"
     android:focusable="true"
-    android:gravity="center_vertical"
-    android:orientation="horizontal"
-    android:padding="12dp">
+    android:foreground="?attr/selectableItemBackground"
+    android:padding="6dp">
 
-    <FrameLayout
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:background="@drawable/bg_icon_gold">
+    <TextView
+        android:id="@+id/gameChoiceCode"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="@drawable/bg_code_tile"
+        android:fontFamily="@font/mono_bold"
+        android:gravity="center"
+        android:letterSpacing="0.08"
+        android:textColor="@color/brand_violet_light"
+        android:textSize="20sp"
+        app:layout_constraintDimensionRatio="H,4:3"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="UC" />
 
-        <TextView
-            android:id="@+id/gameChoiceCode"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:fontFamily="@font/jakarta_bold"
-            android:gravity="center"
-            android:maxLines="1"
-            android:textColor="@color/stars_accent"
-            android:textSize="11sp"
-            tools:text="UC" />
-
-        <ImageView
-            android:id="@+id/gameChoiceImage"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:importantForAccessibility="no"
-            android:padding="4dp"
-            android:scaleType="fitCenter" />
-
-    </FrameLayout>
+    <ImageView
+        android:id="@+id/gameChoiceImage"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:importantForAccessibility="no"
+        android:padding="4dp"
+        android:scaleType="fitCenter"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/gameChoiceCode"
+        app:layout_constraintEnd_toEndOf="@id/gameChoiceCode"
+        app:layout_constraintStart_toStartOf="@id/gameChoiceCode"
+        app:layout_constraintTop_toTopOf="@id/gameChoiceCode" />
 
     <TextView
         android:id="@+id/gameChoiceName"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="12dp"
-        android:layout_weight="1"
-        android:fontFamily="@font/jakarta_semibold"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="4dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/jakarta_bold"
+        android:gravity="center"
         android:maxLines="1"
         android:textColor="@color/white"
-        android:textSize="15sp"
-        tools:text="Diamonds" />
+        android:textSize="14sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/gameChoiceCode"
+        tools:text="UC" />
 
-</LinearLayout>
+    <ImageView
+        android:id="@+id/gameChoiceCheck"
+        android:layout_width="24dp"
+        android:layout_height="24dp"
+        android:background="@drawable/bg_game_choice_check"
+        android:contentDescription="@null"
+        android:padding="4dp"
+        android:src="@drawable/ic_check"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/white"
+        tools:visibility="visible" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

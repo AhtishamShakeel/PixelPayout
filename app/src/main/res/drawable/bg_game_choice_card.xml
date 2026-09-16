@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The currency chooser's card: a violet wash at the top fading to the
+     usual card ground, so the dialog reads as a moment rather than a form. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:endColor="@color/surface_card"
+        android:startColor="#2A2150" />
+    <stroke android:width="1dp" android:color="@color/violet_tint_35" />
+    <corners android:radius="22dp" />
+</shape>

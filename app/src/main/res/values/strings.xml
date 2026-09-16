@@ -187,8 +187,10 @@
     <string name="slide_1_description">Earn rewards by playing games and completing quizzes</string>
     <string name="slide_2_title">Daily Rewards</string>
     <string name="slide_2_description">Complete daily challenges to earn bonus points</string>
-    <string name="slide_3_title">Cash Out</string>
-    <string name="slide_3_description">Convert your points to real money rewards</string>
+    <!-- In-game currency only, never money: the Terms promise game currency, and
+         AdMob does not allow apps that promise payment for watching ads. -->
+    <string name="slide_3_title">Redeem Rewards</string>
+    <string name="slide_3_description">Swap your stars for in-game currency like UC and Diamonds</string>
     <string name="terms_agreement">By continuing, you confirm you are 18 or older and agree to our Terms of Service and Privacy Policy</string>
     <string name="legal_terms_title">Terms of Service</string>
     <string name="legal_privacy_title">Privacy Policy</string>

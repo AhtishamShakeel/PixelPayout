@@ -224,6 +224,8 @@ class UserRepository {
                                     it.getBoolean(FIELD_HAS_USED_FIRST_REDEEM) ?: false,
                                 firstRedeemUnavailable =
                                     it.getBoolean(FIELD_FIRST_REDEEM_UNAVAILABLE) ?: false,
+                                playTutorialCompleted =
+                                    it.getBoolean(FIELD_PLAY_TUTORIAL_COMPLETED) ?: false,
                                 // Both were already arriving in this snapshot
                                 // and being thrown away, which is what made
                                 // getDailyGoals a read per return to Home.
@@ -317,6 +319,11 @@ class UserRepository {
          * one that was actually spent.
          */
         val firstRedeemUnavailable: Boolean = false,
+        /**
+         * Whether the Play tab tutorial is done. Set only by the server's
+         * completePlayTutorial, together with its level-2 XP top-up.
+         */
+        val playTutorialCompleted: Boolean = false,
         /** Today's activity counters, as the server increments them. */
         val dailyStats: DailyStats = DailyStats(),
         /** The UTC day the goal bonus was last paid, or null. */
@@ -681,6 +688,48 @@ class UserRepository {
                 DoubleXpResult.Error
             }
         }
+    }
+
+    /**
+     * Finishes the Play tab tutorial.
+     *
+     * Nothing is sent. The server checks its own ledger for a game run and
+     * two quiz answers, then tops XP up to level 2 - once per account, and
+     * never past the threshold - so there is nothing here to inflate.
+     */
+    suspend fun completePlayTutorial(): PlayTutorialResult {
+        return try {
+            val result = functions
+                .getHttpsCallable("completePlayTutorial")
+                .withTimeout(20, TimeUnit.SECONDS)
+                .call()
+                .await()
+            val data = result.data as? Map<*, *>
+                ?: return PlayTutorialResult.Error
+            syncClock(data)
+
+            PlayTutorialResult.Completed(
+                level = (data["level"] as? Number)?.toInt() ?: 1,
+                milestonePoints = (data["milestonePoints"] as? Number)?.toInt() ?: 0
+            )
+        } catch (e: Exception) {
+            val code = (e as? FirebaseFunctionsException)?.code
+            if (code == FirebaseFunctionsException.Code.FAILED_PRECONDITION) {
+                PlayTutorialResult.NotFinished
+            } else {
+                PlayTutorialResult.Error
+            }
+        }
+    }
+
+    sealed class PlayTutorialResult {
+        /** Done. [milestonePoints] is what the top-up's level-up locked, if anything. */
+        data class Completed(val level: Int, val milestonePoints: Int) : PlayTutorialResult()
+
+        /** The ledger does not show the run and the answers yet. */
+        data object NotFinished : PlayTutorialResult()
+
+        data object Error : PlayTutorialResult()
     }
 
     sealed class DoubleXpResult {
@@ -1891,6 +1940,7 @@ class UserRepository {
         // config/redemption is no longer read. Its only field was
         // firstRedeemMinLevel, and the offer has no level gate any more.
         private const val FIELD_FIRST_REDEEM_UNAVAILABLE = "firstRedeemUnavailable"
+        private const val FIELD_PLAY_TUTORIAL_COMPLETED = "playTutorialCompleted"
 
         private const val COLLECTION_REDEMPTIONS = "redemptions"
         private const val COLLECTION_PAYOUT_FEED = "payoutFeed"

@@ -99,6 +99,9 @@ class QuizListFragment : Fragment() {
         viewModel.checkAndUpdateQuizzes(requireContext())
     }
 
+    /** The first category card, lit by the Play tutorial. Null until the grid loads. */
+    fun tutorialTarget(): View? = _binding?.recyclerView?.getChildAt(0)
+
     override fun onResume() {
         super.onResume()
         // Start the countdown timer

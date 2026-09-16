@@ -150,6 +150,10 @@ object AdCadence {
      *   does a recent [noteRewardedShown] - see rule 1 above for why both.
      */
     fun onActivityCompleted(context: Context, rewardedShown: Boolean): Boolean {
+        // The first-run tutorial is onboarding, not a session: no ads during
+        // it, and its runs do not use up the new-install grace period either.
+        if (PlayTutorial.keepsAdsAway(context)) return false
+
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
@@ -295,6 +299,7 @@ object AdCadence {
             levelRewardsClaimed = false
         }
         if (AdHold.isActive) return false
+        if (PlayTutorial.keepsAdsAway(context)) return false
 
         val prefs = context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)

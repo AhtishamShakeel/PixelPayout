@@ -352,4 +352,7 @@
     <color name="row_danger">#FF6B7A</color>
     <color name="row_danger_tint">#24FF6B7A</color>
     <color name="row_danger_stroke">#40FF6B7A</color>
+
+    <!-- The Play tutorial's dim around the lit target. -->
+    <color name="tutorial_scrim">#E6060510</color>
 </resources>

@@ -1,0 +1,288 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+    The Play tab tutorial, drawn over the whole activity by PlayFragment.
+
+    Picture first, words second: most steps are a lit cut-out, a pulsing ring
+    and a two-to-four word callout, because the players this is for may not
+    read much English. Only one of the two cards is visible at a time - the
+    callout beside the lit target, or the centred card for the welcome and
+    the level-up that have no target.
+-->
+<com.createbyte.lootlevel.ui.play.PlayTutorialOverlay
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:elevation="24dp">
+
+    <LinearLayout
+        android:id="@+id/tutorialCallout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:background="@drawable/bg_level_card"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:baselineAligned="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:background="@drawable/bg_tutorial_icon">
+
+                <ImageView
+                    android:id="@+id/tutorialCalloutIcon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    app:tint="@color/brand_violet_light"
+                    tools:src="@drawable/ic_game" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tutorialCalloutTitle"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:fontFamily="@font/jakarta_extrabold"
+                android:textColor="@color/white"
+                android:textSize="19sp"
+                tools:text="Play a game" />
+
+            <ImageView
+                android:id="@+id/tutorialCalloutCheck"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_check"
+                android:visibility="gone"
+                app:tint="@color/success" />
+        </LinearLayout>
+
+        <!-- Progress through the walkthrough, one dot per thing to do. -->
+        <LinearLayout
+            android:id="@+id/tutorialDots"
+            android:layout_width="wrap_content"
+            android:layout_height="10dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/tutorialCenter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginStart="28dp"
+        android:layout_marginEnd="28dp"
+        android:background="@drawable/bg_level_card"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingStart="22dp"
+        android:paddingTop="26dp"
+        android:paddingEnd="22dp"
+        android:paddingBottom="22dp"
+        android:visibility="gone">
+
+        <!-- Welcome: play, XP, level, stars - the whole loop as pictures. -->
+        <LinearLayout
+            android:id="@+id/tutorialWelcome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
+                    android:layout_width="54dp"
+                    android:layout_height="48dp"
+                    android:importantForAccessibility="no"
+                    android:tag="step_play" />
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_games_arrow" />
+
+                <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
+                    android:layout_width="54dp"
+                    android:layout_height="48dp"
+                    android:importantForAccessibility="no"
+                    android:tag="step_xp" />
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_games_arrow" />
+
+                <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
+                    android:layout_width="54dp"
+                    android:layout_height="48dp"
+                    android:importantForAccessibility="no"
+                    android:tag="step_level" />
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_games_arrow" />
+
+                <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
+                    android:layout_width="54dp"
+                    android:layout_height="48dp"
+                    android:importantForAccessibility="no"
+                    android:tag="step_star" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:fontFamily="@font/jakarta_extrabold"
+                android:gravity="center"
+                android:text="@string/tutorial_welcome_title"
+                android:textColor="@color/white"
+                android:textSize="22sp" />
+
+            <TextView
+                android:id="@+id/tutorialStart"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="22dp"
+                android:background="@drawable/bg_button_violet_14"
+                android:drawablePadding="10dp"
+                android:fontFamily="@font/jakarta_extrabold"
+                android:gravity="center"
+                android:text="@string/tutorial_start"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                app:drawableStartCompat="@drawable/ic_play_fill"
+                app:drawableTint="@color/white" />
+        </LinearLayout>
+
+        <!-- The completion call, and its failure. -->
+        <ProgressBar
+            android:id="@+id/tutorialWorking"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginBottom="8dp"
+            android:indeterminateTint="@color/brand_violet_light"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tutorialRetry"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_button_violet_14"
+            android:fontFamily="@font/jakarta_extrabold"
+            android:gravity="center"
+            android:text="@string/tutorial_retry"
+            android:textColor="@color/white"
+            android:textSize="17sp"
+            android:visibility="gone" />
+
+        <!-- Level up: the badge, the stars, the claim. -->
+        <LinearLayout
+            android:id="@+id/tutorialLevel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <FrameLayout
+                android:layout_width="150dp"
+                android:layout_height="130dp">
+
+                <View
+                    android:layout_width="150dp"
+                    android:layout_height="130dp"
+                    android:background="@drawable/bg_glow_violet" />
+
+                <TextView
+                    android:id="@+id/tutorialLevelNumber"
+                    android:layout_width="96dp"
+                    android:layout_height="96dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/bg_tutorial_level_badge"
+                    android:fontFamily="@font/mono_bold"
+                    android:gravity="center"
+                    android:textColor="@color/white"
+                    android:textSize="44sp"
+                    tools:text="2" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tutorialLevelTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/jakarta_extrabold"
+                android:textColor="@color/white"
+                android:textSize="24sp"
+                tools:text="Level 2!" />
+
+            <LinearLayout
+                android:id="@+id/tutorialStarsRow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_star_gold" />
+
+                <TextView
+                    android:id="@+id/tutorialStars"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:fontFamily="@font/mono_bold"
+                    android:textColor="@color/gold"
+                    android:textSize="30sp"
+                    tools:text="+5" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tutorialClaim"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="22dp"
+                android:background="@drawable/bg_button_stars_filled"
+                android:drawablePadding="10dp"
+                android:fontFamily="@font/jakarta_extrabold"
+                android:gravity="center"
+                android:text="@string/tutorial_claim"
+                android:textColor="@color/on_gold"
+                android:textSize="18sp"
+                app:drawableStartCompat="@drawable/ic_star"
+                app:drawableTint="@color/on_gold" />
+        </LinearLayout>
+    </LinearLayout>
+</com.createbyte.lootlevel.ui.play.PlayTutorialOverlay>

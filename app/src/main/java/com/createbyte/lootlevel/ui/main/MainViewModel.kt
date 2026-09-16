@@ -69,6 +69,18 @@ class MainViewModel(
     }
 
     /**
+     * Whether the Play tab tutorial is still owed. No value until the user
+     * snapshot lands, which callers treat as "not known yet" rather than as no.
+     */
+    val playTutorialPending: LiveData<Boolean> = userRepository.userData
+        .map { !it.playTutorialCompleted }
+        .distinctUntilChanged()
+
+    /** See UserRepository.completePlayTutorial. */
+    suspend fun completePlayTutorial(): UserRepository.PlayTutorialResult =
+        userRepository.completePlayTutorial()
+
+    /**
      * Whether there are any offerwalls to show.
      *
      * NO LONGER DECIDES WHETHER THE EARN TAB EXISTS. Earn is permanent now

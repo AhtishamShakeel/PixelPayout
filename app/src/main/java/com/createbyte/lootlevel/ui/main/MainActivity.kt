@@ -16,6 +16,7 @@ import com.createbyte.lootlevel.utils.AdConsent
 import com.createbyte.lootlevel.utils.AdManager
 import com.createbyte.lootlevel.utils.AdCadence
 import com.createbyte.lootlevel.utils.AdHold
+import com.createbyte.lootlevel.utils.PlayTutorial
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.createbyte.lootlevel.R
@@ -142,6 +143,45 @@ class MainActivity : AppCompatActivity() {
         observeRedemptionResults()
         observeLeaderboardPrize()
         viewModel.levelProgress.observe(this) { maybeAnnounceTournamentUnlock() }
+        if (savedInstanceState == null) openPlayForTutorial()
+    }
+
+    /**
+     * Takes a player who still owes the Play tutorial straight to Play, once
+     * per launch - the tutorial lives there. Only from Home, the screen a
+     * launch lands on, so nothing the player opened themselves is taken away.
+     */
+    private fun openPlayForTutorial() {
+        val pending = viewModel.playTutorialPending
+        pending.observe(this, object : androidx.lifecycle.Observer<Boolean> {
+            override fun onChanged(value: Boolean) {
+                pending.removeObserver(this)
+                if (!value) return
+
+                val navController = (supportFragmentManager
+                    .findFragmentById(R.id.nav_host_fragment) as? NavHostFragment)
+                    ?.navController ?: return
+                if (navController.currentDestination?.id != R.id.navigation_home) return
+                try {
+                    navController.navigate(R.id.navigation_play, null, defaultNavOptions())
+                } catch (e: Exception) {
+                    Log.e("Navigation", "Could not open Play for the tutorial: ${e.message}")
+                }
+            }
+        })
+    }
+
+    /**
+     * The tutorial's last card was closed. Its "Level 2" IS the level-up
+     * announcement, so the levels it covered are marked as announced before
+     * the usual dialog can repeat it, and the player goes to claim the stars.
+     */
+    fun onPlayTutorialFinished(levelReached: Int, stars: Int) {
+        lifecycleScope.launch {
+            val pending = viewModel.levelProgress.value?.pendingLevelRewards.orEmpty()
+            userPreferences.setAnnouncedLevelRewards(pending.toSet() + (2..levelReached))
+            if (stars > 0) openLevelRewards()
+        }
     }
 
     /**
@@ -160,6 +200,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun maybeAnnounceLevelRewards() {
         if (announcingLevelRewards) return
+        // The tutorial ends on its own level-up card.
+        if (PlayTutorial.isActive(this)) return
 
         val progress = viewModel.levelProgress.value
         if (progress == null) {
@@ -762,14 +804,20 @@ class MainActivity : AppCompatActivity() {
                 Log.d("ReferralDebug", "User has seen the popup. Skipping Firebase check")
                 return@launch
             }
-            userPreferences.setHasSeenReferralPopup(true)
-
             try{
                 val document = FirebaseFirestore.getInstance().collection("users")
                     .document(user.uid)
                     .get()
                     .await()
                 if (document.exists()){
+                    // Never over the Play tutorial. Not marked as seen, so it
+                    // is asked again on the next launch after the tutorial.
+                    if (document.getBoolean("playTutorialCompleted") != true) {
+                        Log.d("ReferralDebug", "Play tutorial still running; popup deferred")
+                        return@launch
+                    }
+                    userPreferences.setHasSeenReferralPopup(true)
+
                     val hasUsedReferral = document.getBoolean("hasUsedReferral") ?: false
                     Log.d("ReferralDebug", "Firebase hasUsedReferral: $hasUsedReferral")
 

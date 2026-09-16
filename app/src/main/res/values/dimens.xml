@@ -16,4 +16,7 @@
          one of these inline pills whole. -->
     <dimen name="claim_spinner_size">16dp</dimen>
 
+    <!-- One progress dot on a Play tutorial callout. -->
+    <dimen name="tutorial_dot">10dp</dimen>
+
 </resources>

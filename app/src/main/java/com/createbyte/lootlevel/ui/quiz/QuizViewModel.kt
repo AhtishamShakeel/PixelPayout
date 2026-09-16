@@ -77,6 +77,9 @@ class QuizViewModel : ViewModel() {
      */
     private var doubleableEventId: String? = null
 
+    /** Whether this attempt has already been reported to the Play tutorial. */
+    var tutorialNoted = false
+
     /** Whether there is a paid answer to offer a double on. */
     fun canDouble(): Boolean = doubleableEventId != null
 

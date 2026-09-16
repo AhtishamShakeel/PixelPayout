@@ -23,6 +23,8 @@ export type RewardSource =
   | "PROMOTION"
   | "LEVEL_UP"
   | "ADMIN_GRANT"
+  // The Play tab tutorial's one-time top-up to level 2. See playTutorial.ts.
+  | "TUTORIAL"
   | "REDEMPTION";
 
 /**
@@ -50,6 +52,7 @@ export const MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   PROMOTION: false,
   LEVEL_UP: false,
   ADMIN_GRANT: false,
+  TUTORIAL: false, // XP only
   REDEMPTION: false, // spends, never earns
 };
 
@@ -82,6 +85,8 @@ export const XP_MULTIPLIER_ELIGIBLE: Record<RewardSource, boolean> = {
   PROMOTION: false,
   LEVEL_UP: false, // the milestone award itself is never scaled
   ADMIN_GRANT: false,
+  // An exact top-up to a threshold; a buff would overshoot it.
+  TUTORIAL: false,
   REDEMPTION: false, // spends, never earns
 };
 

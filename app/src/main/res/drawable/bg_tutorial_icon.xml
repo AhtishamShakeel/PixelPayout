@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The round chip behind the glyph on a Play tutorial callout. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/violet_tint_20" />
+    <stroke android:width="1dp" android:color="@color/violet_tint_35" />
+</shape>

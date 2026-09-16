@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The big level number on the Play tutorial's last card. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:angle="315"
+        android:endColor="@color/brand_violet_deep"
+        android:startColor="@color/brand_violet" />
+    <stroke android:width="2dp" android:color="@color/brand_violet_light" />
+</shape>

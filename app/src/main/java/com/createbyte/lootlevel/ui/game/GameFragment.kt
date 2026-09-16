@@ -109,6 +109,10 @@ class GameFragment : Fragment() {
         setRowEnabled(binding.playTower, binding.towerAction, false)
     }
 
+    /** The two game rows, lit together by the Play tutorial. */
+    fun tutorialTargets(): List<View> =
+        _binding?.let { listOf(it.playFlappy, it.playTower) }.orEmpty()
+
     override fun onResume() {
         super.onResume()
         timerHandler.post(timerRunnable)

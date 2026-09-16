@@ -117,6 +117,13 @@ import {
 } from "./economy/pointsBuff";
 import {MAX_LEVEL, XP_THRESHOLDS, levelForXp} from "./economy/levelCurve";
 import {
+  PLAY_TUTORIAL_LEDGER_ID,
+  PLAY_TUTORIAL_GAMES_REQUIRED,
+  PLAY_TUTORIAL_QUIZZES_REQUIRED,
+  playTutorialRequirementsMet,
+  playTutorialTopUpXp,
+} from "./economy/playTutorial";
+import {
   GAME_XP_PER_SESSION_CAP,
   GAME_XP_SCORE_DIVISOR,
   LEVEL_UP_POINTS,
@@ -172,6 +179,8 @@ const FIELD_LEVEL = "level";
  * snapshot it already holds, at no extra read.
  */
 const FIELD_PENDING_LEVEL_REWARDS = "pendingLevelRewards";
+/** Set once, by completePlayTutorial, together with its XP top-up. */
+const FIELD_PLAY_TUTORIAL_COMPLETED = "playTutorialCompleted";
 const FIELD_STREAK_COUNT = "streakCount";
 const FIELD_LAST_STREAK_DAY = "lastStreakDayUtc";
 // Tracked apart from the streak day, so the once-a-day gate is on the reward
@@ -2729,6 +2738,121 @@ export const claimLevelReward = functions.https.onCall(async (request: CallableR
       pendingLevels,
     };
   });
+});
+
+/**
+ * Finishes the Play tab tutorial: tops XP up to level 2, once per account.
+ *
+ * See economy/playTutorial.ts for why the top-up exists and why it is safe.
+ * The short version, as enforced here:
+ *
+ *   * THE FLAG AND THE XP COMMIT TOGETHER. A second call - a retry, a double
+ *     tap, another device - finds the flag set and pays nothing.
+ *   * THE LEDGER, NOT THE CLIENT, SAYS THE TUTORIAL WAS PLAYED. At least one
+ *     game run and two quiz answers must exist as reward events, which only
+ *     claimReward writes. Wrong answers count: they are still ledger entries,
+ *     and the tutorial is about trying a quiz, not acing one.
+ *   * NOTHING IS READ FROM request.data. The amount is the gap to the level-2
+ *     threshold, computed from the stored XP.
+ *
+ * An account already at level 2 or beyond completes with no XP, so the flag
+ * is still set and the tutorial is not offered again.
+ */
+export const completePlayTutorial = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+  const events = userRef.collection(REWARD_EVENTS_SUBCOLLECTION);
+
+  await ensureLevelCurvePublished();
+  // writeAward reads the reward table synchronously inside the transaction.
+  await ensureLevelRewardsFresh();
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    const currentPoints = Number(userDoc.get(FIELD_POINTS) || 0);
+    const currentXp = Number(userDoc.get(FIELD_XP) || 0);
+    const currentLevel = Number(userDoc.get(FIELD_LEVEL) || 1);
+
+    if (userDoc.get(FIELD_PLAY_TUTORIAL_COMPLETED) === true) {
+      return {
+        alreadyCompleted: true,
+        xpAwarded: 0,
+        level: currentLevel,
+        leveledUp: false,
+        milestonePoints: 0,
+      };
+    }
+
+    // Limited queries: the cost is at most three small reads, once per
+    // account, and single-field equality needs no composite index.
+    const games = await transaction.get(
+      events.where("source", "==", "GAME").limit(PLAY_TUTORIAL_GAMES_REQUIRED)
+    );
+    const quizzes = await transaction.get(
+      events.where("source", "==", "QUIZ").limit(PLAY_TUTORIAL_QUIZZES_REQUIRED)
+    );
+    if (!playTutorialRequirementsMet(games.size, quizzes.size)) {
+      throw new functions.https.HttpsError("failed-precondition", "Tutorial not finished");
+    }
+
+    const topUp = playTutorialTopUpXp(currentXp);
+    const completedUpdates = {
+      [FIELD_PLAY_TUTORIAL_COMPLETED]: true,
+      playTutorialCompletedAt: FieldValue.serverTimestamp(),
+    };
+
+    if (topUp <= 0) {
+      transaction.update(userRef, completedUpdates);
+      return {
+        alreadyCompleted: false,
+        xpAwarded: 0,
+        level: currentLevel,
+        leveledUp: false,
+        milestonePoints: 0,
+      };
+    }
+
+    // Reads before writes. Level 2 is far below the referral unlock, so this
+    // is null in practice; asked anyway so the rule lives in one place.
+    const referrer = await readReferrerForLevelUnlock(transaction, userDoc, currentXp, topUp);
+
+    const award = buildAward(currentPoints, currentXp, {
+      source: "TUTORIAL",
+      basePoints: 0,
+      baseXp: topUp,
+      metadata: {tutorial: "play"},
+      storedLevel: currentLevel,
+    });
+
+    const {milestonePoints} = writeAward(
+      transaction,
+      userRef,
+      events.doc(PLAY_TUTORIAL_LEDGER_ID),
+      award,
+      completedUpdates
+    );
+    payReferrer(transaction, userRef, referrer);
+
+    return {
+      alreadyCompleted: false,
+      xpAwarded: award.xpAwarded,
+      level: award.level.level,
+      leveledUp: award.level.leveledUp,
+      milestonePoints,
+    };
+  });
+
+  console.log("Play tutorial completed", {userId, ...result});
+  return {success: true, serverTime: Date.now(), ...result};
 });
 
 /**

@@ -16,6 +16,7 @@ import com.createbyte.lootlevel.utils.AdCadence
 import com.createbyte.lootlevel.utils.AdHold
 import com.createbyte.lootlevel.utils.AdManager
 import com.createbyte.lootlevel.utils.AndroidConnectivityCheck
+import com.createbyte.lootlevel.utils.PlayTutorial
 import com.createbyte.lootlevel.utils.showLevelUp
 import com.createbyte.lootlevel.ui.main.MainActivity
 import com.createbyte.lootlevel.R
@@ -275,6 +276,10 @@ class GamePlayActivity : AppCompatActivity() {
     private fun showResults(xpAwarded: Int) {
         paidXp = xpAwarded
         setResult(RESULT_OK)
+        // Read before noting the run: the note moves the tutorial on, and
+        // this run is still part of it.
+        val inTutorial = PlayTutorial.isActive(this)
+        PlayTutorial.noteGamePlayed(this)
 
         binding.loadingIndicator.visibility = View.GONE
 
@@ -286,7 +291,11 @@ class GamePlayActivity : AppCompatActivity() {
             // A run worth no XP has nothing to double - the server refuses one
             // anyway, and offering an ad in exchange for twice nothing is
             // worse than making no offer at all.
-            doubleXpButton.visibility = if (viewModel.canDouble()) View.VISIBLE else View.GONE
+            //
+            // Not during the tutorial either: its point is the next step, and
+            // an ad offer on the first ever run is a detour from it.
+            doubleXpButton.visibility =
+                if (viewModel.canDouble() && !inTutorial) View.VISIBLE else View.GONE
             doubleXpButton.setOnClickListener { watchAdToDouble() }
             resultsContinueButton.setOnClickListener { leave() }
         }

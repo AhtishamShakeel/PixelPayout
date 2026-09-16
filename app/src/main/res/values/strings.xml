@@ -816,4 +816,17 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="offerwall_loading">Loading offers…</string>
     <string name="offerwall_unavailable">No offers available here right now.</string>
 
+    <!-- Play tab first-run tutorial. Kept to a few words on purpose: the
+         pictures and the lit target carry the meaning. -->
+    <string name="tutorial_welcome_title">Play and level up</string>
+    <string name="tutorial_start">Start</string>
+    <string name="tutorial_pick_game">Play a game</string>
+    <string name="tutorial_open_quizzes">Now a quiz</string>
+    <string name="tutorial_pick_quiz">Pick a quiz</string>
+    <string name="tutorial_retry">Try again</string>
+    <string name="tutorial_level_title">Level %1$d!</string>
+    <string name="tutorial_stars">+%1$d</string>
+    <string name="tutorial_claim">Claim</string>
+    <string name="tutorial_done">OK</string>
+
 </resources>

@@ -19,6 +19,7 @@ import com.createbyte.lootlevel.utils.AdCadence
 import com.createbyte.lootlevel.utils.AdHold
 import com.createbyte.lootlevel.utils.AdManager
 import com.createbyte.lootlevel.utils.AndroidConnectivityCheck
+import com.createbyte.lootlevel.utils.PlayTutorial
 import com.createbyte.lootlevel.utils.showLevelUp
 import com.createbyte.lootlevel.ui.main.MainActivity
 import android.text.Html
@@ -294,10 +295,20 @@ class QuizActivity : AppCompatActivity() {
     }
 
     private fun showQuizCompleteDialog() {
+        val inTutorial = PlayTutorial.isActive(this)
+        // Only an answer the server graded counts - a failed claim leaves
+        // totalPoints unset. Once per attempt: the view model outlives a
+        // rotation that would re-deliver this.
+        if (viewModel.totalPoints.value != null && !viewModel.tutorialNoted) {
+            viewModel.tutorialNoted = true
+            PlayTutorial.noteQuizAnswered(this)
+        }
+
         resultsDialog = QuizResultsDialog.show(
             fragmentManager = supportFragmentManager,
             points = viewModel.score.value ?: 0,
-            canDouble = viewModel.canDouble(),
+            // No ad offer mid-tutorial - see the same rule on the game results.
+            canDouble = viewModel.canDouble() && !inTutorial,
             onWatchAd = { watchAdToDouble() },
             onDismiss = {
                 val resultIntent = Intent()

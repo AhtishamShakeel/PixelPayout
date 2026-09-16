@@ -11,7 +11,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.createbyte.lootlevel.config.AppConfig
 import com.createbyte.lootlevel.utils.AdCadence
 import com.createbyte.lootlevel.utils.AdHold
 import com.createbyte.lootlevel.utils.AdManager
@@ -21,16 +20,12 @@ import com.createbyte.lootlevel.utils.showLevelUp
 import com.createbyte.lootlevel.ui.main.MainActivity
 import com.createbyte.lootlevel.R
 import com.createbyte.lootlevel.databinding.ActivityGamePlayBinding
-import com.google.android.gms.ads.AdRequest
-import com.google.android.gms.ads.AdSize
-import com.google.android.gms.ads.AdView
 import kotlinx.coroutines.launch
 
 class GamePlayActivity : AppCompatActivity() {
     private lateinit var binding: ActivityGamePlayBinding
     private val viewModel: GamePlayViewModel by viewModels()
     private lateinit var connectivityCheck: AndroidConnectivityCheck
-    private lateinit var adView: AdView
 
     /**
      * Whether a rewarded ad played as part of finishing this run.
@@ -60,7 +55,6 @@ class GamePlayActivity : AppCompatActivity() {
 
         connectivityCheck = AndroidConnectivityCheck(this)
         setupConnectivityCheck()
-        setupBannerAd()
 
         val gameUrl = intent.getStringExtra("GAME_URL") ?: ""
 
@@ -97,16 +91,6 @@ class GamePlayActivity : AppCompatActivity() {
                 onBackPressedDispatcher.onBackPressed()
             }
         })
-    }
-
-    private fun setupBannerAd() {
-        adView = AdView(this)
-        adView.setAdSize(AdSize.BANNER)
-        adView.adUnitId = AppConfig.ADMOB_GAME_BANNER_AD_UNIT_ID
-        binding.adContainer.addView(adView)
-
-        val adRequest = AdRequest.Builder().build()
-        adView.loadAd(adRequest)
     }
 
     private fun showPlaceholder() {
@@ -185,7 +169,6 @@ class GamePlayActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
-        adView.pause()
         binding.gameWebView.onPause()
         super.onPause()
     }
@@ -193,11 +176,9 @@ class GamePlayActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         binding.gameWebView.onResume()
-        adView.resume()
     }
 
     override fun onDestroy() {
-        adView.destroy()
         binding.gameWebView.apply {
             stopLoading()
             (parent as? ViewGroup)?.removeView(this)

@@ -194,9 +194,9 @@ class HomeFragment : Fragment() {
         }
 
         // First run, or the chosen game was switched off in the console.
-        mainViewModel.needsGameChoice.observe(viewLifecycleOwner) { needs ->
-            if (needs) showGameChooser(required = true)
-        }
+        // Not under the startup logo: asked again once it has gone.
+        mainViewModel.needsGameChoice.observe(viewLifecycleOwner) { askForGameIfNeeded() }
+        mainViewModel.startupReady.observe(viewLifecycleOwner) { askForGameIfNeeded() }
 
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
             binding.levelTitle.text = getString(R.string.level_card_title, progress.level)
@@ -428,6 +428,12 @@ class HomeFragment : Fragment() {
     }
 
     private var gameChooser: Dialog? = null
+
+    private fun askForGameIfNeeded() {
+        if (mainViewModel.needsGameChoice.value == true && mainViewModel.startupReady.value == true) {
+            showGameChooser(required = true)
+        }
+    }
 
     /** The currency chooser; see [com.createbyte.lootlevel.ui.main.showGameChooser]. */
     private fun showGameChooser(required: Boolean) {

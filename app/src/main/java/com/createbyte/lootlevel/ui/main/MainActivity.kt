@@ -133,7 +133,18 @@ class MainActivity : AppCompatActivity() {
         Log.d("ReferralDebug", "Initializing ReferralViewModel...")
         lifecycleScope.launch {
             referralViewModel = ReferralViewModel(UserRepository())
-            checkAndShowReferralPopup()
+        }
+
+        // The logo stays up until the first screens have their data - see
+        // StartupLoader. Not again after a rotation: the view model remembers.
+        if (savedInstanceState == null && viewModel.startupReady.value != true) {
+            StartupLoader(this, viewModel) {
+                viewModel.markStartupReady()
+                onStartupFinished()
+            }.start()
+        } else {
+            viewModel.markStartupReady()
+            onStartupFinished()
         }
 
         setupToolbar()
@@ -151,6 +162,18 @@ class MainActivity : AppCompatActivity() {
      * per launch - the tutorial lives there. Only from Home, the screen a
      * launch lands on, so nothing the player opened themselves is taken away.
      */
+    /** Everything that was held back so it would not open under the logo. */
+    private fun onStartupFinished() {
+        checkAndShowReferralPopup()
+        maybeAnnounceLevelRewards()
+        maybeAnnounceRedemptionResult()
+        maybeAnnounceLeaderboardPrize()
+        maybeAnnounceTournamentUnlock()
+    }
+
+    private val startupDone: Boolean
+        get() = viewModel.startupReady.value == true
+
     private fun openPlayForTutorial() {
         val pending = viewModel.playTutorialPending
         pending.observe(this, object : androidx.lifecycle.Observer<Boolean> {
@@ -199,7 +222,7 @@ class MainActivity : AppCompatActivity() {
      * repeatedly costs no reads.
      */
     private fun maybeAnnounceLevelRewards() {
-        if (announcingLevelRewards) return
+        if (announcingLevelRewards || !startupDone) return
         // The tutorial ends on its own level-up card.
         if (PlayTutorial.isActive(this)) return
 
@@ -303,7 +326,7 @@ class MainActivity : AppCompatActivity() {
      * definition already known.
      */
     private fun maybeAnnounceRedemptionResult() {
-        if (announcingRedemption) return
+        if (announcingRedemption || !startupDone) return
 
         val resolved = viewModel.resolvedRedemptions.value.orEmpty()
         if (resolved.isEmpty()) return
@@ -399,7 +422,7 @@ class MainActivity : AppCompatActivity() {
      * is adopted silently.
      */
     private fun maybeAnnounceLeaderboardPrize() {
-        if (announcingLeaderboardPrize) return
+        if (announcingLeaderboardPrize || !startupDone) return
 
         val prize = viewModel.leaderboardPrize.value ?: return
 
@@ -448,7 +471,7 @@ class MainActivity : AppCompatActivity() {
      * level-reward dialog, which the same level-up queues.
      */
     private fun maybeAnnounceTournamentUnlock() {
-        if (announcingTournamentUnlock || announcingLevelRewards) return
+        if (announcingTournamentUnlock || announcingLevelRewards || !startupDone) return
 
         val level = viewModel.levelProgress.value?.level ?: return
         val unlockLevel = viewModel.leaderboard.value?.unlockLevel

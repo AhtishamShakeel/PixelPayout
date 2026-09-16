@@ -43,8 +43,7 @@ Every ad unit is currently Google's public **test** ID (`ca-app-pub-394025609994
 | Where | Unit |
 |-------|------|
 | [`AppConfig.kt:7`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L7) | Rewarded |
-| [`AppConfig.kt:8`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L8) | Game banner |
-| [`AppConfig.kt:19`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L19) | Interstitial |
+| [`AppConfig.kt:18`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L18) | Interstitial |
 | [`strings.xml:215`](../app/src/main/res/values/strings.xml#L215) | `admob_app_id` |
 | [`AppConfig.kt`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt) | Unity Ads: `UNITY_GAME_ID` (blank = Unity off) and `UNITY_TEST_MODE = true` |
 

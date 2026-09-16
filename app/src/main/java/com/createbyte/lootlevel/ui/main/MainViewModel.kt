@@ -620,6 +620,29 @@ class MainViewModel(
      * screen the user flicks in and out of from being the most expensive
      * thing in the app.
      */
+    /**
+     * Fetches the board and waits for it - the startup screen's version of
+     * [refreshLeaderboard]. Restarts the same throttle, so Earn opening a
+     * moment later does not fetch it again.
+     */
+    suspend fun loadLeaderboardNow() {
+        leaderboardFetchedAt = SystemClock.elapsedRealtime()
+        userRepository.getLeaderboard()?.let { _leaderboard.value = it }
+    }
+
+    private val _startupReady = MutableLiveData(false)
+
+    /**
+     * False while the startup logo is up. Popups wait for it, so nothing
+     * appears over the logo and gets hidden behind it. Held here rather than
+     * on the activity so a rotation does not show the logo a second time.
+     */
+    val startupReady: LiveData<Boolean> = _startupReady
+
+    fun markStartupReady() {
+        if (_startupReady.value != true) _startupReady.value = true
+    }
+
     fun refreshLeaderboard(force: Boolean = false) {
         val now = SystemClock.elapsedRealtime()
         if (!force && now - leaderboardFetchedAt < LEADERBOARD_REFRESH_MS) return

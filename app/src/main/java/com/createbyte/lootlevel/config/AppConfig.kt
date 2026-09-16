@@ -5,7 +5,6 @@ object AppConfig {
     const val TAPJOY_OFFERWALL_PLACEMENT = "offerwall"
 
     const val ADMOB_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
-    const val ADMOB_GAME_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
 
     /**
      * The between-activities interstitial. Google's test unit for now, like

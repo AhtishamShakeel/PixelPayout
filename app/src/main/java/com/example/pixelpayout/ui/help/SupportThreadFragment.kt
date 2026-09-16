@@ -127,15 +127,16 @@ class SupportThreadFragment : Fragment() {
             title = R.string.support_close_confirm_title,
             message = R.string.support_close_confirm_message,
             positiveText = R.string.support_close_ticket,
-            negativeText = R.string.cancel
-        ) {
-            requireActivity().lifecycleScope.launch {
-                val result = SupportTicketStore.close(ticketId)
-                if (result !is SupportTicketStore.Result.Ok && isAdded) {
-                    Toast.makeText(requireContext(), R.string.support_error_generic, Toast.LENGTH_LONG).show()
+            negativeText = R.string.cancel,
+            onPositive = {
+                requireActivity().lifecycleScope.launch {
+                    val result = SupportTicketStore.close(ticketId)
+                    if (result !is SupportTicketStore.Result.Ok && isAdded) {
+                        Toast.makeText(requireContext(), R.string.support_error_generic, Toast.LENGTH_LONG).show()
+                    }
                 }
             }
-        }
+        )
     }
 
     private fun setSending(value: Boolean) {

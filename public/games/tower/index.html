@@ -10,8 +10,8 @@
   Tower Building - MIT licensed, Copyright (c) 2018 BMQB, Inc. See ./LICENSE.
 
   Vendored from https://github.com/iamkun/tower_game at the prebuilt
-  dist/main.js, so there is no build step here. Changes from upstream, all in
-  this file - dist/main.js and assets/ are untouched:
+  dist/main.js, so there is no build step here. Changes from upstream are in
+  this file, except the font swap in assets/ and one name in dist/main.js:
 
     * Removed the author's Google Analytics tag, which reported our players
       to a third-party property.
@@ -21,6 +21,13 @@
       server-side, so a replay in the same WebView could never be paid out,
       and reloading before the score report lands would lose the run.
     * Added the PixelPayout bridge and the reportScore call on game over.
+    * Replaced the bundled "wenxue" font with Plus Jakarta Sans ExtraBold
+      (SIL Open Font License 1.1, assets/fonts). The upstream repo gives no
+      source or license for that font. The one reference in dist/main.js
+      (the canvas text default) was renamed to "towerdisplay" to match.
+    * Replaced every upstream sound file with short WebAudio tones generated
+      in the script below, and dropped the background music. The upstream
+      repo doesn't say where its audio came from, so we ship none of it.
 -->
 <style>
   * { margin: 0; padding: 0 }
@@ -104,11 +111,10 @@
   .modal .tip { font-size: .16rem; color: #9b724e }
 
   @font-face {
-    font-family: wenxue;
-    src: url(assets/wenxue.eot);
-    src: url(assets/wenxue.eot), url(assets/wenxue.woff), url(assets/wenxue.ttf), url(assets/wenxue.svg);
+    font-family: towerdisplay;
+    src: url(assets/fonts/PlusJakartaSans-ExtraBold.ttf) format("truetype");
   }
-  .font-wenxue { font-family: wenxue }
+  .font-display { font-family: towerdisplay }
 </style>
 </head>
 <body>
@@ -119,7 +125,7 @@
     <div class="main">
       <img src="./assets/main-loading.gif">
       <div class="progress">
-        <div class="title font-wenxue">0%</div>
+        <div class="title font-display">0%</div>
         <div class="bar"><div class="sub"><div class="percent"></div></div></div>
         <div class="text">Loading...</div>
       </div>
@@ -140,7 +146,7 @@
           <div class="modal-main">
             <div id="over-modal" class="hide js-modal-card">
               <img src="./assets/main-modal-over.png" class="over-img">
-              <div id="score" class="over-score font-wenxue"></div>
+              <div id="score" class="over-score font-display"></div>
               <div class="tip"><p>Saving your score...</p></div>
             </div>
           </div>
@@ -208,7 +214,9 @@
     width: gameWidth,
     height: gameHeight,
     canvasId: 'canvas',
-    soundOn: true,
+    // Off, so the engine loads no audio files. Its playAudio/pauseAudio are
+    // replaced with the synthesised sounds below once the game is created.
+    soundOn: false,
     // Scoring, which the engine applies as:
     //     score += successScore + (perfectScore * consecutive-perfect-streak)
     //
@@ -236,9 +244,65 @@
     }
   }
 
+  // --- sound ---------------------------------------------------------------
+  // Generated with WebAudio, so there are no audio files to license. The
+  // context is created on the first touch (a user gesture), which is what
+  // lets it play in the WebView. There is no background music.
+  var audio = null
+
+  function ensureAudio() {
+    if (audio) return
+    var Ctx = window.AudioContext || window.webkitAudioContext
+    if (Ctx) audio = new Ctx()
+  }
+  document.addEventListener('touchstart', ensureAudio, { passive: true })
+  document.addEventListener('mousedown', ensureAudio)
+
+  // One oscillator sweeping from `from` to `to` Hz, fading out over `dur`.
+  function tone(from, to, dur, type, gain, delay) {
+    if (!audio) return
+    var t0 = audio.currentTime + (delay || 0)
+    var osc = audio.createOscillator()
+    var amp = audio.createGain()
+    osc.type = type
+    osc.frequency.setValueAtTime(from, t0)
+    osc.frequency.exponentialRampToValueAtTime(to, t0 + dur)
+    amp.gain.setValueAtTime(gain, t0)
+    amp.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
+    osc.connect(amp)
+    amp.connect(audio.destination)
+    osc.start(t0)
+    osc.stop(t0 + dur)
+  }
+
+  var sounds = {
+    // A floor lands.
+    'drop': function () { tone(220, 70, 0.14, 'triangle', 0.35) },
+    // A perfectly aligned floor: the thud plus a bright two-note chime.
+    'drop-perfect': function () {
+      tone(220, 70, 0.14, 'triangle', 0.3)
+      tone(880, 880, 0.12, 'sine', 0.12, 0.02)
+      tone(1320, 1320, 0.2, 'sine', 0.12, 0.1)
+    },
+    // A floor tips off the edge.
+    'rotate': function () { tone(420, 110, 0.35, 'sine', 0.15) },
+    // Third miss.
+    'game-over': function () {
+      tone(440, 430, 0.16, 'square', 0.05)
+      tone(349, 340, 0.16, 'square', 0.05, 0.18)
+      tone(262, 180, 0.4, 'square', 0.05, 0.36)
+    }
+  }
+
   // game init with option
   function gameReady() {
     game = TowerGame(option)
+    // The engine calls these on itself by name ("bgm" has no sound, so it's
+    // silent). Replacing them on the instance leaves the engine code as it is.
+    game.playAudio = function (name) {
+      if (sounds[name]) sounds[name]()
+    }
+    game.pauseAudio = function () {}
     game.load(function () {
       game.init()
       setTimeout(function () {

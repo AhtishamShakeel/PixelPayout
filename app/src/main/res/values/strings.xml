@@ -193,6 +193,7 @@
     <string name="legal_terms_title">Terms of Service</string>
     <string name="legal_privacy_title">Privacy Policy</string>
     <string name="legal_delete_title">Delete account</string>
+    <string name="legal_licenses_title">Open-source licenses</string>
     <string name="ok">OK</string>
     <string name="slide_image_description">Onboarding slide image</string>
     <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
@@ -773,6 +774,8 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="delete_account_title">Delete your account?</string>
     <string name="delete_account_message">This permanently removes your Stars, XP, level and progress. It can’t be undone. Redeem any Stars you want to keep first.</string>
     <string name="delete_account_confirm">Delete forever</string>
+    <!-- A confirm button that unlocks after a countdown: "Delete forever (5)". -->
+    <string name="dialog_countdown">%1$s (%2$d)</string>
     <string name="delete_account_learn">What gets deleted</string>
     <string name="delete_account_pending">You have a redemption in progress. Wait for it to be completed or declined, then try again.</string>
     <string name="delete_account_failed">Could not delete your account. Check your connection and try again.</string>

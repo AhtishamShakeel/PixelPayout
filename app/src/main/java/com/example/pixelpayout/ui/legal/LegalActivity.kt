@@ -15,7 +15,8 @@ import com.pixelpayout.R
 import com.pixelpayout.databinding.ActivityLegalBinding
 
 /**
- * Shows the Terms of Service, the Privacy Policy or the account-deletion page.
+ * Shows the Terms of Service, the Privacy Policy, the account-deletion page or
+ * the open-source licenses.
  *
  * The documents are the HTML files in public/legal - the exact files Firebase Hosting
  * serves for Google Play - bundled into the APK as assets by app/build.gradle.
@@ -31,7 +32,8 @@ class LegalActivity : AppCompatActivity() {
     enum class Doc(val file: String, val title: Int) {
         TERMS("terms.html", R.string.legal_terms_title),
         PRIVACY("privacy.html", R.string.legal_privacy_title),
-        DELETE_ACCOUNT("delete-account.html", R.string.legal_delete_title)
+        DELETE_ACCOUNT("delete-account.html", R.string.legal_delete_title),
+        LICENSES("licenses.html", R.string.legal_licenses_title)
     }
 
     private lateinit var binding: ActivityLegalBinding

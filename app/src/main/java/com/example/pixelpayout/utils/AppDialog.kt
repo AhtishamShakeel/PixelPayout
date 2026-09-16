@@ -39,6 +39,15 @@ import com.pixelpayout.R
  *   case - most of these are announcements rather than questions.
  * @param dismissOnPositive false when the action opens something of its own
  *   and wants to close the dialog itself.
+ * @param positiveDelaySeconds keeps the confirm button disabled, counting
+ *   down on its label, for this many seconds - for destructive actions like
+ *   deleting an account, so it can't be confirmed on reflex.
+ *
+ * ON POSITIVE IS THE LAST PARAMETER ON PURPOSE. Kotlin hands a trailing
+ * `{ ... }` to the last function parameter, and it used to be onNegative:
+ * `showAppDialog(...) { deleteAccount() }` ran the action on Cancel and did
+ * nothing on the confirm button. With onPositive last, a trailing lambda
+ * means what it looks like.
  */
 fun Context.showAppDialog(
     title: CharSequence,
@@ -49,8 +58,9 @@ fun Context.showAppDialog(
     negativeText: CharSequence? = null,
     cancelable: Boolean = true,
     dismissOnPositive: Boolean = true,
-    onPositive: (() -> Unit)? = null,
-    onNegative: (() -> Unit)? = null
+    positiveDelaySeconds: Int = 0,
+    onNegative: (() -> Unit)? = null,
+    onPositive: (() -> Unit)? = null
 ): Dialog {
     val view = View.inflate(this, R.layout.dialog_app_message, null)
     val dialog = Dialog(this, R.style.CustomDialogTheme).apply {
@@ -78,11 +88,13 @@ fun Context.showAppDialog(
     body.text = message
 
     val positive = view.findViewById<MaterialButton>(R.id.appDialogPositive)
-    positive.text = positiveText ?: getString(R.string.dialog_ok)
+    val positiveLabel = positiveText ?: getString(R.string.dialog_ok)
+    positive.text = positiveLabel
     positive.setOnClickListener {
         if (dismissOnPositive) dialog.dismiss()
         onPositive?.invoke()
     }
+
 
     val negative = view.findViewById<MaterialButton>(R.id.appDialogNegative)
     negative.isVisible = negativeText != null
@@ -95,6 +107,30 @@ fun Context.showAppDialog(
     }
 
     dialog.show()
+
+    // Started only once the dialog is showing: each tick stops if it has been
+    // dismissed, and a tick run before show() would stop on the first check,
+    // leaving the button disabled for good.
+    if (positiveDelaySeconds > 0) {
+        positive.isEnabled = false
+        positive.alpha = 0.5f
+        var remaining = positiveDelaySeconds
+        val tick = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing) return
+                if (remaining <= 0) {
+                    positive.isEnabled = true
+                    positive.alpha = 1f
+                    positive.text = positiveLabel
+                    return
+                }
+                positive.text = getString(R.string.dialog_countdown, positiveLabel, remaining)
+                remaining--
+                positive.postDelayed(this, 1000)
+            }
+        }
+        tick.run()
+    }
     return dialog
 }
 
@@ -108,8 +144,9 @@ fun Context.showAppDialog(
     @StringRes negativeText: Int? = null,
     cancelable: Boolean = true,
     dismissOnPositive: Boolean = true,
-    onPositive: (() -> Unit)? = null,
-    onNegative: (() -> Unit)? = null
+    positiveDelaySeconds: Int = 0,
+    onNegative: (() -> Unit)? = null,
+    onPositive: (() -> Unit)? = null
 ): Dialog = showAppDialog(
     title = getString(title),
     message = message?.let(::getString),
@@ -119,6 +156,7 @@ fun Context.showAppDialog(
     negativeText = negativeText?.let(::getString),
     cancelable = cancelable,
     dismissOnPositive = dismissOnPositive,
-    onPositive = onPositive,
-    onNegative = onNegative
+    positiveDelaySeconds = positiveDelaySeconds,
+    onNegative = onNegative,
+    onPositive = onPositive
 )

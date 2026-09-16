@@ -252,3 +252,33 @@ th { color: var(--text); font-weight: 600; }
   font-size: 12.5px;
   text-align: center;
 }
+
+/* ---------- licenses ---------- */
+.dim { color: var(--text-faint); font-size: 12.5px; }
+.license {
+  border: 1px solid var(--stroke);
+  border-radius: 12px;
+  margin: 0 0 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+.license summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  color: var(--violet-light);
+  font-weight: 600;
+  font-size: 13.5px;
+  list-style: none;
+}
+.license summary::-webkit-details-marker { display: none; }
+.license summary::after { content: "Show"; float: right; color: var(--text-faint); font-weight: 500; }
+.license[open] summary::after { content: "Hide"; }
+.license pre {
+  margin: 0;
+  padding: 0 14px 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}

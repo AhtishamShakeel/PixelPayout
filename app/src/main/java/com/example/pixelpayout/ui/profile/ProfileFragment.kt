@@ -294,8 +294,10 @@ class ProfileFragment : Fragment() {
             icon = R.drawable.ic_trash,
             accent = R.color.difficulty_hard,
             positiveText = R.string.delete_account_confirm,
-            negativeText = R.string.cancel
-        ) { deleteAccount() }
+            negativeText = R.string.cancel,
+            positiveDelaySeconds = 5,
+            onPositive = { deleteAccount() }
+        )
     }
 
     private fun deleteAccount() {
@@ -353,10 +355,9 @@ class ProfileFragment : Fragment() {
             icon = R.drawable.ic_arrow_up_right,
             accent = R.color.difficulty_hard,
             positiveText = R.string.profile_sign_out,
-            negativeText = R.string.cancel
-        ) {
-            signOutToAuth(requireActivity())
-        }
+            negativeText = R.string.cancel,
+            onPositive = { signOutToAuth(requireActivity()) }
+        )
     }
 
     private fun observeViewModel() {

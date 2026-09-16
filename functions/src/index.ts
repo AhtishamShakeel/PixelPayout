@@ -552,6 +552,13 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
       lastActive: Timestamp.now(),
       quiz_attempts: 0,
       last_reset_time: Timestamp.now(),
+      // Same signal, second perk. A device or email that has held an account
+      // before - including one deleted a second ago - gets no discounted
+      // first redeem either. Without this, delete + sign up again handed out
+      // a fresh discount every time. One account per person and device is
+      // the rule in the Terms; a shared family phone loses the discount, not
+      // the account.
+      firstRedeemUnavailable: hasUsedReferral,
     });
   } catch (error) {
     const latest = await userRef.get();
@@ -565,7 +572,7 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
     throw error;
   }
 
-  console.log("User document created", {userId, hasUsedReferral});
+  console.log("User document created", {userId, repeatDeviceOrEmail: hasUsedReferral});
   return {success: true, created: true, referralCode};
 });
 
@@ -2793,7 +2800,11 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
       username,
       server,
       useFirstRedeem,
-      hasUsedFirstRedeem: userDoc.get("hasUsedFirstRedeem") === true,
+      // An account that was never offered the discount (a repeat device or
+      // email, see completeSignup) is refused like one that spent it - the
+      // app hides the card, and this stops a modified app asking anyway.
+      hasUsedFirstRedeem: userDoc.get("hasUsedFirstRedeem") === true ||
+        userDoc.get("firstRedeemUnavailable") === true,
       // The per-game-account half of the offer rule. See the playerLinks note
       // in economy/redemption.ts for why the account flag alone is not enough.
       firstRedeemUidUsed: linkDoc.get("firstRedeemUsed") === true,

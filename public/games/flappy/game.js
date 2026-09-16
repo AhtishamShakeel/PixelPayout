@@ -66,9 +66,9 @@
     skyGrad.addColorStop(1, '#2a1b47');
 
     pipeGrad = ctx.createLinearGradient(0, 0, PIPE_W, 0);
-    pipeGrad.addColorStop(0, '#12d6a0');
-    pipeGrad.addColorStop(0.5, '#31f2c0');
-    pipeGrad.addColorStop(1, '#0aa47c');
+    pipeGrad.addColorStop(0, '#d42fb6');
+    pipeGrad.addColorStop(0.5, '#ff5ad9');
+    pipeGrad.addColorStop(1, '#a3208c');
 
     birdGrad = ctx.createLinearGradient(-BIRD_R, -BIRD_R, BIRD_R, BIRD_R);
     birdGrad.addColorStop(0, '#ffe29a');
@@ -284,7 +284,7 @@
 
     ctx.fillStyle = '#1b1140';
     ctx.fillRect(0, groundY, W, H - groundY);
-    ctx.fillStyle = 'rgba(49, 242, 192, 0.5)';
+    ctx.fillStyle = 'rgba(255, 90, 217, 0.5)';
     ctx.fillRect(0, groundY, W, H * 0.004);
 
     ctx.fillStyle = 'rgba(255,255,255,0.06)';
@@ -349,7 +349,7 @@
     }
 
     if (state === READY) {
-      drawText('NEON FLAP', H * 0.3, H * 0.062, '#31f2c0');
+      drawText('NEON FLAP', H * 0.3, H * 0.062, '#ff5ad9');
       drawText('Tap to fly', H * 0.37, H * 0.032, 'rgba(255,255,255,0.8)', '500');
       if (best) drawText('Best  ' + best, H * 0.42, H * 0.026, 'rgba(255,255,255,0.45)', '500');
     }
@@ -364,14 +364,14 @@
       ctx.fillStyle = 'rgba(11, 16, 38, 0.92)';
       roundRect(cx, cy, cw, ch, H * 0.02);
       ctx.fill();
-      ctx.strokeStyle = 'rgba(49, 242, 192, 0.5)';
+      ctx.strokeStyle = 'rgba(255, 90, 217, 0.5)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
       drawText('GAME OVER', cy + ch * 0.22, H * 0.042, '#ff6b6b');
       drawText(String(score), cy + ch * 0.52, H * 0.075, '#ffffff');
       drawText(score >= best ? 'NEW BEST' : 'Best  ' + best, cy + ch * 0.78, H * 0.024,
-        score >= best ? '#31f2c0' : 'rgba(255,255,255,0.5)', '600');
+        score >= best ? '#ff5ad9' : 'rgba(255,255,255,0.5)', '600');
     }
 
     if (flashAlpha > 0) {

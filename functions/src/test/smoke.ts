@@ -274,6 +274,8 @@ async function run() {
     await completeSignup({displayName: "Again", androidId});
     assertEq("a new account on a deleted account's device counts as referred",
       (await db.collection("users").doc(again.uid).get()).get("hasUsedReferral"), true);
+    assertEq("re-signing up after deleting gets no first-redeem discount",
+      (await db.collection("users").doc(again.uid).get()).get("firstRedeemUnavailable"), true);
   }
 
   // --- claimReward: quiz, graded server-side ---
@@ -1301,6 +1303,7 @@ async function run() {
     assertEq("starting xp is zero", snap.get("xp"), 0);
     assertEq("starting level is 1", snap.get("level"), 1);
     assertEq("first device use can still claim a referral", snap.get("hasUsedReferral"), false);
+    assertEq("first device use keeps the first-redeem discount", snap.get("firstRedeemUnavailable"), false);
     assertEq("email comes from the auth token", snap.get("email"), user.email);
     assertEq("quiz attempts are initialised", snap.get("quiz_attempts"), 0);
 
@@ -1329,6 +1332,7 @@ async function run() {
 
     const snap = await db.collection("users").doc(second.uid).get();
     assertEq("a repeat device is flagged as having used its referral", snap.get("hasUsedReferral"), true);
+    assertEq("a repeat device gets no first-redeem discount", snap.get("firstRedeemUnavailable"), true);
   }
 
   // --- completeSignup: referral codes are unique ---

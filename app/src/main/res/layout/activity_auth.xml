@@ -5,7 +5,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.example.pixelpayout.ui.auth.Auth">
+    tools:context="com.createbyte.lootlevel.ui.auth.Auth">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -14,7 +14,7 @@
         android:overScrollMode="never"
         android:scrollbars="none"
         android:fillViewport="true"
-        tools:context="com.example.pixelpayout.ui.auth.Auth">
+        tools:context="com.createbyte.lootlevel.ui.auth.Auth">
 
         <LinearLayout
             android:layout_width="match_parent"

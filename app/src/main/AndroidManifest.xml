@@ -27,7 +27,7 @@
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
     <application
-        android:name="com.pixelpayout.PixelPayoutApp"
+        android:name="com.createbyte.lootlevel.LootLevelApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -35,11 +35,11 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.PixelPayout"
+        android:theme="@style/Theme.LootLevel"
         android:configChanges="orientation|keyboardHidden|screenSize"
         tools:targetApi="31">
         <activity
-            android:name="com.example.pixelpayout.ui.auth.Auth"
+            android:name="com.createbyte.lootlevel.ui.auth.Auth"
             android:exported="false" />
 
         <property
@@ -48,7 +48,7 @@
             tools:replace="android:resource" />
 
         <activity
-            android:name="com.example.pixelpayout.ui.onboarding.OnboardingActivity"
+            android:name="com.createbyte.lootlevel.ui.onboarding.OnboardingActivity"
             android:exported="true"
             tools:ignore="MissingClass">
             <intent-filter>
@@ -57,18 +57,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name="com.example.pixelpayout.ui.main.MainActivity" />
+        <activity android:name="com.createbyte.lootlevel.ui.main.MainActivity" />
         <activity
-            android:name="com.example.pixelpayout.ui.legal.LegalActivity"
+            android:name="com.createbyte.lootlevel.ui.legal.LegalActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.PixelPayout" />
+            android:theme="@style/Theme.LootLevel" />
         <activity
-            android:name="com.example.pixelpayout.ui.quiz.QuizActivity"
+            android:name="com.createbyte.lootlevel.ui.quiz.QuizActivity"
             android:screenOrientation="portrait" />
         <activity
-            android:name="com.example.pixelpayout.ui.game.GamePlayActivity"
+            android:name="com.createbyte.lootlevel.ui.game.GamePlayActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.PixelPayout"
+            android:theme="@style/Theme.LootLevel"
             tools:ignore="MissingClass" />
 
         <!--
@@ -80,9 +80,9 @@
             screen.
         -->
         <activity
-            android:name="com.example.pixelpayout.ui.rewards.OfferwallActivity"
+            android:name="com.createbyte.lootlevel.ui.rewards.OfferwallActivity"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.PixelPayout"
+            android:theme="@style/Theme.LootLevel"
             android:windowSoftInputMode="adjustResize"
             tools:ignore="MissingClass" />
 

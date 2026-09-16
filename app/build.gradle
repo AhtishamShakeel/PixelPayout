@@ -9,11 +9,11 @@ plugins {
 }
 
 android {
-    namespace 'com.pixelpayout'
+    namespace 'com.createbyte.lootlevel'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.pixelpayout"
+        applicationId "com.createbyte.lootlevel"
         minSdk 24
         targetSdk 34
         versionCode 1

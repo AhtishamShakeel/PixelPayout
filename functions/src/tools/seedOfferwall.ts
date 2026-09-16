@@ -206,7 +206,7 @@ async function seedAyet(
     "query would not be in their digest and every callback would fail. The",
     "path carries it outside the query entirely.",
     "",
-    "Package name for the dashboard:  com.pixelpayout",
+    "Package name for the dashboard:  com.createbyte.lootlevel",
     "",
     "Then use their Callback Tester to fire a test conversion before",
     "trusting any of this.",

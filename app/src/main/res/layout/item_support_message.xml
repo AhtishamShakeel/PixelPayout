@@ -16,7 +16,7 @@
         android:fontFamily="@font/jakarta_semibold"
         android:textColor="@color/brand_violet_light"
         android:textSize="11sp"
-        tools:text="PixelPayout Support" />
+        tools:text="LootLevel Support" />
 
     <TextView
         android:id="@+id/messageText"

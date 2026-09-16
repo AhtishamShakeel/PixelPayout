@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "PixelPayout"
+rootProject.name = "LootLevel"
 include(":app")

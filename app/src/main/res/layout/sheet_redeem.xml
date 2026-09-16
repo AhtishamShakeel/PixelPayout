@@ -175,7 +175,7 @@
                         android:contentDescription="@null"
                         android:scaleType="centerCrop"
                         android:visibility="gone"
-                        app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.GameArt" />
+                        app:shapeAppearanceOverlay="@style/ShapeAppearance.LootLevel.GameArt" />
 
                 </FrameLayout>
 

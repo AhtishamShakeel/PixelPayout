@@ -20,7 +20,7 @@
   var loadedAt = Date.now();
   var reported = false;
 
-  global.PixelPayout = {
+  global.LootLevel = {
     reportScore: function (score) {
       if (reported) return;
       reported = true;
@@ -32,7 +32,7 @@
         if (global.AndroidInterface && global.AndroidInterface.onGameComplete) {
           global.AndroidInterface.onGameComplete(value);
         } else {
-          console.log('[PixelPayout] no host bridge; score would be', value);
+          console.log('[LootLevel] no host bridge; score would be', value);
         }
       }, wait);
     }

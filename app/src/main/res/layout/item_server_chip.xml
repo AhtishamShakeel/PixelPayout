@@ -3,7 +3,7 @@
 
     Inflated rather than constructed in code: Chip's three-argument
     constructor takes a defStyleAttr, not a style resource, so
-    `Chip(context, null, R.style.Widget_PixelPayout_ServerChip)` silently
+    `Chip(context, null, R.style.Widget_LootLevel_ServerChip)` silently
     drops the styling and renders a stock Material chip on a dark sheet.
     Inflating from a layout is the supported way to give a Chip a style.
 
@@ -14,7 +14,7 @@
 -->
 <com.google.android.material.chip.Chip xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    style="@style/Widget.PixelPayout.ServerChip"
+    style="@style/Widget.LootLevel.ServerChip"
     android:layout_width="wrap_content"
     android:layout_height="wrap_content"
     android:checkable="true"

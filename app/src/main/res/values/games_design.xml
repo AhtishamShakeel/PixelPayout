@@ -34,7 +34,7 @@
   <string
     name="games_action_locked">Locked</string>
     <string name="games_plays_left_short">%1$d of %2$d plays left</string>
-    <style name="TextAppearance.PixelPayout.GamesTab" parent="TextAppearance.PixelPayout.Tab">
+    <style name="TextAppearance.LootLevel.GamesTab" parent="TextAppearance.LootLevel.Tab">
         <item name="android:fontFamily">@font/jakarta_semibold</item>
         <item name="android:textSize">12sp</item>
         <item name="android:letterSpacing">0</item>

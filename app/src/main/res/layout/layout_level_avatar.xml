@@ -59,7 +59,7 @@
         android:padding="4dp"
         android:scaleType="centerInside"
         android:src="@drawable/ic_user_icon"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.Circle" />
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.LootLevel.Circle" />
 
     <TextView
         android:id="@+id/levelBadge"

@@ -13,7 +13,7 @@
         SECONDARY is Stars gold. colorOnSecondary is on_stars rather than
         white, because white on #FFD24A is about 1.7:1.
     -->
-    <style name="Theme.PixelPayout" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.LootLevel" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/brand_violet</item>
         <item name="colorPrimaryVariant">@color/brand_violet_deep</item>
         <item name="colorOnPrimary">@color/white</item>
@@ -63,18 +63,18 @@
     <!-- Game artwork in the Wallet grid. 6dp to match bg_code_tile, which is
          the well the art covers - a different radius would show the dashed
          placeholder peeking out at the corners. -->
-    <style name="ShapeAppearance.PixelPayout.GameArt" parent="">
+    <style name="ShapeAppearance.LootLevel.GameArt" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">6dp</item>
     </style>
     <!-- The redeem sheet. Transparent so bg_sheet_surface draws the rounded
          top itself; the default sheet background would square it off. -->
-    <style name="Theme.PixelPayout.BottomSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
-        <item name="bottomSheetStyle">@style/Widget.PixelPayout.BottomSheet</item>
+    <style name="Theme.LootLevel.BottomSheet" parent="Theme.MaterialComponents.DayNight.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/Widget.LootLevel.BottomSheet</item>
         <item name="android:navigationBarColor">@color/surface_sheet</item>
     </style>
 
-    <style name="Widget.PixelPayout.BottomSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
+    <style name="Widget.LootLevel.BottomSheet" parent="Widget.MaterialComponents.BottomSheet.Modal">
         <item name="android:background">@android:color/transparent</item>
         <item name="backgroundTint">@android:color/transparent</item>
     </style>
@@ -88,7 +88,7 @@
         either way - which is indistinguishable from a chip that does not
         respond at all.
     -->
-    <style name="Widget.PixelPayout.ServerChip" parent="Widget.MaterialComponents.Chip.Choice">
+    <style name="Widget.LootLevel.ServerChip" parent="Widget.MaterialComponents.Chip.Choice">
         <item name="android:textColor">@color/server_chip_text</item>
         <item name="android:fontFamily">@font/jakarta_medium</item>
         <item name="android:textSize">12.5sp</item>
@@ -106,12 +106,12 @@
     </style>
 
     <!-- Fully round shape for ShapeableImageView avatars. -->
-    <style name="ShapeAppearance.PixelPayout.Circle" parent="">
+    <style name="ShapeAppearance.LootLevel.Circle" parent="">
         <item name="cornerFamily">rounded</item>
         <item name="cornerSize">50%</item>
     </style>
 
-    <style name="TextAppearance.PixelPayout.Tab" parent="TextAppearance.MaterialComponents.Button">
+    <style name="TextAppearance.LootLevel.Tab" parent="TextAppearance.MaterialComponents.Button">
         <item name="android:fontFamily">@font/lexend_bold</item>
         <item name="android:textSize">14sp</item>
         <item name="android:textAllCaps">false</item>

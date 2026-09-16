@@ -1,7 +1,7 @@
 /**
  * Neon Flap - a one-tap endless flyer.
  *
- * Written from scratch for PixelPayout rather than adapted from one of the
+ * Written from scratch for LootLevel rather than adapted from one of the
  * open-source Flappy Bird clones: every one of those we looked at ships the
  * original game's sprite and audio rips, which we can't distribute. Nothing
  * here is loaded from disk - the bird, pipes, skyline and ground are drawn
@@ -152,7 +152,7 @@
     best = Math.max(best, score);
     try { localStorage.setItem('neonflap.best', String(best)); } catch (e) { /* private mode */ }
 
-    window.PixelPayout.reportScore(score);
+    window.LootLevel.reportScore(score);
   }
 
   // --- update --------------------------------------------------------------

@@ -20,7 +20,7 @@
     * Removed the "Try Again" reload button. A game session is single-use
       server-side, so a replay in the same WebView could never be paid out,
       and reloading before the score report lands would lose the run.
-    * Added the PixelPayout bridge and the reportScore call on game over.
+    * Added the LootLevel bridge and the reportScore call on game over.
     * Replaced the bundled "wenxue" font with Plus Jakarta Sans ExtraBold
       (SIL Open Font License 1.1, assets/fonts). The upstream repo gives no
       source or license for that font. The one reference in dist/main.js
@@ -239,7 +239,7 @@
       $('#score').text(score)
       if (f >= 3) {
         overShowOver()
-        window.PixelPayout.reportScore(score || 0)
+        window.LootLevel.reportScore(score || 0)
       }
     }
   }

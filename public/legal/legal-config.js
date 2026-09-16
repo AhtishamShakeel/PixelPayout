@@ -11,7 +11,7 @@
  * missed. Replace every one before publishing on Google Play.
  */
 window.LEGAL = {
-  // Who runs PixelPayout. An individual's full legal name, or a company's
+  // Who runs LootLevel. An individual's full legal name, or a company's
   // registered name.
   operatorName: "[OPERATOR NAME]",
 
@@ -51,7 +51,7 @@ window.LEGAL = {
     });
     // Inside the app the native screen already shows the title and a close
     // button, so the page drops its own header.
-    if (/PixelPayoutApp/.test(navigator.userAgent)) {
+    if (/LootLevelApp/.test(navigator.userAgent)) {
       document.documentElement.classList.add("inapp");
     }
   }

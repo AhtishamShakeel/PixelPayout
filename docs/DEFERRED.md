@@ -42,11 +42,11 @@ Every ad unit is currently Google's public **test** ID (`ca-app-pub-394025609994
 
 | Where | Unit |
 |-------|------|
-| [`AppConfig.kt:7`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt#L7) | Rewarded |
-| [`AppConfig.kt:8`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt#L8) | Game banner |
-| [`AppConfig.kt:19`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt#L19) | Interstitial |
+| [`AppConfig.kt:7`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L7) | Rewarded |
+| [`AppConfig.kt:8`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L8) | Game banner |
+| [`AppConfig.kt:19`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt#L19) | Interstitial |
 | [`strings.xml:215`](../app/src/main/res/values/strings.xml#L215) | `admob_app_id` |
-| [`AppConfig.kt`](../app/src/main/java/com/example/pixelpayout/config/AppConfig.kt) | Unity Ads: `UNITY_GAME_ID` (blank = Unity off) and `UNITY_TEST_MODE = true` |
+| [`AppConfig.kt`](../app/src/main/java/com/createbyte/lootlevel/config/AppConfig.kt) | Unity Ads: `UNITY_GAME_ID` (blank = Unity off) and `UNITY_TEST_MODE = true` |
 
 **Why deferred:** deliberate while testing — real IDs on a test device risk the
 AdMob account, and test ads always fill, which is what makes ad-gated flows
@@ -65,7 +65,7 @@ live inventory. Verify with a release build that ads still fill before shipping.
 
 **Deferred:** 2026-09-03. Correctness is fine; this is purely how it scales.
 
-[`UserRepository.kt:1241`](../app/src/main/java/com/example/pixelpayout/data/repository/UserRepository.kt#L1241)
+[`UserRepository.kt:1241`](../app/src/main/java/com/createbyte/lootlevel/data/repository/UserRepository.kt#L1241)
 
 ```kotlin
 firestore.collection(COLLECTION_REDEMPTIONS)
@@ -84,7 +84,7 @@ forever. The 50k/day free tier covers roughly 400 such users. Fine now, not
 fine later.
 
 For comparison, `listenToPayoutFeed` at
-[`UserRepository.kt:1453`](../app/src/main/java/com/example/pixelpayout/data/repository/UserRepository.kt#L1453)
+[`UserRepository.kt:1453`](../app/src/main/java/com/createbyte/lootlevel/data/repository/UserRepository.kt#L1453)
 is already capped at 3 — the same thinking, already applied once.
 
 **Doing it — and why it is not a one-liner.** The obvious
@@ -152,7 +152,7 @@ checks the daily cap.
 **Deferred:** 2026-09-03 — "ship the popup first". The share button on the paid
 takeover currently fires a plain `ACTION_SEND` and pays nothing.
 
-[`RedemptionNotifier.kt`](../app/src/main/java/com/example/pixelpayout/utils/RedemptionNotifier.kt) → `shareWin()`
+[`RedemptionNotifier.kt`](../app/src/main/java/com/createbyte/lootlevel/utils/RedemptionNotifier.kt) → `shareWin()`
 
 **The design, if built.** Android gives no callback proving a message was
 actually sent, so the tap is unverifiable by construction and must never be
@@ -202,7 +202,7 @@ that can fund real payouts, so this is measurement that pays for itself the
 week a second network goes live.
 
 **Doing it:** two events. `offerwall_opened` with the wall id, fired in
-[`RewardsFragment.open()`](../app/src/main/java/com/example/pixelpayout/ui/rewards/RewardsFragment.kt);
+[`RewardsFragment.open()`](../app/src/main/java/com/createbyte/lootlevel/ui/rewards/RewardsFragment.kt);
 and a server-side count of credited postbacks per network, which the daily
 metrics rollup should pick up from `offerwallTransactions` rather than needing
 its own write path.

@@ -29,8 +29,8 @@
 # Keep Retrofit
 -keepattributes Signature
 -keepattributes *Annotation*
--keep class com.pixelpayout.data.model.** { *; }
--keep class com.pixelpayout.data.api.** { *; }
+-keep class com.createbyte.lootlevel.data.model.** { *; }
+-keep class com.createbyte.lootlevel.data.api.** { *; }
 
 # Keep Tapjoy
 -keep class com.tapjoy.** { *; }

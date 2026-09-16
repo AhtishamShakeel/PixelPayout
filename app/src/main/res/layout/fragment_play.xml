@@ -19,7 +19,7 @@
       <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="66dp">
-        <com.example.pixelpayout.ui.play.ReferenceGameArtView
+        <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
           android:layout_width="118dp"
           android:layout_height="64dp"
           android:layout_gravity="end|top"
@@ -80,7 +80,7 @@
           android:layout_weight="1"
           android:orientation="vertical"
           android:gravity="center">
-          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+          <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
             android:layout_width="40dp"
             android:layout_height="36dp"
             android:tag="step_play"
@@ -106,7 +106,7 @@
           android:layout_weight="1"
           android:orientation="vertical"
           android:gravity="center">
-          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+          <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
             android:layout_width="40dp"
             android:layout_height="36dp"
             android:tag="step_xp"
@@ -132,7 +132,7 @@
           android:layout_weight="1"
           android:orientation="vertical"
           android:gravity="center">
-          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+          <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
             android:layout_width="40dp"
             android:layout_height="36dp"
             android:tag="step_level"
@@ -158,7 +158,7 @@
           android:layout_weight="1"
           android:orientation="vertical"
           android:gravity="center">
-          <com.example.pixelpayout.ui.play.ReferenceGameArtView
+          <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
             android:layout_width="40dp"
             android:layout_height="36dp"
             android:tag="step_star"
@@ -190,7 +190,7 @@
       app:tabPaddingBottom="0dp"
       app:tabRippleColor="@color/primary_transparent"
       app:tabSelectedTextColor="@color/white"
-      app:tabTextAppearance="@style/TextAppearance.PixelPayout.GamesTab"
+      app:tabTextAppearance="@style/TextAppearance.LootLevel.GamesTab"
       app:tabTextColor="@color/games_muted" />
   </com.google.android.material.appbar.AppBarLayout>
   <FrameLayout

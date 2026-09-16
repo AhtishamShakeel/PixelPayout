@@ -37,7 +37,7 @@
         android:contentDescription="@null"
         android:scaleType="centerCrop"
         android:visibility="gone"
-        app:shapeAppearanceOverlay="@style/ShapeAppearance.PixelPayout.GameArt" />
+        app:shapeAppearanceOverlay="@style/ShapeAppearance.LootLevel.GameArt" />
     <View
         android:layout_width="0dp"
         android:layout_height="0dp"

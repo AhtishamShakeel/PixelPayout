@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PixelPayout</string>
+    <string name="app_name">LootLevel</string>
     <string name="email">Email</string>
     <string name="password">Password</string>
     <string name="login">Login</string>
@@ -183,7 +183,7 @@
     <string name="error_already_used_referral">You have already used a referral code</string>
     <string name="error_referral_window_closed">Codes can only be entered before level 10</string>
     <string name="error_invalid_referral">Invalid referral code</string>
-    <string name="slide_1_title">Welcome to PixelPayout</string>
+    <string name="slide_1_title">Welcome to LootLevel</string>
     <string name="slide_1_description">Earn rewards by playing games and completing quizzes</string>
     <string name="slide_2_title">Daily Rewards</string>
     <string name="slide_2_description">Complete daily challenges to earn bonus points</string>
@@ -565,8 +565,8 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="referral_copy">Copy code</string>
     <string name="referral_share">Share code</string>
     <string name="referral_copied">Code copied</string>
-    <string name="referral_share_subject">Join me on PixelPayout</string>
-    <string name="referral_share_text">Use my code %1$s when you join PixelPayout.</string>
+    <string name="referral_share_subject">Join me on LootLevel</string>
+    <string name="referral_share_text">Use my code %1$s when you join LootLevel.</string>
     <string name="referral_already_claimed">Referral code already applied.</string>
     <string name="referral_window_closed">Referral codes can only be entered before level 10. Your own code still works for the friends you invite.</string>
     <string name="profile_meta">Level %1$d · %2$s stars</string>
@@ -783,7 +783,7 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <!-- The confirm dialog now has a title of its own, so the body says what
          the consequence is rather than repeating the question. -->
     <string name="profile_sign_out_confirm">Your stars stay on your account. You will need to sign in again to reach them.</string>
-    <string name="profile_version">PixelPayout v%1$s</string>
+    <string name="profile_version">LootLevel v%1$s</string>
 
     <!-- Reward paid / declined popups. -->
     <string name="redemption_paid_eyebrow">PAYOUT APPROVED</string>
@@ -793,8 +793,8 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="redemption_paid_approved_at">Approved</string>
     <string name="redemption_paid_note_label">NOTE FROM US</string>
     <string name="redemption_paid_share">Share your win</string>
-    <string name="redemption_paid_share_subject">I just got paid on PixelPayout</string>
-    <string name="redemption_paid_share_body">I just cashed out %1$s on PixelPayout. Play games, earn stars, get paid.</string>
+    <string name="redemption_paid_share_subject">I just got paid on LootLevel</string>
+    <string name="redemption_paid_share_body">I just cashed out %1$s on LootLevel. Play games, earn stars, get paid.</string>
     <string name="redemption_paid_close">Close</string>
     <string name="redemption_declined_returned">returned to your balance</string>
     <string name="redemption_declined_why">WHY</string>

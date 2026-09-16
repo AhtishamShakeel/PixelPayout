@@ -1,8 +1,8 @@
-PixelPayout — Claude Code Project Instructions
+LootLevel — Claude Code Project Instructions
 
 Project Status
 
-PixelPayout is currently in ACTIVE DEVELOPMENT and has NOT launched publicly.
+LootLevel is currently in ACTIVE DEVELOPMENT and has NOT launched publicly.
 
 There are currently no real production users.
 
@@ -103,7 +103,7 @@ Security Rules and Cloud Functions should remain secure even during development.
 
 Security
 
-PixelPayout involves rewards with real-world value, so assume users will eventually attempt to exploit the application.
+LootLevel involves rewards with real-world value, so assume users will eventually attempt to exploit the application.
 
 Sensitive reward/economy logic should be server-authoritative whenever practical.
 
@@ -124,7 +124,7 @@ Do not weaken security merely to simplify development.
 
 Cost Awareness
 
-PixelPayout uses Firebase on the Blaze plan.
+LootLevel uses Firebase on the Blaze plan.
 
 When designing features, consider:
 

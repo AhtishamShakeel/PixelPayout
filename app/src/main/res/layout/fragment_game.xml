@@ -147,7 +147,7 @@
       android:clipToOutline="true"
       android:clickable="true"
       android:focusable="true">
-      <com.example.pixelpayout.ui.play.ReferenceGameArtView
+      <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintWidth_percent="0.60"
@@ -238,7 +238,7 @@
       android:clipToOutline="true"
       android:clickable="true"
       android:focusable="true">
-      <com.example.pixelpayout.ui.play.ReferenceGameArtView
+      <com.createbyte.lootlevel.ui.play.ReferenceGameArtView
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintWidth_percent="0.60"

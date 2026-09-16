@@ -769,7 +769,7 @@
             android:gravity="center"
             android:textColor="@color/text_wisp"
             android:textSize="10.5sp"
-            tools:text="PixelPayout v1.0" />
+            tools:text="LootLevel v1.0" />
 
     </LinearLayout>
 

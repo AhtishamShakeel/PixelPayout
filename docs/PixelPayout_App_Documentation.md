@@ -1,4 +1,4 @@
-# PixelPayout App Documentation
+# LootLevel App Documentation
 
 > **STALE — do not trust this document without checking the code.**
 >
@@ -12,19 +12,19 @@
 > - Economy values — `functions/src/economy/rewardConfig.ts`
 > - Offerwalls — [OFFERWALL.md](OFFERWALL.md)
 > - Deferred work — [DEFERRED.md](DEFERRED.md)
-> - Strategy — [PixelPayout-Growth-Review.html](PixelPayout-Growth-Review.html),
->   [PixelPayout-Build-Answers.html](PixelPayout-Build-Answers.html)
+> - Strategy — [LootLevel-Growth-Review.html](LootLevel-Growth-Review.html),
+>   [LootLevel-Build-Answers.html](LootLevel-Build-Answers.html)
 >
 > Sections 1-12 are broadly still true about navigation, auth and caching.
 > Sections 13, 19 and 20 are known to be wrong.
 
 Last reviewed from code: 2026-06-25
 
-This document describes the PixelPayout Android app based on the current codebase. It covers the visible product behavior, data flow, Firebase usage, points, referrals, quizzes, games, rewards, caching, and known implementation notes.
+This document describes the LootLevel Android app based on the current codebase. It covers the visible product behavior, data flow, Firebase usage, points, referrals, quizzes, games, rewards, caching, and known implementation notes.
 
 ## 1. App Summary
 
-PixelPayout is an Android rewards app where users can:
+LootLevel is an Android rewards app where users can:
 
 - Create an account or log in.
 - Earn points/stars from quizzes.
@@ -50,25 +50,25 @@ The app uses:
 Application id:
 
 ```text
-com.pixelpayout
+com.createbyte.lootlevel
 ```
 
 Android namespace:
 
 ```text
-com.pixelpayout
+com.createbyte.lootlevel
 ```
 
 Main application class:
 
 ```text
-com.pixelpayout.PixelPayoutApp
+com.createbyte.lootlevel.LootLevelApp
 ```
 
 Startup behavior:
 
-1. Android launches `PixelPayoutApp`.
-2. `PixelPayoutApp.onCreate()` initializes Firebase.
+1. Android launches `LootLevelApp`.
+2. `LootLevelApp.onCreate()` initializes Firebase.
 3. It initializes Mobile Ads SDK.
 4. It forces night mode with `AppCompatDelegate.MODE_NIGHT_YES`.
 5. Launcher activity is `OnboardingActivity`.
@@ -139,7 +139,7 @@ On startup:
 
 Onboarding slides:
 
-- Welcome to PixelPayout
+- Welcome to LootLevel
 - Daily Rewards
 - Cash Out
 
@@ -1282,7 +1282,7 @@ Recommended future:
 
 Startup:
 
-- `app/src/main/java/com/pixelpayout/PixelPayoutApp.kt`
+- `app/src/main/java/com/createbyte/lootlevel/LootLevelApp.kt`
 - `app/src/main/AndroidManifest.xml`
 
 Auth:

@@ -6,7 +6,7 @@
 
     <fragment
         android:id="@+id/navigation_home"
-        android:name="com.example.pixelpayout.ui.home.HomeFragment"
+        android:name="com.createbyte.lootlevel.ui.home.HomeFragment"
         android:label="Home">
         <action
             android:id="@+id/action_home_to_details"
@@ -19,7 +19,7 @@
     -->
     <fragment
         android:id="@+id/navigation_play"
-        android:name="com.example.pixelpayout.ui.play.PlayFragment"
+        android:name="com.createbyte.lootlevel.ui.play.PlayFragment"
         android:label="Play">
         <argument
             android:name="startTab"
@@ -29,7 +29,7 @@
 
     <fragment
         android:id="@+id/navigation_rewards"
-        android:name="com.example.pixelpayout.ui.rewards.RewardsFragment"
+        android:name="com.createbyte.lootlevel.ui.rewards.RewardsFragment"
         android:label="Rewards" />
 
     <!--
@@ -38,52 +38,52 @@
     -->
     <fragment
         android:id="@+id/levelRewardsFragment"
-        android:name="com.example.pixelpayout.ui.rewards.LevelRewardsFragment"
+        android:name="com.createbyte.lootlevel.ui.rewards.LevelRewardsFragment"
         android:label="Level rewards" />
 
     <fragment
         android:id="@+id/leaderboardFragment"
-        android:name="com.example.pixelpayout.ui.leaderboard.LeaderboardFragment"
+        android:name="com.createbyte.lootlevel.ui.leaderboard.LeaderboardFragment"
         android:label="Leaderboard" />
 
     <fragment
         android:id="@+id/navigation_profile"
-        android:name="com.example.pixelpayout.ui.profile.ProfileFragment"
+        android:name="com.createbyte.lootlevel.ui.profile.ProfileFragment"
         android:label="Profile" />
 
     <fragment
         android:id="@+id/helpFragment"
-        android:name="com.example.pixelpayout.ui.help.HelpFragment"
+        android:name="com.createbyte.lootlevel.ui.help.HelpFragment"
         android:label="Help and support" />
 
     <fragment
         android:id="@+id/supportTicketsFragment"
-        android:name="com.example.pixelpayout.ui.help.SupportTicketsFragment"
+        android:name="com.createbyte.lootlevel.ui.help.SupportTicketsFragment"
         android:label="My tickets" />
 
     <fragment
         android:id="@+id/supportNewTicketFragment"
-        android:name="com.example.pixelpayout.ui.help.SupportNewTicketFragment"
+        android:name="com.createbyte.lootlevel.ui.help.SupportNewTicketFragment"
         android:label="Contact support" />
 
     <fragment
         android:id="@+id/supportThreadFragment"
-        android:name="com.example.pixelpayout.ui.help.SupportThreadFragment"
+        android:name="com.createbyte.lootlevel.ui.help.SupportThreadFragment"
         android:label="Support ticket" />
 
     <fragment
         android:id="@+id/referralsFragment"
-        android:name="com.example.pixelpayout.ui.profile.ReferralsFragment"
+        android:name="com.createbyte.lootlevel.ui.profile.ReferralsFragment"
         android:label="Referrals" />
 
     <fragment
         android:id="@+id/navigation_redemption"
-        android:name="com.example.pixelpayout.ui.redemption.RedemptionFragment"
+        android:name="com.createbyte.lootlevel.ui.redemption.RedemptionFragment"
         android:label="Cashout" />
 
     <fragment
         android:id="@+id/detailsFragment"
-        android:name="com.example.pixelpayout.ui.details.DetailsFragment"
+        android:name="com.createbyte.lootlevel.ui.details.DetailsFragment"
         android:label="Details">
         <argument
             android:name="type"

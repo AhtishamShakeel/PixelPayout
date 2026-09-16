@@ -48,7 +48,7 @@
     <string name="support_limit_note">You’ve sent 2 messages. Please wait for support to reply before sending more.</string>
     <string name="support_waiting_note">Waiting for support · we usually reply within 2 business days</string>
     <string name="support_you">You</string>
-    <string name="support_agent">PixelPayout Support</string>
+    <string name="support_agent">LootLevel Support</string>
     <string name="support_status_open">Waiting for support</string>
     <string name="support_status_answered">Support replied</string>
     <string name="support_status_resolved">Closed</string>
@@ -81,7 +81,7 @@
     <string name="faq_declined_q">Why was my order declined?</string>
     <string name="faq_declined_a">Usually because the player ID or server couldn’t be found, or the order failed our fraud checks. If the details were wrong, your Stars are returned to your balance. Orders declined for cheating don’t get Stars back.</string>
     <string name="faq_first_q">What is the first-redeem discount?</string>
-    <string name="faq_first_a">Your first pack for a game account can cost fewer Stars. It can be used once per game account, even across different PixelPayout accounts.</string>
+    <string name="faq_first_a">Your first pack for a game account can cost fewer Stars. It can be used once per game account, even across different LootLevel accounts.</string>
 
     <!-- Levels & tournaments -->
     <string name="faq_level_q">How do level rewards work?</string>

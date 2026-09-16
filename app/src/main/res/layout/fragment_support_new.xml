@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Contact support: category, optional order, message. -->
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark"
+    android:clipToPadding="false"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="17dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="17dp"
+        android:paddingBottom="28dp">
+
+        <include
+            android:id="@+id/header"
+            layout="@layout/view_support_header" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:fontFamily="@font/jakarta_semibold"
+            android:letterSpacing="0.14"
+            android:text="@string/support_category_label"
+            android:textAllCaps="true"
+            android:textColor="@color/brand_violet_light"
+            android:textSize="11sp" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/supportCategories"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:chipSpacingHorizontal="8dp"
+            app:chipSpacingVertical="2dp"
+            app:selectionRequired="true"
+            app:singleSelection="true" />
+
+        <LinearLayout
+            android:id="@+id/supportOrderGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:letterSpacing="0.14"
+                android:text="@string/support_order_label"
+                android:textAllCaps="true"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="11sp" />
+
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/supportOrders"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:chipSpacingHorizontal="8dp"
+                app:chipSpacingVertical="2dp"
+                app:singleSelection="true" />
+
+            <TextView
+                android:id="@+id/supportOrdersLoading"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:text="@string/support_order_loading"
+                android:textColor="@color/text_ghost"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:fontFamily="@font/jakarta_semibold"
+            android:letterSpacing="0.14"
+            android:text="@string/support_message_label"
+            android:textAllCaps="true"
+            android:textColor="@color/brand_violet_light"
+            android:textSize="11sp" />
+
+        <EditText
+            android:id="@+id/supportMessage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_reply_input"
+            android:fontFamily="@font/jakarta_medium"
+            android:gravity="top|start"
+            android:hint="@string/support_message_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textCapSentences"
+            android:lineSpacingMultiplier="1.3"
+            android:maxLength="1000"
+            android:minLines="6"
+            android:padding="14dp"
+            android:textColor="@color/text_strong"
+            android:textColorHint="@color/text_ghost"
+            android:textSize="14sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/supportError"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/jakarta_medium"
+                android:textColor="@color/row_danger"
+                android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/supportCounter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/mono_medium"
+                android:textColor="@color/text_ghost"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:minHeight="18dp" />
+
+        <LinearLayout
+            android:id="@+id/supportSubmit"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_referral_share"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_send"
+                app:tint="@color/white" />
+
+            <TextView
+                android:id="@+id/supportSubmitLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="9dp"
+                android:fontFamily="@font/jakarta_bold"
+                android:text="@string/support_submit"
+                android:textColor="@color/white"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:fontFamily="@font/jakarta_medium"
+            android:gravity="center"
+            android:text="@string/support_one_ticket_note"
+            android:textColor="@color/text_ghost"
+            android:textSize="11.5sp" />
+
+    </LinearLayout>
+
+</androidx.core.widget.NestedScrollView>

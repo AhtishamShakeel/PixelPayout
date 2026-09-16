@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One message bubble. Alignment and colour are set per sender in code. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/messageRow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/messageSender"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="4dp"
+        android:fontFamily="@font/jakarta_semibold"
+        android:textColor="@color/brand_violet_light"
+        android:textSize="11sp"
+        tools:text="PixelPayout Support" />
+
+    <TextView
+        android:id="@+id/messageText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_bubble_support"
+        android:fontFamily="@font/jakarta_medium"
+        android:lineSpacingMultiplier="1.3"
+        android:maxWidth="290dp"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="10dp"
+        android:textColor="@color/text_strong"
+        android:textIsSelectable="true"
+        android:textSize="14sp"
+        tools:text="We have resent your UC. Please check your game account." />
+
+    <TextView
+        android:id="@+id/messageTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:fontFamily="@font/jakarta_medium"
+        android:textColor="@color/text_ghost"
+        android:textSize="10.5sp"
+        tools:text="12 Sep, 14:02" />
+
+</LinearLayout>

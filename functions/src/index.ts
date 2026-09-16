@@ -18,6 +18,26 @@ import {
 import {buildAward, buildMilestoneEvent} from "./economy/awardReward";
 import {createHash} from "crypto";
 import {
+  DELETED_ACCOUNTS_COLLECTION,
+  emailFingerprint,
+  purgeAfterMillis,
+  resolveDeletion,
+} from "./economy/accountDeletion";
+import {
+  ADMIN_MESSAGE_MAX,
+  FIELD_USER_MESSAGES_SINCE_REPLY,
+  SUPPORT_MESSAGES_SUBCOLLECTION,
+  SUPPORT_TICKETS_COLLECTION,
+  SupportRefusal,
+  TicketStatus,
+  cleanMessage,
+  isSupportCategory,
+  messagesSentToday,
+  resolveNewTicket,
+  resolveUserReply,
+  subjectFor,
+} from "./economy/supportTickets";
+import {
   buildSignature,
   offerwallTransactionId,
   resolveNetwork,
@@ -468,14 +488,27 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
   // Has this device held an account before? Checked here because the client
   // could simply not ask. Requires reading across users, which only the Admin
   // SDK can do - another reason this belongs on the server.
+  //
+  // A DELETED account counts too. Otherwise deleting and signing up again
+  // would reopen the referral window - the exact farming the tombstone in
+  // deletedAccounts is kept for (see economy/accountDeletion.ts).
   let hasUsedReferral = false;
   if (androidId) {
-    const priorAccounts = await firestore
-      .collection(USERS_COLLECTION)
-      .where("androidId", "==", androidId)
-      .limit(1)
-      .get();
-    hasUsedReferral = !priorAccounts.empty;
+    const [priorAccounts, priorDeleted] = await Promise.all([
+      firestore.collection(USERS_COLLECTION)
+        .where("androidId", "==", androidId).limit(1).get(),
+      firestore.collection(DELETED_ACCOUNTS_COLLECTION)
+        .where("androidId", "==", androidId).limit(1).get(),
+    ]);
+    hasUsedReferral = !priorAccounts.empty || !priorDeleted.empty;
+  }
+  if (!hasUsedReferral) {
+    const fingerprint = emailFingerprint(email);
+    if (fingerprint) {
+      const deletedEmail = await firestore.collection(DELETED_ACCOUNTS_COLLECTION)
+        .where("emailHash", "==", fingerprint).limit(1).get();
+      hasUsedReferral = !deletedEmail.empty;
+    }
   }
 
   // Referral codes were generated client-side with no uniqueness check, so two
@@ -3221,6 +3254,494 @@ export const resolveRedemption = functions.https.onCall(async (request: Callable
   console.log("Redemption resolved", {redemptionId, status, ...result});
   return {success: true, status, ...result};
 });
+
+// --- Support tickets ----------------------------------------------------------
+//
+// The rules live in economy/supportTickets.ts. Clients read their own tickets
+// through firestore.rules and write only through these callables.
+
+/** On the user document: the ticket still open or answered, if any. */
+const FIELD_ACTIVE_SUPPORT_TICKET = "activeSupportTicketId";
+/** On the user document: {dayUtc, count} of support messages sent today. */
+const FIELD_SUPPORT_MESSAGES_DAILY = "supportMessagesDaily";
+
+function supportRefusal(reason: SupportRefusal): functions.https.HttpsError {
+  switch (reason) {
+  case "not_owner":
+    return new functions.https.HttpsError("not-found", "Ticket not found");
+  case "daily_limit":
+    return new functions.https.HttpsError("resource-exhausted", reason);
+  default:
+    return new functions.https.HttpsError("failed-precondition", reason);
+  }
+}
+
+function requireCleanMessage(raw: unknown, max?: number): string {
+  const cleaned = cleanMessage(raw, max);
+  if (!cleaned.ok) {
+    throw new functions.https.HttpsError("invalid-argument", cleaned.reason);
+  }
+  return cleaned.text;
+}
+
+function requireAdmin(request: CallableRequest): void {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  if (request.auth.token.admin !== true) {
+    throw new functions.https.HttpsError("permission-denied", "Admin only");
+  }
+}
+
+/**
+ * Opens a ticket with its first message.
+ *
+ * Refused while the user already has an active ticket (one conversation at a
+ * time) or has hit the daily message cap. A linked order must be the caller's
+ * own - its id is checked, never trusted.
+ */
+export const createSupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  const userId = request.auth.uid;
+  const category = request.data?.category;
+  if (!isSupportCategory(category)) {
+    throw new functions.https.HttpsError("invalid-argument", "Unknown category");
+  }
+  const text = requireCleanMessage(request.data?.message);
+  const orderId = String(request.data?.orderId || "").trim();
+  const appVersion = String(request.data?.appVersion || "").slice(0, 20);
+
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+  const ticketRef = firestore.collection(SUPPORT_TICKETS_COLLECTION).doc();
+
+  const result = await firestore.runTransaction(async (transaction) => {
+    const userDoc = await transaction.get(userRef);
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError("not-found", "User document not found");
+    }
+
+    // The pointer can outlive its ticket (resolved by an admin before this
+    // field existed, or deleted by hand), so it is confirmed, not believed.
+    const activeId = String(userDoc.get(FIELD_ACTIVE_SUPPORT_TICKET) || "");
+    let hasActive = false;
+    if (activeId) {
+      const active = await transaction.get(
+        firestore.collection(SUPPORT_TICKETS_COLLECTION).doc(activeId)
+      );
+      hasActive = active.exists && active.get("status") !== "resolved";
+    }
+
+    let orderLabel = "";
+    if (orderId && !orderId.includes("/")) {
+      const order = await transaction.get(
+        firestore.collection(REDEMPTIONS_COLLECTION).doc(orderId)
+      );
+      if (!order.exists || order.get("uid") !== userId) {
+        throw new functions.https.HttpsError("invalid-argument", "Unknown order");
+      }
+      const amount = String(order.get("packAmount") || order.get("optionTitle") || "Order");
+      orderLabel = `${amount} · ${orderId.slice(-8).toUpperCase()}`;
+    }
+
+    const todayUtc = utcDayFor(Date.now());
+    const sent = messagesSentToday(userDoc.get(FIELD_SUPPORT_MESSAGES_DAILY), todayUtc);
+    const decision = resolveNewTicket(hasActive, sent);
+    if (!decision.ok) {
+      return {ok: false as const, reason: decision.reason, activeTicketId: activeId};
+    }
+
+    const now = FieldValue.serverTimestamp();
+    transaction.set(ticketRef, {
+      uid: userId,
+      email: String(request.auth?.token.email || userDoc.get("email") || ""),
+      displayName: String(userDoc.get("displayName") || ""),
+      category,
+      orderId: orderLabel ? orderId : "",
+      orderLabel,
+      subject: subjectFor(text),
+      status: "open" as TicketStatus,
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: now,
+      lastMessageFrom: "user",
+      lastMessagePreview: subjectFor(text),
+      userUnread: false,
+      adminUnread: true,
+      messageCount: 1,
+      [FIELD_USER_MESSAGES_SINCE_REPLY]: 1,
+      appVersion,
+    });
+    transaction.set(ticketRef.collection(SUPPORT_MESSAGES_SUBCOLLECTION).doc(), {
+      from: "user",
+      text,
+      createdAt: now,
+    });
+    transaction.update(userRef, {
+      [FIELD_ACTIVE_SUPPORT_TICKET]: ticketRef.id,
+      [FIELD_SUPPORT_MESSAGES_DAILY]: {dayUtc: todayUtc, count: sent + 1},
+    });
+    return {ok: true as const};
+  });
+
+  if (!result.ok) {
+    if (result.reason === "active_ticket_exists") {
+      throw new functions.https.HttpsError("failed-precondition", result.reason, {
+        ticketId: result.activeTicketId,
+      });
+    }
+    throw supportRefusal(result.reason);
+  }
+  console.log("Support ticket opened", {userId, ticketId: ticketRef.id, category});
+  return {success: true, ticketId: ticketRef.id};
+});
+
+/** The user's reply on their own active ticket. Reopens it for support. */
+export const replySupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  const userId = request.auth.uid;
+  const ticketId = String(request.data?.ticketId || "").trim();
+  if (!ticketId || ticketId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "A ticket id is required");
+  }
+  const text = requireCleanMessage(request.data?.message);
+
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+  const ticketRef = firestore.collection(SUPPORT_TICKETS_COLLECTION).doc(ticketId);
+
+  await firestore.runTransaction(async (transaction) => {
+    const [userDoc, ticket] = await Promise.all([
+      transaction.get(userRef),
+      transaction.get(ticketRef),
+    ]);
+    if (!ticket.exists) throw supportRefusal("not_owner");
+
+    const todayUtc = utcDayFor(Date.now());
+    const sent = messagesSentToday(userDoc.get(FIELD_SUPPORT_MESSAGES_DAILY), todayUtc);
+    const decision = resolveUserReply(
+      {
+        uid: ticket.get("uid"),
+        status: ticket.get("status"),
+        userMessagesSinceReply: ticket.get(FIELD_USER_MESSAGES_SINCE_REPLY),
+      },
+      userId,
+      sent
+    );
+    if (!decision.ok) throw supportRefusal(decision.reason);
+
+    const now = FieldValue.serverTimestamp();
+    transaction.set(ticketRef.collection(SUPPORT_MESSAGES_SUBCOLLECTION).doc(), {
+      from: "user",
+      text,
+      createdAt: now,
+    });
+    transaction.update(ticketRef, {
+      status: "open" as TicketStatus,
+      updatedAt: now,
+      lastMessageAt: now,
+      lastMessageFrom: "user",
+      lastMessagePreview: subjectFor(text),
+      adminUnread: true,
+      userUnread: false,
+      messageCount: FieldValue.increment(1),
+      [FIELD_USER_MESSAGES_SINCE_REPLY]: FieldValue.increment(1),
+    });
+    transaction.update(userRef, {
+      [FIELD_SUPPORT_MESSAGES_DAILY]: {dayUtc: todayUtc, count: sent + 1},
+    });
+  });
+
+  return {success: true};
+});
+
+/**
+ * Closes a ticket. The owner may close their own; an admin may close any.
+ * Clears the owner's active pointer so they can open a new one.
+ */
+async function closeTicket(ticketId: string, closedBy: "user" | "admin", callerUid: string) {
+  const firestore = getFirestore();
+  const ticketRef = firestore.collection(SUPPORT_TICKETS_COLLECTION).doc(ticketId);
+  await firestore.runTransaction(async (transaction) => {
+    const ticket = await transaction.get(ticketRef);
+    if (!ticket.exists) throw supportRefusal("not_owner");
+    const ownerUid = String(ticket.get("uid") || "");
+    if (closedBy === "user" && ownerUid !== callerUid) throw supportRefusal("not_owner");
+    const ownerRef = firestore.collection(USERS_COLLECTION).doc(ownerUid);
+    const owner = await transaction.get(ownerRef);
+
+    transaction.update(ticketRef, {
+      status: "resolved" as TicketStatus,
+      updatedAt: FieldValue.serverTimestamp(),
+      resolvedAt: FieldValue.serverTimestamp(),
+      resolvedBy: closedBy,
+      adminUnread: false,
+      // An admin closing it is news to the user; the user closing it is not.
+      userUnread: closedBy === "admin",
+    });
+    if (owner.exists && owner.get(FIELD_ACTIVE_SUPPORT_TICKET) === ticketId) {
+      transaction.update(ownerRef, {[FIELD_ACTIVE_SUPPORT_TICKET]: FieldValue.delete()});
+    }
+  });
+}
+
+export const closeSupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  const ticketId = String(request.data?.ticketId || "").trim();
+  if (!ticketId || ticketId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "A ticket id is required");
+  }
+  await closeTicket(ticketId, "user", request.auth.uid);
+  return {success: true};
+});
+
+/** Admin: tickets by status, most recently active first. */
+export const listSupportTickets = functions.https.onCall(async (request: CallableRequest) => {
+  requireAdmin(request);
+  const status = String(request.data?.status || "open");
+  if (status !== "open" && status !== "answered" && status !== "resolved") {
+    throw new functions.https.HttpsError("invalid-argument", "Unknown status");
+  }
+  const snapshot = await getFirestore().collection(SUPPORT_TICKETS_COLLECTION)
+    .where("status", "==", status)
+    .orderBy("lastMessageAt", "desc")
+    .limit(100)
+    .get();
+  return {
+    tickets: snapshot.docs.map((doc) => ({
+      id: doc.id,
+      uid: doc.get("uid"),
+      email: doc.get("email"),
+      displayName: doc.get("displayName"),
+      category: doc.get("category"),
+      orderId: doc.get("orderId"),
+      orderLabel: doc.get("orderLabel"),
+      subject: doc.get("subject"),
+      status: doc.get("status"),
+      adminUnread: doc.get("adminUnread") === true,
+      messageCount: doc.get("messageCount") ?? 0,
+      lastMessageFrom: doc.get("lastMessageFrom"),
+      lastMessageAtMillis: (doc.get("lastMessageAt") as Timestamp | undefined)?.toMillis() ?? null,
+      createdAtMillis: (doc.get("createdAt") as Timestamp | undefined)?.toMillis() ?? null,
+      appVersion: doc.get("appVersion") ?? "",
+    })),
+  };
+});
+
+/** Admin: one ticket's thread, plus the account context needed to answer it. */
+export const getSupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  requireAdmin(request);
+  const ticketId = String(request.data?.ticketId || "").trim();
+  if (!ticketId || ticketId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "A ticket id is required");
+  }
+  const firestore = getFirestore();
+  const ticketRef = firestore.collection(SUPPORT_TICKETS_COLLECTION).doc(ticketId);
+  const [ticket, messages] = await Promise.all([
+    ticketRef.get(),
+    ticketRef.collection(SUPPORT_MESSAGES_SUBCOLLECTION).orderBy("createdAt", "asc").get(),
+  ]);
+  if (!ticket.exists) throw new functions.https.HttpsError("not-found", "Ticket not found");
+
+  const user = await firestore.collection(USERS_COLLECTION).doc(String(ticket.get("uid"))).get();
+  if (ticket.get("adminUnread") === true) await ticketRef.update({adminUnread: false});
+
+  return {
+    ticket: {
+      id: ticket.id,
+      uid: ticket.get("uid"),
+      email: ticket.get("email") ?? "",
+      displayName: ticket.get("displayName") ?? "",
+      category: ticket.get("category"),
+      orderId: ticket.get("orderId") ?? "",
+      orderLabel: ticket.get("orderLabel") ?? "",
+      subject: ticket.get("subject") ?? "",
+      status: ticket.get("status"),
+      userMessagesSinceReply: Number(ticket.get(FIELD_USER_MESSAGES_SINCE_REPLY) || 0),
+      appVersion: ticket.get("appVersion") ?? "",
+      createdAtMillis: (ticket.get("createdAt") as Timestamp | undefined)?.toMillis() ?? null,
+    },
+    messages: messages.docs.map((m) => ({
+      id: m.id,
+      from: m.get("from"),
+      text: m.get("text"),
+      createdAtMillis: (m.get("createdAt") as Timestamp | undefined)?.toMillis() ?? null,
+    })),
+    account: user.exists ? {
+      points: Number(user.get(FIELD_POINTS) || 0),
+      level: Number(user.get(FIELD_LEVEL) || 1),
+      androidId: String(user.get("androidId") || ""),
+    } : null,
+  };
+});
+
+/** Admin: reply, optionally closing the ticket in the same step. */
+export const adminReplySupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  requireAdmin(request);
+  const ticketId = String(request.data?.ticketId || "").trim();
+  if (!ticketId || ticketId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "A ticket id is required");
+  }
+  const text = requireCleanMessage(request.data?.message, ADMIN_MESSAGE_MAX);
+  const resolve = request.data?.resolve === true;
+
+  const firestore = getFirestore();
+  const ticketRef = firestore.collection(SUPPORT_TICKETS_COLLECTION).doc(ticketId);
+  await firestore.runTransaction(async (transaction) => {
+    const ticket = await transaction.get(ticketRef);
+    if (!ticket.exists) throw new functions.https.HttpsError("not-found", "Ticket not found");
+    const now = FieldValue.serverTimestamp();
+    transaction.set(ticketRef.collection(SUPPORT_MESSAGES_SUBCOLLECTION).doc(), {
+      from: "admin",
+      text,
+      createdAt: now,
+      adminUid: request.auth?.uid ?? "",
+    });
+    transaction.update(ticketRef, {
+      status: "answered" as TicketStatus,
+      updatedAt: now,
+      lastMessageAt: now,
+      lastMessageFrom: "admin",
+      lastMessagePreview: subjectFor(text),
+      userUnread: true,
+      adminUnread: false,
+      messageCount: FieldValue.increment(1),
+      // Support replied: the user may send up to two messages again.
+      [FIELD_USER_MESSAGES_SINCE_REPLY]: 0,
+    });
+  });
+  if (resolve) await closeTicket(ticketId, "admin", request.auth?.uid ?? "");
+  return {success: true};
+});
+
+/** Admin: close a ticket without replying. */
+export const adminCloseSupportTicket = functions.https.onCall(async (request: CallableRequest) => {
+  requireAdmin(request);
+  const ticketId = String(request.data?.ticketId || "").trim();
+  if (!ticketId || ticketId.includes("/")) {
+    throw new functions.https.HttpsError("invalid-argument", "A ticket id is required");
+  }
+  await closeTicket(ticketId, "admin", request.auth?.uid ?? "");
+  return {success: true};
+});
+
+/**
+ * Deletes the caller's account, as Google Play requires apps with sign-up to
+ * offer in-app.
+ *
+ * Everything under users/{uid} and the Firebase Auth user go now. A tombstone
+ * with the Android ID and an email fingerprint is written FIRST, so a failure
+ * part-way leaves the anti-fraud record rather than an account that can be
+ * re-created to claim new-user rewards again. Orders, offer records and
+ * first-redeem marks are kept for DELETION_RETENTION_MS and cleaned up by
+ * purgeDeletedAccounts. What is kept is stated in public/legal/privacy.html.
+ *
+ * Refused while a redemption is pending - see resolveDeletion.
+ */
+export const deleteAccount = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+
+  const userId = request.auth.uid;
+  const firestore = getFirestore();
+  const userRef = firestore.collection(USERS_COLLECTION).doc(userId);
+
+  const [pending, userDoc] = await Promise.all([
+    firestore.collection(REDEMPTIONS_COLLECTION)
+      .where("uid", "==", userId)
+      .where("status", "==", "pending")
+      .limit(1)
+      .get(),
+    userRef.get(),
+  ]);
+
+  const decision = resolveDeletion(!pending.empty);
+  if (!decision.ok) {
+    throw new functions.https.HttpsError("failed-precondition", decision.reason);
+  }
+
+  const email = String(request.auth.token.email || userDoc.get("email") || "");
+  const now = Date.now();
+  await firestore.collection(DELETED_ACCOUNTS_COLLECTION).doc(userId).set({
+    androidId: String(userDoc.get("androidId") || ""),
+    emailHash: emailFingerprint(email),
+    deletedAt: Timestamp.fromMillis(now),
+    purgeAfter: Timestamp.fromMillis(purgeAfterMillis(now)),
+  });
+
+  // The profile and every subcollection: rewardEvents, gameSessions,
+  // gameProfiles.
+  await firestore.recursiveDelete(userRef);
+
+  // Support tickets and their messages. Not kept: nothing in them is needed
+  // for fraud or payout disputes that the order records don't already hold.
+  const tickets = await firestore.collection(SUPPORT_TICKETS_COLLECTION)
+    .where("uid", "==", userId).get();
+  for (const ticket of tickets.docs) {
+    await firestore.recursiveDelete(ticket.ref);
+  }
+
+  try {
+    await admin.auth().deleteUser(userId);
+  } catch (error) {
+    const code = (error as {code?: string}).code;
+    if (code !== "auth/user-not-found") throw error;
+  }
+
+  console.log("Account deleted", {userId});
+  return {success: true};
+});
+
+/**
+ * Removes what deleteAccount kept, once the retention period has passed.
+ *
+ * Orders and offer records are deleted. First-redeem marks are anonymised
+ * instead - the uid fields are cleared but the mark stays - so the one-time
+ * discount remains spent on that game account.
+ */
+export const purgeDeletedAccounts = onSchedule(
+  {schedule: "30 3 * * *", timeZone: "UTC"},
+  async (_event) => {
+    const firestore = getFirestore();
+    const due = await firestore.collection(DELETED_ACCOUNTS_COLLECTION)
+      .where("purgeAfter", "<=", Timestamp.now())
+      .limit(100)
+      .get();
+
+    for (const tombstone of due.docs) {
+      const uid = tombstone.id;
+      const [orders, offers, links, firstLinks] = await Promise.all([
+        firestore.collection(REDEMPTIONS_COLLECTION).where("uid", "==", uid).get(),
+        firestore.collection("offerwallTransactions").where("uid", "==", uid).get(),
+        firestore.collection(PLAYER_LINKS_COLLECTION).where("uid", "==", uid).get(),
+        firestore.collection(PLAYER_LINKS_COLLECTION).where("firstRedeemUid", "==", uid).get(),
+      ]);
+
+      const writer = firestore.bulkWriter();
+      orders.docs.forEach((doc) => writer.delete(doc.ref));
+      offers.docs.forEach((doc) => writer.delete(doc.ref));
+      links.docs.forEach((doc) => writer.update(doc.ref, {uid: FieldValue.delete()}));
+      firstLinks.docs.forEach((doc) =>
+        writer.update(doc.ref, {firstRedeemUid: FieldValue.delete()}));
+      writer.delete(tombstone.ref);
+      await writer.close();
+
+      console.log("Deleted account purged", {
+        uid,
+        orders: orders.size,
+        offers: offers.size,
+        links: links.size + firstLinks.size,
+      });
+    }
+  }
+);
 
 /**
  * The referral progress list behind the Profile screen.

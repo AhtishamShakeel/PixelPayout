@@ -348,4 +348,8 @@
     <item name="xp_accent_deep" type="color">@color/brand_violet</item>
     <item name="xp_tint" type="color">@color/violet_tint_20</item>
     <item name="xp_stroke" type="color">@color/violet_tint_35</item>
+    <!-- Delete account and Sign out rows on Profile. -->
+    <color name="row_danger">#FF6B7A</color>
+    <color name="row_danger_tint">#24FF6B7A</color>
+    <color name="row_danger_stroke">#40FF6B7A</color>
 </resources>

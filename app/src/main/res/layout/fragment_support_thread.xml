@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One ticket: the conversation and a reply box. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background_dark"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="17dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="17dp"
+        android:paddingBottom="10dp">
+
+        <include
+            android:id="@+id/header"
+            layout="@layout/view_support_header" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/threadStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_status_pill"
+                android:fontFamily="@font/jakarta_semibold"
+                android:paddingStart="10dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="4dp"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="11.5sp"
+                tools:text="Support replied" />
+
+            <TextView
+                android:id="@+id/threadOrder"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="@font/mono_medium"
+                android:maxLines="1"
+                android:textColor="@color/text_ghost"
+                android:textSize="11sp"
+                tools:text="325 UC · AB12CD34" />
+
+            <TextView
+                android:id="@+id/threadClose"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:fontFamily="@font/jakarta_semibold"
+                android:minHeight="36dp"
+                android:gravity="center"
+                android:paddingStart="8dp"
+                android:paddingEnd="4dp"
+                android:text="@string/support_close_ticket"
+                android:textColor="@color/text_faint"
+                android:textSize="12.5sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/stroke_strong" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/threadMessages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingStart="17dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="17dp"
+        android:paddingBottom="12dp"
+        tools:listitem="@layout/item_support_message" />
+
+    <TextView
+        android:id="@+id/threadNote"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/surface_card"
+        android:fontFamily="@font/jakarta_medium"
+        android:gravity="center"
+        android:padding="14dp"
+        android:textColor="@color/text_faint"
+        android:textSize="12.5sp"
+        android:visibility="gone"
+        tools:text="This ticket is closed." />
+
+    <LinearLayout
+        android:id="@+id/threadReplyBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/background_dark"
+        android:gravity="bottom"
+        android:orientation="horizontal"
+        android:paddingStart="12dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="10dp">
+
+        <EditText
+            android:id="@+id/threadInput"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/bg_reply_input"
+            android:fontFamily="@font/jakarta_medium"
+            android:hint="@string/support_reply_hint"
+            android:importantForAutofill="no"
+            android:inputType="textMultiLine|textCapSentences"
+            android:maxLength="1000"
+            android:maxLines="5"
+            android:minHeight="48dp"
+            android:paddingStart="14dp"
+            android:paddingTop="12dp"
+            android:paddingEnd="14dp"
+            android:paddingBottom="12dp"
+            android:textColor="@color/text_strong"
+            android:textColorHint="@color/text_ghost"
+            android:textSize="14sp" />
+
+        <FrameLayout
+            android:id="@+id/threadSend"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_referral_share"
+            android:clickable="true"
+            android:contentDescription="@string/support_send"
+            android:focusable="true">
+
+            <ImageView
+                android:id="@+id/threadSendIcon"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_send"
+                app:tint="@color/white" />
+
+            <ProgressBar
+                android:id="@+id/threadSending"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:indeterminateTint="@color/white"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+
+</LinearLayout>

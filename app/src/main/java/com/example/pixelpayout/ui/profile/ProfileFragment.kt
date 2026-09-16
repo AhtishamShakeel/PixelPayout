@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,16 +12,20 @@ import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.navigation.NavOptions
+import androidx.navigation.fragment.findNavController
 import com.example.pixelpayout.data.repository.UserRepository
 import com.example.pixelpayout.ui.auth.Auth
 import com.example.pixelpayout.ui.main.MainViewModel
-import com.example.pixelpayout.ui.onboarding.TermsDialogFragment
+import com.example.pixelpayout.ui.legal.LegalActivity
 import com.example.pixelpayout.ui.redemption.ReferralResult
 import com.example.pixelpayout.ui.redemption.ReferralViewModel
 import com.example.pixelpayout.ui.redemption.ReferralViewModelFactory
 import com.example.pixelpayout.ui.redemption.WalletFormat
 import com.example.pixelpayout.utils.UserPreferences
+import com.example.pixelpayout.utils.AdConsent
+import com.example.pixelpayout.data.repository.SupportTicketStore
+import androidx.appcompat.content.res.AppCompatResources
 import com.google.android.material.snackbar.Snackbar
 import com.google.firebase.auth.FirebaseAuth
 import com.pixelpayout.BuildConfig
@@ -38,12 +41,13 @@ import java.util.Locale
 /**
  * Profile, built on the Profile.dc.html handoff.
  *
- * Identity, level, three stats, referrals in both directions, and the
- * account rows. Referrals live here rather than on Wallet: the code this
+ * Identity, three stats, the Refer & Earn card, claiming a code, and the
+ * account rows. Who used this account's code lives on ReferralsFragment,
+ * opened from the referrals row. Referrals live here rather than on Wallet: the code this
  * account hands out is part of who it is, and claiming somebody else's is a
  * once-ever act with nothing to do with spending a balance.
  *
- * The referral progress list is the one thing here that needs the server -
+ * The referral figures are the one thing here that need the server -
  * firestore.rules never grants a client a read across users, so who used your
  * code can only come from a callable. When that callable is unavailable the
  * screen shows the empty state rather than an error, because a user can do
@@ -65,8 +69,6 @@ class ProfileFragment : Fragment() {
         ReferralViewModelFactory(UserRepository())
     }
 
-    private lateinit var inviteeAdapter: InviteeAdapter
-
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -81,7 +83,6 @@ class ProfileFragment : Fragment() {
 
         setupIdentity()
         setupStats()
-        setupList()
         setupReferralSharing()
         setupReferralClaim()
         setupAccountRows()
@@ -114,6 +115,8 @@ class ProfileFragment : Fragment() {
         // Aggregates across other people's documents, so there is no snapshot
         // to listen to - it is re-read whenever the tab comes back.
         mainViewModel.refreshReferralStats()
+        // Only users under consent rules (EEA/UK/Switzerland) get the row.
+        binding.rowPrivacyChoices.isVisible = AdConsent.privacyOptionsRequired(requireContext())
     }
 
     private fun setupIdentity() {
@@ -141,7 +144,6 @@ class ProfileFragment : Fragment() {
                 val name = username?.takeIf { it.isNotBlank() }
                     ?: user?.displayName?.takeIf { it.isNotBlank() }
                     ?: getString(R.string.nav_profile)
-                b.profileName.text = name
                 b.profileInitials.text = initialsOf(name)
             }
         }
@@ -187,24 +189,6 @@ class ProfileFragment : Fragment() {
         binding.statStreak.statIcon.setImageResource(R.drawable.ic_history)
         binding.statStreak.statIcon.imageTintList = violet
 
-        // Same repaint, same reason: the funnel counts people, not stars, so
-        // none of these three is a gold figure.
-        binding.funnelInvited.statLabel.setText(R.string.profile_funnel_invited)
-        binding.funnelInvited.statIcon.setImageResource(R.drawable.ic_users)
-        binding.funnelInvited.statIcon.imageTintList = violet
-        binding.funnelQualified.statLabel.setText(R.string.profile_funnel_qualified)
-        binding.funnelQualified.statIcon.setImageResource(R.drawable.ic_shield_check)
-        binding.funnelQualified.statIcon.imageTintList = violet
-        binding.funnelPaid.statLabel.setText(R.string.profile_funnel_paid)
-        binding.funnelPaid.statIcon.setImageResource(R.drawable.ic_check)
-        binding.funnelPaid.statIcon.imageTintList = violet
-    }
-
-    private fun setupList() {
-        inviteeAdapter = InviteeAdapter()
-        binding.inviteesRecyclerView.adapter = inviteeAdapter
-        binding.inviteesRecyclerView.layoutManager = LinearLayoutManager(requireContext())
-        binding.inviteesRecyclerView.isNestedScrollingEnabled = false
     }
 
     private fun setupReferralSharing() {
@@ -212,6 +196,30 @@ class ProfileFragment : Fragment() {
         binding.referralCodeValue.setOnClickListener(copy)
         binding.referralCopy.setOnClickListener(copy)
         binding.referralShare.setOnClickListener { shareReferralCode() }
+
+        // "How will I get Stars?" opens and closes the full rule.
+        binding.referralHowToggle.setOnClickListener {
+            binding.referralRuleNote.isVisible = !binding.referralRuleNote.isVisible
+        }
+        binding.referralsRow.setOnClickListener { openReferrals() }
+    }
+
+    private fun openReferrals() = openPage(R.id.referralsFragment)
+
+    /** A page stacked over Profile. Guarded against a double tap pushing it twice. */
+    private fun openPage(destination: Int) {
+        val controller = findNavController()
+        if (controller.currentDestination?.id != R.id.navigation_profile) return
+        controller.navigate(
+            destination,
+            null,
+            NavOptions.Builder()
+                .setEnterAnim(R.anim.fade_in)
+                .setExitAnim(R.anim.fade_out)
+                .setPopEnterAnim(R.anim.fade_in)
+                .setPopExitAnim(R.anim.fade_out)
+                .build()
+        )
     }
 
     private fun currentCode(): String = binding.referralCodeValue.text.toString().trim()
@@ -258,35 +266,79 @@ class ProfileFragment : Fragment() {
     }
 
     private fun setupAccountRows() {
-        // Both documents already live in the app as strings and already have
-        // a dialog that renders them - the one onboarding shows. Pointing
-        // these rows at a hosted page instead would mean maintaining a second
-        // copy of the text, and public/ has no such page to point at.
-        binding.rowTerms.setOnClickListener { showLegal("terms") }
-        binding.rowPrivacy.setOnClickListener { showLegal("privacy") }
-        binding.rowSupport.setOnClickListener { openSupportEmail() }
+        // The documents are the HTML files in public/legal, bundled into the app; see
+        // LegalActivity.
+        binding.rowTerms.setOnClickListener {
+            LegalActivity.open(requireContext(), LegalActivity.Doc.TERMS)
+        }
+        binding.rowPrivacy.setOnClickListener {
+            LegalActivity.open(requireContext(), LegalActivity.Doc.PRIVACY)
+        }
+        binding.rowSupport.setOnClickListener { openPage(R.id.helpFragment) }
+        binding.rowPrivacyChoices.setOnClickListener {
+            AdConsent.showPrivacyOptions(requireActivity())
+        }
+        binding.rowDeleteAccount.setOnClickListener { confirmDeleteAccount() }
         binding.rowSignOut.setOnClickListener { confirmSignOut() }
     }
 
-    private fun showLegal(type: String) {
-        TermsDialogFragment.newInstance(type)
-            .show(parentFragmentManager, "legal_$type")
+    /**
+     * Delete account, as Google Play requires. Confirmed in red first; the
+     * server refuses while a redemption is pending, and on success the Auth
+     * user is gone, so the app signs out and returns to sign-in.
+     */
+    private fun confirmDeleteAccount() {
+        requireContext().showAppDialog(
+            title = R.string.delete_account_title,
+            message = R.string.delete_account_message,
+            icon = R.drawable.ic_trash,
+            accent = R.color.difficulty_hard,
+            positiveText = R.string.delete_account_confirm,
+            negativeText = R.string.cancel
+        ) { deleteAccount() }
     }
 
-    /**
-     * Support is a mail intent rather than an in-app form: there is no ticket
-     * system behind this, and a form that quietly went nowhere would be worse
-     * than handing the user an address they can see.
-     */
-    private fun openSupportEmail() {
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:$SUPPORT_EMAIL")
-            putExtra(Intent.EXTRA_SUBJECT, "PixelPayout support")
-        }
-        runCatching { startActivity(intent) }
-            .onFailure {
-                Snackbar.make(binding.root, SUPPORT_EMAIL, Snackbar.LENGTH_LONG).show()
+    private fun deleteAccount() {
+        val activity = requireActivity()
+        binding.rowDeleteAccount.isEnabled = false
+        binding.rowDeleteAccount.setText(R.string.delete_account_working)
+
+        // The activity's scope: the call must finish even if the tab changes.
+        activity.lifecycleScope.launch {
+            when (val result = mainViewModel.deleteAccount()) {
+                UserRepository.DeleteAccountResult.Deleted -> signOutToAuth(activity)
+                UserRepository.DeleteAccountResult.PendingRedemption -> {
+                    restoreDeleteRow()
+                    activity.showAppDialog(
+                        title = R.string.profile_delete_account,
+                        message = R.string.delete_account_pending,
+                        positiveText = R.string.ok
+                    )
+                }
+                is UserRepository.DeleteAccountResult.Error -> {
+                    restoreDeleteRow()
+                    _binding?.let {
+                        Snackbar.make(it.root, R.string.delete_account_failed, Snackbar.LENGTH_LONG).show()
+                    }
+                }
             }
+        }
+    }
+
+    private fun restoreDeleteRow() {
+        val b = _binding ?: return
+        b.rowDeleteAccount.isEnabled = true
+        b.rowDeleteAccount.setText(R.string.profile_delete_account)
+    }
+
+    private fun signOutToAuth(activity: android.app.Activity) {
+        FirebaseAuth.getInstance().signOut()
+        activity.startActivity(
+            Intent(activity, Auth::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            }
+        )
+        activity.finish()
     }
 
     /** Confirmed, because signing out of an account holding a balance is not
@@ -303,13 +355,7 @@ class ProfileFragment : Fragment() {
             positiveText = R.string.profile_sign_out,
             negativeText = R.string.cancel
         ) {
-            FirebaseAuth.getInstance().signOut()
-            startActivity(
-                Intent(requireContext(), Auth::class.java).apply {
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                }
-            )
-            requireActivity().finish()
+            signOutToAuth(requireActivity())
         }
     }
 
@@ -319,25 +365,7 @@ class ProfileFragment : Fragment() {
         }
 
         mainViewModel.levelProgress.observe(viewLifecycleOwner) { progress ->
-            binding.profileLevel.text = getString(R.string.profile_level, progress.level)
             binding.statXp.statValue.text = WalletFormat.number(progress.totalXp)
-
-            val percent = when {
-                progress.isMaxLevel -> 100
-                progress.xpForNextLevel <= 0 -> 0
-                else -> (progress.xpIntoLevel * 100 / progress.xpForNextLevel).coerceIn(0, 100)
-            }
-            binding.profileLevelBar.progress = percent
-            binding.profileLevelNote.text = if (progress.isMaxLevel) {
-                getString(R.string.profile_level_note_max)
-            } else {
-                getString(
-                    R.string.profile_level_note,
-                    WalletFormat.number(progress.xpIntoLevel),
-                    WalletFormat.number(progress.xpForNextLevel),
-                    progress.level + 1
-                )
-            }
         }
 
         mainViewModel.streak.observe(viewLifecycleOwner) { streak ->
@@ -363,6 +391,19 @@ class ProfileFragment : Fragment() {
 
         mainViewModel.referralStats.observe(viewLifecycleOwner) { stats ->
             renderReferralStats(stats)
+        }
+
+        // Gold dot on Help & Support while a support reply is unread.
+        SupportTicketStore.tickets.observe(viewLifecycleOwner) { tickets ->
+            val unread = tickets.any { it.userUnread }
+            binding.rowSupport.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                AppCompatResources.getDrawable(requireContext(), R.drawable.ic_row_help),
+                null,
+                AppCompatResources.getDrawable(
+                    requireContext(), if (unread) R.drawable.ic_row_caret_dot else R.drawable.ic_row_caret
+                ),
+                null
+            )
         }
 
         referralViewModel.referralResult.observe(viewLifecycleOwner) { result ->
@@ -423,47 +464,41 @@ class ProfileFragment : Fragment() {
         binding.referralExpiredNote.isVisible = expired
     }
 
+    /**
+     * The card's two figures, the referrals row, and the rule behind the
+     * "How will I get Stars?" link. Null stats (callable unavailable) reads as
+     * zero, and the rule falls back to naming no numbers.
+     */
     private fun renderReferralStats(stats: UserRepository.ReferralStats?) {
-        val invitees = stats?.invitees.orEmpty()
+        val invited = stats?.invited ?: 0
+        binding.referInvitedValue.text = WalletFormat.number(invited)
+        binding.referStarsValue.text =
+            WalletFormat.number(ReferralsFragment.earnedStars(stats))
 
-        inviteeAdapter.submitList(invitees)
-        inviteeAdapter.updateRewards(stats?.levelReward ?: 0, stats?.redeemReward ?: 0)
-
-        binding.inviteesRecyclerView.isVisible = invitees.isNotEmpty()
-        binding.inviteesEmpty.isVisible = invitees.isEmpty()
-
-        binding.inviteCount.text = getString(R.string.profile_invited_count, stats?.invited ?: 0)
-        binding.inviteCount.isVisible = stats != null
-
-        binding.referralFunnel.isVisible = stats != null && invitees.isNotEmpty()
-        if (stats != null) {
-            binding.funnelInvited.statValue.text = stats.invited.toString()
-            binding.funnelQualified.statValue.text = stats.qualified.toString()
-            binding.funnelPaid.statValue.text = stats.levelPaid.toString()
-
-            // Both milestones, counted separately and added. The funnel above
-            // still counts invitees, so this is the only figure on the screen
-            // that says what those invitees were actually worth.
-            //
-            // A caption, so only the figure takes weight and the Stars colour
-            // - see StarText. The sentence around it stays a caption.
-            val earned = WalletFormat.number(
-                stats.levelPaid * stats.levelReward + stats.redeemPaid * stats.redeemReward
-            )
-            binding.profileEarnedLabel.setStarText(
-                getString(R.string.profile_earned, earned),
-                emphasise = earned,
-                emphasisColor = R.color.stars_accent
-            )
-            binding.referralRuleLine.text = getString(
-                R.string.profile_referral_rule,
-                stats.levelReward,
-                stats.unlockLevel,
-                stats.redeemReward
-            )
+        if (invited > 0) {
+            binding.referralsRowTitle.text =
+                resources.getQuantityString(R.plurals.profile_referrals_count, invited, invited)
+            binding.referralsRowSub.setText(R.string.profile_referrals_open)
+        } else {
+            binding.referralsRowTitle.setText(R.string.profile_referrals_none)
+            binding.referralsRowSub.setText(R.string.profile_referrals_none_sub)
         }
-        binding.profileEarnedLabel.isVisible = stats != null
-        binding.referralRuleLine.isVisible = stats != null
+
+        if (stats != null) {
+            // Every "50 ★" in the rule is a gold, bold figure.
+            binding.referralRuleLine.setStarText(
+                getString(
+                    R.string.profile_referral_rule,
+                    stats.levelReward,
+                    stats.unlockLevel,
+                    stats.redeemReward
+                ),
+                figureColor = R.color.stars_accent,
+                centerStars = true
+            )
+        } else {
+            binding.referralRuleLine.setText(R.string.profile_referral_rule_generic)
+        }
     }
 
     override fun onDestroyView() {
@@ -472,8 +507,6 @@ class ProfileFragment : Fragment() {
     }
 
     companion object {
-        private const val SUPPORT_EMAIL = "earningapphelper@gmail.com"
-
         /**
          * Set by Home's "Refer and earn" row so the tab opens on the invite
          * block rather than at the top of the account.

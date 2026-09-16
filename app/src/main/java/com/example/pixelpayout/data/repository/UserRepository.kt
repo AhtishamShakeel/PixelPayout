@@ -96,6 +96,9 @@ class UserRepository {
                 // document, so it is one read, and the bottom bar needs the
                 // answer before the user taps anything.
                 OfferwallCatalogStore.start()
+                // The user's own support tickets: drives the unread dot on
+                // Profile and the Help pages. A handful of documents at most.
+                SupportTicketStore.start(userId)
             }
         }
     }
@@ -1760,6 +1763,34 @@ class UserRepository {
         } catch (e: Exception) {
             Log.e("Leaderboard", "Could not load the board: ${e.message}")
             null
+        }
+    }
+
+    sealed class DeleteAccountResult {
+        data object Deleted : DeleteAccountResult()
+        data object PendingRedemption : DeleteAccountResult()
+        data class Error(val message: String?) : DeleteAccountResult()
+    }
+
+    /**
+     * Permanently deletes this account on the server (see deleteAccount).
+     * The caller signs out afterwards; the Auth user no longer exists.
+     */
+    suspend fun deleteAccount(): DeleteAccountResult {
+        return try {
+            functions.getHttpsCallable("deleteAccount")
+                .withTimeout(30, TimeUnit.SECONDS)
+                .call()
+                .await()
+            DeleteAccountResult.Deleted
+        } catch (e: FirebaseFunctionsException) {
+            if (e.code == FirebaseFunctionsException.Code.FAILED_PRECONDITION) {
+                DeleteAccountResult.PendingRedemption
+            } else {
+                DeleteAccountResult.Error(e.message)
+            }
+        } catch (e: Exception) {
+            DeleteAccountResult.Error(e.message)
         }
     }
 

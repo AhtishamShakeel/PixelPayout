@@ -51,6 +51,15 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
+
+    // The Terms, Privacy Policy and account-deletion pages are the files
+    // Firebase Hosting publishes. Packaging the same folder as assets keeps
+    // the in-app copy identical to the public one - see LegalActivity.
+    sourceSets {
+        main {
+            assets.srcDirs += ['../public/legal']
+        }
+    }
 }
 
 dependencies {
@@ -94,6 +103,8 @@ dependencies {
 
     // AdMob (use a compatible version)
     implementation 'com.google.android.gms:play-services-ads:23.6.0'
+    // EU/UK/Swiss ad consent, required by AdMob there. See AdConsent.
+    implementation 'com.google.android.ump:user-messaging-platform:3.1.0'
 
     // Retrofit
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'

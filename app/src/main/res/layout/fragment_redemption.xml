@@ -117,6 +117,11 @@
                     the next thing the balance is climbing toward, so the bar
                     lives here rather than on a second card repeating it.
                 -->
+
+                <!--
+                    THE GOAL, once the offer is gone: the next pack in the
+                    chosen game, or what the balance can already buy.
+                -->
                 <LinearLayout
                     android:id="@+id/firstRedeemCard"
                     android:layout_width="match_parent"
@@ -127,6 +132,7 @@
                     android:padding="14dp"
                     android:visibility="gone"
                     tools:visibility="visible">
+
                     <LinearLayout
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -137,12 +143,14 @@
                         android:paddingTop="3dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="3dp">
+
                         <ImageView
                             android:layout_width="13dp"
                             android:layout_height="13dp"
                             android:contentDescription="@null"
                             android:src="@drawable/ic_gift"
                             app:tint="@color/brand_violet_light" />
+
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
@@ -154,6 +162,7 @@
                             android:textColor="@color/brand_violet_light"
                             android:textSize="11sp" />
                     </LinearLayout>
+
                     <include
                         android:id="@+id/firstRedeemSelected"
                         layout="@layout/view_selected_reward"
@@ -167,177 +176,189 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp">
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:orientation="vertical"
-                        app:layout_constraintEnd_toStartOf="@id/firstRedeemButton"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent">
-                        <TextView
-                            android:id="@+id/firstRedeemAmount"
-                            style="@style/WalletRewardAmount"
-                            tools:text="20 CP" />
-                        <TextView
-                            android:id="@+id/firstRedeemTitle"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:fontFamily="@font/jakarta_semibold"
-                            android:text="@string/first_redeem_subtitle"
-                            android:textColor="@color/text_dim"
-                            android:textSize="13sp" />
+
                         <LinearLayout
-                            android:layout_width="match_parent"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
+                            android:layout_marginEnd="8dp"
+                            android:orientation="vertical"
+                            app:layout_constraintEnd_toStartOf="@id/firstRedeemButton"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent">
+
                             <TextView
-                                android:id="@+id/firstRedeemListPrice"
-                                android:layout_width="wrap_content"
+                                android:id="@+id/firstRedeemAmount"
+                                style="@style/WalletRewardAmount"
+                                tools:text="20 CP" />
+
+                            <TextView
+                                android:id="@+id/firstRedeemTitle"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
                                 android:fontFamily="@font/jakarta_semibold"
-                                android:maxLines="1"
-                                android:textColor="@color/text_faint"
-                                android:textSize="14sp"
-                                tools:text="700 ★" />
-                            <TextView
-                                android:id="@+id/firstRedeemArrow"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="5dp"
-                                android:layout_marginEnd="5dp"
-                                android:fontFamily="@font/jakarta_semibold"
-                                android:importantForAccessibility="no"
-                                android:text="@string/first_redeem_arrow"
-                                android:textColor="@color/text_faint"
-                                android:textSize="14sp" />
-                            <TextView
-                                android:id="@+id/firstRedeemPrice"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:fontFamily="@font/jakarta_extrabold"
-                                android:maxLines="1"
-                                android:textColor="@color/stars_accent"
-                                android:textSize="20sp"
-                                tools:text="150 stars" />
-                            <TextView
-                                android:id="@+id/firstRedeemBadge"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:background="@drawable/bg_chip_violet"
-                                android:fontFamily="@font/jakarta_bold"
-                                android:maxLines="1"
-                                android:paddingStart="7dp"
-                                android:paddingTop="2dp"
-                                android:paddingEnd="7dp"
-                                android:paddingBottom="2dp"
-                                android:textColor="@color/brand_violet_light"
-                                android:textSize="11.5sp"
-                                tools:text="75% off" />
-                        </LinearLayout>
-                        <LinearLayout
-                            android:id="@+id/firstRedeemProgressGroup"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="8dp"
-                            android:baselineAligned="false"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-                            <ProgressBar
-                                android:id="@+id/firstRedeemBar"
-                                style="@android:style/Widget.ProgressBar.Horizontal"
-                                android:layout_width="0dp"
-                                android:layout_height="6dp"
-                                android:layout_weight="1"
-                                android:max="100"
-                                android:progress="0"
-                                android:progressDrawable="@drawable/progress_wallet_stars"
-                                tools:progress="26" />
-                            <TextView
-                                android:id="@+id/firstRedeemRatio"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:layout_marginStart="8dp"
-                                android:fontFamily="@font/mono_medium"
+                                android:text="@string/first_redeem_subtitle"
                                 android:textColor="@color/text_dim"
-                                android:textSize="11sp"
-                                tools:text="40 / 150" />
-                        </LinearLayout>
-                        <TextView
-                            android:id="@+id/firstRedeemLine"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:fontFamily="@font/jakarta_medium"
-                            android:textColor="@color/text_dim"
-                            android:textSize="12sp"
-                            tools:text="110 more stars to unlock" />
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="6dp"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal">
-                            <ImageView
-                                android:layout_width="14dp"
-                                android:layout_height="14dp"
-                                android:contentDescription="@null"
-                                android:src="@drawable/ic_shield_check"
-                                app:tint="@color/brand_violet_light" />
+                                android:textSize="13sp" />
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/firstRedeemListPrice"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/jakarta_semibold"
+                                    android:maxLines="1"
+                                    android:textColor="@color/text_faint"
+                                    android:textSize="14sp"
+                                    tools:text="700 ★" />
+
+                                <TextView
+                                    android:id="@+id/firstRedeemArrow"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="5dp"
+                                    android:layout_marginEnd="5dp"
+                                    android:fontFamily="@font/jakarta_semibold"
+                                    android:importantForAccessibility="no"
+                                    android:text="@string/first_redeem_arrow"
+                                    android:textColor="@color/text_faint"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/firstRedeemPrice"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:fontFamily="@font/jakarta_extrabold"
+                                    android:maxLines="1"
+                                    android:textColor="@color/stars_accent"
+                                    android:textSize="20sp"
+                                    tools:text="150 stars" />
+
+                                <TextView
+                                    android:id="@+id/firstRedeemBadge"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:background="@drawable/bg_chip_violet"
+                                    android:fontFamily="@font/jakarta_bold"
+                                    android:maxLines="1"
+                                    android:paddingStart="7dp"
+                                    android:paddingTop="2dp"
+                                    android:paddingEnd="7dp"
+                                    android:paddingBottom="2dp"
+                                    android:textColor="@color/brand_violet_light"
+                                    android:textSize="11.5sp"
+                                    tools:text="75% off" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:id="@+id/firstRedeemProgressGroup"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:baselineAligned="false"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <ProgressBar
+                                    android:id="@+id/firstRedeemBar"
+                                    style="@android:style/Widget.ProgressBar.Horizontal"
+                                    android:layout_width="0dp"
+                                    android:layout_height="6dp"
+                                    android:layout_weight="1"
+                                    android:max="100"
+                                    android:progress="0"
+                                    android:progressDrawable="@drawable/progress_wallet_stars"
+                                    tools:progress="26" />
+
+                                <TextView
+                                    android:id="@+id/firstRedeemRatio"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:fontFamily="@font/mono_medium"
+                                    android:textColor="@color/text_dim"
+                                    android:textSize="11sp"
+                                    tools:text="40 / 150" />
+                            </LinearLayout>
+
                             <TextView
+                                android:id="@+id/firstRedeemLine"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:fontFamily="@font/jakarta_medium"
+                                android:textColor="@color/text_dim"
+                                android:textSize="12sp"
+                                tools:text="110 more stars to unlock" />
+
+                            <LinearLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="6dp"
-                                android:fontFamily="@font/jakarta_medium"
-                                android:text="@string/first_redeem_uid_note"
-                                android:textColor="@color/text_faint"
-                                android:textSize="11.5sp" />
+                                android:layout_marginTop="6dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <ImageView
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
+                                    android:contentDescription="@null"
+                                    android:src="@drawable/ic_shield_check"
+                                    app:tint="@color/brand_violet_light" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:fontFamily="@font/jakarta_medium"
+                                    android:text="@string/first_redeem_uid_note"
+                                    android:textColor="@color/text_faint"
+                                    android:textSize="11.5sp" />
+                            </LinearLayout>
                         </LinearLayout>
-                    </LinearLayout>
-                    <!-- Art at the top right, button pinned to the bottom right.
+                        <!-- Art at the top right, button pinned to the bottom right.
                          Both count toward the body's height, so a short text
                          column can no longer squash the art. -->
-                    <ImageView
-                        android:id="@+id/firstRedeemArt"
-                        android:layout_width="88dp"
-                        android:layout_height="80dp"
-                        android:layout_marginEnd="12dp"
-                        android:contentDescription="@null"
-                        android:scaleType="fitCenter"
-                        android:src="@drawable/wallet_gift_art"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
-                    <TextView
-                        android:id="@+id/firstRedeemButton"
-                        android:layout_width="112dp"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="6dp"
-                        android:background="@drawable/bg_button_violet_12"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:fontFamily="@font/jakarta_bold"
-                        android:gravity="center"
-                        android:maxLines="2"
-                        android:paddingStart="6dp"
-                        android:paddingEnd="6dp"
-                        android:text="@string/first_redeem_cta"
-                        android:textColor="@color/white"
-                        android:textSize="12.5sp"
-                        app:layout_constraintBottom_toBottomOf="parent"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/firstRedeemArt"
-                        app:layout_constraintVertical_bias="1" />
+                        <ImageView
+                            android:id="@+id/firstRedeemArt"
+                            android:layout_width="88dp"
+                            android:layout_height="80dp"
+                            android:layout_marginEnd="12dp"
+                            android:contentDescription="@null"
+                            android:scaleType="fitCenter"
+                            android:src="@drawable/wallet_gift_art"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
+
+                        <TextView
+                            android:id="@+id/firstRedeemButton"
+                            android:layout_width="112dp"
+                            android:layout_height="48dp"
+                            android:layout_marginTop="6dp"
+                            android:background="@drawable/bg_button_violet_12"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:fontFamily="@font/jakarta_bold"
+                            android:gravity="center"
+                            android:maxLines="2"
+                            android:paddingStart="6dp"
+                            android:paddingEnd="6dp"
+                            android:text="@string/first_redeem_cta"
+                            android:textColor="@color/white"
+                            android:textSize="12.5sp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintTop_toBottomOf="@id/firstRedeemArt"
+                            app:layout_constraintVertical_bias="1" />
                     </androidx.constraintlayout.widget.ConstraintLayout>
                 </LinearLayout>
 
-                <!--
-                    THE GOAL, once the offer is gone: the next pack in the
-                    chosen game, or what the balance can already buy.
-                -->
                 <LinearLayout
                     android:id="@+id/rewardCard"
                     android:layout_width="match_parent"

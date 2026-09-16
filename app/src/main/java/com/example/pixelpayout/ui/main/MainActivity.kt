@@ -12,6 +12,8 @@ import androidx.navigation.fragment.NavHostFragment
 import com.airbnb.lottie.LottieComposition
 import com.airbnb.lottie.LottieCompositionFactory
 import com.example.pixelpayout.utils.UserPreferences
+import com.example.pixelpayout.utils.AdConsent
+import com.example.pixelpayout.utils.AdManager
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.pixelpayout.R
@@ -85,6 +87,15 @@ class MainActivity : AppCompatActivity() {
 
         setupConnectivityCheck()
         quizViewModel.loadCachedQuizzes(this)
+
+        // Shows Google's consent form to EEA/UK/Swiss users who haven't
+        // answered yet; a no-op everywhere else. Ads wait on the answer, so
+        // the rewarded pool is warmed once it lands.
+        AdConsent.gather(this) {
+            if (AdConsent.canRequestAds(this)) {
+                AdManager.getInstance().loadRewardedAd(this)
+            }
+        }
 
         // Observe categories and preload animations efficiently
         quizViewModel.categories.observe(this) { categories ->

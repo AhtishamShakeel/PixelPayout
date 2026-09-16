@@ -221,6 +221,9 @@ class AdManager private constructor() {
     }
 
     private fun loadOne(context: Context) {
+        // No request until consent is settled - see AdConsent. MainActivity
+        // tops the pool up again once it is.
+        if (!AdConsent.canRequestAds(context)) return
         val loadId = nextLoadId++
         val now = SystemClock.uptimeMillis()
         inFlight[loadId] = now

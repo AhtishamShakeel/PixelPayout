@@ -52,6 +52,31 @@
         android:label="Profile" />
 
     <fragment
+        android:id="@+id/helpFragment"
+        android:name="com.example.pixelpayout.ui.help.HelpFragment"
+        android:label="Help and support" />
+
+    <fragment
+        android:id="@+id/supportTicketsFragment"
+        android:name="com.example.pixelpayout.ui.help.SupportTicketsFragment"
+        android:label="My tickets" />
+
+    <fragment
+        android:id="@+id/supportNewTicketFragment"
+        android:name="com.example.pixelpayout.ui.help.SupportNewTicketFragment"
+        android:label="Contact support" />
+
+    <fragment
+        android:id="@+id/supportThreadFragment"
+        android:name="com.example.pixelpayout.ui.help.SupportThreadFragment"
+        android:label="Support ticket" />
+
+    <fragment
+        android:id="@+id/referralsFragment"
+        android:name="com.example.pixelpayout.ui.profile.ReferralsFragment"
+        android:label="Referrals" />
+
+    <fragment
         android:id="@+id/navigation_redemption"
         android:name="com.example.pixelpayout.ui.redemption.RedemptionFragment"
         android:label="Cashout" />

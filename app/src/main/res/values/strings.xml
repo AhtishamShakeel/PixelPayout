@@ -189,32 +189,10 @@
     <string name="slide_2_description">Complete daily challenges to earn bonus points</string>
     <string name="slide_3_title">Cash Out</string>
     <string name="slide_3_description">Convert your points to real money rewards</string>
-    <string name="terms_agreement">By creating account or logging in, you agree to our Terms and Conditions and Privacy Policy</string>
-    <string name="terms_and_conditions_title">Terms and Conditions</string>
-    <string name="privacy_policy_title">Privacy Policy</string>
-    <string name="terms_and_conditions_text">These Terms and Conditions govern your use of PixelPayout. By using our app, you agree to these terms.\n\n
-1. Account Creation\n
-- You must provide accurate information\n
-- You are responsible for maintaining account security\n\n
-2. Points and Rewards\n
-- Points are earned through legitimate gameplay\n
-- We reserve the right to verify point accumulation\n
-- Points have no monetary value until redeemed\n\n
-3. Fair Play\n
-- Cheating or exploitation will result in account termination\n
-- Multiple accounts are not permitted</string>
-    <string name="privacy_policy_text">Privacy Policy for PixelPayout\n\n
-1. Information We Collect\n
-- Account information (email, name)\n
-- Game activity and points earned\n
-- Device information\n\n
-2. How We Use Information\n
-- To provide and improve services\n
-- To verify rewards eligibility\n
-- To prevent fraud\n\n
-3. Data Security\n
-- We implement industry-standard security measures\n
-- Your data is encrypted in transit and at rest</string>
+    <string name="terms_agreement">By continuing, you confirm you are 18 or older and agree to our Terms of Service and Privacy Policy</string>
+    <string name="legal_terms_title">Terms of Service</string>
+    <string name="legal_privacy_title">Privacy Policy</string>
+    <string name="legal_delete_title">Delete account</string>
     <string name="ok">OK</string>
     <string name="slide_image_description">Onboarding slide image</string>
     <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
@@ -748,9 +726,24 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_stat_xp">Lifetime XP</string>
     <string name="profile_stat_streak">Day streak</string>
     <string name="profile_invite_title">Invite friends</string>
+    <string name="profile_refer_title">Refer &amp; Earn</string>
+    <string name="profile_refer_sub">Invite friends and earn rewards when they start playing.</string>
+    <string name="profile_refer_invited">invited</string>
+    <string name="profile_refer_stars">stars earned</string>
+    <string name="profile_refer_share">Share</string>
+    <string name="profile_refer_how">How will I get Stars?</string>
+    <string name="profile_referrals_none">No referrals yet</string>
+    <string name="profile_referrals_none_sub">Share your code to track progress here.</string>
+    <plurals name="profile_referrals_count">
+        <item quantity="one">%1$d referral</item>
+        <item quantity="other">%1$d referrals</item>
+    </plurals>
+    <string name="profile_referrals_open">Open for more detail</string>
+    <string name="referrals_title">Referrals</string>
     <string name="profile_your_code">Your code</string>
     <string name="profile_earned">%1$s ★ earned</string>
     <string name="profile_referral_rule">Your friend enters this code at signup. You get %1$d ★ when they reach level %2$d, and %3$d ★ more on their first full-price redemption.</string>
+    <string name="profile_referral_rule_generic">Your friend enters this code at signup. You earn stars when they reach the unlock level, and more on their first full-price redemption.</string>
     <string name="profile_referral_progress">Referral progress</string>
     <string name="profile_invited_count">%1$d invited</string>
     <string name="profile_funnel_invited">Invited</string>
@@ -771,10 +764,19 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="profile_invitee_reward">%1$d ★</string>
     <string name="profile_claim_sub">Enter a code before you reach level 10 — after that this closes</string>
     <string name="profile_account">Account</string>
-    <string name="profile_terms">Terms and conditions</string>
-    <string name="profile_privacy">Privacy policy</string>
-    <string name="profile_support">Help and support</string>
+    <string name="profile_terms">Terms of Service</string>
+    <string name="profile_privacy">Privacy Policy</string>
+    <string name="profile_support">Help &amp; Support</string>
     <string name="profile_sign_out">Sign out</string>
+    <string name="profile_privacy_choices">Privacy choices</string>
+    <string name="profile_delete_account">Delete account</string>
+    <string name="delete_account_title">Delete your account?</string>
+    <string name="delete_account_message">This permanently removes your Stars, XP, level and progress. It can’t be undone. Redeem any Stars you want to keep first.</string>
+    <string name="delete_account_confirm">Delete forever</string>
+    <string name="delete_account_learn">What gets deleted</string>
+    <string name="delete_account_pending">You have a redemption in progress. Wait for it to be completed or declined, then try again.</string>
+    <string name="delete_account_failed">Could not delete your account. Check your connection and try again.</string>
+    <string name="delete_account_working">Deleting your account…</string>
     <!-- The confirm dialog now has a title of its own, so the body says what
          the consequence is rather than repeating the question. -->
     <string name="profile_sign_out_confirm">Your stars stay on your account. You will need to sign in again to reach them.</string>

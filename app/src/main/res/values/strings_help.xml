@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="help_title">Help &amp; Support</string>
+    <string name="help_subtitle">Answers to the most common questions</string>
+    <string name="help_section_earning">Earning</string>
+    <string name="help_section_redeeming">Redeeming</string>
+    <string name="help_section_levels">Levels &amp; tournaments</string>
+    <string name="help_section_referrals">Referrals</string>
+    <string name="help_section_account">Account &amp; fair play</string>
+    <string name="help_contact_title">Still need help?</string>
+    <string name="help_contact_body">Send us a ticket and a real person will reply here in the app, usually within 2 business days.</string>
+    <string name="help_contact_button">Contact support</string>
+    <string name="help_view_open_ticket">View your open ticket</string>
+    <string name="help_my_tickets">My tickets</string>
+    <plurals name="help_my_tickets_count">
+        <item quantity="one">%1$d ticket</item>
+        <item quantity="other">%1$d tickets</item>
+    </plurals>
+    <string name="help_new_reply">New reply</string>
+
+    <!-- Support tickets -->
+    <string name="support_tickets_title">My tickets</string>
+    <string name="support_tickets_empty">No tickets yet</string>
+    <string name="support_tickets_empty_sub">If something isn’t working, contact support from Help &amp; Support.</string>
+    <string name="support_new_title">Contact support</string>
+    <string name="support_new_subtitle">Tell us what happened and we’ll reply here</string>
+    <string name="support_category_label">What is it about?</string>
+    <string name="support_order_label">Which order?</string>
+    <string name="support_order_none">Not about a specific order</string>
+    <string name="support_order_loading">Loading your orders…</string>
+    <string name="support_message_label">Describe the problem</string>
+    <string name="support_message_hint">Include what you did, what you expected and what happened. For orders, include the player ID.</string>
+    <string name="support_message_counter">%1$d / %2$d</string>
+    <string name="support_submit">Send ticket</string>
+    <string name="support_sending">Sending…</string>
+    <string name="support_one_ticket_note">One open ticket at a time. You can send 2 messages before support replies.</string>
+    <string name="support_error_short">Please write at least 10 characters.</string>
+    <string name="support_error_category">Choose what it is about.</string>
+    <string name="support_error_daily">You’ve sent a lot of messages today. Please try again tomorrow.</string>
+    <string name="support_error_active">You already have an open ticket. Reply there instead.</string>
+    <string name="support_error_generic">Couldn’t send. Check your connection and try again.</string>
+    <string name="support_reply_hint">Write a reply…</string>
+    <string name="support_send">Send</string>
+    <string name="support_close_ticket">Close ticket</string>
+    <string name="support_close_confirm_title">Close this ticket?</string>
+    <string name="support_close_confirm_message">Close it if your problem is solved. You won’t be able to reply here any more, but you can open a new ticket.</string>
+    <string name="support_closed_note">This ticket is closed. Need more help? Open a new ticket from Help &amp; Support.</string>
+    <string name="support_limit_note">You’ve sent 2 messages. Please wait for support to reply before sending more.</string>
+    <string name="support_waiting_note">Waiting for support · we usually reply within 2 business days</string>
+    <string name="support_you">You</string>
+    <string name="support_agent">PixelPayout Support</string>
+    <string name="support_status_open">Waiting for support</string>
+    <string name="support_status_answered">Support replied</string>
+    <string name="support_status_resolved">Closed</string>
+    <string name="support_cat_redemption">Redemption / order</string>
+    <string name="support_cat_missing_reward">Missing reward</string>
+    <string name="support_cat_account">Account &amp; login</string>
+    <string name="support_cat_referral">Referral</string>
+    <string name="support_cat_bug">Report a bug</string>
+    <string name="support_cat_other">Other</string>
+
+    <!-- Earning -->
+    <string name="faq_earn_q">How do I earn Stars?</string>
+    <string name="faq_earn_a">Play games and answer quizzes to earn XP. XP levels you up, and every new level gives you Stars to claim on the Level rewards screen. You also earn Stars from weekly tournament prizes, referrals and partner offers on the Earn tab.</string>
+    <string name="faq_xp_q">What is the difference between XP and Stars?</string>
+    <string name="faq_xp_a">XP measures your progress and decides your level and tournament rank. Stars are your reward balance, and Stars are what you redeem for in-game currency. XP is never spent.</string>
+    <string name="faq_limit_q">Why can’t I play more games or quizzes today?</string>
+    <string name="faq_limit_a">Games and quizzes each have a daily limit. You can unlock a few extra attempts by watching a short ad. Everything resets at 00:00 UTC.</string>
+    <string name="faq_ad_q">I watched an ad but didn’t get my reward</string>
+    <string name="faq_ad_a">A reward only counts if the ad plays to the end. Closing it early gives nothing, but the offer stays so you can try again. If there is no ad available, wait a minute and retry. Using an ad blocker, VPN or private DNS stops ads from loading.</string>
+    <string name="faq_offer_q">My offer reward hasn’t arrived</string>
+    <string name="faq_offer_a">The offer partner decides whether an offer was completed, and some take up to 24 hours to confirm. We credit Stars as soon as they do. If it still hasn’t arrived, contact the partner’s support from inside their offer wall, because only they can review it.</string>
+
+    <!-- Redeeming -->
+    <string name="faq_redeem_q">How do I redeem my Stars?</string>
+    <string name="faq_redeem_a">Open the Wallet tab, choose a game and a pack, then enter your player ID, username and server exactly as they appear in the game. The Stars are taken when you place the order.</string>
+    <string name="faq_redeem_time_q">How long does a redemption take?</string>
+    <string name="faq_redeem_time_a">Every order is checked by a person. Most are delivered within 48 hours, and all within 7 business days. You can follow each order on the Orders tab in Wallet.</string>
+    <string name="faq_wrong_id_q">I entered the wrong player ID</string>
+    <string name="faq_wrong_id_a">Open a support ticket straight away while the order is still pending, and link the order. We will try to stop it. Once currency has been delivered to a player ID it can’t be recovered, so always double-check before confirming.</string>
+    <string name="faq_declined_q">Why was my order declined?</string>
+    <string name="faq_declined_a">Usually because the player ID or server couldn’t be found, or the order failed our fraud checks. If the details were wrong, your Stars are returned to your balance. Orders declined for cheating don’t get Stars back.</string>
+    <string name="faq_first_q">What is the first-redeem discount?</string>
+    <string name="faq_first_a">Your first pack for a game account can cost fewer Stars. It can be used once per game account, even across different PixelPayout accounts.</string>
+
+    <!-- Levels & tournaments -->
+    <string name="faq_level_q">How do level rewards work?</string>
+    <string name="faq_level_a">Each new level unlocks a Stars reward. Open Level rewards from Home and tap Claim. If you have several waiting, they are claimed one at a time, starting from the lowest level.</string>
+    <string name="faq_tournament_q">How does the weekly tournament work?</string>
+    <string name="faq_tournament_a">It’s free and opens once you reach level 10. XP you earn from games and quizzes during the week (Monday to Sunday, UTC) decides your rank. The top places win Stars, paid after the week ends. The full prize table is on the Earn tab.</string>
+
+    <!-- Referrals -->
+    <string name="faq_referral_q">How do referrals work?</string>
+    <string name="faq_referral_a">Share your code from Profile. Your friend enters it before reaching level 10. You earn 50 ★ when they reach level 10, and 150 ★ more when they make their first full-price redemption.</string>
+    <string name="faq_referral_code_q">I forgot to enter a referral code</string>
+    <string name="faq_referral_code_a">You can still enter one in Profile under “Have a code?”, as long as you haven’t reached level 10 yet.</string>
+
+    <!-- Account & fair play -->
+    <string name="faq_multi_q">Can I have more than one account?</string>
+    <string name="faq_multi_a">No. Each person and each device may have one account. Extra accounts are banned and lose all their Stars.</string>
+    <string name="faq_vpn_q">Can I use a VPN, emulator or auto-clicker?</string>
+    <string name="faq_vpn_a">No. VPNs, proxies, emulators, rooted phones, modified apps and auto-clickers are not allowed, and accounts using them are banned.</string>
+    <string name="faq_banned_q">My account was banned. What can I do?</string>
+    <string name="faq_banned_a">If you believe it was a mistake, open a support ticket (or email us from the address on your account) within 30 days, and we will review it.</string>
+    <string name="faq_delete_q">How do I delete my account?</string>
+    <string name="faq_delete_a">Go to Profile → Account → Delete account. Deleting is permanent and removes your Stars, so redeem first. You can’t delete while a redemption is pending.</string>
+</resources>

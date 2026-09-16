@@ -157,6 +157,125 @@ async function run() {
 
   await seedAnswerKey();
 
+  // --- support tickets: one active ticket, owner-only replies, admin flow --
+  {
+    const user = await makeUser("support");
+    await seedUserDoc(user.uid, "SUPPORT1");
+    const order = await db.collection("redemptions").add({
+      uid: user.uid, status: "pending", packAmount: "325 UC",
+    });
+    const createTicket = httpsCallable(clientFunctions, "createSupportTicket");
+    const reply = httpsCallable(clientFunctions, "replySupportTicket");
+    const closeTicket = httpsCallable(clientFunctions, "closeSupportTicket");
+
+    await assertThrows("an unknown category is refused",
+      () => createTicket({category: "gimme", message: "Please send me stars now"}), "invalid-argument");
+    await assertThrows("a too-short message is refused",
+      () => createTicket({category: "other", message: "help"}), "invalid-argument");
+
+    const created = await createTicket({
+      category: "redemption", message: "My 325 UC order has not arrived yet.", orderId: order.id,
+    });
+    const ticketId = (created.data as {ticketId: string}).ticketId;
+    const ticket = await db.collection("supportTickets").doc(ticketId).get();
+    assertEq("the ticket belongs to the caller", ticket.get("uid"), user.uid);
+    assertEq("a new ticket is open", ticket.get("status"), "open");
+    assertEq("a new ticket is flagged for support", ticket.get("adminUnread"), true);
+    assertEq("the linked order is labelled", String(ticket.get("orderLabel")).startsWith("325 UC"), true);
+    assertEq("the first message is stored",
+      (await db.collection("supportTickets").doc(ticketId).collection("messages").get()).size, 1);
+
+    await assertThrows("a second active ticket is refused",
+      () => createTicket({category: "other", message: "Another question about my account"}),
+      "failed-precondition");
+
+    // Admin replies and the user sees it as unread.
+    const adminUser = await makeUser("support-admin");
+    await admin.auth().setCustomUserClaims(adminUser.uid, {admin: true});
+    await adminUser.getIdToken(true);
+    const adminReply = httpsCallable(clientFunctions, "adminReplySupportTicket");
+    await adminReply({ticketId, message: "We have resent your UC, please check."});
+    const answered = await db.collection("supportTickets").doc(ticketId).get();
+    assertEq("an admin reply marks the ticket answered", answered.get("status"), "answered");
+    assertEq("an admin reply is unread for the user", answered.get("userUnread"), true);
+    await admin.auth().setCustomUserClaims(adminUser.uid, {admin: false});
+
+    // Back to the ticket owner.
+    const {signInWithEmailAndPassword} = await import("firebase/auth");
+    await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
+    await reply({ticketId, message: "Got it, thank you so much!"});
+    assertEq("a user reply reopens the ticket",
+      (await db.collection("supportTickets").doc(ticketId).get()).get("status"), "open");
+    await reply({ticketId, message: "Still missing 25 UC though."});
+    await assertThrows("a third message in a row waits for support",
+      () => reply({ticketId, message: "Hello?? Anyone there??"}), "failed-precondition");
+    assertEq("the refused message was not stored",
+      (await db.collection("supportTickets").doc(ticketId).collection("messages").get()).size, 4);
+
+    const outsider = await makeUser("support-outsider");
+    await seedUserDoc(outsider.uid, "SUPPORT2");
+    await assertThrows("a stranger cannot reply to the ticket",
+      () => reply({ticketId, message: "I want in on this ticket"}), "not-found");
+    await signInWithEmailAndPassword(clientAuth, user.email!, "Test1234!");
+
+    await closeTicket({ticketId});
+    assertEq("the owner can close their ticket",
+      (await db.collection("supportTickets").doc(ticketId).get()).get("status"), "resolved");
+    await assertThrows("a closed ticket is read-only",
+      () => reply({ticketId, message: "One more thing about this"}), "failed-precondition");
+    const second = await createTicket({category: "bug", message: "The quiz screen froze on me."});
+    assertEq("after closing, a new ticket can be opened",
+      typeof (second.data as {ticketId: string}).ticketId, "string");
+  }
+
+  // --- deleteAccount: refused while an order is pending, then deletes ------
+  {
+    const user = await makeUser("deleteme");
+    const androidId = `device-${user.uid}`;
+    await seedUserDoc(user.uid, "DELETE01", {androidId});
+    await db.collection("users").doc(user.uid).collection("rewardEvents").doc("e1").set({source: "QUIZ"});
+    const order = await db.collection("redemptions").add({uid: user.uid, status: "pending"});
+    const deleteAccount = httpsCallable(clientFunctions, "deleteAccount");
+
+    await assertThrows(
+      "deletion is refused while a redemption is pending",
+      () => deleteAccount({}),
+      "failed-precondition"
+    );
+    assertEq("the refused call left the profile in place",
+      (await db.collection("users").doc(user.uid).get()).exists, true);
+
+    await order.update({status: "approved"});
+    const result = await deleteAccount({});
+    assertEq("deletion succeeds once nothing is pending",
+      (result.data as {success: boolean}).success, true);
+
+    assertEq("the profile is gone", (await db.collection("users").doc(user.uid).get()).exists, false);
+    assertEq("its subcollections are gone",
+      (await db.collection("users").doc(user.uid).collection("rewardEvents").get()).size, 0);
+    let authGone = false;
+    try {
+      await admin.auth().getUser(user.uid);
+    } catch {
+      authGone = true;
+    }
+    assertEq("the sign-in account is gone", authGone, true);
+
+    const tombstone = await db.collection("deletedAccounts").doc(user.uid).get();
+    assertEq("an anti-fraud tombstone is kept", tombstone.exists, true);
+    assertEq("the tombstone keeps the android id", tombstone.get("androidId"), androidId);
+    assertEq("the tombstone keeps no plain email",
+      String(tombstone.get("emailHash")).includes("@"), false);
+    assertEq("the order record is kept for disputes", (await order.get()).exists, true);
+
+    // Signing up again on the same device must not reopen the referral window.
+    const again = await makeUser("deleteme-again");
+    const completeSignup = httpsCallable(clientFunctions, "completeSignup");
+    await completeSignup({displayName: "Again", androidId});
+    assertEq("a new account on a deleted account's device counts as referred",
+      (await db.collection("users").doc(again.uid).get()).get("hasUsedReferral"), true);
+  }
+
   // --- claimReward: quiz, graded server-side ---
   {
     const user = await makeUser("quiz");

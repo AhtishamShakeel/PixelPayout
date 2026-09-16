@@ -357,6 +357,62 @@ async function run() {
     () => setDoc(doc(ownerDb, "leaderboardSettlements", "2956"), {pointsPaid: 0})
   );
 
+  // --- support tickets: owner reads, only userUnread may be cleared ---
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const seedDb = context.firestore();
+    await setDoc(doc(seedDb, "supportTickets", "t1"), {
+      uid: OWNER_UID, status: "answered", userUnread: true, adminUnread: false,
+    });
+    await setDoc(doc(seedDb, "supportTickets", "t1", "messages", "m1"), {
+      from: "admin", text: "We sent your UC again.",
+    });
+  });
+
+  await expectSucceeds(
+    "owner can read their ticket",
+    () => getDoc(doc(ownerDb, "supportTickets", "t1"))
+  );
+  await expectSucceeds(
+    "owner can list their tickets by uid",
+    () => getDocs(query(collection(ownerDb, "supportTickets"), where("uid", "==", OWNER_UID)))
+  );
+  await expectSucceeds(
+    "owner can read their ticket's messages",
+    () => getDocs(collection(ownerDb, "supportTickets", "t1", "messages"))
+  );
+  await expectFails(
+    "another user cannot read someone else's ticket",
+    () => getDoc(doc(otherDb, "supportTickets", "t1"))
+  );
+  await expectFails(
+    "another user cannot read someone else's ticket messages",
+    () => getDocs(collection(otherDb, "supportTickets", "t1", "messages"))
+  );
+  await expectFails(
+    "listing all tickets is refused",
+    () => getDocs(collection(ownerDb, "supportTickets"))
+  );
+  await expectSucceeds(
+    "owner can mark a reply as seen",
+    () => updateDoc(doc(ownerDb, "supportTickets", "t1"), {userUnread: false})
+  );
+  await expectFails(
+    "owner cannot change the status",
+    () => updateDoc(doc(ownerDb, "supportTickets", "t1"), {status: "resolved"})
+  );
+  await expectFails(
+    "owner cannot flag the ticket for the admin",
+    () => updateDoc(doc(ownerDb, "supportTickets", "t1"), {userUnread: false, adminUnread: true})
+  );
+  await expectFails(
+    "a client cannot create a ticket directly",
+    () => setDoc(doc(ownerDb, "supportTickets", "t2"), {uid: OWNER_UID, status: "open"})
+  );
+  await expectFails(
+    "a client cannot write a message directly",
+    () => setDoc(doc(ownerDb, "supportTickets", "t1", "messages", "m2"), {from: "admin", text: "refund"})
+  );
+
   await testEnv.cleanup();
 
   console.log(`\n=== ${passed} passed, ${failed} failed ===`);

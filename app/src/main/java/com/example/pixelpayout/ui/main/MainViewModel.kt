@@ -430,6 +430,10 @@ class MainViewModel(
      */
     val referralStats: LiveData<UserRepository.ReferralStats?> = _referralStats
 
+    /** Permanently deletes this account server-side. See UserRepository.deleteAccount. */
+    suspend fun deleteAccount(): UserRepository.DeleteAccountResult =
+        userRepository.deleteAccount()
+
     fun refreshReferralStats() {
         viewModelScope.launch {
             userRepository.getReferralStats()?.let { _referralStats.value = it }

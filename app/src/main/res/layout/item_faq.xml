@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One question on Help & Support. Tapping the card opens the answer. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/faqCard"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="8dp"
+    android:background="@drawable/bg_summary_card"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:orientation="vertical"
+    android:paddingStart="14dp"
+    android:paddingTop="13dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="13dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/faqQuestion"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:fontFamily="@font/jakarta_semibold"
+            android:textColor="@color/text_strong"
+            android:textSize="14sp"
+            tools:text="How long does a redemption take?" />
+
+        <ImageView
+            android:id="@+id/faqChevron"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="10dp"
+            android:contentDescription="@null"
+            android:rotation="90"
+            android:src="@drawable/ic_chevron_right"
+            app:tint="@color/text_faint" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/faqAnswer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:fontFamily="@font/jakarta_medium"
+        android:lineSpacingMultiplier="1.35"
+        android:textColor="@color/text_faint"
+        android:textSize="13sp"
+        android:visibility="gone"
+        tools:text="Most orders are delivered within 48 hours."
+        tools:visibility="visible" />
+
+</LinearLayout>

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Account row chevron with a gold dot: support has replied. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="34dp" android:height="20dp">
+        <shape android:shape="rectangle"><solid android:color="@android:color/transparent" /></shape>
+    </item>
+    <item android:width="8dp" android:height="8dp" android:gravity="center_vertical|start" android:drawable="@drawable/bg_unread_dot" />
+    <item android:width="20dp" android:height="20dp" android:gravity="center_vertical|end" android:drawable="@drawable/ic_row_caret" />
+</layer-list>

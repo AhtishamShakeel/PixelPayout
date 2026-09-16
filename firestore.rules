@@ -118,6 +118,28 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /supportTickets/{ticketId} {
+      // Owners read their own tickets. Everything is written by Cloud
+      // Functions (createSupportTicket, replySupportTicket, ...), which
+      // enforce one active ticket, message length and the daily cap.
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+
+      // The one client write: an owner marking a reply as seen. Only the
+      // userUnread flag may change, and only to false.
+      allow update: if request.auth != null
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userUnread'])
+        && request.resource.data.userUnread == false;
+
+      allow create, delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null
+          && get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.uid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

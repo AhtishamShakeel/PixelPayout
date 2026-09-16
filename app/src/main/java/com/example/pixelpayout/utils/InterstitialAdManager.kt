@@ -114,6 +114,7 @@ class InterstitialAdManager private constructor() {
         appContext = context.applicationContext
         sweep()
         if (cached != null || loadStartedAt != null) return
+        if (!AdConsent.canRequestAds(appContext!!)) return
 
         val now = SystemClock.uptimeMillis()
         if (now < nextAllowedAt) {

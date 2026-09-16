@@ -164,6 +164,32 @@
     .status.pending { color: var(--accent); }
     .status.approved { color: var(--good); }
     .status.rejected { color: var(--bad); }
+
+    /* ---- Support ---- */
+    .views { display: flex; gap: .5rem; margin-bottom: 1.25rem; }
+    .views button[aria-selected="true"] { background: var(--accent); color: #0b1020; border-color: var(--accent); }
+    .ticket { cursor: pointer; }
+    .ticket:hover { border-color: var(--accent); }
+    .unread-dot {
+      display: inline-block; width: .55rem; height: .55rem; border-radius: 50%;
+      background: var(--accent); margin-right: .4rem; vertical-align: middle;
+    }
+    .cat {
+      display: inline-block; border: 1px solid var(--line); color: var(--muted);
+      border-radius: 4px; padding: 0 .35rem; font-size: .7rem; text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .thread { display: flex; flex-direction: column; gap: .5rem; margin: .75rem 0; }
+    .msg { max-width: 80%; padding: .55rem .75rem; border-radius: 10px; white-space: pre-wrap; word-break: break-word; }
+    .msg.user { background: #232733; align-self: flex-start; }
+    .msg.admin { background: #1f3a5f; align-self: flex-end; }
+    .msg .when { display: block; color: var(--muted); font-size: .72rem; margin-top: .2rem; }
+    textarea {
+      font: inherit; width: 100%; min-height: 7rem; resize: vertical;
+      border: 1px solid var(--line); background: #232733; color: var(--text);
+      padding: .6rem .7rem; border-radius: 6px;
+    }
+    textarea:focus { outline: none; border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -182,6 +208,22 @@
   <main>
     <div id="banner" hidden></div>
 
+    <div class="views" id="views" hidden>
+      <button data-view="orders" aria-selected="true">Redemptions</button>
+      <button data-view="support" aria-selected="false">Support</button>
+    </div>
+
+    <section id="supportView" hidden>
+      <div class="tabs" id="supportTabs">
+        <button data-status="open" aria-selected="true">Needs reply</button>
+        <button data-status="answered" aria-selected="false">Answered</button>
+        <button data-status="resolved" aria-selected="false">Closed</button>
+      </div>
+      <div id="supportList"></div>
+      <div id="supportThread" hidden></div>
+    </section>
+
+    <section id="ordersView">
     <div class="tabs" id="tabs" hidden>
       <button data-status="pending" aria-selected="true">Pending</button>
       <button data-status="approved" aria-selected="false">Approved</button>
@@ -208,6 +250,7 @@
         <button id="settleRun">Settle week</button>
       </div>
       <div class="muted" id="settleResult"></div>
+    </section>
     </section>
   </main>
 
@@ -258,7 +301,178 @@
       }
     };
     el("signOut").onclick = () => fbSignOut(auth);
-    el("refresh").onclick = () => load();
+    el("refresh").onclick = () => (currentView === "support" ? loadTickets() : load());
+
+    // ---- Views: redemptions / support ----
+    let currentView = "orders";
+    for (const v of el("views").querySelectorAll("button")) {
+      v.onclick = () => {
+        currentView = v.dataset.view;
+        for (const b of el("views").querySelectorAll("button")) {
+          b.setAttribute("aria-selected", String(b === v));
+        }
+        el("ordersView").hidden = currentView !== "orders";
+        el("supportView").hidden = currentView !== "support";
+        banner("");
+        if (currentView === "support") loadTickets(); else load();
+      };
+    }
+
+    // ---- Support ----
+    const CATEGORY_LABELS = {
+      redemption: "Redemption", missing_reward: "Missing reward", account: "Account",
+      referral: "Referral", bug: "Bug", other: "Other",
+    };
+    let ticketStatus = "open";
+
+    for (const tab of el("supportTabs").querySelectorAll("button")) {
+      tab.onclick = () => {
+        ticketStatus = tab.dataset.status;
+        for (const t of el("supportTabs").querySelectorAll("button")) {
+          t.setAttribute("aria-selected", String(t === tab));
+        }
+        loadTickets();
+      };
+    }
+
+    async function loadTickets() {
+      el("supportThread").hidden = true;
+      el("supportList").hidden = false;
+      el("supportList").innerHTML = '<div class="empty">Loading…</div>';
+      try {
+        const res = await httpsCallable(fns, "listSupportTickets")({status: ticketStatus});
+        renderTickets(res.data?.tickets ?? []);
+      } catch (e) {
+        el("supportList").innerHTML = "";
+        banner(`Could not load tickets: ${e.message}`);
+      }
+    }
+
+    function renderTickets(tickets) {
+      const list = el("supportList");
+      if (!tickets.length) {
+        list.innerHTML = '<div class="empty">No tickets here.</div>';
+        return;
+      }
+      list.innerHTML = "";
+      for (const t of tickets) {
+        const card = document.createElement("div");
+        card.className = "card ticket";
+        card.innerHTML = `
+          <div class="row">
+            <div>
+              <div class="title">${t.adminUnread ? '<span class="unread-dot"></span>' : ""}${escapeHtml(t.subject)}</div>
+              <div class="muted">${escapeHtml(t.displayName || "")} ${t.email ? "&middot; " + escapeHtml(t.email) : ""}</div>
+              <div class="muted"><span class="cat">${escapeHtml(CATEGORY_LABELS[t.category] || t.category)}</span>
+                ${t.orderLabel ? "&middot; " + escapeHtml(t.orderLabel) : ""}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="muted">${fmtDate(t.lastMessageAtMillis)}</div>
+              <div class="muted">${Number(t.messageCount || 0)} messages &middot; last by ${escapeHtml(t.lastMessageFrom || "")}</div>
+            </div>
+          </div>`;
+        card.onclick = () => openTicket(t.id);
+        list.append(card);
+      }
+    }
+
+    async function openTicket(ticketId) {
+      const box = el("supportThread");
+      el("supportList").hidden = true;
+      box.hidden = false;
+      box.innerHTML = '<div class="empty">Loading…</div>';
+      try {
+        const res = await httpsCallable(fns, "getSupportTicket")({ticketId});
+        renderThread(res.data);
+      } catch (e) {
+        box.innerHTML = "";
+        banner(`Could not open ticket: ${e.message}`);
+      }
+    }
+
+    function renderThread(data) {
+      const t = data.ticket;
+      const a = data.account;
+      const box = el("supportThread");
+      const closed = t.status === "resolved";
+      box.innerHTML = `
+        <div class="actions" style="margin:0 0 .75rem"><button id="backToTickets">&larr; All tickets</button></div>
+        <div class="card">
+          <div class="row">
+            <div>
+              <div class="title">${escapeHtml(t.subject)}</div>
+              <div class="muted">${escapeHtml(t.displayName)} &middot; ${escapeHtml(t.email)}</div>
+              <div class="muted"><span class="cat">${escapeHtml(CATEGORY_LABELS[t.category] || t.category)}</span>
+                ${t.orderLabel ? "&middot; " + escapeHtml(t.orderLabel) : ""}
+                ${t.appVersion ? "&middot; app " + escapeHtml(t.appVersion) : ""}</div>
+              <div class="support-id copy" data-copy="${escapeHtml(t.uid)}" title="Click to copy">uid ${escapeHtml(t.uid)}</div>
+            </div>
+            <div style="text-align:right">
+              <div class="status">${escapeHtml(t.status)}</div>
+              ${a ? `<div class="cost">${Number(a.points).toLocaleString()}</div>
+                     <div class="cost-sub">stars &middot; level ${Number(a.level)}</div>` :
+                   '<div class="cost-sub">account deleted</div>'}
+            </div>
+          </div>
+          <div class="thread">
+            ${data.messages.map((m) => `
+              <div class="msg ${m.from === "admin" ? "admin" : "user"}">${escapeHtml(m.text)}
+                <span class="when">${m.from === "admin" ? "Support" : "User"} &middot; ${fmtDate(m.createdAtMillis)}</span>
+              </div>`).join("")}
+          </div>
+          ${!closed && Number(t.userMessagesSinceReply || 0) >= 2
+            ? '<div class="muted">The user has sent 2 messages and can’t send more until you reply.</div>' : ""}
+          ${closed ? '<div class="muted">This ticket is closed. The user can open a new one.</div>' : `
+            <textarea id="replyText" placeholder="Reply to the user…" maxlength="4000"></textarea>
+            <div class="actions">
+              <button id="sendReply" class="approve">Send reply</button>
+              <button id="sendClose">Send &amp; close</button>
+              <button id="closeOnly" class="reject">Close without reply</button>
+            </div>`}
+        </div>`;
+
+      el("backToTickets").onclick = () => loadTickets();
+      for (const target of box.querySelectorAll("[data-copy]")) {
+        target.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(target.dataset.copy);
+            banner(`Copied ${target.dataset.copy}`, "ok");
+          } catch {
+            banner("Could not copy - select the text instead.");
+          }
+        };
+      }
+      if (closed) return;
+
+      const send = async (resolve) => {
+        const message = el("replyText").value.trim();
+        if (message.length < 10) {
+          banner("A reply needs at least 10 characters.");
+          return;
+        }
+        for (const b of box.querySelectorAll("button")) b.disabled = true;
+        try {
+          await httpsCallable(fns, "adminReplySupportTicket")({ticketId: t.id, message, resolve});
+          banner(resolve ? "Reply sent and ticket closed." : "Reply sent.", "ok");
+          openTicket(t.id);
+        } catch (e) {
+          banner(e.message);
+          for (const b of box.querySelectorAll("button")) b.disabled = false;
+        }
+      };
+      el("sendReply").onclick = () => send(false);
+      el("sendClose").onclick = () => send(true);
+      el("closeOnly").onclick = async () => {
+        if (!confirm("Close this ticket without replying?")) return;
+        try {
+          await httpsCallable(fns, "adminCloseSupportTicket")({ticketId: t.id});
+          banner("Ticket closed.", "ok");
+          loadTickets();
+        } catch (e) {
+          banner(e.message);
+        }
+      };
+    }
 
     el("settleRun").onclick = async () => {
       const raw = el("settleWeek").value.trim();
@@ -301,6 +515,7 @@
       el("refresh").hidden = !user;
       el("tabs").hidden = !user;
       el("settle").hidden = !user;
+      el("views").hidden = !user;
       listEl.innerHTML = "";
       banner("");
 

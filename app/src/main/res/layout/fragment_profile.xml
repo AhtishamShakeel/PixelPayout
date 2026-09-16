@@ -71,8 +71,9 @@
                 android:layout_weight="1"
                 android:orientation="vertical">
 
+                <!-- The name is already on the top bar, so the email leads. -->
                 <TextView
-                    android:id="@+id/profileName"
+                    android:id="@+id/profileEmail"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -80,19 +81,7 @@
                     android:letterSpacing="-0.01"
                     android:maxLines="1"
                     android:textColor="@color/text_strong"
-                    android:textSize="19sp"
-                    tools:text="Ahtisham S." />
-
-                <TextView
-                    android:id="@+id/profileEmail"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="3dp"
-                    android:ellipsize="end"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:maxLines="1"
-                    android:textColor="@color/text_faint"
-                    android:textSize="12.5sp"
+                    android:textSize="16sp"
                     tools:text="ahtisham@gmail.com" />
 
                 <TextView
@@ -108,62 +97,6 @@
                     app:drawableStartCompat="@drawable/ic_history"
                     app:drawableTint="@color/text_ghost"
                     tools:text="Member since Jun 2026" />
-
-            </LinearLayout>
-
-        </LinearLayout>
-
-        <!-- ================= Level ================= -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_summary_card"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="14dp"
-            android:paddingTop="11dp"
-            android:paddingEnd="14dp"
-            android:paddingBottom="11dp">
-
-            <TextView
-                android:id="@+id/profileLevel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_semibold"
-                android:letterSpacing="0.14"
-                android:textAllCaps="true"
-                android:textColor="@color/brand_violet_light"
-                android:textSize="11sp"
-                tools:text="Level 4" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <ProgressBar
-                    android:id="@+id/profileLevelBar"
-                    style="?android:attr/progressBarStyleHorizontal"
-                    android:layout_width="match_parent"
-                    android:layout_height="5dp"
-                    android:max="100"
-                    android:progressDrawable="@drawable/progress_violet"
-                    tools:progress="62" />
-
-                <TextView
-                    android:id="@+id/profileLevelNote"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:fontFamily="@font/jakarta_medium"
-                    android:gravity="end"
-                    android:textColor="@color/text_ghost"
-                    android:textSize="10.5sp"
-                    tools:text="620 / 1,000 XP to Level 5" />
 
             </LinearLayout>
 
@@ -202,111 +135,291 @@
 
         </LinearLayout>
 
-        <!-- ================= Invite friends ================= -->
+        <!-- ================= Refer & Earn ================= -->
         <!--
-            Home's "Refer and earn" row lands here, so the header carries an
-            id: without one the tab opens on the account block and the user
-            has to hunt for the thing they tapped.
+            Home's "Refer and earn" row lands here, so the card carries an id:
+            without one the tab opens on the account block and the user has to
+            hunt for the thing they tapped.
         -->
         <LinearLayout
             android:id="@+id/inviteHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:layout_marginBottom="11dp"
-            android:baselineAligned="false"
-            android:gravity="bottom"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:fontFamily="@font/jakarta_semibold"
-                android:text="@string/profile_invite_title"
-                android:textColor="@color/text_strong"
-                android:textSize="15sp" />
-
-            <TextView
-                android:id="@+id/profileEarnedLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_medium"
-                android:textColor="@color/text_ghost"
-                android:textSize="11.5sp"
-                tools:text="200 ★ earned" />
-
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
             android:background="@drawable/bg_summary_card"
             android:orientation="vertical"
             android:padding="14dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_semibold"
-                android:letterSpacing="0.14"
-                android:text="@string/profile_your_code"
-                android:textAllCaps="true"
-                android:textColor="@color/text_faint"
-                android:textSize="11sp" />
-
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
                 android:baselineAligned="false"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/referralCodeValue"
+                <FrameLayout
+                    android:layout_width="42dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_referral_badge">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_gravity="center"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_send"
+                        app:tint="@color/brand_violet_light" />
+                </FrameLayout>
+
+                <LinearLayout
                     android:layout_width="0dp"
-                    android:layout_height="46dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
                     android:layout_weight="1"
-                    android:background="@drawable/bg_referral_code"
-                    android:fontFamily="@font/mono_bold"
-                    android:gravity="center"
-                    android:letterSpacing="0.24"
-                    android:textColor="@color/brand_violet_light"
-                    android:textSize="20sp"
-                    tools:text="K7QF2M" />
+                    android:orientation="vertical">
 
-                <ImageView
-                    android:id="@+id/referralCopy"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_icon_button"
-                    android:contentDescription="@string/referral_copy"
-                    android:padding="13dp"
-                    android:src="@drawable/ic_copy"
-                    app:tint="@color/text_dim" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/jakarta_semibold"
+                        android:maxLines="1"
+                        android:text="@string/profile_refer_title"
+                        android:textColor="@color/text_strong"
+                        android:textSize="15sp" />
 
-                <ImageView
-                    android:id="@+id/referralShare"
-                    android:layout_width="46dp"
-                    android:layout_height="46dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_button_accent_outline"
-                    android:contentDescription="@string/referral_share"
-                    android:padding="13dp"
-                    android:src="@drawable/ic_share"
-                    app:tint="@color/brand_violet_light" />
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/jakarta_medium"
+                        android:lineSpacingMultiplier="1.15"
+                        android:text="@string/profile_refer_sub"
+                        android:textColor="@color/text_faint"
+                        android:textSize="11sp" />
+                </LinearLayout>
 
             </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="11dp"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_referral_tile"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <ImageView
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_users"
+                        app:tint="@color/brand_violet_light" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/referInvitedValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_extrabold"
+                            android:includeFontPadding="false"
+                            android:text="0"
+                            android:textColor="@color/text_strong"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:text="@string/profile_refer_invited"
+                            android:textColor="@color/text_faint"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_referral_tile"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingTop="9dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="9dp">
+
+                    <ImageView
+                        android:layout_width="17dp"
+                        android:layout_height="17dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_star"
+                        app:tint="@color/gold" />
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/referStarsValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_extrabold"
+                            android:includeFontPadding="false"
+                            android:text="0"
+                            android:textColor="@color/gold"
+                            android:textSize="15sp" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:fontFamily="@font/jakarta_medium"
+                            android:text="@string/profile_refer_stars"
+                            android:textColor="@color/text_faint"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="58dp"
+                    android:layout_weight="1.6"
+                    android:background="@drawable/bg_referral_code"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="8dp">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/jakarta_semibold"
+                            android:letterSpacing="0.18"
+                            android:text="@string/profile_your_code"
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_faint"
+                            android:textSize="9sp" />
+
+                        <TextView
+                            android:id="@+id/referralCodeValue"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:fontFamily="@font/mono_bold"
+                            android:includeFontPadding="false"
+                            android:letterSpacing="0.2"
+                            android:maxLines="1"
+                            android:textColor="@color/brand_violet_light"
+                            android:textSize="20sp"
+                            tools:text="XPJAJG" />
+                    </LinearLayout>
+
+                    <ImageView
+                        android:id="@+id/referralCopy"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/bg_icon_button"
+                        android:contentDescription="@string/referral_copy"
+                        android:padding="11dp"
+                        android:src="@drawable/ic_copy"
+                        app:tint="@color/text_dim" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/referralShare"
+                    android:layout_width="0dp"
+                    android:layout_height="58dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_referral_share"
+                    android:clickable="true"
+                    android:contentDescription="@string/referral_share"
+                    android:focusable="true"
+                    android:gravity="center"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_share"
+                        app:tint="@color/white" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:fontFamily="@font/jakarta_bold"
+                        android:text="@string/profile_refer_share"
+                        android:textColor="@color/white"
+                        android:textSize="15sp" />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Tapping this opens the full rule below; closed by default. -->
+            <TextView
+                android:id="@+id/referralHowToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="?attr/selectableItemBackground"
+                android:drawablePadding="6dp"
+                android:fontFamily="@font/jakarta_semibold"
+                android:gravity="center_vertical"
+                android:minHeight="36dp"
+                android:paddingEnd="6dp"
+                android:text="@string/profile_refer_how"
+                android:textColor="@color/brand_violet_light"
+                android:textSize="12sp"
+                app:drawableStartCompat="@drawable/ic_info"
+                app:drawableTint="@color/brand_violet_light" />
+
+            <LinearLayout
+                android:id="@+id/referralRuleNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:background="@drawable/bg_info_note"
                 android:orientation="horizontal"
-                android:padding="11dp">
+                android:padding="11dp"
+                android:visibility="gone"
+                tools:visibility="visible">
 
                 <ImageView
                     android:layout_width="15dp"
@@ -332,115 +445,69 @@
 
         </LinearLayout>
 
-        <!-- ================= Funnel ================= -->
+        <!-- ================= Referrals row ================= -->
+        <!-- Opens the Referrals page: the funnel and every invitee's progress. -->
         <LinearLayout
-            android:id="@+id/referralFunnel"
+            android:id="@+id/referralsRow"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="11dp"
-            android:baselineAligned="false"
+            android:layout_marginTop="10dp"
+            android:background="@drawable/bg_summary_card"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:visibility="gone"
-            tools:visibility="visible">
+            android:padding="14dp">
 
-            <include
-                android:id="@+id/funnelInvited"
-                layout="@layout/item_profile_stat"
+            <FrameLayout
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_referral_tile">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_users"
+                    app:tint="@color/brand_violet_light" />
+            </FrameLayout>
+
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/funnelQualified"
-                layout="@layout/item_profile_stat"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1" />
-
-            <include
-                android:id="@+id/funnelPaid"
-                layout="@layout/item_profile_stat"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_weight="1" />
-
-        </LinearLayout>
-
-        <!-- ================= Referral progress ================= -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:layout_marginBottom="8dp"
-            android:baselineAligned="false"
-            android:gravity="bottom"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:fontFamily="@font/jakarta_semibold"
-                android:text="@string/profile_referral_progress"
-                android:textColor="@color/text_strong"
-                android:textSize="15sp" />
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/inviteCount"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/jakarta_medium"
-                android:textColor="@color/text_ghost"
-                android:textSize="11.5sp"
-                tools:text="4 invited" />
+                <TextView
+                    android:id="@+id/referralsRowTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/jakarta_semibold"
+                    android:text="@string/profile_referrals_none"
+                    android:textColor="@color/text_strong"
+                    android:textSize="14sp" />
 
-        </LinearLayout>
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/inviteesRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:nestedScrollingEnabled="false"
-            tools:itemCount="3"
-            tools:listitem="@layout/item_invitee" />
-
-        <LinearLayout
-            android:id="@+id/inviteesEmpty"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_code_tile"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingTop="22dp"
-            android:paddingBottom="22dp"
-            tools:visibility="visible">
+                <TextView
+                    android:id="@+id/referralsRowSub"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="3dp"
+                    android:fontFamily="@font/jakarta_medium"
+                    android:text="@string/profile_referrals_none_sub"
+                    android:textColor="@color/text_faint"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="8dp"
                 android:contentDescription="@null"
-                android:src="@drawable/ic_users"
-                app:tint="@color/brand_violet_deep" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:fontFamily="@font/jakarta_medium"
-                android:text="@string/profile_no_invites"
-                android:textColor="@color/text_faint"
-                android:textSize="13sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:fontFamily="@font/jakarta_medium"
-                android:text="@string/profile_no_invites_sub"
-                android:textColor="@color/text_ghost"
-                android:textSize="11.5sp" />
+                android:src="@drawable/ic_chevron_right"
+                app:tint="@color/text_faint" />
 
         </LinearLayout>
 
@@ -592,13 +659,15 @@
                 android:drawablePadding="12dp"
                 android:fontFamily="@font/jakarta_medium"
                 android:gravity="center_vertical"
-                android:padding="14dp"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
                 android:text="@string/profile_terms"
                 android:textColor="@color/text_strong"
                 android:textSize="13.5sp"
-                app:drawableEndCompat="@drawable/ic_caret_right"
-                app:drawableStartCompat="@drawable/ic_receipt"
-                app:drawableTint="@color/text_faint" />
+                app:drawableStartCompat="@drawable/ic_row_terms"
+                app:drawableEndCompat="@drawable/ic_row_caret" />
 
             <TextView
                 android:id="@+id/rowPrivacy"
@@ -608,13 +677,15 @@
                 android:drawablePadding="12dp"
                 android:fontFamily="@font/jakarta_medium"
                 android:gravity="center_vertical"
-                android:padding="14dp"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
                 android:text="@string/profile_privacy"
                 android:textColor="@color/text_strong"
                 android:textSize="13.5sp"
-                app:drawableEndCompat="@drawable/ic_caret_right"
-                app:drawableStartCompat="@drawable/ic_lock"
-                app:drawableTint="@color/text_faint" />
+                app:drawableStartCompat="@drawable/ic_row_privacy"
+                app:drawableEndCompat="@drawable/ic_row_caret" />
 
             <TextView
                 android:id="@+id/rowSupport"
@@ -624,13 +695,51 @@
                 android:drawablePadding="12dp"
                 android:fontFamily="@font/jakarta_medium"
                 android:gravity="center_vertical"
-                android:padding="14dp"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
                 android:text="@string/profile_support"
                 android:textColor="@color/text_strong"
                 android:textSize="13.5sp"
-                app:drawableEndCompat="@drawable/ic_caret_right"
-                app:drawableStartCompat="@drawable/ic_help"
-                app:drawableTint="@color/text_faint" />
+                app:drawableStartCompat="@drawable/ic_row_help"
+                app:drawableEndCompat="@drawable/ic_row_caret" />
+
+            <TextView
+                android:id="@+id/rowPrivacyChoices"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:drawablePadding="12dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
+                android:text="@string/profile_privacy_choices"
+                android:textColor="@color/text_strong"
+                android:textSize="13.5sp"
+                android:visibility="gone"
+                app:drawableStartCompat="@drawable/ic_row_choices"
+                app:drawableEndCompat="@drawable/ic_row_caret" />
+
+            <TextView
+                android:id="@+id/rowDeleteAccount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/selectableItemBackground"
+                android:drawablePadding="12dp"
+                android:fontFamily="@font/jakarta_medium"
+                android:gravity="center_vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
+                android:text="@string/profile_delete_account"
+                android:textColor="@color/row_danger"
+                android:textSize="13.5sp"
+                app:drawableStartCompat="@drawable/ic_row_delete" />
 
             <TextView
                 android:id="@+id/rowSignOut"
@@ -640,12 +749,14 @@
                 android:drawablePadding="12dp"
                 android:fontFamily="@font/jakarta_medium"
                 android:gravity="center_vertical"
-                android:padding="14dp"
+                android:paddingStart="12dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
                 android:text="@string/profile_sign_out"
-                android:textColor="@color/difficulty_hard"
+                android:textColor="@color/row_danger"
                 android:textSize="13.5sp"
-                app:drawableStartCompat="@drawable/ic_arrow_up_right"
-                app:drawableTint="@color/difficulty_hard" />
+                app:drawableStartCompat="@drawable/ic_row_signout" />
 
         </LinearLayout>
 

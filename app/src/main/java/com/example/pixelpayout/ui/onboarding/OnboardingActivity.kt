@@ -1,5 +1,7 @@
 package com.example.pixelpayout.ui.onboarding
 
+import com.example.pixelpayout.ui.legal.LegalActivity
+
 import android.content.Intent
 import android.os.Bundle
 import android.text.SpannableString
@@ -107,8 +109,8 @@ class OnboardingActivity : AppCompatActivity() {
         }
 
         // Find indices for clickable parts
-        val termsStart = fullText.indexOf("Terms and Conditions")
-        val termsEnd = termsStart + "Terms and Conditions".length
+        val termsStart = fullText.indexOf("Terms of Service")
+        val termsEnd = termsStart + "Terms of Service".length
         val privacyStart = fullText.indexOf("Privacy Policy")
         val privacyEnd = privacyStart + "Privacy Policy".length
 
@@ -143,8 +145,10 @@ class OnboardingActivity : AppCompatActivity() {
     }
 
     private fun showTermsDialog(type: String) {
-        TermsDialogFragment.newInstance(type)
-            .show(supportFragmentManager, "terms_dialog")
+        LegalActivity.open(
+            this,
+            if (type == "terms") LegalActivity.Doc.TERMS else LegalActivity.Doc.PRIVACY
+        )
     }
 
     override fun onDestroy() {

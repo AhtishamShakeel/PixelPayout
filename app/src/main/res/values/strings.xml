@@ -831,4 +831,49 @@ The board resets every Monday. Prizes are paid in stars.</string>
     <string name="tutorial_claim">Claim</string>
     <string name="tutorial_done">OK</string>
 
+    <!-- Sign-in: Google or guest. -->
+    <string name="auth_level_label">LEVEL</string>
+    <string name="auth_zero_stars">0 ★</string>
+    <string name="auth_chip_xp">+120 XP</string>
+    <string name="auth_chip_stars">+5 ★</string>
+    <string name="auth_title">Play games.\nLevel up. Earn loot.</string>
+    <string name="auth_subtitle">Sign in to start earning stars and climbing the leaderboard.</string>
+    <string name="auth_continue_google">Continue with Google</string>
+    <string name="auth_google_saved">Your progress is saved to your Google account</string>
+    <string name="auth_or">OR</string>
+    <string name="auth_continue_guest">Continue as guest</string>
+    <string name="auth_terms">You must be 18 or older. By continuing you agree to our Terms and Privacy Policy.</string>
+    <string name="auth_terms_link">Terms</string>
+    <string name="auth_privacy_link">Privacy Policy</string>
+    <string name="auth_failed">Sign-in failed. Please check your connection and try again.</string>
+
+    <!-- The "Play as a guest?" sheet. -->
+    <string name="guest_sheet_title">Play as a guest?</string>
+    <string name="guest_sheet_subtitle">A guest account lives only on this phone.</string>
+    <string name="guest_sheet_risk_uninstall">Uninstalling the app or clearing its data deletes your stars and XP for good.</string>
+    <string name="guest_sheet_risk_phone">You can\'t move your progress to a new phone.</string>
+    <string name="guest_sheet_link_later">Link Google later from your Profile to keep everything you\'ve earned.</string>
+    <string name="guest_sheet_use_google">Use Google instead</string>
+
+    <!-- What guests are asked to link Google for. -->
+    <string name="guest_locked_title">Log in with Google</string>
+    <string name="guest_locked_redeem">Redeeming rewards needs a Google account. Link Google to keep all your progress and redeem.</string>
+    <string name="guest_locked_referral">Referral codes need a Google account. Link Google to keep all your progress and use a code.</string>
+    <string name="guest_locked_tournament">The weekly tournament needs a Google account. Link Google to keep all your progress and compete.</string>
+    <string name="guest_locked_offers">Offers need a Google account. Link Google to keep all your progress and earn from offers.</string>
+    <string name="guest_link_action">Continue with Google</string>
+    <string name="guest_link_later">Not now</string>
+    <string name="guest_link_success">Google linked. Your progress is saved.</string>
+    <string name="guest_link_failed">Couldn\'t link Google. Please try again.</string>
+    <string name="guest_account_exists_title">Account already exists</string>
+    <string name="guest_account_exists_message">This Google account already has a LootLevel account. Log in to it instead? Your guest progress (Level %1$d, %2$d stars) will be lost.</string>
+    <string name="guest_account_exists_switch">Log in to it</string>
+    <string name="guest_nudge_title">Save your progress</string>
+    <string name="guest_nudge_message">You reached level %1$d! A guest account is lost if the app is uninstalled. Link Google to keep your stars and XP.</string>
+    <string name="guest_card_title">Save your progress</string>
+    <string name="guest_card_sub">Link Google to keep your stars and XP, and unlock redeem, referrals, offers and the tournament.</string>
+    <string name="guest_profile_label">Guest account</string>
+    <string name="guest_logout_title">Log out of a guest account?</string>
+    <string name="guest_logout_message">A guest account can\'t be logged back into. Logging out deletes its stars and XP for good.</string>
+
 </resources>

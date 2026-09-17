@@ -30,6 +30,7 @@ import com.createbyte.lootlevel.ui.main.MainActivity
 import com.createbyte.lootlevel.ui.home.setRewardAmount
 import com.createbyte.lootlevel.ui.main.MainViewModel
 import com.createbyte.lootlevel.ui.main.showGameChooser
+import com.createbyte.lootlevel.ui.auth.GuestGate
 import com.createbyte.lootlevel.utils.GridSpacingItemDecoration
 import com.createbyte.lootlevel.utils.setStarText
 import com.createbyte.lootlevel.utils.showAppDialog
@@ -297,6 +298,8 @@ class RedemptionFragment : Fragment() {
 
     private fun openRedeemSheet(createSheet: () -> RedeemSheetFragment) {
         if (!isAdded || !isResumed) return
+        // Every redeem needs a Google account; guests are asked to link one.
+        if (!GuestGate.allows(activity, GuestGate.Feature.REDEEM)) return
         val manager = parentFragmentManager
         if (manager.isDestroyed || manager.isStateSaved ||
             manager.findFragmentByTag(RedeemSheetFragment.TAG) != null

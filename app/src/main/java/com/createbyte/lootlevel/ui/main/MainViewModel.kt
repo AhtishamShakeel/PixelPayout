@@ -76,6 +76,9 @@ class MainViewModel(
         .map { !it.playTutorialCompleted }
         .distinctUntilChanged()
 
+    /** Re-emits on every user snapshot, so guest-only UI can re-check itself. */
+    val isGuestAccount: LiveData<Boolean> = userRepository.userData.map { it.isGuest }
+
     /** See UserRepository.completePlayTutorial. */
     suspend fun completePlayTutorial(): UserRepository.PlayTutorialResult =
         userRepository.completePlayTutorial()

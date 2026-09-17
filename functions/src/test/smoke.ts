@@ -13,6 +13,7 @@ import {
   connectAuthEmulator,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously,
   type User,
 } from "firebase/auth";
 import {getFunctions, connectFunctionsEmulator, httpsCallable} from "firebase/functions";
@@ -274,8 +275,10 @@ async function run() {
     await completeSignup({displayName: "Again", androidId});
     assertEq("a new account on a deleted account's device counts as referred",
       (await db.collection("users").doc(again.uid).get()).get("hasUsedReferral"), true);
-    assertEq("re-signing up after deleting gets no first-redeem discount",
-      (await db.collection("users").doc(again.uid).get()).get("firstRedeemUnavailable"), true);
+    // The discount is no longer withheld at signup by device - the admin
+    // tool shows the device's first redeems instead (listRedemptions).
+    assertEq("re-signing up does not hide the first-redeem offer",
+      (await db.collection("users").doc(again.uid).get()).get("firstRedeemUnavailable") === true, false);
   }
 
   // --- claimReward: quiz, graded server-side ---
@@ -1303,7 +1306,9 @@ async function run() {
     assertEq("starting xp is zero", snap.get("xp"), 0);
     assertEq("starting level is 1", snap.get("level"), 1);
     assertEq("first device use can still claim a referral", snap.get("hasUsedReferral"), false);
-    assertEq("first device use keeps the first-redeem discount", snap.get("firstRedeemUnavailable"), false);
+    assertEq("first device use keeps the first-redeem discount",
+      snap.get("firstRedeemUnavailable") === true, false);
+    assertEq("a Google/email account is not a guest", snap.get("isGuest"), false);
     assertEq("email comes from the auth token", snap.get("email"), user.email);
     assertEq("quiz attempts are initialised", snap.get("quiz_attempts"), 0);
 
@@ -1332,7 +1337,39 @@ async function run() {
 
     const snap = await db.collection("users").doc(second.uid).get();
     assertEq("a repeat device is flagged as having used its referral", snap.get("hasUsedReferral"), true);
-    assertEq("a repeat device gets no first-redeem discount", snap.get("firstRedeemUnavailable"), true);
+    assertEq("a repeat device still sees the first-redeem offer",
+      snap.get("firstRedeemUnavailable") === true, false);
+  }
+
+  // --- Guests (anonymous sign-in): play yes, anything with value no ---
+  {
+    const guestCred = await signInAnonymously(clientAuth);
+    const guest = guestCred.user;
+    const complete = httpsCallable(clientFunctions, "completeSignup");
+    await complete({androidId: "device-guest-1"});
+
+    const snap = await db.collection("users").doc(guest.uid).get();
+    assertEq("a guest gets a user document", snap.exists, true);
+    assertEq("a guest is flagged as a guest", snap.get("isGuest"), true);
+    assertEq("a guest without a name is called Guest", snap.get("displayName"), "Guest");
+
+    await assertThrows(
+      "a guest cannot redeem",
+      () => httpsCallable(clientFunctions, "redeemReward")({
+        optionId: "pubg", packId: "uc_small", playerId: "9000000999", server: "Global",
+      }),
+      "permission-denied"
+    );
+    await assertThrows(
+      "a guest cannot enter a referral code",
+      () => httpsCallable(clientFunctions, "submitReferral")({referralCode: "ABCDEF"}),
+      "permission-denied"
+    );
+    await assertThrows(
+      "a guest cannot mark itself linked without linking",
+      () => httpsCallable(clientFunctions, "completeGoogleLink")({}),
+      "failed-precondition"
+    );
   }
 
   // --- completeSignup: referral codes are unique ---

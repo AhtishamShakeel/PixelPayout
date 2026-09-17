@@ -32,6 +32,8 @@ import com.createbyte.lootlevel.BuildConfig
 import com.createbyte.lootlevel.utils.setStarText
 import com.createbyte.lootlevel.utils.showAppDialog
 import com.createbyte.lootlevel.R
+import com.createbyte.lootlevel.ui.auth.GuestGate
+import com.createbyte.lootlevel.ui.main.MainActivity
 import com.createbyte.lootlevel.databinding.FragmentProfileBinding
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -119,10 +121,26 @@ class ProfileFragment : Fragment() {
         binding.rowPrivacyChoices.isVisible = AdConsent.privacyOptionsRequired(requireContext())
     }
 
+    /**
+     * The guest card, and the email line saying "Guest account" instead.
+     *
+     * Re-checked on every user snapshot: linking Google flips the Auth user
+     * at once and the document a moment later, and either may arrive first.
+     */
+    private fun renderGuestState() {
+        val b = _binding ?: return
+        val user = FirebaseAuth.getInstance().currentUser
+        val guest = GuestGate.isGuest()
+        b.guestCard.isVisible = guest
+        b.profileEmail.text = if (guest) getString(R.string.guest_profile_label) else user?.email.orEmpty()
+        b.profileEmail.isVisible = guest || !user?.email.isNullOrBlank()
+    }
+
     private fun setupIdentity() {
         val user = FirebaseAuth.getInstance().currentUser
-        binding.profileEmail.text = user?.email.orEmpty()
-        binding.profileEmail.isVisible = !user?.email.isNullOrBlank()
+        renderGuestState()
+        binding.guestCardLink.setOnClickListener { (activity as? MainActivity)?.linkGoogle() }
+        mainViewModel.isGuestAccount.observe(viewLifecycleOwner) { renderGuestState() }
 
         // From the auth record, not the user document - nothing in Firestore
         // records when an account was created, and Firebase already knows.
@@ -253,6 +271,7 @@ class ProfileFragment : Fragment() {
 
     private fun setupReferralClaim() {
         binding.submitReferralButton.setOnClickListener {
+            if (!GuestGate.allows(activity, GuestGate.Feature.REFERRAL)) return@setOnClickListener
             val referralCode = binding.referralCodeInput.text.toString().trim()
             if (referralCode.isEmpty()) {
                 binding.referralInputLayout.error = getString(R.string.error_invalid_referral)
@@ -346,6 +365,27 @@ class ProfileFragment : Fragment() {
     /** Confirmed, because signing out of an account holding a balance is not
      *  something to do on a mis-tap. */
     private fun confirmSignOut() {
+        if (GuestGate.isGuest()) {
+            // A guest cannot sign back in, so signing out is deleting. Said
+            // plainly, and the account is removed on the server rather than
+            // left behind as an orphan nobody can ever reach again.
+            requireContext().showAppDialog(
+                title = getString(R.string.guest_logout_title),
+                message = getString(R.string.guest_logout_message),
+                icon = R.drawable.ic_delete_outline,
+                accent = R.color.difficulty_hard,
+                positiveText = getString(R.string.profile_sign_out),
+                negativeText = getString(R.string.cancel),
+                onPositive = {
+                    val activity = requireActivity()
+                    activity.lifecycleScope.launch {
+                        UserRepository().deleteAccount()
+                        signOutToAuth(activity)
+                    }
+                }
+            )
+            return
+        }
         requireContext().showAppDialog(
             title = R.string.profile_sign_out,
             message = R.string.profile_sign_out_confirm,

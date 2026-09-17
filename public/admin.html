@@ -618,6 +618,7 @@
               <div class="support-id">Order ${escapeHtml(supportId)}
                 ${r.firstRedeem ? '<span class="first-badge">first redeem</span>' : ""}
                 ${deviceBadge(r)}
+                ${firstRedeemBadge(r)}
               </div>
             </div>
             <div style="text-align:right">
@@ -741,6 +742,22 @@
       return `<span class="device-badge shared" data-device="${escapeHtml(id)}"
         title="This device has been used by ${count} accounts. Judge it yourself - do not reject on this alone."
         >device ${short} &middot; used &times;${count}</span>`;
+    }
+
+    /**
+     * How many DISCOUNTED FIRST redeems the ordering device has placed, across
+     * every account on it - this order included when it is one.
+     *
+     * The app no longer hides the offer on a reused phone, so this is where a
+     * repeat shows up. Same rule as the device badge: yours to judge, and a
+     * rejection should not say which signal it was.
+     */
+    function firstRedeemBadge(r) {
+      const firsts = Number(r.deviceFirstRedeemCount || 0);
+      if (!r.androidId || firsts === 0) return "";
+      const repeat = r.firstRedeem ? firsts > 1 : firsts > 0;
+      return `<span class="device-badge${repeat ? " shared" : ""}"
+        title="Discounted first redeems placed from this device, all accounts.">first redeems &times;${firsts}</span>`;
     }
 
     async function resolve(

@@ -29,6 +29,7 @@ accidentally undo the reasoning that deferred it.
 | 4 | 5-star reward for sharing a paid payout | Feature | No |
 | 5 | `play-services-ads` version | Open question | No |
 | 6 | Offerwall analytics | Measurement | No |
+| 7 | Abandoned guest accounts are never cleaned up | Storage | No |
 
 ---
 
@@ -208,6 +209,32 @@ its own write path.
 
 **Not urgent until a second network is live.** With one wall there is nothing
 to compare it against.
+
+---
+
+## 7. Abandoned guest accounts are never cleaned up
+
+**Blocks release: no.**
+
+Guest accounts (Firebase Anonymous Auth) that are never linked to Google stay
+forever: the anonymous Auth user, its `users/{uid}` document and its
+`rewardEvents`. Most guests who stop playing never come back, so these pile up.
+
+**Why deferred (2026-09-17):** the cost is storage only - an idle account
+triggers no functions, reads or writes, and its documents are small text. A
+cleanup job would itself cost reads on every run.
+
+**Side effect to remember:** the admin tool's "accounts on this device" count
+includes these abandoned guests, so a player who tried guest and then signed in
+with Google on the same phone shows 2.
+
+**When to do it:** a scheduled function (weekly) deleting unlinked guests
+(`isGuest == true`) with no activity for 30+ days - Auth user, user document
+with subcollections, support tickets - without writing a `deletedAccounts`
+tombstone, since the device rules do not need one for a guest nobody used.
+Alternatively, upgrade to Identity Platform and turn on its automatic
+anonymous-account cleanup (30 days after creation, which also removes guests
+still playing, so the app would need to push linking before then).
 
 ---
 

@@ -355,4 +355,8 @@
 
     <!-- The Play tutorial's dim around the lit target. -->
     <color name="tutorial_scrim">#E6060510</color>
+
+    <!-- Sign-in: the Google button's text, and the guest sheet's risk rows. -->
+    <color name="auth_google_text">#1A1730</color>
+    <color name="guest_warning">#F87171</color>
 </resources>

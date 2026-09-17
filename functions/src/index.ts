@@ -447,21 +447,28 @@ async function loadAnswerKey(): Promise<QuizAnswerKey> {
 // one read plus one write per registered user per week, forever, whether or
 // not that user ever opened the app.
 
-// ✅ Fix for Checking If Email Exists
-export const checkEmailExists = functions.https.onCall(async (request: CallableRequest) => {
-  const email: string = request.data.email;
+/**
+ * Whether the caller is signed in as a guest (Firebase Anonymous Auth).
+ *
+ * Read from the verified ID token, never from the user document or the
+ * request: the token's sign-in provider is set by Firebase and cannot be
+ * edited by a client. Linking Google to a guest issues a new token with the
+ * Google provider, so a linked account stops being a guest here at once.
+ *
+ * Guests may play (games, quizzes, streak, goals). Anything with value that
+ * leaves the app - redeeming, referral codes, the weekly tournament - needs a
+ * Google account; see requireLinkedAccount.
+ */
+function isGuest(request: CallableRequest): boolean {
+  return request.auth?.token?.firebase?.sign_in_provider === "anonymous";
+}
 
-  try {
-    await admin.auth().getUserByEmail(email);
-    return {exists: true}; // ✅ Email exists
- } catch (error: any) {
-    if (error.code === "auth/user-not-found") {
-      return {exists: false}; // ❌ Email does not exist
-   } else {
-      throw new functions.https.HttpsError("internal", error.message);
-   }
- }
-});
+/** Refuses guests. The app shows a "log in with Google" prompt before this. */
+function requireLinkedAccount(request: CallableRequest): void {
+  if (isGuest(request)) {
+    throw new functions.https.HttpsError("permission-denied", "guest_account");
+  }
+}
 
 /**
  * Creates the caller's user document, or returns the existing one.
@@ -489,7 +496,9 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
     };
   }
 
-  const displayName = String(request.data.displayName || "").trim();
+  const guest = isGuest(request);
+  // A guest has no name to take; linking Google later fills it in.
+  const displayName = String(request.data.displayName || "").trim() || (guest ? "Guest" : "");
   const androidId = String(request.data.androidId || "").trim();
   // Trust the token for the email, not the request body.
   const email = String(request.auth.token.email || request.data.email || "");
@@ -561,13 +570,14 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
       lastActive: Timestamp.now(),
       quiz_attempts: 0,
       last_reset_time: Timestamp.now(),
-      // Same signal, second perk. A device or email that has held an account
-      // before - including one deleted a second ago - gets no discounted
-      // first redeem either. Without this, delete + sign up again handed out
-      // a fresh discount every time. One account per person and device is
-      // the rule in the Terms; a shared family phone loses the discount, not
-      // the account.
-      firstRedeemUnavailable: hasUsedReferral,
+      // Display only - the server decides guest status from the ID token.
+      // Cleared by completeGoogleLink.
+      isGuest: guest,
+      // The discounted first redeem is no longer withheld here by device.
+      // Every account sees the offer; the admin tool shows how many first
+      // redeems a device has already had (listRedemptions) and the decision
+      // is made by hand at approval, where a farmer learns nothing about
+      // which signal gave them away. The per-game-UID rule still applies.
     });
   } catch (error) {
     const latest = await userRef.get();
@@ -600,6 +610,47 @@ export const completeSignup = functions.https.onCall(async (request: CallableReq
 // Nothing needs it now. The rollover happens inside the claimReward
 // transaction - the moment it is actually enforced - and the client reads
 // both counters straight off the user snapshot it already holds.
+
+/**
+ * Finishes linking Google to a guest account.
+ *
+ * The link itself happens on the client (FirebaseUser.linkWithCredential),
+ * which keeps the same uid - so every star, level and streak is already on
+ * this account. This only brings the user document up to date: it is no
+ * longer a guest, and it gains the email and name the Google account carries.
+ *
+ * The token must already show the Google provider; a guest calling this is
+ * refused, so it cannot be used to flip the display flag without linking.
+ */
+export const completeGoogleLink = functions.https.onCall(async (request: CallableRequest) => {
+  if (!request.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
+  }
+  if (isGuest(request)) {
+    throw new functions.https.HttpsError("failed-precondition", "not_linked");
+  }
+
+  const userRef = getFirestore().collection(USERS_COLLECTION).doc(request.auth.uid);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError("not-found", "User document not found");
+  }
+
+  const email = String(request.auth.token.email || "");
+  const googleName = String(request.auth.token.name || "").trim();
+  const currentName = String(userDoc.get("displayName") || "");
+  // A name the player never chose ("Guest") is replaced; anything else stays.
+  const takeName = googleName !== "" && (currentName === "" || currentName === "Guest");
+
+  await userRef.update({
+    isGuest: false,
+    ...(email ? {email} : {}),
+    ...(takeName ? {displayName: googleName} : {}),
+    linkedAt: FieldValue.serverTimestamp(),
+  });
+
+  return {success: true, displayName: takeName ? googleName : currentName};
+});
 
 /**
  * Applies an award to the transaction: the user's points/xp/level fields, the
@@ -2238,25 +2289,30 @@ export const claimReward = functions.https.onCall(async (request: CallableReques
     //
     // Entry is automatic: an unlocked player is stamped into the running week
     // by the same write that scores it.
-    const currentWeek = utcWeekFor(Date.now());
-    const weekly = weeklyRollover(
-      userDoc.get(FIELD_WEEK_KEY) as number | undefined,
-      userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
-      currentWeek,
-      weeklyXpGain(currentXp, award.level.xp, xpAward),
-      userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
-    );
-    extraUpdates[FIELD_WEEKLY_XP] = weekly.weeklyXp;
-    extraUpdates[FIELD_WEEK_KEY] = weekly.weekKey;
-    if (isTournamentUnlocked(award.level.xp)) {
-      extraUpdates[FIELD_TOURNAMENT_WEEK] = currentWeek;
-    }
-    // Only on the claim that crosses a boundary out of a RANKED week, and
-    // this is the claim that would otherwise erase that week before it had
-    // been paid for.
-    if (weekly.lastWeekKey !== undefined) {
-      extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
-      extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+    //
+    // GUESTS ARE NOT ENTERED. Their XP only starts counting once Google is
+    // linked, so nothing is accrued or stamped while the token is anonymous.
+    if (!isGuest(request)) {
+      const currentWeek = utcWeekFor(Date.now());
+      const weekly = weeklyRollover(
+        userDoc.get(FIELD_WEEK_KEY) as number | undefined,
+        userDoc.get(FIELD_WEEKLY_XP) as number | undefined,
+        currentWeek,
+        weeklyXpGain(currentXp, award.level.xp, xpAward),
+        userDoc.get(FIELD_TOURNAMENT_WEEK) as number | undefined
+      );
+      extraUpdates[FIELD_WEEKLY_XP] = weekly.weeklyXp;
+      extraUpdates[FIELD_WEEK_KEY] = weekly.weekKey;
+      if (isTournamentUnlocked(award.level.xp)) {
+        extraUpdates[FIELD_TOURNAMENT_WEEK] = currentWeek;
+      }
+      // Only on the claim that crosses a boundary out of a RANKED week, and
+      // this is the claim that would otherwise erase that week before it had
+      // been paid for.
+      if (weekly.lastWeekKey !== undefined) {
+        extraUpdates[FIELD_LAST_WEEKLY_XP] = weekly.lastWeeklyXp as number;
+        extraUpdates[FIELD_LAST_WEEK_KEY] = weekly.lastWeekKey;
+      }
     }
 
     if (rewardSource === "GAME") stats.games += 1;
@@ -2561,7 +2617,8 @@ export const claimDoubleXp = functions.https.onCall(async (request: CallableRequ
     // Streak and goal doubles skip all of this: their base claims never feed
     // the weekly board, so neither may the ad on top of them.
     const extraUpdates: Record<string, FieldValue | number> = {};
-    if (WEEKLY_DOUBLE_SOURCES.has(source)) {
+    // Guests are not in the tournament; see claimReward.
+    if (WEEKLY_DOUBLE_SOURCES.has(source) && !isGuest(request)) {
       const currentWeek = utcWeekFor(Date.now());
       const weekly = weeklyRollover(
         userDoc.get(FIELD_WEEK_KEY) as number | undefined,
@@ -2872,6 +2929,8 @@ export const redeemReward = functions.https.onCall(async (request: CallableReque
     throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
   }
 
+  requireLinkedAccount(request);
+
   const optionId = String(request.data.optionId || "").trim();
   const packId = String(request.data.packId || "").trim();
   const playerId = String(request.data.playerId || "").trim();
@@ -3171,9 +3230,20 @@ export const listRedemptions = functions.https.onCall(async (request: CallableRe
   // exactly which signal to defeat.
   const devices = [...new Set(orders.map(deviceOf).filter(Boolean))];
   const accountsPerDevice = new Map<string, number>();
+  // And how many DISCOUNTED FIRST redeems each device has placed, across all
+  // its accounts - the signal that replaced hiding the offer at signup. Same
+  // rule as above: shown to the admin, acted on by nobody but the admin.
+  // Two equality filters, which Firestore serves by merging its single-field
+  // indexes, so no composite index is needed.
+  const firstRedeemsPerDevice = new Map<string, number>();
+  const redemptionsRef = firestore.collection(REDEMPTIONS_COLLECTION);
   await Promise.all(devices.map(async (device) => {
-    const counted = await users.where("androidId", "==", device).count().get();
+    const [counted, firsts] = await Promise.all([
+      users.where("androidId", "==", device).count().get(),
+      redemptionsRef.where("androidId", "==", device).where("firstRedeem", "==", true).count().get(),
+    ]);
     accountsPerDevice.set(device, counted.data().count);
+    firstRedeemsPerDevice.set(device, firsts.data().count);
   }));
 
   return {
@@ -3188,6 +3258,7 @@ export const listRedemptions = functions.https.onCall(async (request: CallableRe
         // returned nothing. Shown as "unknown" rather than as "1", which
         // would be a clean bill of health we have not actually established.
         deviceAccountCount: device ? (accountsPerDevice.get(device) ?? 0) : 0,
+        deviceFirstRedeemCount: device ? (firstRedeemsPerDevice.get(device) ?? 0) : 0,
         uid: data.uid ?? "",
         userDisplayName: data.userDisplayName ?? "",
         userEmail: data.userEmail ?? "",
@@ -3953,6 +4024,8 @@ export const submitReferral = functions.https.onCall(async (request: CallableReq
   if (!request.auth) {
     throw new functions.https.HttpsError("unauthenticated", "User must be logged in");
   }
+
+  requireLinkedAccount(request);
 
   const referralCode = String(request.data.referralCode || "").trim().toUpperCase();
   if (!referralCode) {

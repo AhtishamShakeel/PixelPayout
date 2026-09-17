@@ -84,6 +84,12 @@ break the app in release, or put the ad accounts at risk.
   by name — never `firebase deploy --only functions` for all of them.
   Recently added/changed: `completePlayTutorial`, `completeSignup`,
   `redeemReward`.
+- [ ] **3.1b Sign-in providers** (Firebase console → Authentication → Sign-in
+  method): **Anonymous** enabled (guest accounts), **Google** enabled with the
+  release SHA-1/SHA-256 fingerprints added, **Email/Password disabled** (the app
+  no longer offers it; left on, accounts could still be made through the API).
+  Delete the unused `checkEmailExists` function:
+  `firebase functions:delete checkEmailExists`.
 - [ ] **3.2 Wipe development data** before real users arrive:
   - [ ] test user accounts (Authentication + `users` documents)
   - [ ] test `redemptions`

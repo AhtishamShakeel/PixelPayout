@@ -20,6 +20,7 @@ import com.createbyte.lootlevel.data.repository.UserRepository
 import com.createbyte.lootlevel.ui.main.MainViewModel
 import com.createbyte.lootlevel.utils.ServerClock
 import com.createbyte.lootlevel.utils.TapjoyOfferwall
+import com.createbyte.lootlevel.ui.auth.GuestGate
 import com.createbyte.lootlevel.utils.setStarText
 import com.createbyte.lootlevel.R
 import com.createbyte.lootlevel.databinding.FragmentRewardsBinding
@@ -222,6 +223,7 @@ class RewardsFragment : Fragment() {
      * onto the stack. Asking where we are is the check that cannot race.
      */
     private fun openLeaderboard() {
+        if (!GuestGate.allows(activity, GuestGate.Feature.TOURNAMENT)) return
         val controller = findNavController()
         if (controller.currentDestination?.id != R.id.navigation_rewards) return
 
@@ -305,6 +307,7 @@ class RewardsFragment : Fragment() {
     }
 
     private fun open(wall: OfferwallEntry) {
+        if (!GuestGate.allows(activity, GuestGate.Feature.OFFERS)) return
         val uid = userRepository.getCurrentUserId()
         if (uid.isNullOrBlank()) {
             // Without a uid the network has nothing to attribute a

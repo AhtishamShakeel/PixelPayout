@@ -17,6 +17,8 @@ import com.createbyte.lootlevel.utils.AdManager
 import com.createbyte.lootlevel.utils.AdCadence
 import com.createbyte.lootlevel.utils.AdHold
 import com.createbyte.lootlevel.utils.PlayTutorial
+import com.createbyte.lootlevel.ui.auth.GoogleLinker
+import com.createbyte.lootlevel.ui.auth.GuestGate
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.createbyte.lootlevel.R
@@ -79,6 +81,9 @@ class MainActivity : AppCompatActivity() {
         MainViewModelFactory(UserRepository(), UserPreferences(applicationContext))
     }
 
+    /** Links Google to a guest; owned here because it needs an activity result. */
+    private lateinit var googleLinker: GoogleLinker
+
     override fun onCreate(savedInstanceState: Bundle?) {
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
         super.onCreate(savedInstanceState)
@@ -86,6 +91,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         userPreferences = UserPreferences(this)
+        googleLinker = GoogleLinker(
+            activity = this,
+            userRepository = { UserRepository() },
+            guestProgress = {
+                (viewModel.levelProgress.value?.level ?: 1) to (viewModel.points.value ?: 0)
+            }
+        )
         connectivityCheck = AndroidConnectivityCheck(this)
 
         setupConnectivityCheck()
@@ -155,6 +167,7 @@ class MainActivity : AppCompatActivity() {
         observeLeaderboardPrize()
         viewModel.levelProgress.observe(this) { maybeAnnounceTournamentUnlock() }
         if (savedInstanceState == null) openPlayForTutorial()
+        viewModel.levelProgress.observe(this) { maybeNudgeGuest() }
     }
 
     /**
@@ -163,7 +176,43 @@ class MainActivity : AppCompatActivity() {
      * launch lands on, so nothing the player opened themselves is taken away.
      */
     /** Everything that was held back so it would not open under the logo. */
+    /** Starts linking Google to this guest account. See GoogleLinker. */
+    fun linkGoogle() {
+        if (GuestGate.isGuest()) googleLinker.start()
+    }
+
+    /**
+     * "Save your progress", once, when a guest reaches [GUEST_NUDGE_LEVEL].
+     *
+     * By then there is enough on the account to be worth losing, and the only
+     * thing standing between the player and losing it is an uninstall.
+     * Never over the tutorial or the level-reward popup.
+     */
+    private fun maybeNudgeGuest() {
+        if (!startupDone || !GuestGate.isGuest() || announcingLevelRewards) return
+        if (PlayTutorial.isActive(this) || isFinishing) return
+        val level = viewModel.levelProgress.value?.level ?: return
+        if (level < GUEST_NUDGE_LEVEL) return
+
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val prefs = getSharedPreferences(PREFS_GUEST, MODE_PRIVATE)
+        val key = "nudged:$uid"
+        if (prefs.getBoolean(key, false)) return
+        prefs.edit().putBoolean(key, true).apply()
+
+        showAppDialog(
+            title = getString(R.string.guest_nudge_title),
+            message = getString(R.string.guest_nudge_message, level),
+            icon = R.drawable.ic_link,
+            accent = R.color.stars_accent,
+            positiveText = getString(R.string.guest_link_action),
+            negativeText = getString(R.string.guest_link_later),
+            onPositive = { linkGoogle() }
+        )
+    }
+
     private fun onStartupFinished() {
+        maybeNudgeGuest()
         checkAndShowReferralPopup()
         maybeAnnounceLevelRewards()
         maybeAnnounceRedemptionResult()
@@ -472,6 +521,8 @@ class MainActivity : AppCompatActivity() {
      */
     private fun maybeAnnounceTournamentUnlock() {
         if (announcingTournamentUnlock || announcingLevelRewards || !startupDone) return
+        // Guests are not in the tournament; nothing to announce to them.
+        if (GuestGate.isGuest()) return
 
         val level = viewModel.levelProgress.value?.level ?: return
         val unlockLevel = viewModel.leaderboard.value?.unlockLevel
@@ -578,6 +629,7 @@ class MainActivity : AppCompatActivity() {
         maybeAnnounceRedemptionResult()
         maybeAnnounceLeaderboardPrize()
         maybeAnnounceTournamentUnlock()
+        maybeNudgeGuest()
     }
 
     private fun setupConnectivityCheck() {
@@ -820,6 +872,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkAndShowReferralPopup() {
         val user = FirebaseAuth.getInstance().currentUser ?: return
+        // Guests cannot use a code. Not marked as seen, so a player who links
+        // Google is still asked on a later launch.
+        if (user.isAnonymous) return
 
         lifecycleScope.launch {
             val hasSeenPopup = userPreferences.hasSeenReferralPopup.firstOrNull() ?: false
@@ -877,6 +932,10 @@ class MainActivity : AppCompatActivity() {
 
     // Add this method to be called from other activities
     companion object {
+        /** The level at which a guest is asked, once, to link Google. */
+        private const val GUEST_NUDGE_LEVEL = 5
+        private const val PREFS_GUEST = "guest_account"
+
         /** Where a navigation interstitial may land. */
         private val AD_SAFE_DESTINATIONS = setOf(
             R.id.navigation_home, R.id.navigation_play, R.id.navigation_rewards

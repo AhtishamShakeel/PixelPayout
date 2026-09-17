@@ -253,6 +253,7 @@ class UserRepository {
                                     it.getBoolean(FIELD_FIRST_REDEEM_UNAVAILABLE) ?: false,
                                 playTutorialCompleted =
                                     it.getBoolean(FIELD_PLAY_TUTORIAL_COMPLETED) ?: false,
+                                isGuest = it.getBoolean(FIELD_IS_GUEST) ?: false,
                                 // Both were already arriving in this snapshot
                                 // and being thrown away, which is what made
                                 // getDailyGoals a read per return to Home.
@@ -351,6 +352,13 @@ class UserRepository {
          * completePlayTutorial, together with its level-2 XP top-up.
          */
         val playTutorialCompleted: Boolean = false,
+        /**
+         * Whether this is a guest (anonymous) account, as the server recorded
+         * it. Display only: what a guest may do is decided from the Auth
+         * token, on both sides - see GuestGate and the server's
+         * requireLinkedAccount.
+         */
+        val isGuest: Boolean = false,
         /** Today's activity counters, as the server increments them. */
         val dailyStats: DailyStats = DailyStats(),
         /** The UTC day the goal bonus was last paid, or null. */
@@ -1982,6 +1990,7 @@ class UserRepository {
         // firstRedeemMinLevel, and the offer has no level gate any more.
         private const val FIELD_FIRST_REDEEM_UNAVAILABLE = "firstRedeemUnavailable"
         private const val FIELD_PLAY_TUTORIAL_COMPLETED = "playTutorialCompleted"
+        private const val FIELD_IS_GUEST = "isGuest"
 
         private const val COLLECTION_REDEMPTIONS = "redemptions"
         private const val COLLECTION_PAYOUT_FEED = "payoutFeed"
